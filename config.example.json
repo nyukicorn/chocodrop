@@ -1,0 +1,37 @@
+{
+  "mcp": {
+    "provider": "kamui-code",
+    "configPath": "~/.claude/mcp-kamui-code.json",
+    "comment": "KAMUI Code MCPの設定ファイルパスを指定してください。環境変数 MCP_CONFIG_PATH で上書きできます"
+  },
+  "models": {
+    "image": {
+      "default": "t2i-kamui-seedream-v4",
+      "options": [
+        "t2i-kamui-seedream-v4",
+        "t2i-kamui-qwen-image",
+        "t2i-kamui-flux-schnell"
+      ],
+      "comment": "KAMUI Codeで使用可能なモデル名を設定してください。他のMCPの場合は、そのプロバイダーのモデル名に変更してください"
+    },
+    "video": {
+      "default": "t2v-kamui-wan-v2-2-5b-fast",
+      "options": [
+        "t2v-kamui-wan-v2-2-5b-fast"
+      ],
+      "comment": "KAMUI Codeで使用可能な動画生成モデルを設定してください"
+    }
+  },
+  "server": {
+    "port": 3011,
+    "host": "localhost",
+    "outputDir": "./public/generated"
+  },
+  "client": {
+    "serverUrl": "http://localhost:3011",
+    "defaultWidth": 512,
+    "defaultHeight": 512,
+    "defaultDuration": 3,
+    "comment": "serverUrlはクライアント側から接続するサーバーURLです。通常はserver.portと同じポートを指定します"
+  }
+}

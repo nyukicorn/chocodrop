@@ -1,0 +1,2329 @@
+import * as THREE from 'three';
+import { ChocoDroClient, LiveCommandClient } from './LiveCommandClient.js';
+
+/**
+ * Scene Manager - 3D scene integration for ChocoDro System
+ * Handles natural language parsing and 3D object management
+ */
+export class SceneManager {
+  constructor(scene, options = {}) {
+    if (!scene) {
+      throw new Error('THREE.Scene is required');
+    }
+    
+    this.scene = scene;
+    this.camera = options.camera || null;
+    this.renderer = options.renderer || null;
+    // ChocoDro Client（共通クライアント注入を優先）
+    this.client = options.client || new ChocoDroClient(options.serverUrl);
+    
+    // 実験オブジェクト管理用グループ
+    this.experimentGroup = new THREE.Group();
+    this.experimentGroup.name = 'LiveExperiments';
+    // 一旦シーンに追加（後でカメラに移動する可能性あり）
+    this.scene.add(this.experimentGroup);
+    
+    // コマンド履歴
+    this.commandHistory = [];
+    
+    // オブジェクト管理
+    this.spawnedObjects = new Map();
+    this.objectCounter = 0;
+    this.selectedObject = null;
+
+    // Animation管理（UI要素用）
+    this.clock = new THREE.Clock();
+    
+    // レイキャスティング用
+    this.raycaster = new THREE.Raycaster();
+    this.mouse = new THREE.Vector2();
+    this.lastHoveredObject = null;
+    
+    // 設定
+    this.config = {
+      showLocationIndicator: options.showLocationIndicator !== false,
+      indicatorDuration: options.indicatorDuration || 3000,
+      defaultObjectScale: options.defaultObjectScale || 1.0,
+      enableObjectSelection: options.enableObjectSelection !== false,
+      enableMouseInteraction: options.enableMouseInteraction,
+      enableDebugLogging: options.enableDebugLogging === true,
+      ...options.config
+    };
+    
+    // クリックイベントの設定
+    this.setupClickEvents();
+    
+    console.log('🧪 SceneManager initialized with click selection');
+
+    // デバッグやコンソール操作を容易にするためグローバル参照を保持
+    if (typeof globalThis !== 'undefined') {
+      globalThis.sceneManager = this;
+    }
+  }
+  /**
+   * クリックイベントの設定
+   */
+  setupClickEvents() {
+    // enableMouseInteractionが明示的にtrueの場合のみマウス操作を有効化
+    if (this.config.enableMouseInteraction === true && this.renderer) {
+      this.setupObjectDragging();
+      console.log('🖱️ Mouse interaction enabled - Click to select, Shift+drag to move objects');
+    } else if (this.config.enableMouseInteraction === true && !this.renderer) {
+      console.warn('⚠️ Mouse interaction requested but renderer not provided. Mouse interaction disabled.');
+    } else {
+      console.log('🖱️ Mouse interaction disabled (safe mode). Set enableMouseInteraction: true to enable.');
+    }
+  }
+
+  // デバッグ情報表示メソッド
+  debugSceneInfo() {
+    console.log('🔍 === SCENE DEBUG INFO ===');
+    
+    // カメラ情報
+    if (this.camera) {
+      console.log(`📷 Camera:
+        - Position: (${this.camera.position.x.toFixed(2)}, ${this.camera.position.y.toFixed(2)}, ${this.camera.position.z.toFixed(2)})
+        - Rotation: (${(this.camera.rotation.x * 180 / Math.PI).toFixed(1)}°, ${(this.camera.rotation.y * 180 / Math.PI).toFixed(1)}°, ${(this.camera.rotation.z * 180 / Math.PI).toFixed(1)}°)
+        - FOV: ${this.camera.fov || 'N/A'}
+        - Near/Far: ${this.camera.near || 'N/A'}/${this.camera.far || 'N/A'}`);
+    }
+    
+    // シーン階層
+    console.log(`🌳 Scene hierarchy:
+      - Total objects in scene: ${this.scene.children.length}
+      - experimentGroup exists: ${this.scene.getObjectByName('LiveExperiments') ? 'Yes' : 'No'}
+      - experimentGroup children: ${this.experimentGroup.children.length}`);
+    
+    // 生成されたオブジェクト
+    console.log(`📦 Spawned objects: ${this.spawnedObjects.size}`);
+    this.spawnedObjects.forEach((obj, id) => {
+      const worldPos = new THREE.Vector3();
+      obj.getWorldPosition(worldPos);
+      console.log(`  - ${id} (${obj.userData.type}): 
+        Local: (${obj.position.x.toFixed(2)}, ${obj.position.y.toFixed(2)}, ${obj.position.z.toFixed(2)})
+        World: (${worldPos.x.toFixed(2)}, ${worldPos.y.toFixed(2)}, ${worldPos.z.toFixed(2)})
+        Visible: ${obj.visible}, Scale: ${obj.scale.x.toFixed(2)}`);
+      
+      // 3Dモデルの詳細情報
+      if (obj.userData.type === 'generated_3d_model') {
+        const box = new THREE.Box3().setFromObject(obj);
+        const size = box.getSize(new THREE.Vector3());
+        const center = box.getCenter(new THREE.Vector3());
+        console.log(`    📐 Bounding box - Center: (${center.x.toFixed(2)}, ${center.y.toFixed(2)}, ${center.z.toFixed(2)}), Size: (${size.x.toFixed(2)}, ${size.y.toFixed(2)}, ${size.z.toFixed(2)})`);
+        
+        // メッシュ数
+        let meshCount = 0;
+        obj.traverse((child) => {
+          if (child.isMesh) meshCount++;
+        });
+        console.log(`    🎭 Meshes: ${meshCount}`);
+      }
+    });
+    
+    // カメラからの距離計算
+    if (this.camera && this.spawnedObjects.size > 0) {
+      console.log(`📏 Distances from camera:`);
+      this.spawnedObjects.forEach((obj, id) => {
+        const distance = this.camera.position.distanceTo(obj.position);
+        console.log(`  - ${id}: ${distance.toFixed(2)} units`);
+      });
+    }
+    
+    console.log('=========================');
+  }
+  
+
+  
+  /**
+   * オブジェクト選択
+   */
+  selectObject(object) {
+    // 既に同じオブジェクトが選択されている場合は何もしない
+    if (this.selectedObject === object) {
+      return;
+    }
+
+    // 前の選択を解除
+    this.deselectObject();
+
+    this.selectedObject = object;
+
+    this.createModernSelectionIndicator(object);
+
+    console.log(`✅ Selected object: ${object.name}`);
+    
+    // CommandUIに選択情報を表示
+    if (this.commandUI) {
+      const objectInfo = object.userData || {};
+      this.commandUI.addOutput(`📍 選択: ${object.name}`, 'info');
+      if (objectInfo.prompt) {
+        this.commandUI.addOutput(`   プロンプト: ${objectInfo.prompt}`, 'hint');
+      }
+      if (objectInfo.modelName) {
+        this.commandUI.addOutput(`   モデル: ${objectInfo.modelName}`, 'hint');
+      }
+
+      // 削除モードが待機中の場合、削除コマンドを自動入力
+      if (this.commandUI.currentMode === 'delete') {
+        const objectName = objectInfo.originalPrompt || object.name || '選択したオブジェクト';
+        this.commandUI.input.value = `${objectName}を削除`;
+        this.commandUI.input.focus();
+        // カーソルを文末に移動（選択状態を解除）
+        this.commandUI.input.setSelectionRange(this.commandUI.input.value.length, this.commandUI.input.value.length);
+        this.commandUI.addOutput(`🎯 削除対象設定: ${objectName}`, 'system');
+      }
+    }
+  }
+
+  createModernSelectionIndicator(object) {
+    // シンプルで確実な選択インジケーター
+    // 既存のインジケーターを削除（重複防止）
+    const existingIndicator = object.getObjectByName('selectionIndicator');
+    if (existingIndicator) {
+      object.remove(existingIndicator);
+    }
+
+    const indicatorGroup = new THREE.Group();
+    indicatorGroup.name = 'selectionIndicator';
+
+    // オブジェクトのバウンディングボックスを正確に取得
+    const box = new THREE.Box3().setFromObject(object);
+    const size = box.getSize(new THREE.Vector3());
+    const center = box.getCenter(new THREE.Vector3());
+
+    // 小さなマージンを追加して枠が見えやすくする
+    const margin = 0.1;
+    const adjustedSize = new THREE.Vector3(
+      size.x + margin,
+      size.y + margin, 
+      size.z + margin
+    );
+
+    // シンプルな黄色い枠線
+    // PlaneGeometryの場合は平面的な枠を作成
+    if (object.geometry && object.geometry.type === 'PlaneGeometry') {
+      // スケールは既にオブジェクトに適用されているので、ジオメトリのサイズのみ使用
+      const width = object.geometry.parameters.width;
+      const height = object.geometry.parameters.height;
+      
+      // 平面の周りに枠線を作成
+      const shape = new THREE.Shape();
+      shape.moveTo(-width/2, -height/2);
+      shape.lineTo(width/2, -height/2);
+      shape.lineTo(width/2, height/2);
+      shape.lineTo(-width/2, height/2);
+      shape.lineTo(-width/2, -height/2);
+      
+      const points = shape.getPoints();
+      const geometryLine = new THREE.BufferGeometry().setFromPoints(points);
+      const materialLine = new THREE.LineBasicMaterial({
+        color: 0xffeb3b,
+        linewidth: 3
+      });
+      
+      const line = new THREE.Line(geometryLine, materialLine);
+      line.position.set(0, 0, 0.01); // 少し前に出して見えるようにする
+      indicatorGroup.add(line);
+    } else {
+      // その他のオブジェクトは通常の3Dボックス枠
+      const edgesGeometry = new THREE.EdgesGeometry(
+        new THREE.BoxGeometry(adjustedSize.x, adjustedSize.y, adjustedSize.z)
+      );
+      const edgesMaterial = new THREE.LineBasicMaterial({
+        color: 0xffeb3b, // 鮮やかな黄色
+        linewidth: 3,
+        transparent: true,
+        opacity: 0.9
+      });
+      
+      const edges = new THREE.LineSegments(edgesGeometry, edgesMaterial);
+      edges.position.copy(center);
+      indicatorGroup.add(edges);
+    }
+
+    // インジケーターをオブジェクトの子として追加（オブジェクトと一緒に動く）
+    object.add(indicatorGroup);
+    indicatorGroup.position.set(0, 0, 0); // 親からの相対位置は0
+
+    // リサイズハンドルを追加（親オブジェクトを直接渡す）
+    this.addResizeHandles(indicatorGroup, adjustedSize, center, object);
+  }
+
+  /**
+   * リサイズハンドルを追加
+   */
+  addResizeHandles(indicatorGroup, size, center, parentObject) {
+    // PlaneGeometryオブジェクト用のリサイズハンドル
+    console.log('🔧 addResizeHandles called');
+
+    if (!parentObject) {
+      console.log('❌ No parent object provided');
+      return;
+    }
+
+    if (!parentObject.geometry) {
+      console.log('❌ Parent has no geometry');
+      return;
+    }
+
+    if (parentObject.geometry.type !== 'PlaneGeometry') {
+      console.log(`❌ Geometry type is ${parentObject.geometry.type}, not PlaneGeometry`);
+      return;
+    }
+
+    console.log('✅ PlaneGeometry detected, creating handles');
+
+    const handleSize = 0.2; // 適切なサイズ
+    const handleGeometry = new THREE.SphereGeometry(handleSize, 16, 16);
+
+    // 常に前面に表示されるマテリアル
+    const handleMaterial = new THREE.MeshBasicMaterial({
+      color: 0xff0000,
+      depthTest: false,
+      depthWrite: false
+    });
+
+    const handleHoverMaterial = new THREE.MeshBasicMaterial({
+      color: 0xffff00,
+      depthTest: false,
+      depthWrite: false
+    });
+
+    // 四隅の位置を計算（親オブジェクトのジオメトリサイズに基づく）
+    const width = parentObject.geometry.parameters.width;
+    const height = parentObject.geometry.parameters.height;
+
+    const positions = [
+      { x: width/2, y: height/2, z: 0.1, corner: 'top-right' },
+      { x: -width/2, y: height/2, z: 0.1, corner: 'top-left' },
+      { x: width/2, y: -height/2, z: 0.1, corner: 'bottom-right' },
+      { x: -width/2, y: -height/2, z: 0.1, corner: 'bottom-left' }
+    ];
+
+    positions.forEach((pos, index) => {
+      const handle = new THREE.Mesh(handleGeometry, handleMaterial.clone());
+      handle.position.set(pos.x, pos.y, pos.z); // 親からの相対位置
+      handle.userData = { 
+        isResizeHandle: true, 
+        handleIndex: index,
+        corner: pos.corner,
+        defaultMaterial: handle.material,
+        hoverMaterial: handleHoverMaterial.clone()
+      };
+      
+      // ホバーエフェクトを追加
+      // レンダリング順序を高く設定（常に前面）
+      handle.renderOrder = 1001;
+
+      handle.onHover = () => {
+        handle.material = handle.userData.hoverMaterial;
+        handle.scale.setScalar(1.5);
+        document.body.style.cursor = 'nw-resize';
+      };
+
+      handle.onHoverExit = () => {
+        handle.material = handle.userData.defaultMaterial;
+        handle.scale.setScalar(1.0);
+        document.body.style.cursor = 'default';
+      };
+
+      indicatorGroup.add(handle);
+
+      // デバッグ用にハンドルが見えることを確認
+      console.log(`🔴 Added resize handle at ${pos.corner}`);
+    });
+  }
+
+  /**
+   * 選択インジケーターのスケールをリアルタイム更新（パフォーマンス最適化版）
+   */
+  updateSelectionIndicatorScale(object) {
+    // リサイズ中はインジケーターの更新をスキップ（パフォーマンス最適化）
+    // 枠線はオブジェクトと一緒にスケールされるので、特別な更新は不要
+
+    // ハンドル位置のみ更新が必要な場合は、ここで処理
+    // 現在は自動的にオブジェクトと一緒にスケールされるので処理不要
+  }
+
+  /**
+   * オブジェクト選択解除
+   */
+  deselectObject() {
+    // シンプルで確実な選択解除
+    if (this.selectedObject) {
+      // 選択インジケーターを削除（オブジェクトの子から探す）
+      const indicator = this.selectedObject.getObjectByName('selectionIndicator');
+      if (indicator) {
+        this.selectedObject.remove(indicator);
+        
+        // メモリリークを防ぐためにリソースを破棄
+        indicator.traverse((child) => {
+          if (child.geometry) child.geometry.dispose();
+          if (child.material) {
+            if (Array.isArray(child.material)) {
+              child.material.forEach(material => material.dispose());
+            } else {
+              child.material.dispose();
+            }
+          }
+        });
+      }
+
+      console.log(`✅ Deselected: ${this.selectedObject.name}`);
+      this.selectedObject = null;
+    }
+  }
+
+  /**
+   * マウスドラッグによるオブジェクト移動機能
+   */
+  setupObjectDragging() {
+    if (!this.renderer) return;
+    
+    const canvas = this.renderer.domElement;
+    let isDragging = false;
+    let dragObject = null;
+    let dragOffset = new THREE.Vector3();
+    let mouseStart = new THREE.Vector2();
+    let dragMode = 'move'; // 'move', 'resize', 'rotate'
+    let originalScale = new THREE.Vector3();
+    
+    canvas.addEventListener('mousedown', (event) => {
+      if (event.button !== 0) return; // 左クリックのみ
+      
+      // レイキャスティングでオブジェクト検出
+      const rect = canvas.getBoundingClientRect();
+      this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+      
+      this.raycaster.setFromCamera(this.mouse, this.camera);
+      // オブジェクトとその子（選択インジケーター含む）を検出対象に
+      const intersects = this.raycaster.intersectObjects(this.experimentGroup.children, true);
+      
+      if (intersects.length > 0) {
+        const object = intersects[0].object;
+
+        // リサイズハンドルがクリックされた場合 - Shiftキー不要
+        if (object.userData && object.userData.isResizeHandle) {
+          // リサイズモード開始
+          isDragging = true;
+          dragObject = this.selectedObject; // リサイズする実際のオブジェクト
+          dragMode = 'resize';
+          
+          // ハンドル情報を保存
+          this.resizeHandleInfo = {
+            corner: object.userData.corner,
+            handleIndex: object.userData.handleIndex
+          };
+          
+          originalScale.copy(dragObject.scale);
+          mouseStart.set(event.clientX, event.clientY);
+          canvas.style.cursor = 'nw-resize';
+          console.log(`🔄 Started resizing: ${dragObject.name} from ${object.userData.corner}`);
+          return;
+        }
+
+        // 回転ハンドルがクリックされた場合
+        if (object.userData && object.userData.isRotateHandle) {
+          // 回転モード開始（今後実装）
+          console.log(`🔄 Rotation handle clicked for: ${this.selectedObject.name}`);
+          return;
+        }
+
+        // 生成された画像・動画・3Dモデル対象（Shift不要の直感的操作）
+        if (object.userData && (object.userData.type === 'generated_image' || object.userData.type === 'generated_video' || object.userData.type === 'generated_3d_model')) {
+          
+          // 🗑️ Deleteモードでのクリック処理
+          if (this.commandUI && this.commandUI.currentMode === 'delete') {
+            // 削除確認ダイアログを表示して直接削除
+            const objectName = object.name;
+            console.log(`🗑️ Delete mode: clicked on ${objectName}`);
+            
+            this.commandUI.showDeleteConfirmation(`オブジェクト「${objectName}」を削除`)
+              .then(confirmed => {
+                if (confirmed) {
+                  this.removeObject(objectName);
+                  this.commandUI.addOutput(`🗑️ 削除完了: ${objectName}`, 'success');
+                } else {
+                  this.commandUI.addOutput(`❌ 削除キャンセル: ${objectName}`, 'info');
+                }
+              })
+              .catch(error => {
+                console.error('Delete confirmation error:', error);
+                this.commandUI.addOutput(`❌ 削除エラー: ${objectName}`, 'error');
+              });
+            return; // 削除モードの場合は移動処理をスキップ
+          }
+          
+          // 移動モード開始（Shiftキー不要）
+          isDragging = true;
+          dragObject = object;
+          dragMode = 'move';
+          dragOffset.copy(intersects[0].point).sub(object.position);
+          mouseStart.set(event.clientX, event.clientY);
+
+          // 高品質な視覚フィードバック
+          if (object.material) {
+            // 移動中の透明度変更（オプション）
+            // object.material.opacity = 0.8;
+            // object.material.transparent = true;
+          }
+          // スケール変更を削除（大きくなる原因）
+
+          canvas.style.cursor = 'move';
+          console.log(`🔄 Started moving: ${object.name} (Shift-free interaction)`);
+
+          // 選択状態も更新
+          this.selectObject(object);
+        } else {
+          // 通常クリック: 選択のみ
+          this.selectObject(object);
+        }
+      } else {
+        this.deselectObject();
+      }
+    });
+    
+    canvas.addEventListener('mousemove', (event) => {
+      // ドラッグ中でない場合はホバーエフェクトを処理
+      if (!isDragging) {
+        this.handleHoverEffects(event, canvas);
+        return;
+      }
+      
+      // ドラッグ中の処理
+      if (!dragObject) return;
+      
+      // マウスの移動量を計算
+      const deltaX = event.clientX - mouseStart.x;
+      const deltaY = event.clientY - mouseStart.y;
+
+      if (dragMode === 'resize') {
+        // リサイズモード: より直感的な方向計算
+        if (!this.resizeHandleInfo) {
+          console.error('❌ Resize handle info missing');
+          return;
+        }
+        
+        const corner = this.resizeHandleInfo.corner;
+        console.log(`🔍 Resizing from corner: ${corner}, deltaX: ${deltaX}, deltaY: ${deltaY}`);
+        let scaleMultiplier = 1;
+        
+        // 各ハンドルの位置に応じた直感的な方向計算
+        switch(corner) {
+          case 'top-right': 
+            // 右上ハンドル: 右上方向に引っ張ると拡大
+            scaleMultiplier = (deltaX > 0 && deltaY < 0) ? 1 + (Math.abs(deltaX) + Math.abs(deltaY)) * 0.001 : 1 - (Math.abs(deltaX) + Math.abs(deltaY)) * 0.001;
+            break;
+          case 'top-left':
+            // 左上ハンドル: 左上方向に引っ張ると拡大
+            scaleMultiplier = (deltaX < 0 && deltaY < 0) ? 1 + (Math.abs(deltaX) + Math.abs(deltaY)) * 0.001 : 1 - (Math.abs(deltaX) + Math.abs(deltaY)) * 0.001;
+            break;
+          case 'bottom-right':
+            // 右下ハンドル: 右下方向に引っ張ると拡大
+            scaleMultiplier = (deltaX > 0 && deltaY > 0) ? 1 + (Math.abs(deltaX) + Math.abs(deltaY)) * 0.001 : 1 - (Math.abs(deltaX) + Math.abs(deltaY)) * 0.001;
+            break;
+          case 'bottom-left':
+            // 左下ハンドル: 左下方向に引っ張ると拡大
+            scaleMultiplier = (deltaX < 0 && deltaY > 0) ? 1 + (Math.abs(deltaX) + Math.abs(deltaY)) * 0.001 : 1 - (Math.abs(deltaX) + Math.abs(deltaY)) * 0.001;
+            break;
+          default:
+            scaleMultiplier = 1 + (deltaX + deltaY) * 0.001; // フォールバック
+        }
+        
+        const newScale = Math.max(0.1, Math.min(5.0, originalScale.x * scaleMultiplier));
+        dragObject.scale.setScalar(newScale);
+
+        // 選択インジケーターも更新（パフォーマンス最適化）
+        this.updateSelectionIndicatorScale(dragObject);
+
+        console.log(`🔄 Resizing: ${dragObject.name} scale: ${newScale.toFixed(2)} (${scaleMultiplier > 1 ? '拡大' : '縮小'})`);
+      } else if (dragMode === 'move') {
+        // 移動モード（従来の処理）
+        const cameraRight = new THREE.Vector3();
+        const cameraUp = new THREE.Vector3();
+        this.camera.getWorldDirection(new THREE.Vector3()); // dummy call to update matrix
+        cameraRight.setFromMatrixColumn(this.camera.matrixWorld, 0).normalize();
+        cameraUp.setFromMatrixColumn(this.camera.matrixWorld, 1).normalize();
+
+        // マウス移動をワールド座標に変換
+        const moveScale = 0.01;
+        const worldMove = new THREE.Vector3()
+          .add(cameraRight.clone().multiplyScalar(deltaX * moveScale))
+          .add(cameraUp.clone().multiplyScalar(-deltaY * moveScale));
+
+        dragObject.position.add(worldMove);
+        mouseStart.set(event.clientX, event.clientY);
+      }
+    });
+    
+    canvas.addEventListener('mouseup', () => {
+      if (isDragging && dragObject) {
+        // ドラッグ終了の処理
+        if (dragObject.material) {
+          dragObject.material.opacity = 1.0;
+          dragObject.material.transparent = false;
+        }
+
+        // スケールを元に戻す（移動開始時に変更した場合）
+        // 現在は移動開始時のスケール変更を削除したので、この処理は不要
+
+        console.log(`✅ Finished dragging: ${dragObject.name} to (${dragObject.position.x.toFixed(1)}, ${dragObject.position.y.toFixed(1)}, ${dragObject.position.z.toFixed(1)})`);
+
+        isDragging = false;
+        dragObject = null;
+        dragMode = 'move'; // リセット
+        this.resizeHandleInfo = null; // リサイズハンドル情報をクリーンアップ
+        canvas.style.cursor = 'default';
+      }
+    });
+    
+    // Shift+ホイールでリサイズ機能を追加
+    canvas.addEventListener('wheel', (event) => {
+      event.preventDefault();
+      
+      const rect = canvas.getBoundingClientRect();
+      const mouse = new THREE.Vector2();
+      mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+      
+      this.raycaster.setFromCamera(mouse, this.camera);
+      const intersects = this.raycaster.intersectObjects(this.experimentGroup.children, true);
+      
+      if (intersects.length > 0) {
+        const obj = intersects[0].object;
+        // 生成された画像・動画・3Dモデル対象（Shift不要の直感的操作）
+        if (obj.userData && (obj.userData.type === 'generated_image' || obj.userData.type === 'generated_video' || obj.userData.type === 'generated_3d_model')) {
+          const scaleFactor = event.deltaY > 0 ? 0.9 : 1.1;
+          const newScale = obj.scale.x * scaleFactor;
+          
+          // 最小・最大サイズ制限
+          if (newScale >= 0.2 && newScale <= 5.0) {
+            obj.scale.setScalar(newScale);
+            
+            // 高品質な視覚フィードバック
+            if (obj.material) {
+              obj.material.emissive.setHex(0x333333);
+              setTimeout(() => {
+                if (obj.material) {
+                  obj.material.emissive.setHex(0x000000);
+                }
+              }, 150);
+            }
+            
+            console.log(`🔄 Resized ${obj.userData.type}: ${obj.name} to scale ${newScale.toFixed(2)} (Shift-free interaction)`);
+          }
+        }
+      }
+    });
+
+    // 選択したオブジェクトの角度調整キーボードコントロール
+    document.addEventListener('keydown', (event) => {
+      if (!this.selectedObject) return;
+      
+      const object = this.selectedObject;
+      // 生成された画像・動画のみ角度調整可能
+      if (!object.userData || (object.userData.type !== 'generated_image' && object.userData.type !== 'generated_video')) {
+        return;
+      }
+      
+      const rotationStep = Math.PI / 36; // 5度ずつ回転
+      let rotated = false;
+      
+      switch (event.key) {
+        case 'ArrowLeft':
+          object.rotation.y -= rotationStep;
+          rotated = true;
+          break;
+        case 'ArrowRight':
+          object.rotation.y += rotationStep;
+          rotated = true;
+          break;
+        case 'ArrowUp':
+          // X軸回転は制限（-30度から+30度まで）
+          const newRotationX = object.rotation.x - rotationStep;
+          if (newRotationX >= -Math.PI/6 && newRotationX <= Math.PI/6) {
+            object.rotation.x = newRotationX;
+            rotated = true;
+          }
+          break;
+        case 'ArrowDown':
+          // X軸回転は制限（-30度から+30度まで）
+          const newRotationXDown = object.rotation.x + rotationStep;
+          if (newRotationXDown >= -Math.PI/6 && newRotationXDown <= Math.PI/6) {
+            object.rotation.x = newRotationXDown;
+            rotated = true;
+          }
+          break;
+        case 'r':
+        case 'R':
+          // リセット：正面向きに戻す
+          object.rotation.x = 0;
+          // カメラの視線方向（ユーザーがモニターで見ている方向）に向ける
+          const cameraDirection = new THREE.Vector3();
+          this.camera.getWorldDirection(cameraDirection);
+          const targetPoint = object.position.clone().add(cameraDirection.multiplyScalar(-1));
+          object.lookAt(targetPoint);
+          object.rotation.x = 0; // お辞儀防止
+          rotated = true;
+          console.log(`🔄 Reset rotation for: ${object.name}`);
+          break;
+
+        case 'i':
+        case 'I':
+          // デバッグ情報表示
+          this.debugSceneInfo();
+          event.preventDefault();
+          break;
+      }
+      
+      if (rotated) {
+        event.preventDefault();
+        const angles = {
+          x: (object.rotation.x * 180 / Math.PI).toFixed(1),
+          y: (object.rotation.y * 180 / Math.PI).toFixed(1),
+          z: (object.rotation.z * 180 / Math.PI).toFixed(1)
+        };
+        console.log(`🔄 Rotated ${object.userData.type}: ${object.name} to (${angles.x}°, ${angles.y}°, ${angles.z}°)`);
+      }
+    });
+
+    console.log('🖱️ Object dragging system enabled (Drag to move objects - Shift-free interaction)');
+    console.log('🔄 Object resizing system enabled (Scroll to resize images/videos - Shift-free interaction)');
+    console.log('🎯 Angle adjustment enabled (Select object + Arrow keys to rotate, R to reset)');
+  }
+
+  handleHoverEffects(event, canvas) {
+    // レイキャスティングでオブジェクト検出
+    const rect = canvas.getBoundingClientRect();
+    this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+    
+    this.raycaster.setFromCamera(this.mouse, this.camera);
+
+    // オブジェクトとその子（選択インジケーター含む）を検出対象に
+    const intersects = this.raycaster.intersectObjects(this.experimentGroup.children, true);
+    
+    // 前回ホバーしていたオブジェクトのエフェクトをリセット
+    if (this.lastHoveredObject && this.lastHoveredObject.onHoverExit) {
+      this.lastHoveredObject.onHoverExit();
+      this.lastHoveredObject = null;
+    }
+    
+    // 新しいホバー対象を検出
+    if (intersects.length > 0) {
+      const object = intersects[0].object;
+      
+      // リサイズハンドルにホバーした場合
+      if (object.userData && object.userData.isResizeHandle && object.onHover) {
+        object.onHover();
+        this.lastHoveredObject = object;
+        return;
+      }
+      
+      // 通常のオブジェクトにホバーした場合
+      if (object.userData && (object.userData.type === 'generated_image' || object.userData.type === 'generated_video')) {
+        // 移動可能なオブジェクトの場合はカーソルを変更
+        canvas.style.cursor = 'move';
+        this.lastHoveredObject = { onHoverExit: () => { canvas.style.cursor = 'default'; } };
+        return;
+      }
+    }
+    
+    // ホバー対象がない場合はデフォルトカーソル
+    canvas.style.cursor = 'default';
+  }
+
+  /**
+   * メインコマンド実行エントリーポイント
+   * @param {string} command - 自然言語コマンド
+   */
+  async executeCommand(command) {
+    const timestamp = Date.now();
+    console.log(`🎯 Executing: "${command}"`);
+    
+    try {
+      // コマンド解析
+      const parsed = this.parseCommand(command);
+      console.log('📝 Parsed:', parsed);
+      
+      // コマンド実行
+      const result = await this.dispatchCommand(parsed);
+      
+      // 履歴に記録
+      this.commandHistory.push({
+        timestamp,
+        command,
+        parsed,
+        result,
+        status: 'success'
+      });
+      
+      return result;
+      
+    } catch (error) {
+      console.error('❌ Command execution failed:', error);
+      
+      this.commandHistory.push({
+        timestamp,
+        command,
+        error: error.message,
+        status: 'error'
+      });
+      
+      throw error;
+    }
+  }
+
+  /**
+   * 自然言語コマンド解析
+   * @param {string} command 
+   * @returns {object} 解析結果
+   */
+  parseCommand(command) {
+    // プレフィックスでモードを判定
+    if (command.startsWith('[変更] ')) {
+      const actualCommand = command.replace('[変更] ', '');
+      return this.parseObjectModificationCommand(actualCommand.toLowerCase().trim());
+    }
+    
+    if (command.startsWith('[削除] ')) {
+      const actualCommand = command.replace('[削除] ', '');
+      return this.parseDeleteCommand(actualCommand.toLowerCase().trim());
+    }
+    
+    // 動画生成の判定（プレフィックスなし = 生成モード）
+    const cmd = command.toLowerCase().trim();
+    
+    // 自然言語オブジェクト操作の判定（「オブジェクト名 + 動作」パターン）
+    const naturalLanguagePattern = this.parseNaturalLanguageCommand(cmd);
+    if (naturalLanguagePattern) {
+      return naturalLanguagePattern;
+    }
+    
+    // 動画関連キーワードをチェック
+    const videoKeywords = ['動画', 'ビデオ', 'ムービー', '映像', 'アニメーション', '動く'];
+    const isVideoRequest = videoKeywords.some(keyword => cmd.includes(keyword));
+    
+    if (isVideoRequest) {
+      return {
+        type: 'video_generation',
+        prompt: command,
+        position: this.parsePosition(cmd),
+        size: this.parseSize(cmd)
+      };
+    }
+    
+    // デフォルト: 画像生成として処理
+    return {
+      type: 'image_generation',
+      prompt: command,
+      position: this.parsePosition(cmd),
+      size: this.parseSize(cmd)
+    };
+  }
+
+  /**
+   * コマンドから対象オブジェクトを特定
+   */
+  findObjectByKeyword(command) {
+    // オブジェクトを識別するキーワード
+    const objectKeywords = {
+      '猫': ['cat', 'ネコ', 'ねこ'],
+      '犬': ['dog', 'イヌ', 'いぬ'],
+      'ドラゴン': ['dragon', '龍', 'りゅう'],
+      'ユニコーン': ['unicorn'],
+      'ペガサス': ['pegasus'],
+      '鳥': ['bird', 'とり', 'トリ'],
+      '花': ['flower', 'はな', 'ハナ'],
+      '城': ['castle', 'しろ', 'シロ'],
+      '山': ['mountain', 'やま', 'ヤマ'],
+      '木': ['tree', 'き', 'キ']
+    };
+
+    // シーン内のオブジェクトを検索
+    for (const child of this.scene.children) {
+      if (!child.name || !child.name.startsWith('generated_')) continue;
+      
+      // オブジェクト名からタイプを推測（例: generated_image_1 → image）
+      const nameParts = child.name.split('_');
+      
+      // コマンド内のキーワードと照合
+      for (const [keyword, aliases] of Object.entries(objectKeywords)) {
+        // メインキーワードをチェック
+        if (command.includes(keyword)) {
+          console.log(`🎯 Found object by keyword "${keyword}": ${child.name}`);
+          return child;
+        }
+        
+        // エイリアスもチェック
+        for (const alias of aliases) {
+          if (command.toLowerCase().includes(alias.toLowerCase())) {
+            console.log(`🎯 Found object by alias "${alias}": ${child.name}`);
+            return child;
+          }
+        }
+      }
+      
+      // プロンプトメタデータがある場合は、それも確認
+      if (child.userData && child.userData.prompt) {
+        const prompt = child.userData.prompt.toLowerCase();
+        for (const [keyword, aliases] of Object.entries(objectKeywords)) {
+          if (prompt.includes(keyword.toLowerCase())) {
+            console.log(`🎯 Found object by prompt "${keyword}": ${child.name}`);
+            return child;
+          }
+        }
+      }
+    }
+    
+    // 最後に作成されたオブジェクトを返すオプション
+    if (command.includes('最後') || command.includes('最新') || command.includes('last')) {
+      const generatedObjects = this.scene.children.filter(
+        child => child.name && child.name.startsWith('generated_')
+      );
+      if (generatedObjects.length > 0) {
+        const lastObject = generatedObjects[generatedObjects.length - 1];
+        console.log(`🎯 Found last created object: ${lastObject.name}`);
+        return lastObject;
+      }
+    }
+    
+    return null;
+  }
+
+  /**
+   * 画像生成コマンド解析
+   */
+  parseImageGenerationCommand(command) {
+    // プロンプト抽出 (「を」「に」「で」などで区切る)
+    let prompt = command;
+    const particles = ['を', 'に', 'で', 'の'];
+    
+    for (const particle of particles) {
+      if (command.includes(particle)) {
+        const parts = command.split(particle);
+        if (parts[0]) {
+          prompt = parts[0].trim();
+          break;
+        }
+      }
+    }
+    
+    // 不要な語句を除去
+    prompt = prompt
+      .replace(/(画像|作って|生成|して|ください)/g, '')
+      .trim();
+    
+    return {
+      type: 'image_generation',
+      prompt,
+      position: this.parsePosition(command),
+      size: this.parseSize(command)
+    };
+  }
+
+  /**
+   * オブジェクト変更コマンド解析
+   */
+  parseObjectModificationCommand(command) {
+    const cmd = command.toLowerCase().trim();
+    
+    // 色変更の解析
+    let color = null;
+    const colorMap = {
+      '赤': 0xff0000, '青': 0x0000ff, '緑': 0x00ff00, '黄': 0xffff00,
+      '紫': 0xff00ff, '橙': 0xff8800, 'オレンジ': 0xff8800,
+      '白': 0xffffff, '黒': 0x000000, '灰': 0x808080, 'グレー': 0x808080,
+      'ピンク': 0xffc0cb, '茶': 0x8b4513, '銀': 0xc0c0c0, '金': 0xffd700
+    };
+    
+    for (const [colorName, colorValue] of Object.entries(colorMap)) {
+      if (cmd.includes(colorName)) {
+        color = colorValue;
+        break;
+      }
+    }
+    
+    // サイズ変更の解析
+    let scale = null;
+    if (cmd.includes('大きく') || cmd.includes('拡大')) {
+      scale = 1.5;
+    } else if (cmd.includes('小さく') || cmd.includes('縮小')) {
+      scale = 0.7;
+    } else if (cmd.includes('倍')) {
+      const match = cmd.match(/(\d+(?:\.\d+)?)\s*倍/);
+      if (match) {
+        scale = parseFloat(match[1]);
+      }
+    }
+    
+    // 移動コマンドの解析
+    let movement = null;
+    if (cmd.includes('移動') || cmd.includes('動か') || cmd.includes('へ')) {
+      movement = this.parsePositionFromPrompt(cmd);
+    }
+    
+    return {
+      type: 'object_modification',
+      command: command,
+      color: color,
+      scale: scale,
+      movement: movement,
+      requiresSelection: true
+    };
+  }
+
+  /**
+   * 削除コマンド解析
+   */
+  parseDeleteCommand(command) {
+    const cmd = command.toLowerCase().trim();
+    
+    // 選択されたオブジェクトのみを削除するか、全削除かを判定
+    if (cmd.includes('選択') || cmd.includes('これ') || cmd.includes('この')) {
+      return {
+        type: 'delete',
+        target: 'selected',
+        requiresSelection: true
+      };
+    }
+    
+    if (cmd.includes('全部') || cmd.includes('すべて') || cmd.includes('全て')) {
+      return {
+        type: 'delete',
+        target: 'all'
+      };
+    }
+    
+    // デフォルト: 選択されたオブジェクトを削除
+    return {
+      type: 'delete',
+      target: 'selected',
+      requiresSelection: true
+    };
+  }
+
+  /**
+   * 自然言語オブジェクト操作コマンド解析
+   * 例: "ユニコーンを右に移動", "猫の画像をピンクに", "1つ目の猫を左に"
+   */
+  parseNaturalLanguageCommand(command) {
+    // 移動パターンをチェック
+    const movePatterns = [
+      '(\S+?)を(.+?)に移動', 
+      '(\S+?)を(.+?)へ移動',
+      '(\S+?)を(.+?)に動か',
+      '(\S+?)を(.+?)へ動か'
+    ];
+    
+    for (const pattern of movePatterns) {
+      const regex = new RegExp(pattern);
+      const match = command.match(regex);
+      if (match) {
+        const objectName = match[1];
+        const direction = match[2];
+        
+        console.log(`🎯 Natural language move detected: "${objectName}" to "${direction}"`);
+        
+        return {
+          type: 'natural_object_modification',
+          targetObjectName: objectName,
+          movement: this.parsePositionFromPrompt(direction),
+          requiresObjectSearch: true
+        };
+      }
+    }
+    
+    // 色変更パターンをチェック
+    const colorPatterns = [
+      '(\S+?)を(\S+?)色に',
+      '(\S+?)を(\S+?)に'
+    ];
+    
+    // 色変更は基本的な色のみ対応
+    const colorKeywords = ['赤', '青', '緑', '黄', '紫', '橙', 'オレンジ', '白', '黒', '灰', 'グレー', 'ピンク', '茶', '銀', '金'];
+    
+    for (const pattern of colorPatterns) {
+      const regex = new RegExp(pattern);
+      const match = command.match(regex);
+      if (match && colorKeywords.some(color => match[2].includes(color))) {
+        const objectName = match[1];
+        const colorName = match[2];
+        
+        console.log(`🎨 Natural language color change detected: "${objectName}" to "${colorName}"`);
+        
+        // 色変更の解析（既存のロジックを流用）
+        const colorMap = {
+          '赤': 0xff0000, '青': 0x0000ff, '緑': 0x00ff00, '黄': 0xffff00,
+          '紫': 0xff00ff, '橙': 0xff8800, 'オレンジ': 0xff8800,
+          '白': 0xffffff, '黒': 0x000000, '灰': 0x808080, 'グレー': 0x808080,
+          'ピンク': 0xffc0cb, '茶': 0x8b4513, '銀': 0xc0c0c0, '金': 0xffd700
+        };
+        
+        let colorValue = null;
+        for (const [colorKey, value] of Object.entries(colorMap)) {
+          if (colorName.includes(colorKey)) {
+            colorValue = value;
+            break;
+          }
+        }
+        
+        return {
+          type: 'natural_object_modification',
+          targetObjectName: objectName,
+          color: colorValue,
+          requiresObjectSearch: true
+        };
+      }
+    }
+    
+    return null; // 自然言語パターンに一致しない場合
+  }
+
+  /**
+   * 移動コマンドから相対位置を解析（オブジェクト移動用）
+   */
+  parsePositionFromPrompt(command) {
+    let x = 0, y = 0, z = 0;
+    
+    // 左右移動（修正：左右を正しい方向に）
+    if (command.includes('右へ') || command.includes('右に') || command.includes('右側へ') || command.includes('右側に')) {
+      x = -5; // 5メートル右へ（負の値で右に移動）
+    } else if (command.includes('左へ') || command.includes('左に') || command.includes('左側へ') || command.includes('左側に')) {
+      x = 5; // 5メートル左へ（正の値で左に移動）
+    }
+    
+    // 上下移動
+    if (command.includes('上へ') || command.includes('上に') || command.includes('上側へ')) {
+      y = 3; // 3メートル上へ
+    } else if (command.includes('下へ') || command.includes('下に') || command.includes('下側へ')) {
+      y = -3; // 3メートル下へ
+    }
+    
+    // 前後移動
+    if (command.includes('前へ') || command.includes('手前へ') || command.includes('近くへ')) {
+      z = 3; // カメラに近づける
+    } else if (command.includes('後ろへ') || command.includes('奥へ') || command.includes('遠くへ')) {
+      z = -3; // カメラから遠ざける
+    }
+    
+    // 距離指定の解析
+    const distanceMatch = command.match(/(\d+(?:\.\d+)?)\s*(?:メートル|m)/);
+    if (distanceMatch) {
+      const distance = parseFloat(distanceMatch[1]);
+      // 方向に応じて距離を適用
+      if (Math.abs(x) > 0) x = x > 0 ? distance : -distance;
+      if (Math.abs(y) > 0) y = y > 0 ? distance : -distance;
+      if (Math.abs(z) > 0) z = z > 0 ? distance : -distance;
+    }
+    
+    // 「少し」「大きく」などの修飾語
+    if (command.includes('少し') || command.includes('ちょっと')) {
+      x *= 0.5; y *= 0.5; z *= 0.5;
+    } else if (command.includes('大きく') || command.includes('たくさん')) {
+      x *= 2; y *= 2; z *= 2;
+    }
+    
+    console.log(`📍 Position movement parsed from "${command}": (${x}, ${y}, ${z})`);
+    
+    return { x, y, z };
+  }
+
+  /**
+   * 位置情報解析（カメラ相対位置）
+   */
+  parsePosition(command) {
+    const defaultPos = { x: 0, y: 5, z: 10 }; // カメラ前方10m、少し上
+    
+    // 基本方向の解析（カメラ相対座標系）
+    let x = 0, y = 5, z = 10; // デフォルト値（カメラ相対、正のzが前方）
+    
+    // 組み合わせ位置を最初にチェック（優先度最高）
+    if (command.includes('左下')) {
+      x = -8; y = 0; z = 10;  // 左下: 左側で低い位置
+      console.log(`📍 Position parsed from "${command}": 左下 (${x}, ${y}, ${z})`);
+      return { x, y, z };
+    } else if (command.includes('右上')) {
+      x = 5; y = 4; z = 12;  // y座標を下げて画面内に収める
+      console.log(`📍 Position parsed from "${command}": 右上 (${x}, ${y}, ${z})`);
+      return { x, y, z };
+    } else if (command.includes('左上')) {
+      x = -8; y = 4; z = 15; // y座標を下げて画面内に収める
+      console.log(`📍 Position parsed from "${command}": 左上 (${x}, ${y}, ${z})`);
+      return { x, y, z };
+    } else if (command.includes('右下')) {
+      x = 8; y = 0; z = 10; // 右下: 右側で低い位置
+      console.log(`📍 Position parsed from "${command}": 右下 (${x}, ${y}, ${z})`);
+      return { x, y, z };
+    }
+    
+    // 特殊位置
+    if (command.includes('中央') || command.includes('真ん中') || command.includes('正面')) {
+      x = 0; y = 3; z = 12;  // y=3 で目線レベルに
+      console.log(`📍 Position parsed from "${command}": 中央 (${x}, ${y}, ${z})`);
+      return { x, y, z };
+    } else if (command.includes('空') || command.includes('天空')) {
+      x = 0; y = 20; z = 10;
+      console.log(`📍 Position parsed from "${command}": 空中 (${x}, ${y}, ${z})`);
+      return { x, y, z };
+    } else if (command.includes('地面') || command.includes('足元')) {
+      x = 0; y = 1; z = 8;
+      console.log(`📍 Position parsed from "${command}": 地面 (${x}, ${y}, ${z})`);
+      return { x, y, z };
+    }
+    
+    // 個別方向の解析
+    // 前後方向
+    if (command.includes('前に') || command.includes('手前に')) {
+      z = 5; // カメラに近づける
+    } else if (command.includes('後ろに') || command.includes('奥に') || command.includes('遠くに')) {
+      z = 20; // カメラから遠ざける
+    }
+    
+    // 左右方向
+    if (command.includes('右に') || command.includes('右側') || command.includes('画面の右')) {
+      x = 8;
+    } else if (command.includes('左に') || command.includes('左側') || command.includes('画面の左')) {
+      x = -8;
+    }
+    
+    // 上下方向（カメラ相対）
+    if (command.includes('上に') || command.includes('上側') || command.includes('画面の上') || command.includes('高い位置に') || command.includes('空中に')) {
+      y = 8; // カメラから8メートル上
+    } else if (command.includes('下に') || command.includes('下側') || command.includes('画面の下') || command.includes('低い位置に') || command.includes('地面に')) {
+      y = -2; // カメラから2メートル下
+    }
+    
+    // 距離指定
+    if (command.includes('近くに') || command.includes('すぐ前に')) {
+      z = Math.min(z * 0.5, 3); // 半分の距離、ただし最低3m（正の値なので min を使用）
+    } else if (command.includes('遠くに') || command.includes('向こうに')) {
+      z = z * 1.5; // 1.5倍の距離
+    }
+    
+    console.log(`📍 Position parsed from "${command}": (${x}, ${y}, ${z})`);
+    
+    return { x, y, z };
+  }
+
+  /**
+   * サイズ解析
+   */
+  parseSize(command) {
+    if (command.includes('大きな') || command.includes('大きい')) return { scale: 2.0 };
+    if (command.includes('小さな') || command.includes('小さい')) return { scale: 0.5 };
+    return { scale: this.config.defaultObjectScale };
+  }
+
+  /**
+   * コマンド種別別実行
+   */
+  async dispatchCommand(parsed) {
+    switch (parsed.type) {
+      case 'image_generation':
+        return await this.executeImageGeneration(parsed);
+        
+      case 'video_generation':
+        return await this.executeVideoGeneration(parsed);
+        
+      case 'object_modification':
+        return await this.executeObjectModification(parsed);
+        
+      case 'natural_object_modification':
+        return await this.executeNaturalObjectModification(parsed);
+        
+      case 'delete':
+        return await this.executeDelete(parsed);
+        
+      default:
+        throw new Error(`Unknown command type: ${parsed.type}`);
+    }
+  }
+
+  /**
+   * 画像生成実行
+   */
+  async executeImageGeneration(parsed) {
+    try {
+      console.log(`🎨 Generating image: "${parsed.prompt}"`);
+      
+      // ChocoDro Client経由で画像生成
+      const imageResult = await this.client.generateImage(parsed.prompt, {
+        width: 512,
+        height: 512
+      });
+      
+      // 結果にモデル情報を含める
+      if (imageResult.modelName) {
+        console.log(`📡 Used model: ${imageResult.modelName}`);
+      }
+      
+      let texture;
+      if (imageResult.success && imageResult.imageUrl) {
+        // 成功: 生成された画像をテクスチャとして使用
+        console.log(`✅ Image generated successfully: ${imageResult.imageUrl}`);
+        texture = new THREE.TextureLoader().load(imageResult.imageUrl);
+        
+        // テクスチャの色彩を正確に表示するための設定
+        texture.colorSpace = THREE.SRGBColorSpace; // 正しいカラースペース
+        // texture.flipY = true; // デフォルト値のまま（正しい向きで表示）
+      } else {
+        // 失敗: プレースホルダー画像を使用
+        console.log(`⚠️ Using fallback image`);
+        texture = this.createFallbackTexture(parsed.prompt);
+      }
+      
+      // 画像を表示する平面ジオメトリを作成
+      const geometry = new THREE.PlaneGeometry(6, 6); // 6x6メートルの平面
+      const material = new THREE.MeshBasicMaterial({
+        map: texture,
+        transparent: false,  // 不透明で鮮明表示
+        side: THREE.DoubleSide, // 両面表示
+        toneMapped: false    // トーンマッピングを無効化（より鮮やかな色彩）
+      });
+      
+      const plane = new THREE.Mesh(geometry, material);
+      
+      // レンダリング順序を設定（画像も前面に表示）
+      plane.renderOrder = 1000;  // 高い値で前面に表示
+      material.depthTest = true;  // 深度テストは有効に
+      material.depthWrite = true; // 深度書き込みも有効に
+      
+      // カメラ相対位置で配置（カメラの向きも考慮）
+      if (this.camera) {
+        const finalPosition = this.calculateCameraRelativePosition(parsed.position);
+        plane.position.copy(finalPosition);
+        
+        // 画像を正面向きに配置（お辞儀問題を解決）
+        // PlaneGeometryのデフォルト方向を維持し、カメラ方向のみ調整
+        // カメラの視線方向（ユーザーがモニターで見ている方向）に向ける
+        const cameraDirection = new THREE.Vector3();
+        this.camera.getWorldDirection(cameraDirection);
+        const targetPoint = plane.position.clone().add(cameraDirection.multiplyScalar(-1));
+        plane.lookAt(targetPoint);
+
+        // lookAtによる回転を補正しない（削除）
+        
+        // X軸回転をリセットして水平に（お辞儀を防止）
+        plane.rotation.x = 0;
+        
+        // 画像を正面向きに調整（右向きから正面向きに）
+        plane.rotation.y += Math.PI;
+
+        // ランダムな角度は削除（カメラに対して真正面を維持）
+      } else {
+        // フォールバック: 絶対座標
+        plane.position.set(parsed.position.x, parsed.position.y, parsed.position.z);
+      }
+      
+      // スケールは幅計算に含めているので、ここでは1.0に固定
+      plane.scale.setScalar(1.0);
+      
+      // 識別用の名前とメタデータ
+      const objectId = `generated_${++this.objectCounter}`;
+      plane.name = objectId;
+      plane.userData = {
+        id: objectId,
+        prompt: parsed.prompt,
+        createdAt: Date.now(),
+        type: 'generated_image'
+      };
+      
+      this.experimentGroup.add(plane);
+      this.spawnedObjects.set(objectId, plane);
+      
+      console.log(`✅ Created object: ${objectId} at (${parsed.position.x}, ${parsed.position.y}, ${parsed.position.z})`);
+      
+      // 生成位置にパーティクルエフェクトを追加（視覚的フィードバック）
+      if (this.config.showLocationIndicator) {
+        this.createLocationIndicator(parsed.position);
+      }
+      
+      return {
+        objectId,
+        position: parsed.position,
+        prompt: parsed.prompt,
+        modelName: imageResult.modelName,
+        success: true
+      };
+      
+    } catch (error) {
+      console.error('🎨 Image generation failed:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 動画生成実行
+   */
+  async executeVideoGeneration(parsed) {
+    try {
+      console.log(`🎬 Generating video: "${parsed.prompt}"`);
+      
+      // ChocoDro Client経由で動画生成
+      const videoResult = await this.client.generateVideo(parsed.prompt, {
+        width: 512,
+        height: 512,
+        duration: 3 // 3秒動画
+        // model: サーバー側の設定を使用（統一設計）
+      });
+      
+      // 結果にモデル情報を含める
+      if (videoResult.modelName) {
+        console.log(`📡 Used model: ${videoResult.modelName}`);
+      }
+      
+      let videoTexture;
+      if (videoResult.success && videoResult.videoUrl) {
+        // 成功: 生成された動画をテクスチャとして使用
+        console.log(`✅ Video generated successfully: ${videoResult.videoUrl}`);
+        
+        // HTML5 video要素を作成
+        const video = document.createElement('video');
+        video.src = videoResult.videoUrl;
+        video.crossOrigin = 'anonymous';
+        video.loop = true;
+        video.muted = true;
+        video.playsInline = true;
+        
+        // 動画テクスチャを作成
+        videoTexture = new THREE.VideoTexture(video);
+        videoTexture.colorSpace = THREE.SRGBColorSpace;
+        
+        // 動画の自動再生を開始
+        video.addEventListener('loadeddata', () => {
+          video.play().catch(console.error);
+        });
+        
+      } else {
+        // 失敗: プレースホルダー動画テクスチャを使用
+        console.log(`⚠️ Using fallback video texture`);
+        videoTexture = this.createFallbackVideoTexture(parsed.prompt);
+      }
+      
+      // 動画を表示する平面ジオメトリを作成（アスペクト比を考慮）
+      const aspectRatio = 16/9; // 一般的な動画アスペクト比
+      const baseWidth = parsed.size.scale * 8; // サイズ設定を反映
+      const width = baseWidth;
+      const height = width / aspectRatio;
+      const geometry = new THREE.PlaneGeometry(width, height);
+      const material = new THREE.MeshBasicMaterial({
+        map: videoTexture,
+        transparent: false,
+        side: THREE.DoubleSide,
+        toneMapped: false
+      });
+      
+      const plane = new THREE.Mesh(geometry, material);
+      
+      // レンダリング順序を設定（動画を前面に表示）
+      plane.renderOrder = 1000;  // 高い値で前面に表示
+      material.depthTest = true;  // 深度テストは有効に
+      material.depthWrite = true; // 深度書き込みも有効に
+      
+      // カメラ相対位置で配置
+      if (this.camera) {
+        const finalPosition = this.calculateCameraRelativePosition(parsed.position);
+        plane.position.copy(finalPosition);
+        
+        const cameraDirection = new THREE.Vector3();
+        this.camera.getWorldDirection(cameraDirection);
+        const targetPoint = plane.position.clone().add(cameraDirection.multiplyScalar(-1));
+        plane.lookAt(targetPoint);
+        
+        // X軸回転をリセットして水平に（お辞儀を防止）
+        plane.rotation.x = 0;
+
+        // 動画の場合は180度回転を適用しない（VideoTextureの向きが正常）
+        // plane.rotation.y += Math.PI; // 動画では不要
+
+        // ランダムな角度は削除（カメラに対して真正面を維持）
+      } else {
+        plane.position.set(parsed.position.x, parsed.position.y, parsed.position.z);
+      }
+
+      // スケールは幅計算に含めているので、ここでは1.0に固定
+      plane.scale.setScalar(1.0);
+
+      // 識別用の名前とメタデータ
+      const objectId = `generated_video_${++this.objectCounter}`;
+      plane.name = objectId;
+      plane.userData = {
+        id: objectId,
+        prompt: parsed.prompt,
+        createdAt: Date.now(),
+        type: 'generated_video',
+        videoUrl: videoResult.videoUrl
+      };
+      
+      this.experimentGroup.add(plane);
+      this.spawnedObjects.set(objectId, plane);
+      
+      console.log(`✅ Created video object: ${objectId} at (${parsed.position.x}, ${parsed.position.y}, ${parsed.position.z})`);
+      
+      // 生成位置にパーティクルエフェクトを追加
+      if (this.config.showLocationIndicator) {
+        this.createLocationIndicator(parsed.position);
+      }
+      
+      return {
+        objectId,
+        position: parsed.position,
+        prompt: parsed.prompt,
+        modelName: videoResult.modelName,
+        videoUrl: videoResult.videoUrl,
+        success: true
+      };
+      
+    } catch (error) {
+      console.error('🎬 Video generation failed:', error);
+      throw error;
+    }
+  }
+
+  async loadImageFile(fileUrl, options = {}) {
+    try {
+      const { position = { x: 0, y: 5, z: -10 } } = options;
+      
+      console.log(`📁 Loading image file: ${fileUrl}`);
+
+      // 画像の実際のサイズを取得するためにImageオブジェクトを作成
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+
+      const imageLoadPromise = new Promise((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = reject;
+        img.src = fileUrl;
+      });
+
+      await imageLoadPromise;
+
+      console.log(`📏 Image dimensions: ${img.width}x${img.height}`);
+
+      // アスペクト比を計算
+      const aspectRatio = img.width / img.height;
+      const baseSize = 6; // 基準サイズ
+
+      let width, height;
+      if (aspectRatio > 1) {
+        // 横長の画像
+        width = baseSize;
+        height = baseSize / aspectRatio;
+      } else {
+        // 縦長または正方形の画像
+        width = baseSize * aspectRatio;
+        height = baseSize;
+      }
+
+      console.log(`📐 Calculated plane size: ${width.toFixed(2)}x${height.toFixed(2)} (aspect: ${aspectRatio.toFixed(2)})`);
+
+      // ファイルからテクスチャを読み込み
+      const texture = new THREE.TextureLoader().load(fileUrl);
+
+      // テクスチャの色彩を正確に表示するための設定
+      texture.colorSpace = THREE.SRGBColorSpace;
+
+      // 正しいアスペクト比で平面ジオメトリを作成
+      const geometry = new THREE.PlaneGeometry(width, height);
+      const material = new THREE.MeshBasicMaterial({
+        map: texture,
+        transparent: false,
+        side: THREE.DoubleSide,
+        toneMapped: false
+      });
+      
+      const plane = new THREE.Mesh(geometry, material);
+      
+      // レンダリング順序を設定
+      plane.renderOrder = 1000;
+      material.depthTest = true;
+      material.depthWrite = true;
+      
+      // カメラ相対位置で配置
+      if (this.camera) {
+        const finalPosition = this.calculateCameraRelativePosition(position);
+        plane.position.copy(finalPosition);
+        
+        // 画像を正面向きに配置（左右反転を修正）
+        const cameraDirection = new THREE.Vector3();
+        this.camera.getWorldDirection(cameraDirection);
+        const targetPoint = plane.position.clone().add(cameraDirection.multiplyScalar(-1));
+        plane.lookAt(targetPoint);
+
+        plane.rotation.x = 0;
+        // Y軸回転を削除して左右反転を修正
+      } else {
+        plane.position.set(position.x, position.y, position.z);
+      }
+      
+      plane.scale.setScalar(1.0);
+      
+      // 識別用の名前とメタデータ
+      const objectId = `imported_image_${++this.objectCounter}`;
+      plane.name = objectId;
+      plane.userData = {
+        id: objectId,
+        source: 'imported_file',
+        createdAt: Date.now(),
+        type: 'generated_image'
+      };
+      
+      this.experimentGroup.add(plane);
+      this.spawnedObjects.set(objectId, plane);
+      
+      console.log(`✅ Created imported image: ${objectId} at (${position.x}, ${position.y}, ${position.z})`);
+      
+      // 生成位置にパーティクルエフェクトを追加
+      if (this.config.showLocationIndicator) {
+        this.createLocationIndicator(position);
+      }
+      
+      return {
+        objectId,
+        position: position,
+        success: true
+      };
+      
+    } catch (error) {
+      console.error('📁 Image file loading failed:', error);
+      throw error;
+    }
+  }
+
+  async loadVideoFile(fileUrl, options = {}) {
+    try {
+      const { position = { x: 0, y: 5, z: -10 } } = options;
+      
+      console.log(`🎬 Loading video file: ${fileUrl}`);
+      
+      // HTMLVideoElementを作成
+      const video = document.createElement('video');
+      video.src = fileUrl;
+      video.loop = true;
+      video.muted = true;
+      video.playsInline = true;
+      video.autoplay = true;
+      video.crossOrigin = 'anonymous';
+
+      // VideoTextureを作成
+      const videoTexture = new THREE.VideoTexture(video);
+      videoTexture.colorSpace = THREE.SRGBColorSpace;
+
+      // ビデオの読み込みとサイズ取得
+      await new Promise((resolve, reject) => {
+        video.addEventListener('loadedmetadata', () => {
+          console.log(`🎬 Video loaded: ${video.videoWidth}x${video.videoHeight}`);
+
+          // 手動で再生を試行
+          video.play().then(() => {
+            console.log('🎬 Video playback started successfully');
+          }).catch((error) => {
+            console.warn('🎬 Autoplay prevented, will start on user interaction:', error);
+          });
+
+          resolve();
+        });
+        video.addEventListener('error', (e) => {
+          console.error('🎬 Video loading error:', e);
+          reject(e);
+        });
+      });
+      
+      // アスペクト比を計算してサイズ調整
+      const aspectRatio = video.videoWidth / video.videoHeight;
+      const baseSize = 6;
+      let width = baseSize;
+      let height = baseSize;
+      
+      if (aspectRatio > 1) {
+        height = baseSize / aspectRatio;
+      } else {
+        width = baseSize * aspectRatio;
+      }
+      
+      // 動画を表示する平面ジオメトリを作成
+      const geometry = new THREE.PlaneGeometry(width, height);
+      const material = new THREE.MeshBasicMaterial({
+        map: videoTexture,
+        transparent: false,
+        side: THREE.DoubleSide,
+        toneMapped: false
+      });
+      
+      const plane = new THREE.Mesh(geometry, material);
+      
+      // レンダリング順序を設定
+      plane.renderOrder = 1000;
+      material.depthTest = true;
+      material.depthWrite = true;
+      
+      // カメラ相対位置で配置
+      if (this.camera) {
+        const finalPosition = this.calculateCameraRelativePosition(position);
+        plane.position.copy(finalPosition);
+        
+        // 動画を正面向きに配置（左右反転を修正）
+        const cameraDirection = new THREE.Vector3();
+        this.camera.getWorldDirection(cameraDirection);
+        const targetPoint = plane.position.clone().add(cameraDirection.multiplyScalar(-1));
+        plane.lookAt(targetPoint);
+
+        plane.rotation.x = 0;
+        // Y軸回転を削除して左右反転を修正
+      } else {
+        plane.position.set(position.x, position.y, position.z);
+      }
+      
+      plane.scale.setScalar(1.0);
+      
+      // 識別用の名前とメタデータ
+      const objectId = `imported_video_${++this.objectCounter}`;
+      plane.name = objectId;
+      plane.userData = {
+        id: objectId,
+        source: 'imported_file',
+        createdAt: Date.now(),
+        type: 'generated_video',
+        videoElement: video
+      };
+      
+      this.experimentGroup.add(plane);
+      this.spawnedObjects.set(objectId, plane);
+      
+      console.log(`✅ Created imported video: ${objectId} at (${position.x}, ${position.y}, ${position.z})`);
+      
+      // 生成位置にパーティクルエフェクトを追加
+      if (this.config.showLocationIndicator) {
+        this.createLocationIndicator(position);
+      }
+      
+      return {
+        objectId,
+        position: position,
+        success: true
+      };
+      
+    } catch (error) {
+      console.error('🎬 Video file loading failed:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 自然言語オブジェクト操作実行
+   */
+  async executeNaturalObjectModification(parsed) {
+    // オブジェクトを名前で検索
+    const targetObjects = this.findObjectsByName(parsed.targetObjectName);
+    
+    if (targetObjects.length === 0) {
+      return {
+        success: false,
+        message: `オブジェクト「${parsed.targetObjectName}」が見つかりませんでした`
+      };
+    }
+    
+    console.log(`🔍 Found ${targetObjects.length} object(s) matching "${parsed.targetObjectName}"`);
+    
+    // 複数の場合は序数詞で選択、なければ最初のオブジェクト
+    const targetObject = this.selectObjectFromMultiple(targetObjects, parsed.targetObjectName);
+    console.log(`🎯 Operating on object: ${targetObject.name}`);
+    
+    let modified = false;
+    
+    // 色変更
+    if (parsed.color !== null && targetObject.material) {
+      if (targetObject.material.map) {
+        targetObject.material.color.setHex(parsed.color);
+        console.log(`🎨 Color changed to: ${parsed.color.toString(16)}`);
+      } else {
+        targetObject.material.color.setHex(parsed.color);
+        console.log(`🎨 Color changed to: ${parsed.color.toString(16)}`);
+      }
+      modified = true;
+    }
+    
+    // 位置移動
+    if (parsed.movement !== null) {
+      const currentPos = targetObject.position;
+      const newPos = {
+        x: currentPos.x + parsed.movement.x,
+        y: currentPos.y + parsed.movement.y,
+        z: currentPos.z + parsed.movement.z
+      };
+      
+      targetObject.position.set(newPos.x, newPos.y, newPos.z);
+      console.log(`📍 Position moved from (${currentPos.x.toFixed(1)}, ${currentPos.y.toFixed(1)}, ${currentPos.z.toFixed(1)}) to (${newPos.x.toFixed(1)}, ${newPos.y.toFixed(1)}, ${newPos.z.toFixed(1)})`);
+      modified = true;
+    }
+    
+    if (modified) {
+      // メタデータ更新
+      targetObject.userData.lastModified = Date.now();
+      targetObject.userData.modifications = targetObject.userData.modifications || [];
+      targetObject.userData.modifications.push({
+        timestamp: Date.now(),
+        color: parsed.color,
+        movement: parsed.movement,
+        command: `Natural language: ${parsed.targetObjectName}`
+      });
+      
+      return {
+        success: true,
+        message: `オブジェクト「${targetObject.name}」を変更しました`,
+        objectId: targetObject.name,
+        modifications: {
+          color: parsed.color,
+          movement: parsed.movement
+        }
+      };
+    } else {
+      return {
+        success: false,
+        message: '変更可能な属性が見つかりませんでした'
+      };
+    }
+  }
+  
+  /**
+   * 名前でオブジェクトを検索
+   */
+  findObjectsByName(searchName) {
+    const results = [];
+    const searchLower = searchName.toLowerCase();
+    
+    // 生成されたオブジェクトから検索
+    for (const [objectId, object] of this.spawnedObjects) {
+      // プロンプト情報から検索
+      if (object.userData.prompt) {
+        const promptLower = object.userData.prompt.toLowerCase();
+        
+        // 部分一致で検索（「ユニコーン」が「ユニコーンの画像」にマッチ）
+        if (promptLower.includes(searchLower)) {
+          results.push(object);
+          console.log(`✅ Object match found: ${objectId} (prompt: "${object.userData.prompt}")`);
+        }
+      }
+      
+      // オブジェクト名からも検索
+      if (object.name && object.name.toLowerCase().includes(searchLower)) {
+        results.push(object);
+        console.log(`✅ Object match found: ${objectId} (name: "${object.name}")`);
+      }
+    }
+    
+    return results;
+  }
+  
+  /**
+   * 複数オブジェクトから序数詞で選択
+   */
+  selectObjectFromMultiple(objects, originalCommand) {
+    // 序数詞パターンをチェック
+    const ordinalPatterns = [
+      /(\d+)つ目の/, /(\d+)番目の/, /(\d+)個目の/,
+      /最初の|1つ目の|1番目の|1個目の/,
+      /最後の|最終の/,
+      /2つ目の|2番目の|2個目の/,
+      /3つ目の|3番目の|3個目の/
+    ];
+    
+    for (const pattern of ordinalPatterns) {
+      const match = originalCommand.match(pattern);
+      if (match) {
+        let index;
+        
+        if (match[1]) {
+          // 数字が見つかった場合
+          index = parseInt(match[1]) - 1; // 1ベースから0ベースに変換
+        } else {
+          // 特別な表現の場合
+          const matchedText = match[0];
+          if (matchedText.includes('最初') || matchedText.includes('1つ目') || 
+              matchedText.includes('1番目') || matchedText.includes('1個目')) {
+            index = 0;
+          } else if (matchedText.includes('最後') || matchedText.includes('最終')) {
+            index = objects.length - 1;
+          } else if (matchedText.includes('2つ目') || matchedText.includes('2番目') || matchedText.includes('2個目')) {
+            index = 1;
+          } else if (matchedText.includes('3つ目') || matchedText.includes('3番目') || matchedText.includes('3個目')) {
+            index = 2;
+          }
+        }
+        
+        if (index >= 0 && index < objects.length) {
+          console.log(`🔢 Selected object by ordinal: index ${index + 1} of ${objects.length}`);
+          return objects[index];
+        } else {
+          console.warn(`⚠️ Invalid ordinal index: ${index + 1} (available: 1-${objects.length})`);
+        }
+      }
+    }
+    
+    // 序数詞が見つからない場合はデフォルトで最初のオブジェクト
+    console.log(`🔢 No ordinal specified, using first object`);
+    return objects[0];
+  }
+
+  /**
+   * オブジェクト変更実行
+   */
+  async executeObjectModification(parsed) {
+    // コマンドから対象オブジェクトを特定
+    let targetObject = this.findObjectByKeyword(parsed.command);
+    
+    // キーワードで見つからない場合、選択されたオブジェクトを使用
+    if (!targetObject) {
+      if (!this.selectedObject) {
+        return { 
+          success: false, 
+          message: 'オブジェクトを選択するか、対象を指定してください（例：「猫を赤くして」）' 
+        };
+      }
+      targetObject = this.selectedObject;
+    } else {
+      // キーワードで見つけたオブジェクトを選択状態にする
+      this.selectObject(targetObject);
+    }
+    console.log(`🔧 Modifying object: ${targetObject.name}`);
+    console.log(`🔍 Debug - parsed.movement:`, parsed.movement);
+    
+    let modified = false;
+    
+    // 色変更
+    if (parsed.color !== null && targetObject.material) {
+      if (targetObject.material.map) {
+        // テクスチャがある場合は色調変更
+        targetObject.material.color.setHex(parsed.color);
+        console.log(`🎨 Color changed to: ${parsed.color.toString(16)}`);
+      } else {
+        // テクスチャがない場合は直接色変更
+        targetObject.material.color.setHex(parsed.color);
+        console.log(`🎨 Color changed to: ${parsed.color.toString(16)}`);
+      }
+      modified = true;
+    }
+    
+    // サイズ変更
+    if (parsed.scale !== null) {
+      const currentScale = targetObject.scale.x; // 現在のスケール取得
+      const newScale = currentScale * parsed.scale;
+      targetObject.scale.setScalar(newScale);
+      console.log(`📏 Scale changed from ${currentScale} to ${newScale}`);
+      modified = true;
+    }
+    
+    // 位置移動
+    if (parsed.movement !== null) {
+      // 現在位置から相対移動
+      const currentPos = targetObject.position;
+      const newPos = {
+        x: currentPos.x + parsed.movement.x,
+        y: currentPos.y + parsed.movement.y, 
+        z: currentPos.z + parsed.movement.z
+      };
+      
+      targetObject.position.set(newPos.x, newPos.y, newPos.z);
+      console.log(`📍 Position moved from (${currentPos.x.toFixed(1)}, ${currentPos.y.toFixed(1)}, ${currentPos.z.toFixed(1)}) to (${newPos.x.toFixed(1)}, ${newPos.y.toFixed(1)}, ${newPos.z.toFixed(1)})`);
+      modified = true;
+    }
+    
+    if (modified) {
+      // メタデータ更新
+      targetObject.userData.lastModified = Date.now();
+      targetObject.userData.modifications = targetObject.userData.modifications || [];
+      targetObject.userData.modifications.push({
+        timestamp: Date.now(),
+        color: parsed.color,
+        scale: parsed.scale,
+        movement: parsed.movement,
+        command: parsed.command
+      });
+      
+      return { 
+        success: true, 
+        message: `オブジェクト「${targetObject.name}」を変更しました`,
+        objectId: targetObject.name,
+        modifications: {
+          color: parsed.color,
+          scale: parsed.scale,
+          movement: parsed.movement
+        }
+      };
+    } else {
+      return { 
+        success: false, 
+        message: '変更可能な属性が見つかりませんでした' 
+      };
+    }
+  }
+
+  /**
+   * 削除実行
+   */
+  async executeDelete(parsed) {
+    // コマンドの安全性チェック
+    const command = parsed.command || '';
+    
+    // 「すべて」削除の場合
+    if (parsed.target === 'all' || command.includes('すべて') || command.includes('全部')) {
+      this.clearAll();
+      return { success: true, message: 'すべてのオブジェクトを削除しました' };
+    }
+    
+    // まずコマンドから対象オブジェクトを特定
+    const targetByKeyword = this.findObjectByKeyword(command);
+    
+    // 削除対象の優先順位：
+    // 1. コマンドで指定されたオブジェクト
+    // 2. 選択されているオブジェクト
+    // 3. コマンドが単に「削除」だけの場合は選択オブジェクトを優先
+    
+    let targetObject = null;
+    let deleteReason = '';
+    
+    // コマンドが単純な削除コマンドか判定
+    const isSimpleDeleteCommand = command.match(/^(削除|消して|消す|delete|remove)$/i);
+    
+    if (isSimpleDeleteCommand && this.selectedObject) {
+      // 単純な「削除」コマンドで選択オブジェクトがある場合
+      targetObject = this.selectedObject;
+      deleteReason = '選択されたオブジェクト';
+    } else if (targetByKeyword) {
+      // キーワードで特定できた場合
+      targetObject = targetByKeyword;
+      deleteReason = 'コマンドで指定されたオブジェクト';
+    } else if (this.selectedObject) {
+      // その他の場合で選択オブジェクトがある場合
+      targetObject = this.selectedObject;
+      deleteReason = '選択されたオブジェクト';
+    }
+    
+    if (targetObject) {
+      const objectId = targetObject.name;
+      console.log(`🗑️ Deleting ${deleteReason}: ${objectId}`);
+      
+      // 選択状態を解除
+      if (targetObject === this.selectedObject) {
+        this.deselectObject();
+      }
+      
+      // オブジェクトを削除
+      const success = this.removeObject(objectId);
+      
+      if (success) {
+        return { 
+          success: true, 
+          message: `${deleteReason}「${objectId}」を削除しました`,
+          deletedObjectId: objectId
+        };
+      } else {
+        return { 
+          success: false, 
+          message: 'オブジェクトの削除に失敗しました' 
+        };
+      }
+    }
+    
+    return { 
+      success: false, 
+      message: '削除対象が見つかりませんでした。オブジェクトを選択するか、対象を指定してください' 
+    };
+  }
+
+  /**
+   * フォールバック用のテクスチャ作成
+   */
+  createFallbackTexture(prompt) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 512;
+    const ctx = canvas.getContext('2d');
+    
+    // プロンプトベースの色を生成
+    const hash = this.hashString(prompt);
+    const hue = hash % 360;
+    
+    // グラデーション背景
+    const gradient = ctx.createLinearGradient(0, 0, 512, 512);
+    gradient.addColorStop(0, `hsl(${hue}, 70%, 60%)`);
+    gradient.addColorStop(1, `hsl(${(hue + 60) % 360}, 70%, 40%)`);
+    
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, 512, 512);
+    
+    // テキスト描画
+    ctx.fillStyle = 'white';
+    ctx.font = '24px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('🎨', 256, 230);
+    
+    ctx.font = '16px Arial';
+    ctx.fillText(prompt.slice(0, 20), 256, 270);
+    
+    ctx.font = '14px Arial';
+    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    ctx.fillText('Placeholder Image', 256, 300);
+    
+    return new THREE.CanvasTexture(canvas);
+  }
+
+  /**
+   * フォールバック用の動画テクスチャ作成
+   */
+  createFallbackVideoTexture(prompt) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 512;
+    const ctx = canvas.getContext('2d');
+    
+    // プロンプトベースの色を生成
+    const hash = this.hashString(prompt);
+    const hue = hash % 360;
+    
+    // アニメーション用の変数
+    let animationFrame = 0;
+    
+    const animate = () => {
+      // グラデーション背景（時間で変化）
+      const gradient = ctx.createLinearGradient(0, 0, 512, 512);
+      const offset = (animationFrame * 2) % 360;
+      gradient.addColorStop(0, `hsl(${(hue + offset) % 360}, 70%, 60%)`);
+      gradient.addColorStop(1, `hsl(${(hue + offset + 60) % 360}, 70%, 40%)`);
+      
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, 512, 512);
+      
+      // 動的テキスト描画
+      ctx.fillStyle = 'white';
+      ctx.font = '24px Arial';
+      ctx.textAlign = 'center';
+      
+      // 動画アイコンをアニメーション
+      const icons = ['🎬', '🎥', '📹', '🎞️'];
+      const iconIndex = Math.floor(animationFrame / 10) % icons.length;
+      ctx.fillText(icons[iconIndex], 256, 230);
+      
+      ctx.font = '16px Arial';
+      ctx.fillText(prompt.slice(0, 20), 256, 270);
+      
+      ctx.font = '14px Arial';
+      ctx.fillStyle = 'rgba(255,255,255,0.7)';
+      ctx.fillText('Placeholder Video', 256, 300);
+      
+      animationFrame++;
+      
+      // 60FPSでアニメーション
+      setTimeout(() => requestAnimationFrame(animate), 1000/60);
+    };
+    
+    // アニメーション開始
+    animate();
+    
+    return new THREE.CanvasTexture(canvas);
+  }
+
+  /**
+   * 文字列のハッシュ値を計算
+   */
+  hashString(str) {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // 32bit整数に変換
+    }
+    return Math.abs(hash);
+  }
+
+  /**
+   * 生成されたオブジェクト一覧取得
+   */
+  getSpawnedObjects() {
+    return Array.from(this.spawnedObjects.entries()).map(([id, object]) => ({
+      id,
+      name: object.name,
+      userData: object.userData,
+      position: object.position.clone()
+    }));
+  }
+
+  /**
+   * オブジェクト削除
+   */
+  removeObject(objectId) {
+    const object = this.spawnedObjects.get(objectId);
+    if (object) {
+      this.experimentGroup.remove(object);
+      this.spawnedObjects.delete(objectId);
+      
+      // ジオメトリとマテリアルのメモリ解放
+      if (object.geometry) object.geometry.dispose();
+      if (object.material) {
+        if (Array.isArray(object.material)) {
+          object.material.forEach(mat => mat.dispose());
+        } else {
+          object.material.dispose();
+        }
+      }
+      
+      console.log(`🗑️ Removed object: ${objectId}`);
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * 全オブジェクト削除
+   */
+  clearAll() {
+    const objectIds = Array.from(this.spawnedObjects.keys());
+    objectIds.forEach(id => this.removeObject(id));
+    console.log('🧹 Cleared all experimental objects');
+  }
+
+  /**
+   * コマンド履歴取得
+   */
+  getCommandHistory() {
+    return [...this.commandHistory];
+  }
+
+  /**
+   * 生成位置に一時的な視覚インジケーターを表示
+   */
+  createLocationIndicator(relativePosition) {
+    // 目立つ光る球体を作成
+    const geometry = new THREE.SphereGeometry(1, 16, 16);
+    const material = new THREE.MeshBasicMaterial({
+      color: 0x00ff00,
+      transparent: true,
+      opacity: 0.9
+    });
+    
+    const indicator = new THREE.Mesh(geometry, material);
+    
+    // カメラ相対位置でインジケーターも配置
+    if (this.camera) {
+      const indicatorPos = this.calculateCameraRelativePosition({
+        x: relativePosition.x,
+        y: relativePosition.y + 2, // オブジェクトの少し上に表示
+        z: relativePosition.z
+      });
+      indicator.position.copy(indicatorPos);
+    } else {
+      indicator.position.set(relativePosition.x, relativePosition.y + 2, relativePosition.z);
+    }
+    
+    console.log(`🟢 インジケーター表示: (${indicator.position.x.toFixed(1)}, ${indicator.position.y.toFixed(1)}, ${indicator.position.z.toFixed(1)})`);
+    
+    this.scene.add(indicator);
+    
+    // 設定された時間後に自動削除
+    setTimeout(() => {
+      this.scene.remove(indicator);
+      geometry.dispose();
+      material.dispose();
+    }, this.config.indicatorDuration);
+    
+    // アニメーション（点滅効果）
+    let opacity = 0.8;
+    let direction = -1;
+    const animate = () => {
+      opacity += direction * 0.05;
+      if (opacity <= 0.3) direction = 1;
+      if (opacity >= 0.8) direction = -1;
+      
+      material.opacity = opacity;
+      
+      if (indicator.parent) {
+        requestAnimationFrame(animate);
+      }
+    };
+    animate();
+  }
+
+  /**
+   * カメラ相対位置計算（画面座標対応）
+   */
+  calculateCameraRelativePosition(relativePosition) {
+    if (!this.camera) {
+      if (this.config.enableDebugLogging) {
+        console.warn('📷 Camera not available, using fallback positioning');
+      }
+      return new THREE.Vector3(relativePosition.x, relativePosition.y, relativePosition.z);
+    }
+
+    try {
+      // カメラの位置と方向を取得
+      const cameraPos = this.camera.position.clone();
+      const cameraDirection = new THREE.Vector3();
+      this.camera.getWorldDirection(cameraDirection);
+      
+      // カメラの右方向と上方向を計算
+      const cameraRight = new THREE.Vector3();
+      const cameraUp = new THREE.Vector3(0, 1, 0); // ワールドの上方向
+      cameraRight.crossVectors(cameraDirection, cameraUp).normalize();
+      const cameraUpActual = new THREE.Vector3();
+      cameraUpActual.crossVectors(cameraRight, cameraDirection).normalize();
+
+      // 相対位置をカメラ座標系で計算
+      const finalPosition = cameraPos.clone();
+      
+      // 前後方向（Z軸）: カメラの向きに沿って（正の値で前方、負の値で後方）
+      finalPosition.add(cameraDirection.clone().multiplyScalar(relativePosition.z));
+      
+      // 左右方向（X軸）: カメラの右方向に沿って
+      finalPosition.add(cameraRight.clone().multiplyScalar(relativePosition.x));
+      
+      // 上下方向（Y軸）: カメラの上方向に沿って
+      finalPosition.add(cameraUpActual.clone().multiplyScalar(relativePosition.y));
+
+      this.logDebug(
+        `📍 Camera relative position calculated: (${finalPosition.x.toFixed(1)}, ${finalPosition.y.toFixed(1)}, ${finalPosition.z.toFixed(1)})`
+      );
+      return finalPosition;
+      
+    } catch (error) {
+      console.error('❌ Camera relative position calculation failed:', error);
+      return new THREE.Vector3(relativePosition.x, relativePosition.y, relativePosition.z);
+    }
+  }
+
+  /**
+   * カメラを設定
+   */
+  setCamera(camera) {
+    this.camera = camera;
+  }
+
+  /**
+   * 設定を更新
+   */
+  updateConfig(newConfig) {
+    this.config = { ...this.config, ...newConfig };
+  }
+
+
+
+
+
+  logDebug(...args) {
+    if (!this.config.enableDebugLogging) {
+      return;
+    }
+    console.log(...args);
+  }
+
+  /**
+   * クリーンアップ
+   */
+  dispose() {
+    this.clearAll();
+    if (this.experimentGroup.parent) {
+      this.experimentGroup.parent.remove(this.experimentGroup);
+    }
+  }
+}

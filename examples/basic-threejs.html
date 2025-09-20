@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChocoDro - Basic Three.js Example</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+            background: #000;
+        }
+        
+        #info {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            color: white;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 14px;
+            z-index: 100;
+        }
+        
+        canvas {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div id="info">
+        <strong>ChocoDro - Basic Example</strong><br>
+        Press <code>@</code> to activate command interface<br>
+        Example: "右上にドラゴンを作って"
+    </div>
+
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.158.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.158.0/examples/jsm/"
+        }
+    }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        
+        // Import ChocoDro (adjust path as needed)
+        // import { SceneManager, CommandUI } from '../src/index.js';
+        
+        // For this example, we'll use a simplified version
+        class BasicSceneManager {
+            constructor(scene, camera) {
+                this.scene = scene;
+                this.camera = camera;
+                this.objects = new Map();
+                this.counter = 0;
+            }
+            
+            async executeCommand(command) {
+                console.log('Executing command:', command);
+                
+                // Simple parsing
+                const position = this.parsePosition(command);
+                
+                // Create a colorful cube as placeholder
+                const geometry = new THREE.BoxGeometry(2, 2, 2);
+                const material = new THREE.MeshPhongMaterial({
+                    color: Math.random() * 0xffffff
+                });
+                
+                const cube = new THREE.Mesh(geometry, material);
+                
+                // Camera-relative positioning
+                cube.position.set(
+                    this.camera.position.x + position.x,
+                    this.camera.position.y + position.y,
+                    this.camera.position.z + position.z
+                );
+                
+                const objectId = `object_${++this.counter}`;
+                cube.userData = { id: objectId, prompt: command };
+                
+                this.scene.add(cube);
+                this.objects.set(objectId, cube);
+                
+                return {
+                    success: true,
+                    objectId,
+                    position,
+                    prompt: command
+                };
+            }
+            
+            parsePosition(command) {
+                const cmd = command.toLowerCase();
+                if (cmd.includes('右上')) return { x: 5, y: 5, z: -10 };
+                if (cmd.includes('左上')) return { x: -5, y: 5, z: -10 };
+                if (cmd.includes('右下')) return { x: 5, y: -5, z: -10 };
+                if (cmd.includes('左下')) return { x: -5, y: -5, z: -10 };
+                if (cmd.includes('中央')) return { x: 0, y: 0, z: -10 };
+                return { x: 0, y: 0, z: -10 };
+            }
+            
+            clearAll() {
+                this.objects.forEach(obj => {
+                    this.scene.remove(obj);
+                    obj.geometry.dispose();
+                    obj.material.dispose();
+                });
+                this.objects.clear();
+            }
+            
+            getCommandHistory() {
+                return [];
+            }
+        }
+        
+        class BasicCommandUI {
+            constructor(sceneManager) {
+                this.sceneManager = sceneManager;
+                this.isVisible = false;
+                this.createUI();
+                this.bindEvents();
+            }
+            
+            createUI() {
+                this.container = document.createElement('div');
+                this.container.style.cssText = `
+                    position: fixed;
+                    bottom: 20px;
+                    right: 20px;
+                    width: 350px;
+                    background: rgba(0, 0, 0, 0.9);
+                    border: 2px solid #4a90e2;
+                    border-radius: 10px;
+                    color: white;
+                    padding: 15px;
+                    font-family: monospace;
+                    display: none;
+                    z-index: 1000;
+                `;
+                
+                const header = document.createElement('h3');
+                header.textContent = '🧪 ChocoDro';
+                header.style.margin = '0 0 10px 0';
+                header.style.color = '#4a90e2';
+                
+                this.output = document.createElement('div');
+                this.output.style.cssText = `
+                    height: 150px;
+                    overflow-y: auto;
+                    background: rgba(0, 0, 0, 0.5);
+                    padding: 10px;
+                    margin: 10px 0;
+                    border-radius: 5px;
+                    font-size: 12px;
+                `;
+                
+                this.input = document.createElement('input');
+                this.input.type = 'text';
+                this.input.placeholder = '例: 右上にドラゴンを作って';
+                this.input.style.cssText = `
+                    width: 100%;
+                    padding: 8px;
+                    background: rgba(255, 255, 255, 0.1);
+                    border: 1px solid #4a90e2;
+                    border-radius: 3px;
+                    color: white;
+                    font-size: 14px;
+                    box-sizing: border-box;
+                `;
+                
+                const button = document.createElement('button');
+                button.textContent = '実行';
+                button.style.cssText = `
+                    width: 100%;
+                    padding: 8px;
+                    background: #4a90e2;
+                    border: none;
+                    border-radius: 3px;
+                    color: white;
+                    margin-top: 10px;
+                    cursor: pointer;
+                `;
+                
+                this.container.appendChild(header);
+                this.container.appendChild(this.output);
+                this.container.appendChild(this.input);
+                this.container.appendChild(button);
+                
+                document.body.appendChild(this.container);
+                
+                button.addEventListener('click', () => this.execute());
+                this.input.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') this.execute();
+                });
+                
+                this.addOutput('Ready! Type a command and press Enter.');
+            }
+            
+            bindEvents() {
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === '@') {
+                        e.preventDefault();
+                        this.toggle();
+                    }
+                    if (e.key === 'Escape' && this.isVisible) {
+                        this.hide();
+                    }
+                });
+            }
+            
+            toggle() {
+                if (this.isVisible) this.hide();
+                else this.show();
+            }
+            
+            show() {
+                this.container.style.display = 'block';
+                this.isVisible = true;
+                this.input.focus();
+                this.addOutput('UI activated. Camera controls paused.');
+            }
+            
+            hide() {
+                this.container.style.display = 'none';
+                this.isVisible = false;
+            }
+            
+            async execute() {
+                const command = this.input.value.trim();
+                if (!command) return;
+                
+                this.addOutput(`> ${command}`);
+                this.input.value = '';
+                
+                try {
+                    const result = await this.sceneManager.executeCommand(command);
+                    this.addOutput(`✅ Created: ${result.objectId}`);
+                } catch (error) {
+                    this.addOutput(`❌ Error: ${error.message}`);
+                }
+            }
+            
+            addOutput(message) {
+                const line = document.createElement('div');
+                line.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+                line.style.marginBottom = '3px';
+                this.output.appendChild(line);
+                this.output.scrollTop = this.output.scrollHeight;
+            }
+        }
+
+        // Basic Three.js setup
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        document.body.appendChild(renderer.domElement);
+        
+        // Environment
+        scene.background = new THREE.Color(0x87ceeb);
+        scene.fog = new THREE.Fog(0x87ceeb, 50, 200);
+        
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
+        scene.add(ambientLight);
+        
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+        directionalLight.position.set(50, 50, 50);
+        directionalLight.castShadow = true;
+        directionalLight.shadow.mapSize.width = 2048;
+        directionalLight.shadow.mapSize.height = 2048;
+        scene.add(directionalLight);
+        
+        // Ground
+        const groundGeometry = new THREE.PlaneGeometry(200, 200);
+        const groundMaterial = new THREE.MeshLambertMaterial({ color: 0x90ee90 });
+        const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+        ground.rotation.x = -Math.PI / 2;
+        ground.receiveShadow = true;
+        scene.add(ground);
+        
+        // Camera position
+        camera.position.set(0, 10, 20);
+        
+        // Controls
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        
+        // Initialize ChocoDro System
+        const sceneManager = new BasicSceneManager(scene, camera);
+        const commandUI = new BasicCommandUI(sceneManager);
+        
+        // Animation loop
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        
+        animate();
+        
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+        
+        console.log('🎮 Basic Three.js + ChocoDro example loaded');
+        console.log('Press @ to activate command interface');
+    </script>
+</body>
+</html>

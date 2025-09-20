@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChocoDro Server</title>
+    <style>
+        :root {
+            --primary-color: #4f46e5;
+            --primary-hover: #4338ca;
+            --success-color: #10b981;
+            --warning-color: #f59e0b;
+            --danger-color: #ef4444;
+            --bg-primary: #fefefe;
+            --bg-secondary: #f8fafc;
+            --text-primary: #1e293b;
+            --text-secondary: #64748b;
+            --border-color: #e2e8f0;
+            --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 16px;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Inter', sans-serif;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 24px;
+            background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 32px;
+            padding: 32px;
+            background: var(--bg-primary);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-lg);
+            border: 1px solid var(--border-color);
+            backdrop-filter: blur(10px);
+        }
+        
+        .header h1 {
+            margin: 0 0 8px 0;
+            font-size: 2.25rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--primary-color), #7c3aed);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .header p {
+            margin: 8px 0;
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+        }
+        
+        .status {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 16px;
+            margin-bottom: 32px;
+        }
+        
+        .status-item {
+            background: var(--bg-primary);
+            padding: 24px 20px;
+            border-radius: var(--radius-md);
+            text-align: center;
+            box-shadow: var(--shadow-md);
+            border: 1px solid var(--border-color);
+            transition: all 0.2s ease;
+        }
+        
+        .status-item:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
+        }
+        
+        .status-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--primary-color);
+            margin-bottom: 4px;
+        }
+        
+        .status-label {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+        
+        .mode-selector {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 32px;
+            padding: 8px;
+            background: var(--bg-primary);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-md);
+            border: 1px solid var(--border-color);
+        }
+        
+        .mode-btn {
+            flex: 1;
+            padding: 16px 24px;
+            border: none;
+            background: transparent;
+            border-radius: var(--radius-md);
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            color: var(--text-secondary);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .mode-btn.active {
+            background: var(--primary-color);
+            color: white;
+            box-shadow: var(--shadow-md);
+            transform: translateY(-1px);
+        }
+        
+        .mode-btn:not(.active):hover {
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+        }
+        
+        .mode-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s;
+        }
+        
+        .mode-btn:hover::before {
+            left: 100%;
+        }
+        
+        .api-section {
+            background: var(--bg-primary);
+            padding: 32px;
+            border-radius: var(--radius-lg);
+            margin-bottom: 24px;
+            box-shadow: var(--shadow-md);
+            border: 1px solid var(--border-color);
+            transition: all 0.2s ease;
+        }
+        
+        .api-section:hover {
+            box-shadow: var(--shadow-lg);
+        }
+        
+        .section-title {
+            margin: 0 0 24px 0;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .endpoint {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-family: monospace;
+        }
+        
+        .method {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: bold;
+            color: white;
+            font-size: 12px;
+            margin-right: 8px;
+        }
+        
+        .get { background: #28a745; }
+        .post { background: #007bff; }
+        
+        .mode-content {
+            display: none;
+        }
+        
+        .mode-content.active {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .form-container {
+            background: var(--bg-secondary);
+            padding: 24px;
+            border-radius: var(--radius-md);
+            margin-top: 24px;
+            border: 1px solid var(--border-color);
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: var(--text-primary);
+            font-size: 0.95rem;
+        }
+        
+        input, textarea, select {
+            width: 100%;
+            padding: 16px;
+            border: 2px solid var(--border-color);
+            border-radius: var(--radius-md);
+            font-size: 1rem;
+            box-sizing: border-box;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            transition: all 0.3s ease;
+        }
+        
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+        }
+        
+        .primary-btn {
+            background: linear-gradient(135deg, var(--primary-color), var(--primary-hover));
+            color: white;
+            padding: 16px 32px;
+            border: none;
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: var(--shadow-md);
+            position: relative;
+            overflow: hidden;
+            width: 100%;
+        }
+        
+        .primary-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
+        }
+        
+        .primary-btn:active {
+            transform: translateY(0);
+        }
+        
+        .primary-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s;
+        }
+        
+        .primary-btn:hover::before {
+            left: 100%;
+        }
+        
+        .secondary-btn {
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            border: 2px solid var(--border-color);
+            padding: 14px 30px;
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        
+        .secondary-btn:hover {
+            background: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+            transform: translateY(-1px);
+        }
+        
+        .response {
+            background: var(--bg-primary);
+            border: 2px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 20px;
+            margin-top: 20px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 0.875rem;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+            box-shadow: var(--shadow-sm);
+        }
+        
+        .success {
+            border-color: var(--success-color);
+            background: linear-gradient(135deg, #ecfdf5, #f0fdf4);
+        }
+        
+        .error {
+            border-color: var(--danger-color);
+            background: linear-gradient(135deg, #fef2f2, #fef2f2);
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(79, 70, 229, 0.3);
+            border-radius: 50%;
+            border-top-color: var(--primary-color);
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 8px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🌉 ChocoDro Server</h1>
+        <p>Real-time AI image generation and 3D scene integration</p>
+        <p><strong>Server Status:</strong> <span id="serverStatus">🟡 Checking...</span></p>
+    </div>
+    
+    <div class="status" id="statusCards">
+        <div class="status-item">
+            <div class="status-value" id="uptimeValue">--</div>
+            <div class="status-label">Uptime (s)</div>
+        </div>
+        <div class="status-item">
+            <div class="status-value" id="servicesValue">--</div>
+            <div class="status-label">Services</div>
+        </div>
+        <div class="status-item">
+            <div class="status-value" id="requestsValue">0</div>
+            <div class="status-label">Requests</div>
+        </div>
+    </div>
+    
+    <!-- Mode Selector -->
+    <div class="mode-selector">
+        <button class="mode-btn active" data-mode="generate">🎨 Generate</button>
+        <button class="mode-btn" data-mode="modify">✏️ Modify</button>
+        <button class="mode-btn" data-mode="delete">🗑️ Delete</button>
+    </div>
+    
+    <!-- Generate Mode -->
+    <div id="generate-mode" class="mode-content active">
+        <div class="api-section">
+            <h3 class="section-title">🎨 Generate New Objects</h3>
+            <p style="color: var(--text-secondary); margin-bottom: 24px;">Create new 3D objects in your scene using natural language or detailed prompts.</p>
+            
+            <div class="form-container">
+                <form id="generateForm">
+                    <div class="form-group">
+                        <label for="generatePrompt">What do you want to create?</label>
+                        <input type="text" id="generatePrompt" placeholder="例: beautiful dragon in the sky, rainbow unicorn" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="generateService">AI Model:</label>
+                        <select id="generateService">
+                            <option value="">Loading models...</option>
+                        </select>
+                    </div>
+                    
+                    <button type="submit" class="primary-btn">
+                        <span class="btn-text">Generate Object</span>
+                    </button>
+                </form>
+                
+                <div id="generateResponse" class="response" style="display: none;"></div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modify Mode -->
+    <div id="modify-mode" class="mode-content">
+        <div class="api-section">
+            <h3 class="section-title">✏️ Modify Existing Objects</h3>
+            <p style="color: var(--text-secondary); margin-bottom: 24px;">Change properties of objects already in your scene.</p>
+            
+            <div class="form-container">
+                <form id="modifyForm">
+                    <div class="form-group">
+                        <label for="modifyCommand">What do you want to change?</label>
+                        <input type="text" id="modifyCommand" placeholder="例: change the dragon to blue color, make the unicorn bigger" required>
+                    </div>
+                    
+                    <button type="submit" class="primary-btn">
+                        <span class="btn-text">Apply Changes</span>
+                    </button>
+                </form>
+                
+                <div id="modifyResponse" class="response" style="display: none;"></div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Delete Mode -->
+    <div id="delete-mode" class="mode-content">
+        <div class="api-section">
+            <h3 class="section-title">🗑️ Delete Objects</h3>
+            <p style="color: var(--text-secondary); margin-bottom: 24px;">Remove objects from your 3D scene.</p>
+            
+            <div class="form-container">
+                <form id="deleteForm">
+                    <div class="form-group">
+                        <label for="deleteCommand">What do you want to delete?</label>
+                        <input type="text" id="deleteCommand" placeholder="例: delete all dragons, remove the unicorn, clear everything" required>
+                    </div>
+                    
+                    <div style="display: flex; gap: 12px;">
+                        <button type="submit" class="primary-btn" style="flex: 1;">
+                            <span class="btn-text">Delete Selected</span>
+                        </button>
+                        <button type="button" id="clearAll" class="secondary-btn" style="flex: 1;">
+                            Clear All
+                        </button>
+                    </div>
+                </form>
+                
+                <div id="deleteResponse" class="response" style="display: none;"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let requestCount = 0;
+
+        // Load available models on page load
+        async function loadModels() {
+            try {
+                const response = await fetch('/api/models');
+                const data = await response.json();
+
+                if (data.success) {
+                    // Populate image models
+                    const imageSelect = document.getElementById('generateService');
+                    imageSelect.innerHTML = '';
+
+                    data.models.image.options.forEach(model => {
+                        const option = document.createElement('option');
+                        option.value = model;
+                        option.textContent = model;
+                        if (model === data.models.image.default) {
+                            option.selected = true;
+                            option.textContent += ' (Default)';
+                        }
+                        imageSelect.appendChild(option);
+                    });
+
+                    console.log('✅ Models loaded:', data.models);
+                } else {
+                    console.error('❌ Failed to load models:', data.error);
+                    // Fallback to basic option
+                    const imageSelect = document.getElementById('generateService');
+                    imageSelect.innerHTML = '<option value="default">Default Model</option>';
+                }
+            } catch (error) {
+                console.error('❌ Error loading models:', error);
+                // Fallback to basic option
+                const imageSelect = document.getElementById('generateService');
+                imageSelect.innerHTML = '<option value="default">Default Model</option>';
+            }
+        }
+
+        // Load models when page loads
+        document.addEventListener('DOMContentLoaded', loadModels);
+
+        // Check server health
+        async function checkHealth() {
+            try {
+                const response = await fetch('/health');
+                const data = await response.json();
+                
+                if (response.ok) {
+                    document.getElementById('serverStatus').innerHTML = '🟢 Online';
+                    document.getElementById('uptimeValue').textContent = Math.floor(data.uptime);
+                } else {
+                    document.getElementById('serverStatus').innerHTML = '🔴 Error';
+                }
+            } catch (error) {
+                document.getElementById('serverStatus').innerHTML = '🔴 Offline';
+            }
+        }
+        
+        // Load services
+        async function loadServices() {
+            try {
+                const response = await fetch('/api/services');
+                const data = await response.json();
+                
+                if (response.ok && data.services) {
+                    document.getElementById('servicesValue').textContent = data.services.length;
+                }
+            } catch (error) {
+                console.error('Failed to load services:', error);
+            }
+        }
+        
+        // Mode switching
+        document.querySelectorAll('.mode-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                // Remove active class from all buttons
+                document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('.mode-content').forEach(c => c.classList.remove('active'));
+                
+                // Add active class to clicked button
+                btn.classList.add('active');
+                
+                // Show corresponding mode content
+                const mode = btn.dataset.mode;
+                document.getElementById(`${mode}-mode`).classList.add('active');
+            });
+        });
+        
+        // Generate form
+        document.getElementById('generateForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const prompt = document.getElementById('generatePrompt').value;
+            const service = document.getElementById('generateService').value;
+            const responseDiv = document.getElementById('generateResponse');
+            const btnText = e.target.querySelector('.btn-text');
+            
+            responseDiv.style.display = 'block';
+            responseDiv.className = 'response';
+            responseDiv.innerHTML = '<div class="loading"></div>Generating object...';
+            btnText.innerHTML = '<div class="loading"></div>Generating...';
+            
+            try {
+                requestCount++;
+                document.getElementById('requestsValue').textContent = requestCount;
+                
+                const response = await fetch('/api/generate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        prompt,
+                        service,
+                        width: 512,
+                        height: 512
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    responseDiv.className = 'response success';
+                    responseDiv.textContent = JSON.stringify(result, null, 2);
+                } else {
+                    responseDiv.className = 'response error';
+                    responseDiv.textContent = JSON.stringify(result, null, 2);
+                }
+                
+            } catch (error) {
+                responseDiv.className = 'response error';
+                responseDiv.textContent = `Error: ${error.message}`;
+            } finally {
+                btnText.textContent = 'Generate Object';
+            }
+        });
+        
+        // Modify form
+        document.getElementById('modifyForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const command = document.getElementById('modifyCommand').value;
+            const responseDiv = document.getElementById('modifyResponse');
+            const btnText = e.target.querySelector('.btn-text');
+            
+            responseDiv.style.display = 'block';
+            responseDiv.className = 'response';
+            responseDiv.innerHTML = '<div class="loading"></div>Applying changes...';
+            btnText.innerHTML = '<div class="loading"></div>Modifying...';
+            
+            try {
+                requestCount++;
+                document.getElementById('requestsValue').textContent = requestCount;
+                
+                const response = await fetch('/api/command', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ command })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    responseDiv.className = 'response success';
+                    responseDiv.textContent = JSON.stringify(result, null, 2);
+                } else {
+                    responseDiv.className = 'response error';
+                    responseDiv.textContent = JSON.stringify(result, null, 2);
+                }
+                
+            } catch (error) {
+                responseDiv.className = 'response error';
+                responseDiv.textContent = `Error: ${error.message}`;
+            } finally {
+                btnText.textContent = 'Apply Changes';
+            }
+        });
+        
+        // Delete form
+        document.getElementById('deleteForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const command = document.getElementById('deleteCommand').value;
+            const responseDiv = document.getElementById('deleteResponse');
+            const btnText = e.target.querySelector('.btn-text');
+            
+            responseDiv.style.display = 'block';
+            responseDiv.className = 'response';
+            responseDiv.innerHTML = '<div class="loading"></div>Deleting objects...';
+            btnText.innerHTML = '<div class="loading"></div>Deleting...';
+            
+            try {
+                requestCount++;
+                document.getElementById('requestsValue').textContent = requestCount;
+                
+                const response = await fetch('/api/command', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ command })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    responseDiv.className = 'response success';
+                    responseDiv.textContent = JSON.stringify(result, null, 2);
+                } else {
+                    responseDiv.className = 'response error';
+                    responseDiv.textContent = JSON.stringify(result, null, 2);
+                }
+                
+            } catch (error) {
+                responseDiv.className = 'response error';
+                responseDiv.textContent = `Error: ${error.message}`;
+            } finally {
+                btnText.textContent = 'Delete Selected';
+            }
+        });
+        
+        // Clear all button
+        document.getElementById('clearAll').addEventListener('click', async () => {
+            if (!confirm('Are you sure you want to clear all objects from the scene?')) {
+                return;
+            }
+            
+            const responseDiv = document.getElementById('deleteResponse');
+            
+            responseDiv.style.display = 'block';
+            responseDiv.className = 'response';
+            responseDiv.innerHTML = '<div class="loading"></div>Clearing all objects...';
+            
+            try {
+                requestCount++;
+                document.getElementById('requestsValue').textContent = requestCount;
+                
+                const response = await fetch('/api/command', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ command: '全てのオブジェクトを削除' })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    responseDiv.className = 'response success';
+                    responseDiv.textContent = 'All objects cleared successfully!';
+                } else {
+                    responseDiv.className = 'response error';
+                    responseDiv.textContent = JSON.stringify(result, null, 2);
+                }
+                
+            } catch (error) {
+                responseDiv.className = 'response error';
+                responseDiv.textContent = `Error: ${error.message}`;
+            }
+        });
+        
+        // Initialize
+        checkHealth();
+        loadServices();
+        
+        // Refresh status every 5 seconds
+        setInterval(() => {
+            checkHealth();
+        }, 5000);
+        
+        console.log('🌉 ChocoDro Server dashboard loaded');
+    </script>
+</body>
+</html>

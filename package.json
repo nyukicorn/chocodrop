@@ -1,0 +1,61 @@
+{
+  "name": "@chocodro/core",
+  "version": "1.0.0",
+  "description": "ChocoDro: real-time AI image drops for 3D scenes via Model Context Protocol (MCP)",
+  "main": "src/index.js",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.js",
+    "./client": "./src/client/index.js",
+    "./client/bootstrap": "./src/client/bootstrap.js",
+    "./bootstrap": "./src/client/bootstrap.js",
+    "./server": "./src/server/index.js"
+  },
+  "scripts": {
+    "dev": "node src/server/server.js",
+    "start": "node src/server/server.js",
+    "build": "echo 'No build step required for ES modules'",
+    "test": "node --test tests/*.test.js",
+    "example:basic": "python -m http.server 8000 --directory examples",
+    "example:server": "node src/server/server.js --port 3011"
+  },
+  "keywords": [
+    "mcp",
+    "ai",
+    "image-generation",
+    "threejs",
+    "3d",
+    "real-time",
+    "natural-language",
+    "chocodro",
+    "claude-code"
+  ],
+  "author": "Kotodama Project",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-org/chocodro",
+    "directory": "packages/chocodro"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.17.5",
+    "cors": "^2.8.5",
+    "express": "^4.19.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/three": "^0.170.0"
+  },
+  "peerDependencies": {
+    "three": "^0.170.0"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "files": [
+    "src/",
+    "examples/",
+    "public/",
+    "README.md"
+  ]
+}
