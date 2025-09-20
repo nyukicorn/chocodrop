@@ -3,8 +3,190 @@ import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import path from 'path';
 import fs from 'fs';
 import os from 'os';
-import { DEFAULT_MODEL, getAvailableModelIds } from '../config/models.js';
 import config from '../config/config.js';
+
+const WINDOWS_ENV_PATTERN = /%([^%]+)%/g;
+const POSIX_ENV_PATTERN = /\$([A-Za-z_][A-Za-z0-9_]*)|\$\{([^}]+)\}/g;
+
+function expandHomeShortcut(targetPath) {
+  if (!targetPath || typeof targetPath !== 'string') {
+    return targetPath;
+  }
+
+  if (targetPath === '~') {
+    return os.homedir();
+  }
+
+  if (targetPath.startsWith('~/') || targetPath.startsWith('~\\')) {
+    return path.join(os.homedir(), targetPath.slice(2));
+  }
+
+  return targetPath;
+}
+
+function expandEnvironmentVariables(targetPath) {
+  if (!targetPath || typeof targetPath !== 'string') {
+    return targetPath;
+  }
+
+  let expanded = targetPath.replace(POSIX_ENV_PATTERN, (match, varName, varNameAlt) => {
+    const envValue = process.env[varName || varNameAlt];
+    return envValue !== undefined ? envValue : match;
+  });
+
+  if (process.platform === 'win32') {
+    expanded = expanded.replace(WINDOWS_ENV_PATTERN, (match, varName) => {
+      const envValue = process.env[varName];
+      return envValue !== undefined ? envValue : match;
+    });
+  }
+
+  return expanded;
+}
+
+function resolveConfigPath(rawPath) {
+  if (!rawPath || typeof rawPath !== 'string') {
+    return rawPath;
+  }
+
+  let resolved = expandHomeShortcut(rawPath.trim());
+  resolved = expandEnvironmentVariables(resolved);
+
+  if (!path.isAbsolute(resolved)) {
+    resolved = path.resolve(process.cwd(), resolved);
+  }
+
+  return resolved;
+}
+
+function normalizeAspectRatio(width, height) {
+  if (!width || !height) {
+    return '1:1';
+  }
+
+  const ratio = width / height;
+  const epsilon = 0.01;
+
+  if (Math.abs(ratio - 1) < epsilon) {
+    return '1:1';
+  }
+
+  if (ratio > 1) {
+    return '16:9';
+  }
+
+  return '9:16';
+}
+
+const VIDEO_RESOLUTION_BASE_HEIGHT = {
+  '720p': 720,
+  '580p': 580,
+  '480p': 480
+};
+
+const ALLOWED_ASPECT_RATIOS = new Set(['16:9', '9:16', '1:1']);
+const ALLOWED_VIDEO_RESOLUTIONS = new Set(Object.keys(VIDEO_RESOLUTION_BASE_HEIGHT));
+
+function sanitizeAspectRatio(value) {
+  if (typeof value === 'string' && ALLOWED_ASPECT_RATIOS.has(value)) {
+    return value;
+  }
+  return null;
+}
+
+function sanitizeVideoResolution(value) {
+  if (typeof value === 'string' && ALLOWED_VIDEO_RESOLUTIONS.has(value)) {
+    return value;
+  }
+  return null;
+}
+
+function deriveResolutionFromDimensions(width, height) {
+  if (!width || !height) {
+    return null;
+  }
+
+  const shorterSide = Math.min(width, height);
+
+  if (shorterSide >= 700) {
+    return '720p';
+  }
+
+  if (shorterSide >= 560) {
+    return '580p';
+  }
+
+  return '480p';
+}
+
+function ensureEvenDimension(value) {
+  if (!value || value <= 0) {
+    return null;
+  }
+  const rounded = Math.round(value);
+  return rounded % 2 === 0 ? rounded : rounded + 1;
+}
+
+function deriveDimensionsFromAspect(aspectRatio, resolution) {
+  const base = VIDEO_RESOLUTION_BASE_HEIGHT[resolution] || VIDEO_RESOLUTION_BASE_HEIGHT['720p'];
+
+  switch (aspectRatio) {
+    case '16:9':
+      return {
+        width: ensureEvenDimension((base * 16) / 9),
+        height: ensureEvenDimension(base)
+      };
+    case '9:16':
+      return {
+        width: ensureEvenDimension(base),
+        height: ensureEvenDimension((base * 16) / 9)
+      };
+    case '1:1':
+    default:
+      return {
+        width: ensureEvenDimension(base),
+        height: ensureEvenDimension(base)
+      };
+  }
+}
+
+function getServiceType(serviceId = '') {
+  if (serviceId.startsWith('t2i-')) return 'image';
+  if (serviceId.startsWith('t2v-')) return 'video';
+  return 'other';
+}
+
+function deriveServiceName(serviceId, serverConfig = {}) {
+  if (serverConfig.name) {
+    return serverConfig.name;
+  }
+
+  if (serverConfig.displayName) {
+    return serverConfig.displayName;
+  }
+
+  if (serverConfig.description) {
+    const description = serverConfig.description.split(' via ')[0].split(' - ')[0];
+    if (description && description.trim().length > 0) {
+      return description.trim();
+    }
+  }
+
+  return serviceId;
+}
+
+function buildServiceMetadata(serviceId, serverConfig = {}) {
+  const type = getServiceType(serviceId);
+  return {
+    id: serviceId,
+    type,
+    name: deriveServiceName(serviceId, serverConfig),
+    description: serverConfig.description || '',
+    url: serverConfig.url || '',
+    tags: serverConfig.tags || [],
+    provider: serverConfig.provider || serverConfig.type || 'http'
+  };
+}
 
 
 /**
@@ -15,20 +197,135 @@ export class MCPClient {
     const configValue = config.get('mcp.configPath');
     const envValue = process.env.MCP_CONFIG_PATH;
     const fallbackConfigPath = path.join(os.homedir(), '.claude', 'mcp-kamui-code.json');
-    this.mcpConfigPath =
-      options.mcpConfigPath ||
-      envValue ||
-      configValue ||
-      fallbackConfigPath;
+    const rawConfigPath = options.mcpConfigPath ?? envValue ?? configValue ?? fallbackConfigPath;
+
+    this.originalMcpConfigPath = rawConfigPath;
+    this.mcpConfigPath = resolveConfigPath(rawConfigPath);
+    this.mcpConfigCache = null;
     this.outputDir = options.outputDir || './public/generated';
     this.serverUrl = options.serverUrl || config.get('client.serverUrl');
     this.server = options.server || null;
     this.client = null;
     this.connected = false;
-    
 
-    
+
+
     console.log('🌉 MCPClient initialized with translation support');
+    if (this.mcpConfigPath) {
+      console.log(`📄 MCP config path: ${this.mcpConfigPath}`);
+    } else {
+      console.warn('⚠️ MCP config path is not set. Update config.json or set MCP_CONFIG_PATH.');
+    }
+  }
+
+  loadMcpConfig(forceReload = false) {
+    if (!this.mcpConfigPath) {
+      throw new Error('MCP config path is not set. Please update config.json or set MCP_CONFIG_PATH.');
+    }
+
+    if (!forceReload && this.mcpConfigCache) {
+      return this.mcpConfigCache;
+    }
+
+    let targetPath = this.mcpConfigPath;
+
+    if (fs.existsSync(targetPath)) {
+      const stat = fs.statSync(targetPath);
+      if (stat.isDirectory()) {
+        const candidates = [
+          'KAMUI CODE.json',
+          'KAMUI CODE.JSON',
+          'mcp-kamui-code.json',
+          'kamui-code.json'
+        ];
+
+        const matched = candidates.find(candidate => fs.existsSync(path.join(targetPath, candidate)));
+        if (matched) {
+          targetPath = path.join(targetPath, matched);
+          this.mcpConfigPath = targetPath;
+          console.log(`📄 Resolved MCP config directory to file: ${targetPath}`);
+        }
+      }
+    }
+
+    if (!fs.existsSync(targetPath)) {
+      const pathHint = this.originalMcpConfigPath && this.originalMcpConfigPath !== targetPath
+        ? ` (original value: "${this.originalMcpConfigPath}")`
+        : '';
+      throw new Error(`MCP config file not found at ${targetPath}${pathHint}`);
+    }
+
+    try {
+      const configData = fs.readFileSync(targetPath, 'utf8').replace(/^\uFEFF/, '');
+      const parsed = JSON.parse(configData);
+      this.mcpConfigCache = parsed;
+      return parsed;
+    } catch (error) {
+      throw new Error(`Failed to load MCP config at ${targetPath}: ${error.message}`);
+    }
+  }
+
+  getAvailableServicesSummary() {
+    const mcpConfig = this.loadMcpConfig();
+    const servers = mcpConfig.mcpServers || {};
+
+    const summary = {
+      image: [],
+      video: [],
+      other: []
+    };
+
+    for (const [serviceId, serverConfig] of Object.entries(servers)) {
+      const metadata = buildServiceMetadata(serviceId, serverConfig);
+      if (metadata.type === 'image') {
+        summary.image.push(metadata);
+      } else if (metadata.type === 'video') {
+        summary.video.push(metadata);
+      } else {
+        summary.other.push(metadata);
+      }
+    }
+
+    const sortByName = (a, b) => a.name.localeCompare(b.name, 'ja');
+    summary.image.sort(sortByName);
+    summary.video.sort(sortByName);
+    summary.other.sort(sortByName);
+
+    return summary;
+  }
+
+  getServicesByType(type = 'image') {
+    const summary = this.getAvailableServicesSummary();
+    if (type === 'video') return summary.video;
+    if (type === 'other') return summary.other;
+    return summary.image;
+  }
+
+  getAvailableServiceIds(type = null) {
+    if (!type) {
+      const summary = this.getAvailableServicesSummary();
+      return [...summary.image, ...summary.video].map(service => service.id);
+    }
+
+    return this.getServicesByType(type).map(service => service.id);
+  }
+
+  getDefaultServiceId(type = 'image') {
+    const configDefault = config.get(`models.${type}.default`);
+    if (configDefault) {
+      return configDefault;
+    }
+
+    const services = this.getServicesByType(type);
+    if (services && services.length > 0) {
+      return services[0].id;
+    }
+
+    if (type === 'video') {
+      return 't2v-kamui-wan-v2-2-5b-fast';
+    }
+
+    return 't2i-kamui-seedream-v4';
   }
   /**
    * オフライン翻訳辞書
@@ -688,16 +985,12 @@ export class MCPClient {
 
     try {
       // MCP設定ファイルから設定を読み込み
-      let mcpConfig = {};
-      if (fs.existsSync(this.mcpConfigPath)) {
-        const configData = fs.readFileSync(this.mcpConfigPath, 'utf8');
-        mcpConfig = JSON.parse(configData);
-        console.log('📋 Loaded MCP config with', Object.keys(mcpConfig.mcpServers || {}).length, 'servers');
-      }
+      const mcpConfig = this.loadMcpConfig();
+      console.log('📋 Loaded MCP config with', Object.keys(mcpConfig.mcpServers || {}).length, 'servers');
 
       // MCPクライアントを作成
       this.client = new Client({
-        name: "chocodro-client",
+        name: "chocodrop-client",
         version: "1.0.0"
       }, {
         capabilities: {}
@@ -726,7 +1019,7 @@ export class MCPClient {
       // MCP サーバーに接続
       await this.connect();
       
-      const serviceName = options.service || DEFAULT_MODEL.id;
+      const serviceName = options.service || this.getDefaultServiceId('image');
       const taskId = options.taskId;
       const imageData = await this.callMCPService(serviceName, {
         prompt: prompt,
@@ -809,30 +1102,146 @@ export class MCPClient {
   async generateVideo(prompt, options = {}) {
     console.log(`🎬 Generating video with prompt: "${prompt}"`);
 
+    // プロンプトからアスペクト比を自動検出
+    const aspectRatioMatch = prompt.match(/(16:9|9:16|1:1)/i);
+    const detectedAspectRatio = aspectRatioMatch ? aspectRatioMatch[1] : null;
+    
+    if (detectedAspectRatio && !options.aspect_ratio) {
+      console.log(`🔍 Detected aspect ratio from prompt: ${detectedAspectRatio}`);
+      options = { ...options, aspect_ratio: detectedAspectRatio };
+    }
+
     try {
-      // MCP サーバーに接続
       await this.connect();
 
-      // プロンプトを英語+キーワード形式に変換
-      let enhancedPrompt = await this.enhancePrompt(prompt);
-      console.log(`🔍 Original prompt: "${prompt}"`);
-      console.log(`🔍 Enhanced prompt: "${enhancedPrompt}"`);
+      const {
+        width,
+        height,
+        duration: rawDuration,
+        model,
+        taskId,
+        aspect_ratio,
+        resolution,
+        negative_prompt,
+        seed,
+        enable_safety_checker,
+        enable_prompt_expansion,
+        frames_per_second,
+        guidance_scale
+      } = options;
 
-      const serviceName = options.model || 't2v-kamui-wan-v2-2-5b-fast';
-      const taskId = options.taskId;
+      const safeDefaults = {
+        aspect_ratio: '16:9',
+        resolution: '720p',
+        enable_safety_checker: true,
+        enable_prompt_expansion: true
+      };
 
-      // リトライロジック: 1MB未満エラーの場合は強化プロンプトで再試行
-      let retryCount = 0;
+      const sanitizedAspectRatio = sanitizeAspectRatio(aspect_ratio)
+        || safeDefaults.aspect_ratio
+        || (width && height ? normalizeAspectRatio(width, height) : '16:9');
+
+      const sanitizedResolution = sanitizeVideoResolution(resolution)
+        || safeDefaults.resolution
+        || deriveResolutionFromDimensions(width, height)
+        || '720p';
+
+      const userProvidedWidth = typeof width === 'number' && width > 0;
+      const userProvidedHeight = typeof height === 'number' && height > 0;
+      let userProvidedDimensions = userProvidedWidth && userProvidedHeight;
+
+      let resolvedWidth = userProvidedWidth ? ensureEvenDimension(width) : null;
+      let resolvedHeight = userProvidedHeight ? ensureEvenDimension(height) : null;
+
+      if (!resolvedWidth || !resolvedHeight) {
+        const derived = deriveDimensionsFromAspect(sanitizedAspectRatio, sanitizedResolution);
+        if (!resolvedWidth) resolvedWidth = derived.width;
+        if (!resolvedHeight) resolvedHeight = derived.height;
+      }
+
+      if (userProvidedDimensions) {
+        const providedAspect = width / height;
+        const normalizedProvidedAspect = Math.round((providedAspect + Number.EPSILON) * 100) / 100;
+        const normalizedTargetAspect = sanitizedAspectRatio === '16:9'
+          ? Math.round((16 / 9 + Number.EPSILON) * 100) / 100
+          : sanitizedAspectRatio === '9:16'
+            ? Math.round((9 / 16 + Number.EPSILON) * 100) / 100
+            : 1;
+
+        if (Math.abs(normalizedProvidedAspect - normalizedTargetAspect) > 0.05) {
+          console.warn('⚠️ Ignoring width/height due to aspect mismatch with sanitized aspect ratio', {
+            provided: { width, height },
+            sanitizedAspectRatio
+          });
+          userProvidedDimensions = false;
+        }
+      }
+
+      const duration = typeof rawDuration === 'number' && rawDuration > 0 ? rawDuration : 3;
+      const resolvedSeed = typeof seed === 'number' ? Math.floor(seed) : Math.floor(Math.random() * 1000000);
+      const resolvedSafetyChecker = enable_safety_checker ?? safeDefaults.enable_safety_checker;
+      const resolvedPromptExpansion = enable_prompt_expansion ?? safeDefaults.enable_prompt_expansion;
+      const resolvedFramesPerSecond = typeof frames_per_second === 'number' && frames_per_second > 0
+        ? Math.round(frames_per_second)
+        : null;
+      const resolvedGuidanceScale = typeof guidance_scale === 'number' ? guidance_scale : null;
+
+      const enhancementMarker = 'smooth movements, high quality, detailed textures';
+      const alreadyEnhanced = typeof prompt === 'string' && prompt.includes(enhancementMarker);
+      let workingPrompt = alreadyEnhanced ? prompt : await this.enhancePrompt(prompt, 'video');
+
+      console.log(`🔍 Prepared video prompt: "${workingPrompt}"`);
+      console.log('🎞️ Video option snapshot:', {
+        aspect_ratio: sanitizedAspectRatio,
+        resolution: sanitizedResolution,
+        duration,
+        width: resolvedWidth,
+        height: resolvedHeight,
+        enable_safety_checker: resolvedSafetyChecker,
+        enable_prompt_expansion: resolvedPromptExpansion,
+        frames_per_second: resolvedFramesPerSecond,
+        guidance_scale: resolvedGuidanceScale,
+        seed: resolvedSeed
+      });
+
+      const serviceName = model || this.getDefaultServiceId('video');
       const maxRetries = 2;
+      let retryCount = 0;
+      let currentAspectRatio = sanitizedAspectRatio;
 
       while (retryCount <= maxRetries) {
         try {
-          const videoData = await this.callMCPVideoService(serviceName, {
-            prompt: enhancedPrompt,
-            aspect_ratio: "16:9",
-            resolution: "720p",
-            seed: Math.floor(Math.random() * 1000000)
-          }, taskId);
+          const requestParams = {
+            prompt: workingPrompt,
+            resolution: sanitizedResolution,
+            duration,
+            seed: resolvedSeed,
+            enable_safety_checker: resolvedSafetyChecker,
+            enable_prompt_expansion: resolvedPromptExpansion
+          };
+
+          if (currentAspectRatio) {
+            requestParams.aspect_ratio = currentAspectRatio;
+          }
+
+          if (userProvidedDimensions) {
+            requestParams.width = resolvedWidth;
+            requestParams.height = resolvedHeight;
+          }
+
+          if (negative_prompt) {
+            requestParams.negative_prompt = negative_prompt;
+          }
+
+          if (resolvedFramesPerSecond) {
+            requestParams.frames_per_second = resolvedFramesPerSecond;
+          }
+
+          if (resolvedGuidanceScale !== null) {
+            requestParams.guidance_scale = resolvedGuidanceScale;
+          }
+
+          const videoData = await this.callMCPVideoService(serviceName, requestParams, taskId);
 
           return {
             success: true,
@@ -842,21 +1251,37 @@ export class MCPClient {
               prompt: prompt,
               model: serviceName,
               timestamp: Date.now(),
-              retryCount: retryCount
+              retryCount,
+              width: resolvedWidth,
+              height: resolvedHeight,
+              duration,
+              aspect_ratio: currentAspectRatio || sanitizedAspectRatio,
+              resolution: sanitizedResolution,
+              seed: resolvedSeed,
+              frames_per_second: resolvedFramesPerSecond,
+              guidance_scale: resolvedGuidanceScale,
+              enable_safety_checker: resolvedSafetyChecker,
+              enable_prompt_expansion: resolvedPromptExpansion
             }
           };
 
         } catch (error) {
-          if (retryCount < maxRetries && error.message.includes('file size is too small, minimum 1MB required')) {
+          if (currentAspectRatio && typeof error.message === 'string' && error.message.toLowerCase().includes('aspect_ratio')) {
+            console.warn('⚠️ Aspect ratio rejected by service, retrying without aspect_ratio parameter');
+            currentAspectRatio = null;
+            continue;
+          }
+
+          if (retryCount < maxRetries && typeof error.message === 'string' && error.message.includes('file size is too small, minimum 1MB required')) {
             retryCount++;
             console.log(`🔄 Retry ${retryCount}/${maxRetries}: Enhancing prompt for 1MB+ video generation`);
 
-            // プロンプトをさらに強化（長い、詳細な映像のためのキーワード追加）
-            enhancedPrompt = enhancedPrompt + ', longer duration scenes, complex movements, multiple camera angles, rich textures, detailed backgrounds, smooth transitions, extended sequences, comprehensive storytelling, intricate details, elaborate cinematography, dynamic lighting changes, varied compositions, professional video production, high bitrate, detailed rendering';
+            workingPrompt = `${workingPrompt}, longer duration scenes, complex movements, multiple camera angles, rich textures, detailed backgrounds, smooth transitions, extended sequences, comprehensive storytelling, intricate details, elaborate cinematography, dynamic lighting changes, varied compositions, professional video production, high bitrate, detailed rendering`;
 
-            console.log(`🎬 Enhanced retry prompt: "${enhancedPrompt}"`);
+            console.log(`🎬 Enhanced retry prompt: "${workingPrompt}"`);
             continue;
           }
+
           throw error;
         }
       }
@@ -887,11 +1312,7 @@ export class MCPClient {
     const webPath = `${this.serverUrl}/generated/${filename}`;
     
     // MCP設定ファイルから設定を読み込み
-    let mcpConfig = {};
-    if (fs.existsSync(this.mcpConfigPath)) {
-      const configData = fs.readFileSync(this.mcpConfigPath, 'utf8');
-      mcpConfig = JSON.parse(configData);
-    }
+    const mcpConfig = this.loadMcpConfig();
     
     // サービス設定を取得
     const serverConfig = mcpConfig.mcpServers?.[serviceName];
@@ -907,7 +1328,7 @@ export class MCPClient {
       const { Client } = await import('@modelcontextprotocol/sdk/client/index.js');
       
       const client = new Client({
-        name: "chocodro-client",
+        name: "chocodrop-client",
         version: "1.0.0"
       }, {
         capabilities: {}
@@ -931,14 +1352,30 @@ export class MCPClient {
       }
       
       console.log(`🎯 Step 1: Submitting video with tool: ${submitTool.name}`);
+      const submitArgs = {
+        prompt: parameters.prompt,
+        resolution: parameters.resolution,
+        seed: parameters.seed,
+        enable_safety_checker: parameters.enable_safety_checker,
+        enable_prompt_expansion: parameters.enable_prompt_expansion
+      };
+
+      if (parameters.aspect_ratio) {
+        submitArgs.aspect_ratio = parameters.aspect_ratio;
+      }
+
+      if (parameters.duration) submitArgs.duration = parameters.duration;
+      if (parameters.width) submitArgs.width = parameters.width;
+      if (parameters.height) submitArgs.height = parameters.height;
+      if (parameters.negative_prompt) submitArgs.negative_prompt = parameters.negative_prompt;
+      if (parameters.frames_per_second) submitArgs.frames_per_second = parameters.frames_per_second;
+      if (parameters.guidance_scale !== undefined && parameters.guidance_scale !== null) {
+        submitArgs.guidance_scale = parameters.guidance_scale;
+      }
+
       const submitResult = await client.callTool({
         name: submitTool.name,
-        arguments: {
-          prompt: parameters.prompt,
-          aspect_ratio: parameters.aspect_ratio,
-          resolution: parameters.resolution,
-          seed: parameters.seed
-        }
+        arguments: submitArgs
       });
       
       console.log('📤 Video submit result:', submitResult);
@@ -1117,11 +1554,20 @@ export class MCPClient {
         throw new Error(resultResult.content?.[0]?.text || 'Video generation failed');
       }
       
+      let videoDownloaded = false;
+      let lastTextMessage = null;
+
       // 結果処理
       if (resultResult.content && Array.isArray(resultResult.content)) {
         for (const content of resultResult.content) {
           if (content.type === 'text') {
             const text = content.text;
+            lastTextMessage = text;
+
+            const normalizedText = text.toLowerCase();
+            if (normalizedText.includes('failed to get result') || normalizedText.includes('invalid video url format')) {
+              throw new Error(text.trim());
+            }
             
             // JSON構造をチェック
             try {
@@ -1130,30 +1576,42 @@ export class MCPClient {
                 const videoUrl = jsonData.video_url;
                 console.log(`🎯 Found video URL: ${videoUrl}`);
                 await this.downloadAndSaveVideo(videoUrl, localPath);
+                videoDownloaded = true;
                 break;
               } else if (jsonData.video && jsonData.video.url) {
                 const videoUrl = jsonData.video.url;
                 console.log(`🎯 Found video URL (nested): ${videoUrl}`);
                 await this.downloadAndSaveVideo(videoUrl, localPath);
+                videoDownloaded = true;
                 break;
               } else if (jsonData.videos && Array.isArray(jsonData.videos) && jsonData.videos.length > 0) {
                 const videoUrl = jsonData.videos[0].url;
                 console.log(`🎯 Found video URL in array: ${videoUrl}`);
                 await this.downloadAndSaveVideo(videoUrl, localPath);
+                videoDownloaded = true;
                 break;
               }
             } catch (e) {
               // テキストの中に動画URLが含まれている可能性をチェック
-              const urlMatch = text.match(/https?:\/\/[^\s\)]+\.(mp4|avi|mov|webm)/i);
+              const urlMatch = text.match(/https?:\/\/[^\s\)]+/i);
               if (urlMatch) {
                 const videoUrl = urlMatch[0];
                 console.log(`🎯 Found video URL in text: ${videoUrl}`);
                 await this.downloadAndSaveVideo(videoUrl, localPath);
+                videoDownloaded = true;
                 break;
               }
             }
           }
         }
+      }
+
+      if (!videoDownloaded) {
+        console.error('❌ No video URL found in result payload');
+        if (lastTextMessage) {
+          throw new Error(lastTextMessage.trim());
+        }
+        throw new Error('Video result did not include a downloadable URL');
       }
       
       // 接続を閉じる
@@ -1234,11 +1692,7 @@ export class MCPClient {
     const webPath = `${this.serverUrl}/generated/${filename}`;
     
     // MCP設定ファイルから設定を読み込み
-    let mcpConfig = {};
-    if (fs.existsSync(this.mcpConfigPath)) {
-      const configData = fs.readFileSync(this.mcpConfigPath, 'utf8');
-      mcpConfig = JSON.parse(configData);
-    }
+    const mcpConfig = this.loadMcpConfig();
     
     // サービス設定を取得
     const serverConfig = mcpConfig.mcpServers?.[serviceName];
@@ -1254,7 +1708,7 @@ export class MCPClient {
       const { Client } = await import('@modelcontextprotocol/sdk/client/index.js');
       
       const client = new Client({
-        name: "chocodro-client",
+        name: "chocodrop-client",
         version: "1.0.0"
       }, {
         capabilities: {}
