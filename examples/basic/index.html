@@ -95,12 +95,18 @@
             renderer: renderer,
             // GitHub Pagesなので生成機能なし、インポートのみ
             serverUrl: null,
-            // 設定ダイアログをスキップ
-            skipServiceDialog: true,
             onControlsToggle: (disabled) => {
                 controls.enabled = !disabled;
             }
         });
+
+        // GitHub Pages用: サービス設定ダイアログを非表示
+        setTimeout(() => {
+            const serviceModal = document.querySelector('[style*="position: fixed"][style*="backdrop"]');
+            if (serviceModal) {
+                serviceModal.style.display = 'none';
+            }
+        }, 100);
         
         // Animation loop
         function animate() {
