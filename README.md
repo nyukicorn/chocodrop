@@ -25,9 +25,13 @@ Transform any Three.js scene into an AI-powered content studio:
 ## 🚀 始め方は簡単
 
 ### 1. HTMLを使っている場合（分からない場合はこちらをお試しください）
+```bash
+git clone https://github.com/nyukicorn/chocodrop.git
+```
+
 ```html
 <script src="https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@chocodrop/core@latest/dist/chocodrop.umd.min.js"></script>
+<script src="./chocodrop/dist/chocodrop.umd.min.js"></script>
 <script>
   // あなたの既存のThree.jsシーン
   const scene = new THREE.Scene();
@@ -36,17 +40,18 @@ Transform any Three.js scene into an AI-powered content studio:
 
   // ChocoDrop追加（1行だけ！）
   ChocoDrop.createChocoDrop(scene, { camera, renderer });
-  
 </script>
 ```
 
 ### 2. npm/Vite/Reactを使っている場合
 ```bash
-npm install @chocodrop/core
+git clone https://github.com/nyukicorn/chocodrop.git
+cd chocodrop
+npm install
 ```
 
 ```javascript
-import { createChocoDrop } from '@chocodrop/core';
+import { createChocoDrop } from './chocodrop/src/index.js';
 
 // あなたの既存のThree.jsシーン
 const scene = new THREE.Scene();
@@ -55,7 +60,6 @@ const renderer = new THREE.WebGLRenderer();
 
 // ChocoDrop追加（1行だけ！）
 createChocoDrop(scene, { camera, renderer });
-
 ```
 
 **それだけ！** 3D空間に向かって自然に話しかけるだけで、AIで画像や動画を生成して「ちょこっと」配置、インポートして「ちょこんと」設置できます。
