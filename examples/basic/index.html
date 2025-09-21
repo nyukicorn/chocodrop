@@ -100,12 +100,15 @@
             scene.add(leaves);
         }
 
-        // Add a few trees around the scene
+        // Add trees around the scene for a more natural forest feel
         createSimpleTree(-8, -5);
         createSimpleTree(6, -8);
         createSimpleTree(-12, 3);
         createSimpleTree(10, 7);
         createSimpleTree(0, -12);
+        createSimpleTree(-3, 2);   // center-left
+        createSimpleTree(4, -3);   // center-right
+        createSimpleTree(-6, -10); // back-left
         
         // Camera position
         camera.position.set(0, 5, 15);
