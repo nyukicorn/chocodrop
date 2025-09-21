@@ -41,8 +41,17 @@
     <script src="https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.170.0/examples/js/controls/OrbitControls.js"></script>
 
-    <!-- ChocoDrop UMD -->
+    <!-- ChocoDrop UMD (Three.js読み込み後) -->
     <script src="https://cdn.jsdelivr.net/npm/@chocodrop/core@latest/dist/chocodrop.umd.min.js"></script>
+
+    <script>
+        // Three.js読み込み確認
+        if (typeof THREE === 'undefined') {
+            console.error('THREE.js not loaded!');
+        } else {
+            console.log('THREE.js loaded successfully');
+        }
+    </script>
 
     <script>
         // Basic Three.js setup
