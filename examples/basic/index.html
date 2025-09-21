@@ -33,7 +33,7 @@
 <body>
     <div id="info">
         <strong>ChocoDrop - インポート機能デモ</strong><br>
-        Press <code>Space</code> でUI起動<br>
+        <code>@</code>キー または 右下の🍫アイコンクリックでUI起動<br>
         例: 画像URLを貼り付けて配置
     </div>
 
@@ -95,6 +95,8 @@
             renderer: renderer,
             // GitHub Pagesなので生成機能なし、インポートのみ
             serverUrl: null,
+            // 設定ダイアログをスキップ
+            skipServiceDialog: true,
             onControlsToggle: (disabled) => {
                 controls.enabled = !disabled;
             }
