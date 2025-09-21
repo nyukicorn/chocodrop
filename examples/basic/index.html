@@ -37,12 +37,12 @@
         例: 画像URLを貼り付けて配置
     </div>
 
-    <!-- Three.js (CDN script tag) -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r158/three.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r158/controls/OrbitControls.js"></script>
+    <!-- Three.js (確実に動くCDN) -->
+    <script src="https://threejs.org/build/three.min.js"></script>
+    <script src="https://threejs.org/examples/js/controls/OrbitControls.js"></script>
 
-    <!-- ChocoDrop UMD (ローカル) -->
-    <script src="../dist/chocodrop.umd.min.js"></script>
+    <!-- ChocoDrop UMD (正しいパス) -->
+    <script src="../../dist/chocodrop.umd.min.js"></script>
 
     <script>
         console.log('THREE loaded:', typeof THREE !== 'undefined');
