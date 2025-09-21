@@ -742,6 +742,7 @@ export class SceneManager {
       if (object.userData && (object.userData.type === 'generated_image' || object.userData.type === 'generated_video')) {
         // 移動可能なオブジェクトの場合はカーソルを変更
         canvas.style.cursor = 'move';
+
         this.lastHoveredObject = { onHoverExit: () => { canvas.style.cursor = 'default'; } };
         return;
       }
@@ -2394,51 +2395,257 @@ export class SceneManager {
     // 音声制御ボタンを作成
     const audioButton = document.createElement('div');
     audioButton.className = 'chocodrop-audio-control';
-    audioButton.innerHTML = '🔊'; // 初期状態：ミュート表示
-    audioButton.title = '音声のオン/オフ切り替え';
+    audioButton.innerHTML = '♪'; // 初期状態：音楽記号
+    // カスタムツールチップを作成（プロジェクトのデザインシステムに合わせて）
+    const createTooltip = () => {
+      const tooltip = document.createElement('div');
+      tooltip.className = 'chocodrop-audio-tooltip';
+      tooltip.textContent = '音声のオン/オフ切り替え';
+      tooltip.style.cssText = `
+        position: absolute !important;
+        background: rgba(0, 0, 0, 0.85) !important;
+        backdrop-filter: blur(12px) !important;
+        -webkit-backdrop-filter: blur(12px) !important;
+        border: 1px solid rgba(255, 255, 255, 0.15) !important;
+        border-radius: 8px !important;
+        padding: 8px 12px !important;
+        color: white !important;
+        font-size: 11px !important;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+        font-weight: 500 !important;
+        white-space: nowrap !important;
+        pointer-events: none !important;
+        z-index: 1000000 !important;
+        opacity: 0 !important;
+        transform: translateY(-100%) translateX(-50%) !important;
+        transition: opacity 0.2s ease !important;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3) !important;
+        margin-bottom: 8px !important;
+      `;
+      return tooltip;
+    };
+
+    const tooltip = createTooltip();
+    document.body.appendChild(tooltip);
+
+    // 縦型音量スライダーを作成
+    const createVolumeSlider = () => {
+      const sliderContainer = document.createElement('div');
+      sliderContainer.className = 'chocodrop-volume-slider';
+      sliderContainer.style.cssText = `
+        position: absolute !important;
+        width: 30px !important;
+        height: 100px !important;
+        background: rgba(0, 0, 0, 0.85) !important;
+        backdrop-filter: blur(12px) !important;
+        -webkit-backdrop-filter: blur(12px) !important;
+        border: 1px solid rgba(255, 255, 255, 0.15) !important;
+        border-radius: 15px !important;
+        padding: 10px 8px !important;
+        z-index: 1000001 !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+        transition: opacity 0.2s ease !important;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3) !important;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: center !important;
+      `;
+
+      const slider = document.createElement('input');
+      slider.type = 'range';
+      slider.min = '0';
+      slider.max = '100';
+      slider.value = '100';
+      slider.style.cssText = `
+        width: 80px !important;
+        height: 12px !important;
+        background: rgba(255, 255, 255, 0.2) !important;
+        border-radius: 6px !important;
+        outline: none !important;
+        cursor: pointer !important;
+        -webkit-appearance: none !important;
+        appearance: none !important;
+        transform: rotate(-90deg) !important;
+        transform-origin: center !important;
+      `;
+
+      // WebKit用のスライダースタイル
+      const style = document.createElement('style');
+      style.textContent = `
+        .chocodrop-volume-slider input[type="range"]::-webkit-slider-track {
+          width: 6px;
+          height: 80px;
+          background: rgba(255, 255, 255, 0.2);
+          border-radius: 3px;
+        }
+        .chocodrop-volume-slider input[type="range"]::-webkit-slider-thumb {
+          -webkit-appearance: none;
+          width: 14px;
+          height: 14px;
+          background: white;
+          border-radius: 50%;
+          cursor: pointer;
+          box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+        }
+        .chocodrop-volume-slider input[type="range"]::-moz-range-track {
+          width: 6px;
+          height: 80px;
+          background: rgba(255, 255, 255, 0.2);
+          border-radius: 3px;
+          border: none;
+        }
+        .chocodrop-volume-slider input[type="range"]::-moz-range-thumb {
+          width: 14px;
+          height: 14px;
+          background: white;
+          border-radius: 50%;
+          cursor: pointer;
+          border: none;
+          box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+        }
+      `;
+      document.head.appendChild(style);
+
+      // スライダーのスタイルをカスタマイズ
+      slider.addEventListener('input', (e) => {
+        const value = e.target.value;
+        videoElement.volume = value / 100;
+
+        // アイコンを音量に応じて変更
+        if (value == 0) {
+          audioButton.innerHTML = '<span style="position: relative;">♪<span style="position: absolute; top: 0; left: 0; color: #8b5cf6; font-size: 14px;">⃠</span></span>';
+          audioButton.style.background = 'rgba(99, 102, 241, 0.6) !important';
+          audioButton.title = 'ミュート中';
+        } else {
+          audioButton.innerHTML = '♪';
+          audioButton.style.background = 'rgba(0, 0, 0, 0.4) !important';
+          audioButton.style.color = 'white !important';
+          audioButton.title = '音声ON';
+        }
+      });
+
+      sliderContainer.appendChild(slider);
+      return sliderContainer;
+    };
+
+    const volumeSlider = createVolumeSlider();
+    document.body.appendChild(volumeSlider);
 
     audioButton.style.cssText = `
       position: absolute !important;
-      width: 40px !important;
-      height: 40px !important;
-      background: rgba(0, 0, 0, 0.8) !important;
-      border: 2px solid rgba(255, 255, 255, 0.4) !important;
+      width: 18px !important;
+      height: 18px !important;
+      background: rgba(0, 0, 0, 0.4) !important;
+      border: 1px solid rgba(255, 255, 255, 0.3) !important;
       border-radius: 50% !important;
       color: white !important;
-      font-size: 18px !important;
+      font-size: 9px !important;
       cursor: pointer !important;
       display: flex !important;
       align-items: center !important;
       justify-content: center !important;
       z-index: 999999 !important;
-      transition: all 0.3s ease !important;
+      transition: all 0.2s ease !important;
       user-select: none !important;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.3) !important;
-      backdrop-filter: blur(10px) !important;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.2) !important;
+      backdrop-filter: blur(8px) !important;
       pointer-events: auto !important;
+      opacity: 1 !important;
     `;
 
-    // ホバー効果
+    let isSliderVisible = false;
+
+    // ホバー効果とスライダー表示
     audioButton.addEventListener('mouseenter', () => {
-      audioButton.style.background = 'rgba(0, 0, 0, 0.9)';
-      audioButton.style.transform = 'scale(1.1)';
-      audioButton.style.borderColor = 'rgba(255, 255, 255, 0.6)';
+      audioButton.style.background = 'rgba(0, 0, 0, 0.7)';
+      audioButton.style.transform = 'scale(1.05)';
+      audioButton.style.borderColor = 'rgba(255, 255, 255, 0.5)';
+
+      if (!isSliderVisible) {
+        // ツールチップを表示
+        const buttonRect = audioButton.getBoundingClientRect();
+        tooltip.style.left = `${buttonRect.left + buttonRect.width / 2}px`;
+        tooltip.style.top = `${buttonRect.top - 8}px`;
+        tooltip.style.opacity = '1';
+      }
     });
 
     audioButton.addEventListener('mouseleave', () => {
-      audioButton.style.background = 'rgba(0, 0, 0, 0.8)';
+      audioButton.style.background = 'rgba(0, 0, 0, 0.5)';
       audioButton.style.transform = 'scale(1.0)';
       audioButton.style.borderColor = 'rgba(255, 255, 255, 0.4)';
+
+      // ツールチップを非表示
+      tooltip.style.opacity = '0';
     });
 
-    // クリックイベント：音声の再生/停止切り替え
+    // 左クリック：ミュートのオン/オフ切り替え
     audioButton.addEventListener('click', (e) => {
       e.stopPropagation();
-      this.toggleVideoAudio(videoObject, audioButton);
+
+      // スライダーが表示されている場合は閉じる
+      if (isSliderVisible) {
+        isSliderVisible = false;
+        volumeSlider.style.opacity = '0';
+        volumeSlider.style.pointerEvents = 'none';
+        return;
+      }
+
+      // ミュート切り替え
+      if (videoElement.muted || videoElement.volume === 0) {
+        videoElement.muted = false;
+        videoElement.volume = volumeSlider.querySelector('input').value / 100;
+        audioButton.innerHTML = '♪';
+        audioButton.style.background = 'rgba(0, 0, 0, 0.4) !important';
+        audioButton.style.color = 'white !important';
+        audioButton.title = '音声ON';
+      } else {
+        videoElement.muted = true;
+        audioButton.innerHTML = '<span style="position: relative;">♪<span style="position: absolute; top: 0; left: 0; color: #8b5cf6; font-size: 14px;">⃠</span></span>';
+        audioButton.style.background = 'rgba(99, 102, 241, 0.6) !important';
+        audioButton.title = 'ミュート中';
+      }
+    });
+
+    // 右クリック：音量スライダーの表示/非表示切り替え
+    audioButton.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      isSliderVisible = !isSliderVisible;
+
+      if (isSliderVisible) {
+        // スライダーを表示
+        const buttonRect = audioButton.getBoundingClientRect();
+        volumeSlider.style.left = `${buttonRect.left + buttonRect.width / 2 - 15}px`;
+        volumeSlider.style.top = `${buttonRect.top - 110}px`;
+        volumeSlider.style.opacity = '1';
+        volumeSlider.style.pointerEvents = 'auto';
+
+        // ツールチップを非表示
+        tooltip.style.opacity = '0';
+      } else {
+        // スライダーを非表示
+        volumeSlider.style.opacity = '0';
+        volumeSlider.style.pointerEvents = 'none';
+      }
+    });
+
+    // 外側クリックでスライダーを閉じる
+    document.addEventListener('click', (e) => {
+      if (isSliderVisible && !audioButton.contains(e.target) && !volumeSlider.contains(e.target)) {
+        isSliderVisible = false;
+        volumeSlider.style.opacity = '0';
+        volumeSlider.style.pointerEvents = 'none';
+      }
     });
 
     // ページに追加
     document.body.appendChild(audioButton);
+
+    // 音量ボタンは常時表示（非表示機能を削除）
 
     // 動画オブジェクトに音声制御ボタンを関連付け
     videoObject.userData.audioControlElement = audioButton;

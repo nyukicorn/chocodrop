@@ -100,11 +100,18 @@
             }
         });
 
-        // GitHub Pages用: サービス設定ダイアログを非表示
+        // GitHub Pages用: サービス設定ダイアログを非表示 + UIサイズ調整
         setTimeout(() => {
             const serviceModal = document.querySelector('[style*="position: fixed"][style*="backdrop"]');
             if (serviceModal) {
                 serviceModal.style.display = 'none';
+            }
+            
+            // UIフォームを小さくする
+            const uiContainer = document.querySelector('[style*="width: 450px"]');
+            if (uiContainer) {
+                uiContainer.style.width = '300px';
+                uiContainer.style.maxWidth = '300px';
             }
         }, 100);
         
