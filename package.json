@@ -47,7 +47,7 @@
     "@types/three": "^0.170.0"
   },
   "peerDependencies": {
-    "three": "^0.170.0"
+    "three": ">=0.170.0 <0.181.0"
   },
   "engines": {
     "node": ">=16.0.0"
