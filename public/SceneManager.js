@@ -14,6 +14,7 @@ export class SceneManager {
     this.scene = scene;
     this.camera = options.camera || null;
     this.renderer = options.renderer || null;
+    this.labelRenderer = null; // CSS2DRenderer for UI overlays like audio controls
     // ChocoDrop Client（共通クライアント注入を優先）
     // 外部フォルダから共有する場合は options.client でクライアントを再利用
     this.client = options.client || new ChocoDropClient(options.serverUrl);
@@ -1389,7 +1390,7 @@ export class SceneManager {
         video.src = videoResult.videoUrl;
         video.crossOrigin = 'anonymous';
         video.loop = true;
-        video.muted = true;
+        video.muted = true; // 初期はミュート（ユーザーが手動で音声制御）
         video.playsInline = true;
         
         // 動画テクスチャを作成
@@ -1462,8 +1463,12 @@ export class SceneManager {
         videoUrl: videoResult.videoUrl,
         modelName: videoResult.modelName || this.selectedVideoService || null,
         width: requestedWidth,
-        height: requestedHeight
+        height: requestedHeight,
+        videoElement: video // video要素の参照を保存
       };
+
+      // 音声制御UIを作成
+      this.createAudioControl(plane);
       
       this.experimentGroup.add(plane);
       this.spawnedObjects.set(objectId, plane);
@@ -1668,7 +1673,10 @@ export class SceneManager {
         videoElement: video,
         objectUrl: fileUrl
       };
-      
+
+      // 音声制御UIを作成
+      this.createAudioControl(plane);
+
       this.experimentGroup.add(plane);
       this.spawnedObjects.set(objectId, plane);
       
@@ -2362,6 +2370,184 @@ export class SceneManager {
 
 
 
+
+  /**
+   * 音声制御UIを作成
+   */
+  async createAudioControl(videoObject) {
+    const videoElement = videoObject.userData.videoElement;
+    if (!videoElement) return;
+
+    // CSS2DRenderer初期化完了まで待機
+    await this.ensureCSS2DRenderer();
+
+    // 音声制御ボタンをThree.jsのCSS2DObjectとして作成
+    const audioButton = document.createElement('div');
+    audioButton.className = 'audio-control-button';
+    audioButton.innerHTML = '🔊'; // 初期状態：音声ありマーク
+    audioButton.style.cssText = `
+      position: relative;
+      width: 32px;
+      height: 32px;
+      background: rgba(0, 0, 0, 0.7);
+      border: none;
+      border-radius: 50%;
+      color: white;
+      font-size: 16px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0.8;
+      transition: all 0.3s ease;
+      pointer-events: auto;
+      user-select: none;
+    `;
+
+    // ホバー効果
+    audioButton.addEventListener('mouseenter', () => {
+      audioButton.style.opacity = '1.0';
+      audioButton.style.transform = 'scale(1.1)';
+    });
+
+    audioButton.addEventListener('mouseleave', () => {
+      audioButton.style.opacity = '0.8';
+      audioButton.style.transform = 'scale(1.0)';
+    });
+
+    // クリックイベント：音声の再生/停止切り替え
+    audioButton.addEventListener('click', (e) => {
+      e.stopPropagation(); // 他のクリックイベントを阻止
+      this.toggleVideoAudio(videoObject, audioButton);
+    });
+
+    // Three.jsのCSS2DObjectとして作成
+    if (window.THREE && window.THREE.CSS2DObject) {
+      const labelObject = new THREE.CSS2DObject(audioButton);
+      labelObject.position.set(3, 2, 0); // 動画の右上に配置
+      videoObject.add(labelObject);
+
+      // 動画オブジェクトに音声制御ボタンを関連付け
+      videoObject.userData.audioControl = labelObject;
+      videoObject.userData.audioControlElement = audioButton;
+    }
+
+    console.log('🔊 Audio control created for video:', videoObject.userData.id);
+  }
+
+  /**
+   * 動画音声の再生/停止を切り替え
+   */
+  toggleVideoAudio(videoObject, audioButton) {
+    const videoElement = videoObject.userData.videoElement;
+    if (!videoElement) return;
+
+    if (videoElement.muted) {
+      // ミュート解除：音声再生
+      videoElement.muted = false;
+      audioButton.innerHTML = '🔈'; // 音声再生中マーク
+      console.log('🔊 Audio enabled for video:', videoObject.userData.id);
+    } else {
+      // ミュート：音声停止
+      videoElement.muted = true;
+      audioButton.innerHTML = '🔊'; // 音声ありマーク
+      console.log('🔇 Audio muted for video:', videoObject.userData.id);
+    }
+  }
+
+  /**
+   * CSS2DRenderer初期化（音声制御UIなどの表示に必要）
+   */
+  initializeLabelRenderer() {
+    if (this.labelRenderer) {
+      return; // 既に初期化済み
+    }
+
+    // CSS2DRendererを動的に読み込んで初期化
+    this.loadAndInitializeCSS2DRenderer();
+  }
+
+  /**
+   * CSS2DRendererの動的読み込みと初期化
+   */
+  async loadAndInitializeCSS2DRenderer() {
+    try {
+      // CSS2DRendererが既に利用可能な場合
+      if (window.THREE && window.THREE.CSS2DRenderer) {
+        this.setupCSS2DRenderer();
+        return;
+      }
+
+      // Three.jsのCSS2DRendererを動的に読み込み
+      console.log('🏷️ Loading CSS2DRenderer dynamically...');
+
+      // CDNからCSS2DRendererを読み込み
+      const module = await import('https://unpkg.com/three@0.158.0/examples/jsm/renderers/CSS2DRenderer.js');
+
+      // グローバルに設定
+      if (!window.THREE) window.THREE = {};
+      window.THREE.CSS2DRenderer = module.CSS2DRenderer;
+      window.THREE.CSS2DObject = module.CSS2DObject;
+
+      console.log('✅ CSS2DRenderer loaded successfully');
+      this.setupCSS2DRenderer();
+
+    } catch (error) {
+      console.warn('⚠️ Failed to load CSS2DRenderer:', error);
+      console.warn('🔧 Audio controls will not be visible. Please include CSS2DRenderer in your project.');
+    }
+  }
+
+  /**
+   * CSS2DRendererのセットアップ
+   */
+  setupCSS2DRenderer() {
+    try {
+      this.labelRenderer = new window.THREE.CSS2DRenderer();
+      this.labelRenderer.setSize(window.innerWidth, window.innerHeight);
+      this.labelRenderer.domElement.style.position = 'absolute';
+      this.labelRenderer.domElement.style.top = '0px';
+      this.labelRenderer.domElement.style.pointerEvents = 'none';
+
+      // メインレンダラーのコンテナに追加
+      if (this.renderer && this.renderer.domElement.parentNode) {
+        this.renderer.domElement.parentNode.appendChild(this.labelRenderer.domElement);
+      } else {
+        document.body.appendChild(this.labelRenderer.domElement);
+      }
+
+      console.log('🏷️ CSS2DRenderer initialized for UI overlays');
+
+      // リサイズハンドラーを追加
+      this.addLabelRendererResizeHandler();
+
+    } catch (error) {
+      console.warn('⚠️ Failed to setup CSS2DRenderer:', error);
+    }
+  }
+
+  /**
+   * CSS2DRendererのリサイズハンドラー追加
+   */
+  addLabelRendererResizeHandler() {
+    if (!this.labelRendererResizeHandler) {
+      this.labelRendererResizeHandler = () => {
+        if (this.labelRenderer) {
+          this.labelRenderer.setSize(window.innerWidth, window.innerHeight);
+        }
+      };
+      window.addEventListener('resize', this.labelRendererResizeHandler);
+    }
+  }
+
+  /**
+   * レンダリング更新（アニメーションループで呼び出し）
+   */
+  updateRenderer() {
+    if (this.labelRenderer && this.scene && this.camera) {
+      this.labelRenderer.render(this.scene, this.camera);
+    }
+  }
 
   logDebug(...args) {
     if (!this.config.enableDebugLogging) {
