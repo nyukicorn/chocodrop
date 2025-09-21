@@ -24,7 +24,7 @@ Transform any Three.js scene into an AI-powered content studio:
 
 ## 🚀 始め方は簡単
 
-### 分からない場合 → こっちでOK
+### 1. HTMLを使っている場合（分からない場合はこちらをお試しください）
 ```html
 <script src="https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@chocodrop/core@latest/dist/chocodrop.umd.min.js"></script>
@@ -37,11 +37,10 @@ Transform any Three.js scene into an AI-powered content studio:
   // ChocoDrop追加（1行だけ！）
   ChocoDrop.createChocoDrop(scene, { camera, renderer });
   
-  // Spaceキーを押して「猫を置いて」と言うだけ！
 </script>
 ```
 
-### npm/Vite/React使ってる場合
+### 2. npm/Vite/Reactを使っている場合
 ```bash
 npm install @chocodrop/core
 ```
@@ -57,10 +56,9 @@ const renderer = new THREE.WebGLRenderer();
 // ChocoDrop追加（1行だけ！）
 createChocoDrop(scene, { camera, renderer });
 
-// Spaceキーを押して「猫を置いて」と言うだけ！
 ```
 
-**それだけ！** 3D空間に向かって自然に話しかけるだけで、AIが画像を生成して配置します。
+**それだけ！** 3D空間に向かって自然に話しかけるだけで、AIで画像や動画を生成して「ちょこっと」配置、インポートして「ちょこんと」設置できます。
 
 ---
 
@@ -174,7 +172,6 @@ function Scene() {
 ```javascript
 "Add a dragon in the top-right"     // → AI generates dragon + places top-right
 "Place cherry blossoms in center"   // → Cherry blossoms appear in center
-"Create a magical forest"           // → Forest background generation
 "Make it bigger"                    // → Scale up selected object
 "Delete everything"                 // → Clear all generated content
 ```
@@ -183,7 +180,6 @@ function Scene() {
 ```javascript
 "ドラゴンを右上に作って"              // → AI generates dragon + places top-right
 "桜を中央に配置"                    // → Cherry blossoms appear in center
-"背景に森を生成"                    // → Forest background generation
 "大きくして"                       // → Scale up selected object
 "全て削除"                         // → Clear all generated content
 ```
@@ -223,7 +219,7 @@ options: {
 await chocoDrop.client.generateImage('magical forest', {
   width: 1024,
   height: 1024,
-  service: 't2i-kamui-seedream-v4'
+  service: 't2i-service'
 });
 
 // Execute natural language commands
@@ -275,26 +271,7 @@ The server will start at `http://localhost:3011`
 
 ---
 
-## 🎮 AI Models Available
 
-| Model | Speed | Quality | Use Case |
-|-------|-------|---------|----------|
-| **Qwen Image** | ~1-2s | Good | Rapid prototyping |
-| **Imagen4 Fast** | ~8-12s | High | Balanced quality/speed |
-| **Seedream V4** | ~10-15s | Very High | Production content |
-| **Flux Schnell** | ~15-20s | Highest | Premium quality |
-
----
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
----
 
 ## 📄 License
 
@@ -305,10 +282,8 @@ MIT License - see [LICENSE](LICENSE) file for details.
 ## 🔗 Links
 
 - **GitHub:** https://github.com/nyukicorn/chocodrop
-- **npm:** https://www.npmjs.com/package/@chocodrop/core
 - **Examples:** [examples/](examples/)
 - **Issues:** [GitHub Issues](https://github.com/nyukicorn/chocodrop/issues)
 
 ---
 
-**Made with ❤️ for the Three.js community**
