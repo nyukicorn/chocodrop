@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ChocoDro - Basic Three.js Example</title>
+    <title>ChocoDrop - Basic Three.js Example</title>
     <style>
         body {
             margin: 0;
@@ -32,7 +32,7 @@
 </head>
 <body>
     <div id="info">
-        <strong>ChocoDro - Basic Example</strong><br>
+        <strong>ChocoDrop - Basic Example</strong><br>
         Press <code>@</code> to activate command interface<br>
         Example: "右上にドラゴンを作って"
     </div>
@@ -50,7 +50,7 @@
         import * as THREE from 'three';
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
         
-        // Import ChocoDro (adjust path as needed)
+        // Import ChocoDrop (adjust path as needed)
         // import { SceneManager, CommandUI } from '../src/index.js';
         
         // For this example, we'll use a simplified version
@@ -147,7 +147,7 @@
                 `;
                 
                 const header = document.createElement('h3');
-                header.textContent = '🧪 ChocoDro';
+                header.textContent = '🧪 ChocoDrop';
                 header.style.margin = '0 0 10px 0';
                 header.style.color = '#4a90e2';
                 
@@ -298,7 +298,7 @@
         controls.enableDamping = true;
         controls.dampingFactor = 0.05;
         
-        // Initialize ChocoDro System
+        // Initialize ChocoDrop System
         const sceneManager = new BasicSceneManager(scene, camera);
         const commandUI = new BasicCommandUI(sceneManager);
         
@@ -318,7 +318,7 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
         });
         
-        console.log('🎮 Basic Three.js + ChocoDro example loaded');
+        console.log('🎮 Basic Three.js + ChocoDrop example loaded');
         console.log('Press @ to activate command interface');
     </script>
 </body>

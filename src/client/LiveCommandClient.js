@@ -1,7 +1,7 @@
 /**
- * ChocoDro Client - サーバーとの通信クライアント
+ * ChocoDrop Client - サーバーとの通信クライアント
  */
-export class ChocoDroClient {
+export class ChocoDropClient {
   constructor(serverUrl = null) {
     this.serverUrl = null;
     this.initialized = false;
@@ -10,7 +10,7 @@ export class ChocoDroClient {
     if (serverUrl) {
       this.serverUrl = serverUrl;
       this.initialized = true;
-      console.log('🍫 ChocoDroClient initialized:', serverUrl);
+      console.log('🍫 ChocoDropClient initialized:', serverUrl);
     } else {
       // 設定取得を遅延実行（Promiseを保存）
       this.initPromise = this.initializeWithConfig();
@@ -29,14 +29,14 @@ export class ChocoDroClient {
       if (response.ok) {
         const config = await response.json();
         this.serverUrl = config.serverUrl;
-        console.log('🍫 ChocoDroClient initialized from config:', this.serverUrl);
+        console.log('🍫 ChocoDropClient initialized from config:', this.serverUrl);
       } else {
         // フォールバック：ポート推測
         this.serverUrl = this.detectServerUrl();
-        console.log('🍫 ChocoDroClient fallback to detected URL:', this.serverUrl);
+        console.log('🍫 ChocoDropClient fallback to detected URL:', this.serverUrl);
       }
     } catch (error) {
-      console.warn('⚠️ ChocoDro config fetch failed, using fallback:', error);
+      console.warn('⚠️ ChocoDrop config fetch failed, using fallback:', error);
       this.serverUrl = this.detectServerUrl();
     }
 
@@ -50,11 +50,6 @@ export class ChocoDroClient {
     const currentPort = window.location.port;
     const protocol = window.location.protocol;
     const hostname = window.location.hostname;
-
-    // フロントエンドがポート3000で動作する開発環境では、サーバーを3012に置くケースが一般的
-    if (currentPort === '3000') {
-      return `${protocol}//${hostname}:3012`;
-    }
 
     // ポートが未指定の場合（ファイルプロトコル等）は既定の 3011 を使用
     if (!currentPort) {
@@ -77,7 +72,7 @@ export class ChocoDroClient {
     }
 
     // フォールバック：初期化されていない場合はエラー
-    throw new Error('ChocoDroClient not initialized');
+    throw new Error('ChocoDropClient not initialized');
   }
 
   /**
@@ -88,17 +83,22 @@ export class ChocoDroClient {
     console.log(`🎨 Requesting image generation: "${prompt}"`);
 
     try {
+      const payload = {
+        prompt,
+        width: options.width || 512,
+        height: options.height || 512
+      };
+
+      if (options.service) {
+        payload.service = options.service;
+      }
+
       const response = await fetch(`${this.serverUrl}/api/generate`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          prompt,
-          width: options.width || 512,
-          height: options.height || 512,
-          // service: サーバー側のDEFAULT_MODELを使用（Seedream V4）
-        })
+        body: JSON.stringify(payload)
       });
 
       if (!response.ok) {
@@ -124,18 +124,56 @@ export class ChocoDroClient {
     console.log(`🎬 Requesting video generation: "${prompt}"`);
 
     try {
+      const safeDefaults = {
+        aspect_ratio: '16:9',
+        resolution: '720p',
+        enable_safety_checker: true,
+        enable_prompt_expansion: true
+      };
+
+      const payload = {
+        prompt,
+        duration: typeof options.duration === 'number' && options.duration > 0 ? options.duration : 3,
+        aspect_ratio: options.aspect_ratio || safeDefaults.aspect_ratio,
+        resolution: options.resolution || safeDefaults.resolution,
+        enable_safety_checker: options.enable_safety_checker ?? safeDefaults.enable_safety_checker,
+        enable_prompt_expansion: options.enable_prompt_expansion ?? safeDefaults.enable_prompt_expansion
+      };
+
+      if (options.model) {
+        payload.model = options.model;
+      }
+
+      if (typeof options.width === 'number' && options.width > 0) {
+        payload.width = options.width;
+      }
+
+      if (typeof options.height === 'number' && options.height > 0) {
+        payload.height = options.height;
+      }
+
+      if (typeof options.seed === 'number') {
+        payload.seed = options.seed;
+      }
+
+      if (options.negative_prompt) {
+        payload.negative_prompt = options.negative_prompt;
+      }
+
+      if (typeof options.frames_per_second === 'number' && options.frames_per_second > 0) {
+        payload.frames_per_second = options.frames_per_second;
+      }
+
+      if (typeof options.guidance_scale === 'number') {
+        payload.guidance_scale = options.guidance_scale;
+      }
+
       const response = await fetch(`${this.serverUrl}/api/generate-video`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          prompt,
-          width: options.width || 512,
-          height: options.height || 512,
-          duration: options.duration || 3
-          // model: サーバー側の設定を使用（image generationと同じパターン）
-        })
+        body: JSON.stringify(payload)
       });
 
       if (!response.ok) {
@@ -206,4 +244,5 @@ export class ChocoDroClient {
 }
 
 // 後方互換のため旧名称もエクスポート
-export const LiveCommandClient = ChocoDroClient;
+export const LiveCommandClient = ChocoDropClient;
+export const ChocoDroClient = ChocoDropClient;

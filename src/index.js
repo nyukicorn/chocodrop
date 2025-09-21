@@ -1,22 +1,24 @@
 /**
- * ChocoDro - Client entry point
+ * ChocoDrop - Client entry point
  * Browser-compatible components only
  */
 
 // Client-side components (browser-compatible)
-import { ChocoDroClient, LiveCommandClient } from './client/LiveCommandClient.js';
+import { ChocoDropClient, ChocoDroClient, LiveCommandClient } from './client/LiveCommandClient.js';
 import { SceneManager } from './client/SceneManager.js';
 import { CommandUI } from './client/CommandUI.js';
-import { createChocoDro, createLiveCommand } from './client/bootstrap.js';
+import { createChocoDrop, createChocoDro, createLiveCommand } from './client/bootstrap.js';
 
-export { ChocoDroClient, SceneManager, CommandUI, createChocoDro };
+export { ChocoDropClient, ChocoDroClient, SceneManager, CommandUI, createChocoDrop, createChocoDro };
 export { LiveCommandClient, createLiveCommand };
 
 // ブラウザコンソールから直接アクセスできるようにグローバルへ公開（デバッグ用途）
 if (typeof globalThis !== 'undefined') {
   globalThis.SceneManager = SceneManager;
   globalThis.CommandUI = CommandUI;
-  globalThis.ChocoDroClient = ChocoDroClient;
+  globalThis.ChocoDropClient = ChocoDropClient;
+  globalThis.ChocoDroClient = ChocoDroClient; // backward compatibility alias
+  globalThis.createChocoDrop = createChocoDrop;
   globalThis.createChocoDro = createChocoDro;
   // backwards compatibility
   globalThis.LiveCommandClient = LiveCommandClient;
@@ -38,8 +40,8 @@ if (typeof globalThis !== 'undefined') {
  * @typedef {Object} SceneManagerOptions
  * @property {THREE.Camera} [camera] - Three.js camera for relative positioning
  * @property {THREE.WebGLRenderer} [renderer] - Renderer reference for mouse interaction
- * @property {string} [serverUrl] - ChocoDro Server URL
- * @property {ChocoDroClient} [client] - Shared client instance
+ * @property {string} [serverUrl] - ChocoDrop Server URL
+ * @property {ChocoDropClient} [client] - Shared client instance
  * @property {boolean} [showLocationIndicator] - Show visual indicators
  * @property {number} [indicatorDuration] - Indicator display duration (ms)
  * @property {number} [defaultObjectScale] - Default object scale
@@ -48,7 +50,7 @@ if (typeof globalThis !== 'undefined') {
 /**
  * @typedef {Object} CommandUIOptions
  * @property {SceneManager} [sceneManager] - Scene manager instance
- * @property {ChocoDroClient} [client] - HTTP client instance
+ * @property {ChocoDropClient} [client] - HTTP client instance
  * @property {Function} [onControlsToggle] - Controls toggle callback
  * @property {string} [activationKey] - UI activation key
  * @property {string} [position] - UI position (bottom-right, bottom-left, etc.)
@@ -57,11 +59,11 @@ if (typeof globalThis !== 'undefined') {
  */
 
 /**
- * @typedef {Object} CreateChocoDroOptions
+ * @typedef {Object} CreateChocoDropOptions
  * @property {THREE.Camera} [camera] - シーンに使用するカメラ
  * @property {THREE.WebGLRenderer} [renderer] - マウス操作を有効化するレンダラー
- * @property {string} [serverUrl] - ChocoDro サーバーの URL
- * @property {ChocoDroClient} [client] - 共有クライアントを再利用する場合
+ * @property {string} [serverUrl] - ChocoDrop サーバーの URL
+ * @property {ChocoDropClient} [client] - 共有クライアントを再利用する場合
  * @property {Function} [onControlsToggle] - UI 表示時にカメラ操作を切り替えるコールバック
  * @property {Object} [sceneOptions] - SceneManager へ渡す追加オプション
  * @property {Object} [uiOptions] - CommandUI へ渡す追加オプション

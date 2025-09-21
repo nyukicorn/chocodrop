@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ChocoDro Server</title>
+    <title>ChocoDrop Server</title>
     <style>
         :root {
             --primary-color: #4f46e5;
@@ -348,9 +348,9 @@
 </head>
 <body>
     <div class="header">
-        <h1>🌉 ChocoDro Server</h1>
-        <p>Real-time AI image generation and 3D scene integration</p>
-        <p><strong>Server Status:</strong> <span id="serverStatus">🟡 Checking...</span></p>
+        <h1>🌉 ChocoDrop</h1>
+        <p>ちょこっと魔法で、思いを形に ✨</p>
+        <p><strong>Server Status:</strong> <span id="serverStatus">🟡 ちょこっと準備中...</span></p>
     </div>
     
     <div class="status" id="statusCards">
@@ -370,22 +370,22 @@
     
     <!-- Mode Selector -->
     <div class="mode-selector">
-        <button class="mode-btn active" data-mode="generate">🎨 Generate</button>
-        <button class="mode-btn" data-mode="modify">✏️ Modify</button>
-        <button class="mode-btn" data-mode="delete">🗑️ Delete</button>
+        <button class="mode-btn active" data-mode="generate">✨ ちょこっと魔法</button>
+        <button class="mode-btn" data-mode="modify">✏️ 変更</button>
+        <button class="mode-btn" data-mode="delete">🗑️ 削除</button>
     </div>
     
     <!-- Generate Mode -->
     <div id="generate-mode" class="mode-content active">
         <div class="api-section">
-            <h3 class="section-title">🎨 Generate New Objects</h3>
-            <p style="color: var(--text-secondary); margin-bottom: 24px;">Create new 3D objects in your scene using natural language or detailed prompts.</p>
+            <h3 class="section-title">✨ ちょこっと魔法をかける</h3>
+            <p style="color: var(--text-secondary); margin-bottom: 24px;">「右上にドラゴンを」「美しい桜の森」など、自由に表現してください</p>
             
             <div class="form-container">
                 <form id="generateForm">
                     <div class="form-group">
-                        <label for="generatePrompt">What do you want to create?</label>
-                        <input type="text" id="generatePrompt" placeholder="例: beautiful dragon in the sky, rainbow unicorn" required>
+                        <label for="generatePrompt">どんな世界を思い描いていますか？</label>
+                        <input type="text" id="generatePrompt" placeholder="「右上にドラゴンを」「美しい桜の森を中央に」など..." required>
                     </div>
                     
                     <div class="form-group">
@@ -396,7 +396,7 @@
                     </div>
                     
                     <button type="submit" class="primary-btn">
-                        <span class="btn-text">Generate Object</span>
+                        <span class="btn-text">ちょこっと魔法をかける ✨</span>
                     </button>
                 </form>
                 
@@ -459,6 +459,42 @@
     <script>
         let requestCount = 0;
 
+        // 自然な応答システム
+        function getResponseType(prompt) {
+            // ユーザーの表現スタイルを自然に感知
+            if (/ちょこっと|ちょこん|少し|軽く/.test(prompt) || prompt.length < 15) {
+                return 'casual';
+            }
+            if (/美しい|幻想|素敵|魔法|世界|綺麗/.test(prompt)) {
+                return 'magical';
+            }
+            return 'balanced'; // 80%がここに該当
+        }
+
+        function getNaturalMessages(type) {
+            const messages = {
+                casual: {
+                    loading: 'ちょこんと配置中です...',
+                    success: 'ちょこっとドロップしました！✨',
+                    button: 'ちょこんと配置中...',
+                    error: 'ちょこっと失敗... もう一度お試しください'
+                },
+                magical: {
+                    loading: 'あなたの想いを形にしています... ✨',
+                    success: '素敵な世界が完成しました！🎭✨',
+                    button: '魔法をかけています...',
+                    error: 'うまくいかなかったようです。少し表現を変えてもう一度魔法をかけてみませんか？'
+                },
+                balanced: {
+                    loading: 'ちょこっと魔法をかけています... ✨',
+                    success: 'ちょこんと配置完了！素敵ですね！🌟',
+                    button: '魔法をかけています...',
+                    error: 'ちょこっと失敗しました。もう一度お試しください'
+                }
+            };
+            return messages[type];
+        }
+
         // Load available models on page load
         async function loadModels() {
             try {
@@ -506,13 +542,13 @@
                 const data = await response.json();
                 
                 if (response.ok) {
-                    document.getElementById('serverStatus').innerHTML = '🟢 Online';
+                    document.getElementById('serverStatus').innerHTML = '🟢 魔法準備完了！';
                     document.getElementById('uptimeValue').textContent = Math.floor(data.uptime);
                 } else {
-                    document.getElementById('serverStatus').innerHTML = '🔴 Error';
+                    document.getElementById('serverStatus').innerHTML = '🔴 魔法がうまくいきません...';
                 }
             } catch (error) {
-                document.getElementById('serverStatus').innerHTML = '🔴 Offline';
+                document.getElementById('serverStatus').innerHTML = '🔴 魔法の接続が切れています...';
             }
         }
         
@@ -557,8 +593,12 @@
             
             responseDiv.style.display = 'block';
             responseDiv.className = 'response';
-            responseDiv.innerHTML = '<div class="loading"></div>Generating object...';
-            btnText.innerHTML = '<div class="loading"></div>Generating...';
+            // 自然な応答システム
+            const responseType = getResponseType(prompt);
+            const messages = getNaturalMessages(responseType);
+
+            responseDiv.innerHTML = `<div class="loading"></div>${messages.loading}`;
+            btnText.innerHTML = `<div class="loading"></div>${messages.button}`;
             
             try {
                 requestCount++;
@@ -578,20 +618,20 @@
                 });
                 
                 const result = await response.json();
-                
+
                 if (response.ok) {
                     responseDiv.className = 'response success';
-                    responseDiv.textContent = JSON.stringify(result, null, 2);
+                    responseDiv.textContent = messages.success;
                 } else {
                     responseDiv.className = 'response error';
-                    responseDiv.textContent = JSON.stringify(result, null, 2);
+                    responseDiv.textContent = messages.error;
                 }
-                
+
             } catch (error) {
                 responseDiv.className = 'response error';
-                responseDiv.textContent = `Error: ${error.message}`;
+                responseDiv.textContent = messages.error;
             } finally {
-                btnText.textContent = 'Generate Object';
+                btnText.textContent = 'ちょこっと魔法をかける ✨';
             }
         });
         
@@ -730,7 +770,7 @@
             checkHealth();
         }, 5000);
         
-        console.log('🌉 ChocoDro Server dashboard loaded');
+        console.log('🌉 ChocoDrop Server dashboard loaded');
     </script>
 </body>
 </html>

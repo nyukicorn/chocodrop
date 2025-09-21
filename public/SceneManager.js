@@ -1,8 +1,8 @@
 import * as THREE from 'three';
-import { ChocoDroClient, LiveCommandClient } from './LiveCommandClient.js';
+import { ChocoDropClient, ChocoDroClient, LiveCommandClient } from './LiveCommandClient.js';
 
 /**
- * Scene Manager - 3D scene integration for ChocoDro System
+ * Scene Manager - 3D scene integration for ChocoDrop System
  * Handles natural language parsing and 3D object management
  */
 export class SceneManager {
@@ -14,8 +14,9 @@ export class SceneManager {
     this.scene = scene;
     this.camera = options.camera || null;
     this.renderer = options.renderer || null;
-    // ChocoDro Client（共通クライアント注入を優先）
-    this.client = options.client || new ChocoDroClient(options.serverUrl);
+    // ChocoDrop Client（共通クライアント注入を優先）
+    // 外部フォルダから共有する場合は options.client でクライアントを再利用
+    this.client = options.client || new ChocoDropClient(options.serverUrl);
     
     // 実験オブジェクト管理用グループ
     this.experimentGroup = new THREE.Group();
@@ -30,6 +31,8 @@ export class SceneManager {
     this.spawnedObjects = new Map();
     this.objectCounter = 0;
     this.selectedObject = null;
+    this.selectedImageService = options.selectedImageService || null;
+    this.selectedVideoService = options.selectedVideoService || null;
 
     // Animation管理（UI要素用）
     this.clock = new THREE.Clock();
@@ -1251,7 +1254,8 @@ export class SceneManager {
       // ChocoDro Client経由で画像生成
       const imageResult = await this.client.generateImage(parsed.prompt, {
         width: 512,
-        height: 512
+        height: 512,
+        service: this.selectedImageService || undefined
       });
       
       // 結果にモデル情報を含める
@@ -1259,23 +1263,40 @@ export class SceneManager {
         console.log(`📡 Used model: ${imageResult.modelName}`);
       }
       
+      const loader = new THREE.TextureLoader();
       let texture;
       if (imageResult.success && imageResult.imageUrl) {
         // 成功: 生成された画像をテクスチャとして使用
         console.log(`✅ Image generated successfully: ${imageResult.imageUrl}`);
-        texture = new THREE.TextureLoader().load(imageResult.imageUrl);
-        
+        texture = await loader.loadAsync(imageResult.imageUrl);
+
         // テクスチャの色彩を正確に表示するための設定
         texture.colorSpace = THREE.SRGBColorSpace; // 正しいカラースペース
-        // texture.flipY = true; // デフォルト値のまま（正しい向きで表示）
       } else {
         // 失敗: プレースホルダー画像を使用
         console.log(`⚠️ Using fallback image`);
         texture = this.createFallbackTexture(parsed.prompt);
       }
-      
+
+      const sizeScale = parsed.size?.scale ?? this.config.defaultObjectScale ?? 1;
+      const baseSize = 6 * sizeScale;
+
+      const imageWidth = texture.image?.naturalWidth || texture.image?.width || texture.source?.data?.width || 1;
+      const imageHeight = texture.image?.naturalHeight || texture.image?.height || texture.source?.data?.height || 1;
+      const aspectRatio = imageWidth / imageHeight || 1;
+
+      let planeWidth = baseSize;
+      let planeHeight = baseSize;
+      if (aspectRatio >= 1) {
+        planeWidth = baseSize;
+        planeHeight = baseSize / aspectRatio;
+      } else {
+        planeWidth = baseSize * aspectRatio;
+        planeHeight = baseSize;
+      }
+
       // 画像を表示する平面ジオメトリを作成
-      const geometry = new THREE.PlaneGeometry(6, 6); // 6x6メートルの平面
+      const geometry = new THREE.PlaneGeometry(planeWidth, planeHeight);
       const material = new THREE.MeshBasicMaterial({
         map: texture,
         transparent: false,  // 不透明で鮮明表示
@@ -1294,24 +1315,7 @@ export class SceneManager {
       if (this.camera) {
         const finalPosition = this.calculateCameraRelativePosition(parsed.position);
         plane.position.copy(finalPosition);
-        
-        // 画像を正面向きに配置（お辞儀問題を解決）
-        // PlaneGeometryのデフォルト方向を維持し、カメラ方向のみ調整
-        // カメラの視線方向（ユーザーがモニターで見ている方向）に向ける
-        const cameraDirection = new THREE.Vector3();
-        this.camera.getWorldDirection(cameraDirection);
-        const targetPoint = plane.position.clone().add(cameraDirection.multiplyScalar(-1));
-        plane.lookAt(targetPoint);
-
-        // lookAtによる回転を補正しない（削除）
-        
-        // X軸回転をリセットして水平に（お辞儀を防止）
-        plane.rotation.x = 0;
-        
-        // 画像を正面向きに調整（右向きから正面向きに）
-        plane.rotation.y += Math.PI;
-
-        // ランダムな角度は削除（カメラに対して真正面を維持）
+        this.alignPlaneToCamera(plane);
       } else {
         // フォールバック: 絶対座標
         plane.position.set(parsed.position.x, parsed.position.y, parsed.position.z);
@@ -1327,7 +1331,8 @@ export class SceneManager {
         id: objectId,
         prompt: parsed.prompt,
         createdAt: Date.now(),
-        type: 'generated_image'
+        type: 'generated_image',
+        modelName: imageResult.modelName || this.selectedImageService || null
       };
       
       this.experimentGroup.add(plane);
@@ -1365,8 +1370,8 @@ export class SceneManager {
       const videoResult = await this.client.generateVideo(parsed.prompt, {
         width: 512,
         height: 512,
-        duration: 3 // 3秒動画
-        // model: サーバー側の設定を使用（統一設計）
+        duration: 3,
+        model: this.selectedVideoService || undefined
       });
       
       // 結果にモデル情報を含める
@@ -1403,11 +1408,23 @@ export class SceneManager {
       }
       
       // 動画を表示する平面ジオメトリを作成（アスペクト比を考慮）
-      const aspectRatio = 16/9; // 一般的な動画アスペクト比
-      const baseWidth = parsed.size.scale * 8; // サイズ設定を反映
-      const width = baseWidth;
-      const height = width / aspectRatio;
-      const geometry = new THREE.PlaneGeometry(width, height);
+      const sizeScale = parsed.size?.scale ?? this.config.defaultObjectScale ?? 1;
+      const baseSize = 6 * sizeScale;
+
+      const requestedWidth = videoResult.metadata?.width || 512;
+      const requestedHeight = videoResult.metadata?.height || 512;
+      const planeAspect = requestedWidth && requestedHeight ? requestedWidth / requestedHeight : 1;
+
+      let planeWidth = baseSize;
+      let planeHeight = baseSize;
+
+      if (planeAspect >= 1) {
+        planeHeight = baseSize / planeAspect;
+      } else {
+        planeWidth = baseSize * planeAspect;
+      }
+
+      const geometry = new THREE.PlaneGeometry(planeWidth, planeHeight);
       const material = new THREE.MeshBasicMaterial({
         map: videoTexture,
         transparent: false,
@@ -1426,19 +1443,7 @@ export class SceneManager {
       if (this.camera) {
         const finalPosition = this.calculateCameraRelativePosition(parsed.position);
         plane.position.copy(finalPosition);
-        
-        const cameraDirection = new THREE.Vector3();
-        this.camera.getWorldDirection(cameraDirection);
-        const targetPoint = plane.position.clone().add(cameraDirection.multiplyScalar(-1));
-        plane.lookAt(targetPoint);
-        
-        // X軸回転をリセットして水平に（お辞儀を防止）
-        plane.rotation.x = 0;
-
-        // 動画の場合は180度回転を適用しない（VideoTextureの向きが正常）
-        // plane.rotation.y += Math.PI; // 動画では不要
-
-        // ランダムな角度は削除（カメラに対して真正面を維持）
+        this.alignPlaneToCamera(plane);
       } else {
         plane.position.set(parsed.position.x, parsed.position.y, parsed.position.z);
       }
@@ -1454,7 +1459,10 @@ export class SceneManager {
         prompt: parsed.prompt,
         createdAt: Date.now(),
         type: 'generated_video',
-        videoUrl: videoResult.videoUrl
+        videoUrl: videoResult.videoUrl,
+        modelName: videoResult.modelName || this.selectedVideoService || null,
+        width: requestedWidth,
+        height: requestedHeight
       };
       
       this.experimentGroup.add(plane);
@@ -1487,45 +1495,31 @@ export class SceneManager {
       const { position = { x: 0, y: 5, z: -10 } } = options;
       
       console.log(`📁 Loading image file: ${fileUrl}`);
-
-      // 画像の実際のサイズを取得するためにImageオブジェクトを作成
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-
-      const imageLoadPromise = new Promise((resolve, reject) => {
-        img.onload = () => resolve();
-        img.onerror = reject;
-        img.src = fileUrl;
-      });
-
-      await imageLoadPromise;
-
-      console.log(`📏 Image dimensions: ${img.width}x${img.height}`);
-
-      // アスペクト比を計算
-      const aspectRatio = img.width / img.height;
-      const baseSize = 6; // 基準サイズ
-
-      let width, height;
-      if (aspectRatio > 1) {
-        // 横長の画像
-        width = baseSize;
-        height = baseSize / aspectRatio;
-      } else {
-        // 縦長または正方形の画像
-        width = baseSize * aspectRatio;
-        height = baseSize;
-      }
-
-      console.log(`📐 Calculated plane size: ${width.toFixed(2)}x${height.toFixed(2)} (aspect: ${aspectRatio.toFixed(2)})`);
-
+      
       // ファイルからテクスチャを読み込み
-      const texture = new THREE.TextureLoader().load(fileUrl);
+      const loader = new THREE.TextureLoader();
+      const texture = await loader.loadAsync(fileUrl);
 
       // テクスチャの色彩を正確に表示するための設定
       texture.colorSpace = THREE.SRGBColorSpace;
 
-      // 正しいアスペクト比で平面ジオメトリを作成
+      // アスペクト比を算出（fallback: 1）
+      const imageWidth = texture.image?.naturalWidth || texture.image?.width || texture.source?.data?.width || 1;
+      const imageHeight = texture.image?.naturalHeight || texture.image?.height || texture.source?.data?.height || 1;
+      const aspectRatio = imageWidth / imageHeight || 1;
+      
+      const baseSize = 6;
+      let width = baseSize;
+      let height = baseSize;
+      if (aspectRatio >= 1) {
+        width = baseSize;
+        height = baseSize / aspectRatio;
+      } else {
+        width = baseSize * aspectRatio;
+        height = baseSize;
+      }
+
+      // 画像を表示する平面ジオメトリを作成（縦横比を維持）
       const geometry = new THREE.PlaneGeometry(width, height);
       const material = new THREE.MeshBasicMaterial({
         map: texture,
@@ -1535,7 +1529,7 @@ export class SceneManager {
       });
       
       const plane = new THREE.Mesh(geometry, material);
-      
+
       // レンダリング順序を設定
       plane.renderOrder = 1000;
       material.depthTest = true;
@@ -1545,15 +1539,7 @@ export class SceneManager {
       if (this.camera) {
         const finalPosition = this.calculateCameraRelativePosition(position);
         plane.position.copy(finalPosition);
-        
-        // 画像を正面向きに配置（左右反転を修正）
-        const cameraDirection = new THREE.Vector3();
-        this.camera.getWorldDirection(cameraDirection);
-        const targetPoint = plane.position.clone().add(cameraDirection.multiplyScalar(-1));
-        plane.lookAt(targetPoint);
-
-        plane.rotation.x = 0;
-        // Y軸回転を削除して左右反転を修正
+        this.alignPlaneToCamera(plane);
       } else {
         plane.position.set(position.x, position.y, position.z);
       }
@@ -1605,7 +1591,7 @@ export class SceneManager {
       video.muted = true;
       video.playsInline = true;
       video.autoplay = true;
-      video.crossOrigin = 'anonymous';
+      video.preload = 'auto';
 
       // VideoTextureを作成
       const videoTexture = new THREE.VideoTexture(video);
@@ -1613,23 +1599,24 @@ export class SceneManager {
 
       // ビデオの読み込みとサイズ取得
       await new Promise((resolve, reject) => {
-        video.addEventListener('loadedmetadata', () => {
+        const handleLoaded = () => {
           console.log(`🎬 Video loaded: ${video.videoWidth}x${video.videoHeight}`);
-
-          // 手動で再生を試行
-          video.play().then(() => {
-            console.log('🎬 Video playback started successfully');
-          }).catch((error) => {
-            console.warn('🎬 Autoplay prevented, will start on user interaction:', error);
-          });
-
           resolve();
-        });
-        video.addEventListener('error', (e) => {
-          console.error('🎬 Video loading error:', e);
-          reject(e);
-        });
+        };
+        const handleError = (event) => {
+          reject(event?.error || new Error('Video failed to load'));
+        };
+
+        video.addEventListener('loadedmetadata', handleLoaded, { once: true });
+        video.addEventListener('error', handleError, { once: true });
+        video.load();
       });
+
+      try {
+        await video.play();
+      } catch (playError) {
+        console.warn('🎬 Video autoplay could not start automatically. Playback will require user interaction.', playError);
+      }
       
       // アスペクト比を計算してサイズ調整
       const aspectRatio = video.videoWidth / video.videoHeight;
@@ -1663,15 +1650,7 @@ export class SceneManager {
       if (this.camera) {
         const finalPosition = this.calculateCameraRelativePosition(position);
         plane.position.copy(finalPosition);
-        
-        // 動画を正面向きに配置（左右反転を修正）
-        const cameraDirection = new THREE.Vector3();
-        this.camera.getWorldDirection(cameraDirection);
-        const targetPoint = plane.position.clone().add(cameraDirection.multiplyScalar(-1));
-        plane.lookAt(targetPoint);
-
-        plane.rotation.x = 0;
-        // Y軸回転を削除して左右反転を修正
+        this.alignPlaneToCamera(plane);
       } else {
         plane.position.set(position.x, position.y, position.z);
       }
@@ -1686,7 +1665,8 @@ export class SceneManager {
         source: 'imported_file',
         createdAt: Date.now(),
         type: 'generated_video',
-        videoElement: video
+        videoElement: video,
+        objectUrl: fileUrl
       };
       
       this.experimentGroup.add(plane);
@@ -2156,17 +2136,44 @@ export class SceneManager {
   removeObject(objectId) {
     const object = this.spawnedObjects.get(objectId);
     if (object) {
+      if (object.userData?.videoElement) {
+        const videoElement = object.userData.videoElement;
+        try {
+          videoElement.pause();
+          if (typeof videoElement.removeAttribute === 'function') {
+            videoElement.removeAttribute('src');
+          } else {
+            videoElement.src = '';
+          }
+          if (typeof videoElement.load === 'function') {
+            videoElement.load();
+          }
+        } catch (error) {
+          console.warn('🎬 Failed to release video element resources:', error);
+        }
+      }
+
+      if (object.userData?.objectUrl) {
+        try {
+          URL.revokeObjectURL(object.userData.objectUrl);
+        } catch (error) {
+          console.warn('🎬 Failed to revoke object URL:', error);
+        }
+      }
+
       this.experimentGroup.remove(object);
       this.spawnedObjects.delete(objectId);
       
       // ジオメトリとマテリアルのメモリ解放
       if (object.geometry) object.geometry.dispose();
       if (object.material) {
-        if (Array.isArray(object.material)) {
-          object.material.forEach(mat => mat.dispose());
-        } else {
-          object.material.dispose();
-        }
+        const materials = Array.isArray(object.material) ? object.material : [object.material];
+        materials.forEach(mat => {
+          if (mat.map && typeof mat.map.dispose === 'function') {
+            mat.map.dispose();
+          }
+          mat.dispose();
+        });
       }
       
       console.log(`🗑️ Removed object: ${objectId}`);
@@ -2295,6 +2302,34 @@ export class SceneManager {
   /**
    * カメラを設定
    */
+  alignPlaneToCamera(plane) {
+    if (!this.camera) {
+      return;
+    }
+
+    const forward = new THREE.Vector3();
+    this.camera.getWorldDirection(forward); // カメラの前方向（前方が負Z）
+    forward.negate(); // 平面の法線をカメラ側へ向ける
+
+    let up = new THREE.Vector3().copy(this.camera.up).applyQuaternion(this.camera.quaternion).normalize();
+    if (Math.abs(forward.dot(up)) > 0.999) {
+      up = new THREE.Vector3(0, 1, 0);
+      if (Math.abs(forward.dot(up)) > 0.999) {
+        up = new THREE.Vector3(0, 0, 1);
+      }
+    }
+
+    const right = new THREE.Vector3().crossVectors(up, forward).normalize();
+    up = new THREE.Vector3().crossVectors(forward, right).normalize();
+
+    const orientation = new THREE.Matrix4();
+    orientation.makeBasis(right, up, forward);
+    plane.quaternion.setFromRotationMatrix(orientation);
+  }
+
+  /**
+   * カメラを設定
+   */
   setCamera(camera) {
     this.camera = camera;
   }
@@ -2304,6 +2339,24 @@ export class SceneManager {
    */
   updateConfig(newConfig) {
     this.config = { ...this.config, ...newConfig };
+  }
+
+  setImageService(serviceId) {
+    this.selectedImageService = serviceId || null;
+    this.logDebug('🎯 Updated image service:', this.selectedImageService);
+  }
+
+  getImageService() {
+    return this.selectedImageService;
+  }
+
+  setVideoService(serviceId) {
+    this.selectedVideoService = serviceId || null;
+    this.logDebug('🎬 Updated video service:', this.selectedVideoService);
+  }
+
+  getVideoService() {
+    return this.selectedVideoService;
   }
 
 

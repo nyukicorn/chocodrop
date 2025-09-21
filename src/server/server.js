@@ -3,17 +3,17 @@ import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { MCPClient } from './mcp-client.js';
-import { DEFAULT_MODEL, MODELS, getModelById, selectModelFromCommand, getAvailableModelIds } from '../config/models.js';
+import { selectModelFromCommand } from '../config/models.js';
 import config from '../config/config.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 /**
- * ChocoDro Server
+ * ChocoDrop Server
  * Express server for natural language command processing and image generation
  */
-class ChocoDroServer {
+class ChocoDropServer {
   constructor(options = {}) {
     this.port = options.port || config.get('server.port');
     this.host = options.host || config.get('server.host');
@@ -35,7 +35,7 @@ class ChocoDroServer {
     this.setupMiddleware();
     this.setupRoutes();
 
-    console.log('🍫 ChocoDroServer initialized');
+    console.log('🍫 ChocoDropServer initialized');
   }
 
   /**
@@ -88,21 +88,23 @@ class ChocoDroServer {
     // 利用可能なサービス一覧
     this.app.get('/api/services', (req, res) => {
       try {
-        const services = getAvailableModelIds();
-        const modelsInfo = Object.values(MODELS).map(model => ({
-          id: model.id,
-          name: model.name,
-          description: model.description,
-          speed: model.speed,
-          quality: model.quality,
-          estimatedTime: model.estimatedTime
-        }));
-        
+        const summary = this.mcpClient.getAvailableServicesSummary();
+        const defaults = {
+          image: this.mcpClient.getDefaultServiceId('image'),
+          video: this.mcpClient.getDefaultServiceId('video')
+        };
+
+        const allServices = [...summary.image, ...summary.video];
+
         res.json({
           success: true,
-          services: services,
-          models: modelsInfo,
-          default: DEFAULT_MODEL.id
+          services: allServices.map(service => service.id),
+          metadata: summary,
+          models: {
+            image: summary.image,
+            video: summary.video
+          },
+          default: defaults
         });
       } catch (error) {
         res.status(500).json({
@@ -115,26 +117,22 @@ class ChocoDroServer {
     // モデル一覧API（設定ファイルベース）
     this.app.get('/api/models', (req, res) => {
       try {
-        const imageModels = config.get('models.image') || {
-          default: 't2i-default-model',
-          options: ['t2i-default-model']
-        };
-
-        const videoModels = config.get('models.video') || {
-          default: 't2v-default-model',
-          options: ['t2v-default-model']
+        const summary = this.mcpClient.getAvailableServicesSummary();
+        const defaults = {
+          image: this.mcpClient.getDefaultServiceId('image'),
+          video: this.mcpClient.getDefaultServiceId('video')
         };
 
         res.json({
           success: true,
           models: {
             image: {
-              default: imageModels.default,
-              options: (imageModels.options && imageModels.options.length > 0) ? imageModels.options : [imageModels.default]
+              default: defaults.image,
+              options: summary.image.map(service => service.id)
             },
             video: {
-              default: videoModels.default,
-              options: (videoModels.options && videoModels.options.length > 0) ? videoModels.options : [videoModels.default]
+              default: defaults.video,
+              options: summary.video.map(service => service.id)
             }
           }
         });
@@ -149,7 +147,8 @@ class ChocoDroServer {
     // 画像生成API
     this.app.post('/api/generate', async (req, res) => {
       try {
-        const { prompt, width = 512, height = 512, service = DEFAULT_MODEL.id } = req.body;
+        const defaultImageService = this.mcpClient.getDefaultServiceId('image');
+        const { prompt, width = 512, height = 512, service = defaultImageService } = req.body;
         
         if (!prompt) {
           return res.status(400).json({
@@ -172,9 +171,16 @@ class ChocoDroServer {
         });
 
         // モデル情報を追加
-        const modelInfo = getModelById(service);
-        result.modelName = modelInfo.name;
-        result.serviceName = service;
+        const imageServiceInfo = this.mcpClient
+          .getServicesByType('image')
+          .find(entry => entry.id === service);
+        if (imageServiceInfo) {
+          result.modelName = imageServiceInfo.name;
+          result.serviceName = service;
+        } else {
+          result.serviceName = service;
+          result.modelName = service;
+        }
 
         res.json(result);
 
@@ -191,8 +197,23 @@ class ChocoDroServer {
     // 動画生成API
     this.app.post('/api/generate-video', async (req, res) => {
       try {
-        const { prompt, model = 't2v-kamui-wan-v2-2-5b-fast', width = 512, height = 512, duration = 3 } = req.body;
-        
+        const defaultVideoService = this.mcpClient.getDefaultServiceId('video');
+        const {
+          prompt,
+          model = defaultVideoService,
+          aspect_ratio,
+          resolution,
+          negative_prompt,
+          seed,
+          enable_safety_checker,
+          enable_prompt_expansion,
+          frames_per_second,
+          guidance_scale,
+          duration,
+          width,
+          height
+        } = req.body;
+
         if (!prompt) {
           return res.status(400).json({
             success: false,
@@ -205,14 +226,49 @@ class ChocoDroServer {
         // タスクID生成
         const taskId = `task_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-        const result = await this.mcpClient.generate(prompt, {
+        const safeDefaults = {
+          aspect_ratio: '16:9',
+          resolution: '720p',
+          enable_safety_checker: true,
+          enable_prompt_expansion: true
+        };
+
+        const generateOptions = {
           type: 'video',
-          width,
-          height,
-          duration,
           model,
-          taskId
-        });
+          taskId,
+          duration: duration ?? 3,
+          aspect_ratio: aspect_ratio || safeDefaults.aspect_ratio,
+          resolution: resolution || safeDefaults.resolution,
+          enable_safety_checker: enable_safety_checker ?? safeDefaults.enable_safety_checker,
+          enable_prompt_expansion: enable_prompt_expansion ?? safeDefaults.enable_prompt_expansion
+        };
+
+        if (typeof width === 'number' && width > 0) {
+          generateOptions.width = width;
+        }
+
+        if (typeof height === 'number' && height > 0) {
+          generateOptions.height = height;
+        }
+
+        if (typeof seed === 'number') {
+          generateOptions.seed = seed;
+        }
+
+        if (negative_prompt) {
+          generateOptions.negative_prompt = negative_prompt;
+        }
+
+        if (typeof frames_per_second === 'number' && frames_per_second > 0) {
+          generateOptions.frames_per_second = frames_per_second;
+        }
+
+        if (typeof guidance_scale === 'number' && guidance_scale > 0) {
+          generateOptions.guidance_scale = guidance_scale;
+        }
+
+        const result = await this.mcpClient.generate(prompt, generateOptions);
 
         // エラーレスポンスの場合は適切なHTTPステータスコードで返す
         if (!result.success) {
@@ -223,10 +279,15 @@ class ChocoDroServer {
         }
 
         // モデル情報を追加
-        const modelInfo = getModelById(model);
-        if (modelInfo) {
-          result.modelName = modelInfo.name;
+        const videoServiceInfo = this.mcpClient
+          .getServicesByType('video')
+          .find(entry => entry.id === model);
+        if (videoServiceInfo) {
+          result.modelName = videoServiceInfo.name;
           result.serviceName = model;
+        } else {
+          result.serviceName = model;
+          result.modelName = model;
         }
 
         res.json(result);
@@ -486,7 +547,7 @@ class ChocoDroServer {
     return new Promise((resolve, reject) => {
       try {
         this.server = this.app.listen(this.port, this.host, () => {
-          console.log(`🚀 ChocoDro Server running at http://${this.host}:${this.port}`);
+          console.log(`🚀 ChocoDrop Server running at http://${this.host}:${this.port}`);
           console.log(`📁 Static files served from: ${this.publicDir}`);
           resolve({ host: this.host, port: this.port });
         });
@@ -503,7 +564,7 @@ class ChocoDroServer {
     return new Promise((resolve) => {
       if (this.server) {
         this.server.close(() => {
-          console.log('🛑 ChocoDro Server stopped');
+          console.log('🛑 ChocoDrop Server stopped');
           resolve();
         });
       } else {
@@ -515,7 +576,7 @@ class ChocoDroServer {
 
 // CLI実行時の処理
 if (import.meta.url === `file://${process.argv[1]}`) {
-  const server = new ChocoDroServer({
+  const server = new ChocoDropServer({
     port: process.env.PORT || config.get('server.port'),
     host: process.env.HOST || 'localhost'
   });
@@ -533,5 +594,6 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   });
 }
 
-export { ChocoDroServer };
-export { ChocoDroServer as LiveCommandServer };
+export { ChocoDropServer };
+export { ChocoDropServer as ChocoDroServer };
+export { ChocoDropServer as LiveCommandServer };

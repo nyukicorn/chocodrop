@@ -1,7 +1,7 @@
 {
-  "name": "@chocodro/core",
+  "name": "@chocodrop/core",
   "version": "1.0.0",
-  "description": "ChocoDro: real-time AI image drops for 3D scenes via Model Context Protocol (MCP)",
+  "description": "ChocoDrop: real-time AI image drops for 3D scenes via Model Context Protocol (MCP)",
   "main": "src/index.js",
   "type": "module",
   "exports": {
@@ -16,6 +16,7 @@
     "start": "node src/server/server.js",
     "build": "echo 'No build step required for ES modules'",
     "test": "node --test tests/*.test.js",
+    "setup:mcp": "node scripts/setup-mcp-config.mjs",
     "example:basic": "python -m http.server 8000 --directory examples",
     "example:server": "node src/server/server.js --port 3011"
   },
@@ -27,15 +28,14 @@
     "3d",
     "real-time",
     "natural-language",
-    "chocodro",
+    "chocodrop",
     "claude-code"
   ],
-  "author": "Kotodama Project",
+  "author": "ChocoDrop Project",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/your-org/chocodro",
-    "directory": "packages/chocodro"
+    "url": "https://github.com/nyukicorn/chocodrop"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.17.5",

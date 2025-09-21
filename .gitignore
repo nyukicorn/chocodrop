@@ -50,6 +50,9 @@ temp/
 .serena/
 .claude/
 
+# Internal development docs
+docs/
+
 # Private keys and certificates
 *.pem
 *.key

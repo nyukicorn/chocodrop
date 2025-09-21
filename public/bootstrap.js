@@ -1,8 +1,8 @@
-import { ChocoDroClient, LiveCommandClient } from './LiveCommandClient.js';
+import { ChocoDropClient, ChocoDroClient, LiveCommandClient } from './LiveCommandClient.js';
 import { SceneManager } from './SceneManager.js';
 import { CommandUI } from './CommandUI.js';
 
-export function createChocoDro(scene, options = {}) {
+export function createChocoDrop(scene, options = {}) {
   if (!scene) {
     throw new Error('THREE.Scene インスタンスが必要です');
   }
@@ -18,25 +18,25 @@ export function createChocoDro(scene, options = {}) {
   } = options;
 
   const resolvedServerUrl = serverUrl || sceneOptions.serverUrl || null;
-  const chocoDroClient = client || new ChocoDroClient(resolvedServerUrl);
+  const chocoDropClient = client || new ChocoDropClient(resolvedServerUrl);
 
   const sceneManager = new SceneManager(scene, {
     camera,
     renderer,
     serverUrl: resolvedServerUrl,
-    client: chocoDroClient,
+    client: chocoDropClient,
     ...sceneOptions
   });
 
   const commandUI = new CommandUI({
     sceneManager,
-    client: chocoDroClient,
+    client: chocoDropClient,
     onControlsToggle,
     ...uiOptions
   });
 
   return {
-    client: chocoDroClient,
+    client: chocoDropClient,
     sceneManager,
     ui: commandUI,
     dispose() {
@@ -46,4 +46,5 @@ export function createChocoDro(scene, options = {}) {
   };
 }
 
-export const createLiveCommand = createChocoDro;
+export const createChocoDro = createChocoDrop;
+export const createLiveCommand = createChocoDrop;

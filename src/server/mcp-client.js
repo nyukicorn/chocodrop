@@ -574,6 +574,15 @@ export class MCPClient {
       '弱い': 'weak',
       'パワフル': 'powerful',
       '力強い': 'powerful',
+
+      // 形容詞（量・程度）
+      'ちょこっと': 'a little bit',
+      'ちょこんと': 'gently',
+      '少し': 'a little',
+      '軽く': 'lightly',
+      'ちょっと': 'a bit',
+      'そっと': 'softly',
+      'ふわっと': 'gently',
       'やわらかい': 'soft',
       '柔らかい': 'soft',
       '硬い': 'hard',
@@ -881,7 +890,182 @@ export class MCPClient {
       '地震': 'earthquake',
       'オーロラ': 'aurora',
       '日食': 'solar eclipse',
-      '月食': 'lunar eclipse'
+      '月食': 'lunar eclipse',
+
+      // AI画像・動画生成でよく使われる品質向上用語
+      '傑作': 'masterpiece',
+      '最高品質': 'best quality',
+      '高品質': 'high quality',
+      '超詳細': 'ultra detailed',
+      '美しい': 'beautiful',
+      '美しく': 'beautifully',
+      '綺麗': 'beautiful',
+      '綺麗な': 'beautiful',
+      '綺麗に': 'beautifully',
+      '精細': 'detailed',
+      '精細な': 'detailed',
+      'リアル': 'realistic',
+      'リアルな': 'realistic',
+      '写実的': 'photorealistic',
+      '写実的な': 'photorealistic',
+      '鮮明': 'sharp focus',
+      '鮮明な': 'sharp focus',
+      '高解像度': 'high resolution',
+      'なめらか': 'smooth',
+      'なめらかな': 'smooth',
+      '滑らか': 'smooth',
+      '滑らかな': 'smooth',
+      '安定した': 'stable',
+      '安定': 'stable',
+      '詳細': 'detailed',
+      '詳細な': 'detailed',
+      '作って': 'create',
+      '作る': 'create',
+      '作った': 'created',
+      '生成': 'generate',
+      '生成して': 'generate',
+      '動画': 'video',
+      '映像': 'footage',
+      '画像': 'image',
+      '写真': 'photo',
+      'たくさん': 'many',
+      'たくさんの': 'many',
+      'いっぱい': 'full of',
+      'ような': 'like',
+      'みたいな': 'like',
+
+      // アニメ・マンガ系（日本最大セグメント）
+      '美少女': 'beautiful girl',
+      'イケメン': 'handsome man',
+      'ツンデレ': 'tsundere character',
+      '幼女': 'young girl',
+      'お姉さん': 'mature woman',
+      '魔法少女': 'magical girl',
+      '騎士': 'knight',
+      '忍者': 'ninja',
+      '侍': 'samurai',
+      'アニメ風': 'anime style',
+      '漫画風': 'manga style', 
+      '萌え絵': 'moe art style',
+      'セル画風': 'cel shading',
+      'ちびキャラ': 'chibi character',
+      'デフォルメ': 'stylized',
+      '二次元': '2D style',
+
+      // 感情・雰囲気表現
+      '切ない': 'melancholy',
+      '懐かしい': 'nostalgic',
+      '優しい': 'gentle',
+      '儚い': 'ephemeral',
+      '美しい': 'beautiful',
+      '可愛い': 'cute',
+      'かわいい': 'cute',
+      'かっこいい': 'cool',
+      '神秘的': 'mysterious',
+      '幻想的': 'fantasy',
+      'ロマンチック': 'romantic',
+      'キラキラ': 'sparkling',
+      'ふわふわ': 'fluffy',
+      'ツヤツヤ': 'glossy',
+      'マット': 'matte',
+      '透明': 'transparent',
+      '半透明': 'translucent',
+
+      // 情景・背景（日本的美意識）
+      '桜': 'cherry blossoms',
+      '紅葉': 'autumn leaves',
+      '雪景色': 'snowy landscape',
+      '夕焼け': 'sunset',
+      '朝焼け': 'sunrise',
+      '星空': 'starry sky',
+      '月夜': 'moonlit night',
+      '雨': 'rain',
+      '霧': 'fog',
+      '虹': 'rainbow',
+      '神社': 'shrine',
+      '鳥居': 'torii gate',
+      '城': 'japanese castle',
+      '和室': 'japanese room',
+      '縁側': 'veranda',
+      '温泉': 'hot spring',
+      '竹林': 'bamboo forest',
+      '庭園': 'japanese garden',
+
+      // デザイン専門視点：アートスタイル・技法
+      '水彩画風': 'watercolor style',
+      '油絵風': 'oil painting style',
+      'デジタルアート': 'digital art',
+      'ピクセルアート': 'pixel art',
+      'ベクターアート': 'vector art',
+      'フォトリアル': 'photorealistic',
+      '印象派風': 'impressionist style',
+      '抽象画風': 'abstract art',
+      'ローポリ': 'low poly',
+      'ハイポリ': 'high poly',
+      'ボクセル': 'voxel art',
+      '等角投影': 'isometric',
+      'ワイヤーフレーム': 'wireframe',
+      'レンダリング': 'rendering',
+      
+      // 配色理論
+      '補色': 'complementary colors',
+      '類似色': 'analogous colors',
+      '三角配色': 'triadic colors',
+      '分割補色': 'split complementary',
+      '単色配色': 'monochromatic',
+      'アクセントカラー': 'accent color',
+      'グラデーション': 'gradient',
+      'オンブレ': 'ombre effect',
+      'パステルカラー': 'pastel colors',
+      'ビビッドカラー': 'vivid colors',
+      'アースカラー': 'earth tones',
+      'ネオンカラー': 'neon colors',
+      'メタリック': 'metallic',
+      'マット': 'matte finish',
+
+      // レイアウト・構図
+      '三分割法': 'rule of thirds',
+      '黄金比': 'golden ratio',
+      '対角線構図': 'diagonal composition',
+      '放射構図': 'radial composition',
+      'シンメトリー': 'symmetrical',
+      'アシンメトリー': 'asymmetrical',
+      '余白': 'negative space',
+      'バランス': 'balance',
+      
+      // 視点・アングル
+      '俯瞰': 'bird\'s eye view',
+      'あおり': 'low angle',
+      'アオリ': 'worm\'s eye view',
+      '斜め上': 'elevated angle',
+      '正面': 'front view',
+      '横顔': 'profile',
+      '背面': 'back view',
+
+      // 技術・品質関連
+      '8K': '8K resolution',
+      '4K': '4K resolution',
+      'HDR': 'HDR',
+      'レイトレーシング': 'ray tracing',
+      'アンチエイリアス': 'anti-aliasing',
+      'モーションブラー': 'motion blur',
+      'デプスオブフィールド': 'depth of field',
+      '被写界深度': 'depth of field',
+      'フォーカス': 'focus',
+      'ブラー': 'blur',
+      'シャープ': 'sharp',
+      'ノイズレス': 'noiseless',
+      'クリア': 'clear',
+      'ビビッド': 'vivid',
+      '鮮やか': 'vivid',
+      'ソフト': 'soft',
+      'ハード': 'hard',
+      'ナチュラル': 'natural',
+      'リッチ': 'rich',
+      'ディープ': 'deep',
+      'ライト': 'light',
+      'ダーク': 'dark',
+      'ブライト': 'bright',
     };
 
     let result = text;
@@ -1547,7 +1731,7 @@ export class MCPClient {
         }
       });
       
-      console.log('✅ Final video result:', resultResult);
+      console.log('✅ Final video result:', JSON.stringify(resultResult, null, 2));
       
       // エラーチェックを追加
       if (resultResult.isError) {
@@ -1558,6 +1742,7 @@ export class MCPClient {
       let lastTextMessage = null;
 
       // 結果処理
+      console.log('📋 Result content details:', JSON.stringify(resultResult.content, null, 2));
       if (resultResult.content && Array.isArray(resultResult.content)) {
         for (const content of resultResult.content) {
           if (content.type === 'text') {

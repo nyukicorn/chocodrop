@@ -1,13 +1,13 @@
 import React, { useRef, useEffect, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { SceneManager, CommandUI, createChocoDro } from '@chocodro/core';
+import { SceneManager, CommandUI, createChocoDrop } from '@chocodrop/core';
 
 /**
- * React Three.js Scene with ChocoDro integration
- * This example demonstrates how to integrate ChocoDro with React
- */
-const ChocoDroScene = () => {
+ * React Three.js Scene with ChocoDrop integration
+ * This example demonstrates how to integrate ChocoDrop with React
+*/
+const ChocoDropScene = () => {
   const mountRef = useRef(null);
   const sceneRef = useRef(null);
   const rendererRef = useRef(null);
@@ -71,7 +71,7 @@ const ChocoDroScene = () => {
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
     
-    // ChocoDro Integration
+    // ChocoDrop Integration
     const sceneManager = new SceneManager(scene, {
       camera,
       renderer, // rendererを渡す
@@ -192,7 +192,7 @@ const ChocoDroScene = () => {
         zIndex: 100
       }}>
         <h3 style={{ margin: '0 0 10px 0', color: '#4a90e2' }}>
-          🧪 ChocoDro
+          🧪 ChocoDrop
         </h3>
         
         <div style={{ marginBottom: '10px' }}>
@@ -275,7 +275,7 @@ const ChocoDroScene = () => {
 const App = () => {
   return (
     <div className="app">
-      <ChocoDroScene />
+      <ChocoDropScene />
       
       {/* Instructions overlay */}
       <div style={{
@@ -312,7 +312,7 @@ export default App;
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
     "three": "^0.158.0",
-    "@chocodro/core": "file:../",
+    "@chocodrop/core": "file:../",
     "@vitejs/plugin-react": "^4.0.0",
     "vite": "^4.0.0"
   },

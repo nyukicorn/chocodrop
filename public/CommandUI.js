@@ -1,5 +1,8 @@
+const IMAGE_SERVICE_STORAGE_KEY = 'chocodrop-service-image';
+const VIDEO_SERVICE_STORAGE_KEY = 'chocodrop-service-video';
+
 /**
- * Command UI - Web interface for ChocoDro System
+ * Command UI - Web interface for ChocoDrop System
  * Real-time natural language command interface for 3D scenes
  */
 export class CommandUI {
@@ -18,16 +21,6 @@ export class CommandUI {
     this.activeConnections = new Map();
     this.currentTaskId = null;
     
-    // ドラッグ&ドロップ用のバインドされたハンドラを保持
-    this.boundHandlers = {
-      dragOver: null,
-      drop: null,
-      dragEnter: null,
-      dragLeave: null,
-      documentDragOver: null,
-      documentDrop: null
-    };
-    
     // 設定
     this.config = {
       activationKey: options.activationKey || '@',
@@ -41,6 +34,42 @@ export class CommandUI {
       ...options.config
     };
 
+    this.availableImageServices = [];
+    this.availableVideoServices = [];
+    this.selectedImageService = null;
+    this.selectedVideoService = null;
+    this.imageServiceSelect = null;
+    this.videoServiceSelect = null;
+    this.serviceSelectorContainer = null;
+    this.serviceSelectorStatus = null;
+    this.serviceSelectorContent = null;
+    this.serviceSelectorRetryButton = null;
+    this.serviceSelectorSaveButton = null;
+    this.serviceSelectorCancelButton = null;
+    this.serviceModalOverlay = null;
+    this.serviceModal = null;
+    this.servicesLoading = false;
+    this.pendingImageService = null;
+    this.pendingVideoService = null;
+
+    try {
+      const storedImage = localStorage.getItem(IMAGE_SERVICE_STORAGE_KEY);
+      const storedVideo = localStorage.getItem(VIDEO_SERVICE_STORAGE_KEY);
+      if (storedImage) {
+        this.selectedImageService = storedImage;
+      }
+      if (storedVideo) {
+        this.selectedVideoService = storedVideo;
+      }
+    } catch (error) {
+      console.warn('⚠️ Failed to load stored service selections:', error);
+    }
+
+    this.pendingImageService = this.selectedImageService;
+    this.pendingVideoService = this.selectedVideoService;
+
+    this.applyServiceSelectionToSceneManager();
+
     // ダークモード状態管理
     this.isDarkMode = localStorage.getItem('live-command-theme') === 'dark' ||
                      localStorage.getItem('live-command-theme') === null; // デフォルトはダーク
@@ -52,13 +81,23 @@ export class CommandUI {
     
     this.initUI();
     this.bindEvents();
-    
+
+    if (!this.client && this.sceneManager && this.sceneManager.client) {
+      this.client = this.sceneManager.client;
+    }
+
+    this.createServiceModal();
+
     // DOM読み込み完了後にスタイルを確実に適用
     document.addEventListener('DOMContentLoaded', () => {
       this.refreshStyles();
     });
-    
+
     this.logDebug('🎮 CommandUI initialized');
+
+    if (!this.selectedImageService || !this.selectedVideoService) {
+      this.openServiceModal(true);
+    }
   }
 
   logDebug(...args) {
@@ -71,36 +110,7 @@ export class CommandUI {
   /**
    * UI要素の作成と配置
    */
-  /**
-   * 適切なドロップゾーン制御
-   */
-  preventGlobalDragEvents() {
-    const dragEventHandler = (e) => {
-      // 入力エリアへのドロップは許可
-      if (e.target === this.input || this.input?.contains(e.target)) {
-        return;
-      }
-      
-      // UIコンテナ内でのドロップは許可
-      if (this.container?.contains(e.target)) {
-        return;
-      }
-      
-      // それ以外は防止
-      e.preventDefault();
-      e.dataTransfer.effectAllowed = 'none';
-      e.dataTransfer.dropEffect = 'none';
-    };
-
-    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-      window.addEventListener(eventName, dragEventHandler, false);
-    });
-  }
-
   initUI() {
-    // グローバルなドラッグイベントを早期に防止
-    this.preventGlobalDragEvents();
-    
     // メインコンテナ
     this.container = document.createElement('div');
     this.container.id = 'live-command-ui';
@@ -129,15 +139,13 @@ export class CommandUI {
       font-weight: 800;
       font-size: 18px;
     `;
-    headerText.textContent = '🌉 ChocoDro';
+    headerText.textContent = '🌉 ChocoDrop';
     header.appendChild(headerText);
     
-    // ダークモードトグルアイコンボタン（右側に配置）
-    const themeToggle = document.createElement('button');
-    themeToggle.style.cssText = `
+    const controlButtonStyles = `
       background: transparent;
       border: none;
-      font-size: 20px;
+      font-size: 18px;
       cursor: pointer;
       padding: 4px 8px;
       border-radius: 8px;
@@ -145,29 +153,68 @@ export class CommandUI {
       display: flex;
       align-items: center;
       justify-content: center;
+      margin-left: 4px;
     `;
+
+    const settingsButton = document.createElement('button');
+    settingsButton.style.cssText = controlButtonStyles;
+    settingsButton.innerHTML = '⚙️';
+    settingsButton.title = 'サービス設定を開く';
+    settingsButton.addEventListener('mouseenter', () => {
+      settingsButton.style.background = this.isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(99, 102, 241, 0.15)';
+    });
+    settingsButton.addEventListener('mouseleave', () => {
+      settingsButton.style.background = 'transparent';
+    });
+    settingsButton.addEventListener('click', () => this.openServiceModal());
+    this.settingsButton = settingsButton;
+
+    const themeToggle = document.createElement('button');
+    themeToggle.style.cssText = controlButtonStyles;
     themeToggle.innerHTML = this.isDarkMode ? '☀️' : '🌙';
     themeToggle.title = this.isDarkMode ? 'ライトモードに切り替え' : 'ダークモードに切り替え';
     
-    // ホバーエフェクト
     themeToggle.addEventListener('mouseenter', () => {
-      themeToggle.style.background = this.isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)';
+      themeToggle.style.background = this.isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(99, 102, 241, 0.15)';
     });
     themeToggle.addEventListener('mouseleave', () => {
       themeToggle.style.background = 'transparent';
     });
     
     themeToggle.addEventListener('click', () => this.toggleTheme());
-    this.themeToggle = themeToggle; // 参照保持
-    
-    header.appendChild(themeToggle);
+    this.themeToggle = themeToggle;
 
-    // 出力エリア（タスクカードコンテナ）
+    const headerControls = document.createElement('div');
+    headerControls.style.cssText = 'display: flex; align-items: center; gap: 4px;';
+    headerControls.appendChild(settingsButton);
+    headerControls.appendChild(themeToggle);
+
+    header.appendChild(headerControls);
+
+    // 出力エリア（タスクカードコンテナ）- 非表示に変更
     this.output = document.createElement('div');
     this.outputDiv = this.output; // 両方の参照を保持（互換性のため）
     this.output.id = 'command-output';
     this.output.className = 'command-output';
     this.output.style.cssText = this.getOutputStyles();
+    // フローティングカード用コンテナ
+    this.floatingContainer = document.createElement('div');
+    this.floatingContainer.id = 'floating-cards-container';
+    this.floatingContainer.style.cssText = `
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 99999;
+      pointer-events: none;
+      display: none;
+      flex-direction: column-reverse;
+      gap: 8px;
+      width: 400px;
+      max-width: 90vw;
+      align-items: center;
+      justify-content: flex-end;
+    `;
 
     // タスクカード管理用
     this.taskCards = new Map();
@@ -189,15 +236,19 @@ export class CommandUI {
 
     // 組み立て
     this.container.appendChild(header);
-    this.container.appendChild(this.output);
+    // this.container.appendChild(this.output); // 大きなタスク表示エリアをDOMに追加しない
     this.container.appendChild(modeSelector);
     this.container.appendChild(this.input);
     this.container.appendChild(actionContainer);
+
+    // フローティングカードコンテナをbodyに直接追加
+    document.body.appendChild(this.floatingContainer);
 
     // DOM に追加
     document.body.appendChild(this.container);
 
     // 初回テーマ適用
+    console.log('🚀 CommandUI initialization - applying initial theme');
     this.applyTheme();
 
     // 日本語IME対応のcomposition state管理
@@ -304,6 +355,573 @@ export class CommandUI {
     container.appendChild(clearBtn);
 
     return container;
+  }
+
+  createServiceSelectorSection() {
+    this.serviceSelectorContainer = document.createElement('div');
+    this.serviceSelectorContainer.id = 'service-selector';
+    this.serviceSelectorContainer.style.cssText = `
+      margin-bottom: 16px;
+      padding: 12px;
+      border-radius: 12px;
+      border: 1px solid transparent;
+      transition: background 0.3s ease, border 0.3s ease;
+    `;
+
+    this.serviceSelectorStatus = document.createElement('div');
+    this.serviceSelectorStatus.textContent = 'サービス情報を読み込んでいます...';
+    this.serviceSelectorStatus.style.fontSize = '12px';
+    this.serviceSelectorStatus.style.opacity = '0.8';
+    this.serviceSelectorStatus.style.marginBottom = '8px';
+    this.serviceSelectorContainer.appendChild(this.serviceSelectorStatus);
+
+    this.serviceSelectorContent = document.createElement('div');
+    this.serviceSelectorContainer.appendChild(this.serviceSelectorContent);
+
+    this.updateServiceSelectorTheme();
+    return this.serviceSelectorContainer;
+  }
+
+  createServiceModal() {
+    if (this.serviceModalOverlay) {
+      this.updateServiceSelectorTheme();
+      return;
+    }
+
+    this.serviceModalOverlay = document.createElement('div');
+    this.serviceModalOverlay.id = 'chocodrop-service-modal-overlay';
+    this.serviceModalOverlay.style.cssText = `
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      z-index: 2000;
+      padding: 24px;
+      opacity: 0;
+      transition: opacity 0.2s ease;
+    `;
+
+    this.serviceModalOverlay.addEventListener('click', (event) => {
+      if (event.target === this.serviceModalOverlay) {
+        this.closeServiceModal();
+      }
+    });
+
+    this.serviceModal = document.createElement('div');
+    this.serviceModal.className = 'chocodrop-service-modal';
+    this.serviceModal.style.cssText = `
+      width: min(420px, 90vw);
+      border-radius: 24px;
+      padding: 26px 28px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      box-shadow: 0 20px 40px rgba(15, 23, 42, 0.35);
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      max-height: 90vh;
+      overflow-y: auto;
+      position: relative;
+    `;
+
+    const title = document.createElement('h2');
+    title.textContent = 'サービス設定';
+    title.style.cssText = `
+      margin: 0;
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+    `;
+
+    const subtitle = document.createElement('p');
+    subtitle.textContent = '利用するサービスを選択してください。';
+    subtitle.style.cssText = `
+      margin: 0;
+      font-size: 12px;
+      opacity: 0.75;
+    `;
+
+    const selector = this.createServiceSelectorSection();
+
+    const actionRow = document.createElement('div');
+    actionRow.style.cssText = `
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    `;
+
+    this.serviceSelectorRetryButton = document.createElement('button');
+    this.serviceSelectorRetryButton.textContent = '再読み込み';
+    this.serviceSelectorRetryButton.style.cssText = `
+      font-size: 11px;
+      padding: 6px 14px;
+      border-radius: 10px;
+      border: 1px solid transparent;
+      cursor: pointer;
+      display: none;
+      transition: all 0.2s ease;
+    `;
+    this.serviceSelectorRetryButton.addEventListener('click', () => this.initializeServiceSelector(true));
+
+    const actionButtons = document.createElement('div');
+    actionButtons.style.cssText = 'display: flex; gap: 8px;';
+
+    this.serviceSelectorCancelButton = document.createElement('button');
+    this.serviceSelectorCancelButton.textContent = 'Cancel';
+    this.serviceSelectorCancelButton.style.cssText = `
+      font-size: 12px;
+      padding: 8px 16px;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.35);
+      background: transparent;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    `;
+    this.serviceSelectorCancelButton.addEventListener('click', () => this.closeServiceModal());
+
+    this.serviceSelectorSaveButton = document.createElement('button');
+    this.serviceSelectorSaveButton.textContent = 'Save';
+    this.serviceSelectorSaveButton.style.cssText = `
+      font-size: 12px;
+      padding: 8px 18px;
+      border-radius: 10px;
+      border: none;
+      cursor: pointer;
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      color: white;
+      font-weight: 600;
+      transition: all 0.2s ease;
+      box-shadow: 0 12px 24px rgba(99, 102, 241, 0.35);
+    `;
+    this.serviceSelectorSaveButton.addEventListener('click', () => this.handleServiceSave());
+
+    actionButtons.appendChild(this.serviceSelectorCancelButton);
+    actionButtons.appendChild(this.serviceSelectorSaveButton);
+
+    actionRow.appendChild(this.serviceSelectorRetryButton);
+    actionRow.appendChild(actionButtons);
+
+    this.serviceModal.appendChild(title);
+    this.serviceModal.appendChild(subtitle);
+    this.serviceModal.appendChild(selector);
+    this.serviceModal.appendChild(actionRow);
+
+    this.serviceModalOverlay.appendChild(this.serviceModal);
+    document.body.appendChild(this.serviceModalOverlay);
+
+    this.updateServiceSelectorTheme();
+    this.toggleServiceRetryButton(false);
+  }
+
+  openServiceModal(forceFetch = false) {
+    if (!this.serviceModalOverlay) {
+      this.createServiceModal();
+    }
+
+    this.serviceModalOverlay.style.display = 'flex';
+    requestAnimationFrame(() => {
+      if (this.serviceModalOverlay) {
+        this.serviceModalOverlay.style.opacity = '1';
+      }
+    });
+
+    this.resetPendingSelections();
+    this.initializeServiceSelector(forceFetch);
+  }
+
+  closeServiceModal() {
+    if (!this.serviceModalOverlay) {
+      return;
+    }
+
+    this.serviceModalOverlay.style.opacity = '0';
+    setTimeout(() => {
+      if (this.serviceModalOverlay) {
+        this.serviceModalOverlay.style.display = 'none';
+      }
+      this.resetPendingSelections();
+    }, 150);
+  }
+
+  async initializeServiceSelector(force = false) {
+    if (this.servicesLoading && !force) {
+      return;
+    }
+
+    if (!this.client || typeof this.client.getAvailableServices !== 'function') {
+      this.setServiceSelectorStatus('サービス情報を取得できませんでした（クライアント初期化待ちです）。右下の「再読み込み」で再取得できます。', 'error');
+      this.toggleServiceRetryButton(true);
+      this.setServiceButtonsEnabled(false);
+      return;
+    }
+
+    this.servicesLoading = true;
+    this.setServiceSelectorStatus('サービス情報を読み込んでいます...', 'info');
+    this.toggleServiceRetryButton(false);
+    this.setServiceButtonsEnabled(false);
+
+    try {
+      if (typeof this.client.ensureInitialized === 'function') {
+        await this.client.ensureInitialized();
+      }
+
+      const response = await this.client.getAvailableServices();
+      if (!response || response.success === false || !response.metadata) {
+        throw new Error(response?.error || 'サービス情報が取得できませんでした');
+      }
+
+      this.availableImageServices = Array.isArray(response.metadata?.image) ? response.metadata.image : [];
+      this.availableVideoServices = Array.isArray(response.metadata?.video) ? response.metadata.video : [];
+
+      this.selectedImageService = this.resolveServiceSelection(
+        'image',
+        this.availableImageServices,
+        response.default?.image
+      );
+
+      this.selectedVideoService = this.resolveServiceSelection(
+        'video',
+        this.availableVideoServices,
+        response.default?.video
+      );
+
+      this.pendingImageService = this.selectedImageService;
+      this.pendingVideoService = this.selectedVideoService;
+
+      this.populateServiceSelector();
+      this.applyServiceSelectionToSceneManager();
+      this.setServiceButtonsEnabled(true);
+    } catch (error) {
+      console.error('❌ Failed to initialize service selector:', error);
+      this.setServiceSelectorStatus('サービス情報を取得できませんでした。サーバーが起動しているか確認のうえ、再読み込みしてください。', 'error');
+      this.toggleServiceRetryButton(true);
+      this.setServiceButtonsEnabled(false);
+    } finally {
+      this.servicesLoading = false;
+    }
+  }
+
+  setServiceSelectorStatus(message, type = 'info') {
+    if (!this.serviceSelectorStatus) {
+      return;
+    }
+    this.serviceSelectorStatus.textContent = message;
+    this.serviceSelectorStatus.dataset.statusType = type;
+    this.serviceSelectorStatus.classList.toggle('service-selector-helper', type !== 'error');
+    this.updateServiceSelectorTheme();
+  }
+
+  toggleServiceRetryButton(visible) {
+    if (!this.serviceSelectorRetryButton) {
+      return;
+    }
+    this.serviceSelectorRetryButton.style.display = visible ? 'inline-flex' : 'none';
+    this.updateServiceSelectorTheme();
+  }
+
+  resolveServiceSelection(type, services, defaultId) {
+    if (!services || services.length === 0) {
+      return null;
+    }
+
+    const storageKey = type === 'image' ? IMAGE_SERVICE_STORAGE_KEY : VIDEO_SERVICE_STORAGE_KEY;
+    let storedId = null;
+    try {
+      storedId = localStorage.getItem(storageKey);
+    } catch (error) {
+      console.warn('⚠️ Failed to access localStorage:', error);
+    }
+
+    const isStoredValid = storedId && services.some(service => service.id === storedId);
+    let resolvedId = isStoredValid ? storedId : null;
+
+    if (!resolvedId && defaultId && services.some(service => service.id === defaultId)) {
+      resolvedId = defaultId;
+    }
+
+    if (!resolvedId) {
+      resolvedId = services[0]?.id || null;
+    }
+
+    try {
+      if (resolvedId) {
+        localStorage.setItem(storageKey, resolvedId);
+      } else {
+        localStorage.removeItem(storageKey);
+      }
+    } catch (error) {
+      console.warn('⚠️ Failed to persist service selection:', error);
+    }
+
+    return resolvedId;
+  }
+
+  populateServiceSelector() {
+    if (!this.serviceSelectorContent) {
+      return;
+    }
+
+    this.serviceSelectorContent.innerHTML = '';
+
+    const hasImage = this.availableImageServices.length > 0;
+    const hasVideo = this.availableVideoServices.length > 0;
+
+    if (!hasImage && !hasVideo) {
+      this.setServiceSelectorStatus('利用可能なサービスが見つかりませんでした。', 'error');
+      return;
+    }
+
+    this.setServiceSelectorStatus('利用するサービスを選択してください。', 'info');
+
+    if (hasImage) {
+      const imageRow = this.buildServiceRow('image', '画像 (T2I)', this.availableImageServices, this.pendingImageService || this.selectedImageService);
+      this.serviceSelectorContent.appendChild(imageRow);
+    }
+
+    if (hasVideo) {
+      const videoRow = this.buildServiceRow('video', '動画 (T2V)', this.availableVideoServices, this.pendingVideoService || this.selectedVideoService);
+      this.serviceSelectorContent.appendChild(videoRow);
+    }
+
+    this.updateServiceSelectorTheme();
+  }
+
+  buildServiceRow(type, labelText, services, selectedId) {
+    const row = document.createElement('div');
+    row.className = `service-row service-row-${type}`;
+    row.style.cssText = `
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 12px;
+    `;
+
+    const label = document.createElement('label');
+    label.textContent = labelText;
+    label.style.fontSize = '13px';
+    label.style.fontWeight = '600';
+    row.appendChild(label);
+
+    const select = document.createElement('select');
+    select.dataset.serviceType = type;
+    select.style.fontFamily = 'inherit';
+    select.style.width = '100%';
+
+    services.forEach(service => {
+      const option = document.createElement('option');
+      option.value = service.id;
+      option.textContent = service.name || service.id;
+      if (service.description) {
+        option.title = service.description;
+      }
+      select.appendChild(option);
+    });
+
+    if (selectedId && services.some(service => service.id === selectedId)) {
+      select.value = selectedId;
+    }
+
+    select.addEventListener('change', (event) => {
+      this.onServiceSelectionChange(type, event.target.value);
+    });
+
+    row.appendChild(select);
+
+    const description = document.createElement('div');
+    description.className = 'service-description';
+    description.textContent = this.findServiceInfo(type, select.value)?.description || '';
+    description.style.fontSize = '11px';
+    description.style.opacity = '0.75';
+    description.style.lineHeight = '1.4';
+    description.style.minHeight = '14px';
+    row.appendChild(description);
+
+    select.addEventListener('change', () => {
+      description.textContent = this.findServiceInfo(type, select.value)?.description || '';
+    });
+
+    if (type === 'image') {
+      this.imageServiceSelect = select;
+    } else {
+      this.videoServiceSelect = select;
+    }
+
+    return row;
+  }
+
+  onServiceSelectionChange(type, serviceId) {
+    if (type === 'image') {
+      this.pendingImageService = serviceId;
+    } else {
+      this.pendingVideoService = serviceId;
+    }
+
+    const info = this.findServiceInfo(type, serviceId);
+    const description = type === 'image'
+      ? this.imageServiceSelect?.parentElement?.querySelector('.service-description')
+      : this.videoServiceSelect?.parentElement?.querySelector('.service-description');
+
+    if (description) {
+      description.textContent = info?.description || '';
+    }
+  }
+
+  handleServiceSave() {
+    const newImageId = this.pendingImageService || this.selectedImageService;
+    const newVideoId = this.pendingVideoService || this.selectedVideoService;
+
+    if (newImageId) {
+      try {
+        localStorage.setItem(IMAGE_SERVICE_STORAGE_KEY, newImageId);
+      } catch (error) {
+        console.warn('⚠️ Failed to persist image service selection:', error);
+      }
+      this.selectedImageService = newImageId;
+      this.sceneManager?.setImageService(newImageId);
+    }
+
+    if (newVideoId) {
+      try {
+        localStorage.setItem(VIDEO_SERVICE_STORAGE_KEY, newVideoId);
+      } catch (error) {
+        console.warn('⚠️ Failed to persist video service selection:', error);
+      }
+      this.selectedVideoService = newVideoId;
+      this.sceneManager?.setVideoService(newVideoId);
+    }
+
+    const imageInfo = this.findServiceInfo('image', newImageId);
+    const videoInfo = this.findServiceInfo('video', newVideoId);
+
+    if (imageInfo) {
+      this.addOutput(`🖼️ 画像サービスを「${imageInfo.name}」に設定しました`, 'system');
+    }
+    if (videoInfo) {
+      this.addOutput(`🎬 動画サービスを「${videoInfo.name}」に設定しました`, 'system');
+    }
+
+    this.closeServiceModal();
+  }
+
+  setServiceButtonsEnabled(enabled) {
+    if (this.serviceSelectorSaveButton) {
+      this.serviceSelectorSaveButton.disabled = !enabled;
+      this.serviceSelectorSaveButton.style.opacity = enabled ? '1' : '0.6';
+      this.serviceSelectorSaveButton.style.cursor = enabled ? 'pointer' : 'not-allowed';
+    }
+  }
+
+  resetPendingSelections() {
+    this.pendingImageService = this.selectedImageService;
+    this.pendingVideoService = this.selectedVideoService;
+
+    if (this.imageServiceSelect && this.selectedImageService) {
+      this.imageServiceSelect.value = this.selectedImageService;
+    }
+    if (this.videoServiceSelect && this.selectedVideoService) {
+      this.videoServiceSelect.value = this.selectedVideoService;
+    }
+
+    if (this.serviceSelectorContent && this.serviceSelectorContent.childElementCount > 0) {
+      this.populateServiceSelector();
+    }
+  }
+
+  findServiceInfo(type, serviceId) {
+    const list = type === 'image' ? this.availableImageServices : this.availableVideoServices;
+    return list.find(service => service.id === serviceId) || null;
+  }
+
+  applyServiceSelectionToSceneManager() {
+    if (!this.sceneManager) {
+      return;
+    }
+    this.sceneManager.setImageService(this.selectedImageService);
+    this.sceneManager.setVideoService(this.selectedVideoService);
+  }
+
+  updateServiceSelectorTheme() {
+    if (this.serviceModalOverlay) {
+      this.serviceModalOverlay.style.background = this.isDarkMode
+        ? 'rgba(8, 11, 26, 0.55)'
+        : 'rgba(229, 231, 255, 0.45)';
+    }
+
+    if (this.serviceModal) {
+      this.serviceModal.style.background = this.isDarkMode
+        ? 'linear-gradient(135deg, rgba(17, 24, 39, 0.92), rgba(30, 41, 59, 0.85))'
+        : 'linear-gradient(135deg, rgba(255, 255, 255, 0.92), rgba(229, 231, 255, 0.85))';
+      this.serviceModal.style.border = this.isDarkMode
+        ? '1px solid rgba(129, 140, 248, 0.4)'
+        : '1px solid rgba(99, 102, 241, 0.25)';
+      this.serviceModal.style.color = this.isDarkMode ? '#e5e7ff' : '#1f2937';
+    }
+
+    if (this.serviceSelectorStatus) {
+      const type = this.serviceSelectorStatus.dataset?.statusType;
+      const statusColor = type === 'error'
+        ? (this.isDarkMode ? '#fca5a5' : '#b91c1c')
+        : (this.isDarkMode ? 'rgba(209, 213, 219, 0.8)' : 'rgba(55, 65, 81, 0.75)');
+      this.serviceSelectorStatus.style.color = statusColor;
+    }
+
+    if (this.serviceSelectorContainer) {
+      const labels = this.serviceSelectorContainer.querySelectorAll('label');
+      labels.forEach(label => {
+        label.style.color = this.isDarkMode ? 'rgba(255, 255, 255, 0.9)' : 'rgba(31, 41, 55, 0.9)';
+      });
+
+      const selects = this.serviceSelectorContainer.querySelectorAll('select');
+      selects.forEach(select => {
+        select.style.background = this.isDarkMode ? 'rgba(99, 102, 241, 0.18)' : 'rgba(99, 102, 241, 0.12)';
+        select.style.border = this.isDarkMode ? '1px solid rgba(129, 140, 248, 0.45)' : '1px solid rgba(99, 102, 241, 0.45)';
+        select.style.color = this.isDarkMode ? '#ffffff' : '#1f2937';
+        select.style.padding = '10px 12px';
+        select.style.borderRadius = '10px';
+        select.style.fontSize = '13px';
+        select.style.outline = 'none';
+        select.style.boxShadow = this.isDarkMode
+          ? '0 12px 28px rgba(15, 23, 42, 0.5)'
+          : '0 12px 24px rgba(99, 102, 241, 0.2)';
+      });
+
+      const descriptions = this.serviceSelectorContainer.querySelectorAll('.service-description');
+      descriptions.forEach(desc => {
+        desc.style.color = this.isDarkMode ? 'rgba(209, 213, 219, 0.8)' : 'rgba(55, 65, 81, 0.7)';
+      });
+    }
+
+    if (this.serviceSelectorRetryButton) {
+      this.serviceSelectorRetryButton.style.background = this.isDarkMode
+        ? 'rgba(129, 140, 248, 0.35)'
+        : 'rgba(99, 102, 241, 0.15)';
+      this.serviceSelectorRetryButton.style.border = this.isDarkMode
+        ? '1px solid rgba(129, 140, 248, 0.5)'
+        : '1px solid rgba(99, 102, 241, 0.45)';
+      this.serviceSelectorRetryButton.style.color = this.isDarkMode ? '#f9fafb' : '#1e1b4b';
+      this.serviceSelectorRetryButton.style.boxShadow = this.isDarkMode
+        ? '0 0 8px rgba(129, 140, 248, 0.45)'
+        : '0 0 8px rgba(99, 102, 241, 0.35)';
+    }
+
+    if (this.serviceSelectorCancelButton) {
+      this.serviceSelectorCancelButton.style.border = this.isDarkMode
+        ? '1px solid rgba(209, 213, 219, 0.3)'
+        : '1px solid rgba(148, 163, 184, 0.5)';
+      this.serviceSelectorCancelButton.style.color = this.isDarkMode ? 'rgba(226, 232, 240, 0.85)' : 'rgba(30, 41, 59, 0.85)';
+    }
+
+    if (this.serviceSelectorSaveButton) {
+      this.serviceSelectorSaveButton.style.background = this.isDarkMode
+        ? 'linear-gradient(135deg, #6366f1, #8b5cf6)'
+        : 'linear-gradient(135deg, #818cf8, #a855f7)';
+      this.serviceSelectorSaveButton.style.boxShadow = this.isDarkMode
+        ? '0 16px 28px rgba(99, 102, 241, 0.4)'
+        : '0 16px 28px rgba(129, 140, 248, 0.35)';
+    }
   }
 
   /**
@@ -1001,31 +1619,6 @@ export class CommandUI {
         background: ${this.isDarkMode ? 'rgba(255, 255, 255, 0.5)' : 'rgba(0, 0, 0, 0.5)'};
       }
 
-      /* ダークモード用 */
-      .dark-mode .command-output::-webkit-scrollbar-track {
-        background: rgba(255, 255, 255, 0.1);
-      }
-
-      .dark-mode .command-output::-webkit-scrollbar-thumb {
-        background: rgba(255, 255, 255, 0.3);
-      }
-
-      .dark-mode .command-output::-webkit-scrollbar-thumb:hover {
-        background: rgba(255, 255, 255, 0.5);
-      }
-
-      /* ライトモード用 */
-      .light-mode .command-output::-webkit-scrollbar-track {
-        background: rgba(0, 0, 0, 0.1);
-      }
-
-      .light-mode .command-output::-webkit-scrollbar-thumb {
-        background: rgba(0, 0, 0, 0.3);
-      }
-
-      .light-mode .command-output::-webkit-scrollbar-thumb:hover {
-        background: rgba(0, 0, 0, 0.5);
-      }
 
       @keyframes shimmer {
         0% { background-position: -200% 0; }
@@ -1210,7 +1803,19 @@ export class CommandUI {
    * UI表示
    */
   show() {
-    this.container.style.display = 'block';
+    this.container.style.display = 'flex';
+    this.container.style.flexDirection = 'column';
+    this.floatingContainer.style.display = 'flex';
+
+    // UIフォームの位置に合わせて配置（少し遅延して正確な位置を取得）
+    setTimeout(() => {
+      const containerRect = this.container.getBoundingClientRect();
+      this.floatingContainer.style.left = containerRect.left + 'px';
+      this.floatingContainer.style.top = (containerRect.top - 80) + 'px';
+      this.floatingContainer.style.width = containerRect.width + 'px';
+      this.floatingContainer.style.transform = 'none';
+    }, 50);
+
     this.isVisible = true;
     this.input.focus();
     
@@ -1224,6 +1829,7 @@ export class CommandUI {
    */
   hide() {
     this.container.style.display = 'none';
+    this.floatingContainer.style.display = 'none';
     this.isVisible = false;
     
     // コントロールを再有効化
@@ -1356,9 +1962,13 @@ export class CommandUI {
         if (this.currentMode === 'generate') {
           // 生成モード: 新しいオブジェクトを作成
           if (commandType.mediaType === 'video') {
-            result = await this.client.generateVideo(command);
+            result = await this.client.generateVideo(command, {
+              model: this.selectedVideoService || undefined
+            });
           } else {
-            result = await this.client.generateImage(command);
+            result = await this.client.generateImage(command, {
+              service: this.selectedImageService || undefined
+            });
           }
         } else if (this.currentMode === 'modify') {
           // 変更モード: 既存オブジェクトを変更（選択が必要）
@@ -1597,7 +2207,7 @@ export class CommandUI {
   }
 
   /**
-   * タスクカード追加
+   * フローティングタスクカード追加
    */
   addTaskCard(taskInfo, options = {}) {
     if (!this.taskCards) this.taskCards = new Map();
@@ -1606,17 +2216,17 @@ export class CommandUI {
     const status = options.status || 'pending';
     const prompt = taskInfo.prompt || taskInfo.command || taskInfo;
 
-    // プレースホルダー削除
-    if (this.placeholder && this.placeholder.parentNode) {
-      this.placeholder.remove();
-    }
-
+    // フローティングカード作成
     const card = document.createElement('div');
-    card.className = 'task-card';
+    card.className = 'floating-task-card';
     card.setAttribute('data-task-id', taskId);
 
-    const cardStyles = this.getTaskCardStyles(status);
-    card.style.cssText = cardStyles;
+    // iOS 26 Liquid Glass + 2026年トレンドスタイル
+    card.style.cssText = this.getFloatingCardStyles(status);
+    // アニメーション用初期状態（非表示）- 強制設定
+    card.style.setProperty('opacity', '0', 'important');
+    card.style.setProperty('transform', 'translateY(20px) scale(0.95)', 'important');
+    card.style.setProperty('filter', 'blur(4px)', 'important');
 
     const iconMap = {
       pending: '⏳',
@@ -1634,40 +2244,42 @@ export class CommandUI {
       error: 'エラー'
     };
 
+    // 温かみのあるメッセージ表示
+    const friendlyMessage = this.getFriendlyMessage(status, prompt);
     card.innerHTML = `
-      <div class="task-header" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-        <div style="display: flex; align-items: center; gap: 8px;">
-          <span class="task-icon" style="font-size: 16px;">${iconMap[status]}</span>
-          <span class="task-status" style="font-weight: 600; font-size: 12px; color: ${this.getStatusColor(status)};">
-            ${statusText[status]}
-          </span>
-        </div>
-        <span class="task-time" style="font-size: 10px; color: ${this.isDarkMode ? '#9ca3af' : '#6b7280'};">
-          ${new Date().toLocaleTimeString()}
-        </span>
-      </div>
-      <div class="task-content" style="font-size: 13px; line-height: 1.4; margin-bottom: 8px;">
-        ${prompt}
-      </div>
-      <div class="task-progress" style="display: ${status === 'progress' || status === 'processing' ? 'block' : 'none'};">
-        ${this.createStatusIndicator(status)}
-      </div>
+      <span style="font-size: 14px;">${iconMap[status]}</span>
+      <span style="font-size: 13px; margin-left: 6px;">${friendlyMessage}</span>
     `;
 
-    this.outputDiv.appendChild(card);
+    // フローティングコンテナに追加（最新が下に来るように）
+    this.floatingContainer.appendChild(card);
+    
+    // カード表示制限を適用（最大3個まで表示）
+    this.updateCardDisplayLimit();
+
     this.taskCards.set(taskId, {
       element: card,
       status: status,
       prompt: prompt,
-      startTime: Date.now()
+      originalPrompt: prompt, // 元のプロンプト
+      startTime: Date.now(),
+      endTime: null,
+      error: null,
+      contentType: 'image', // 'image', 'video', etc.
+      model: null,
+      settings: null
     });
 
-    this.scrollToBottom();
+    // カード詳細モーダル用のイベントリスナー
+    this.addCardDetailEvents(card, taskId);
+    
+    // 入場アニメーション
+    this.animateCardEntrance(card);
     return taskId;
   }
 
   /**
-   * タスクカード更新
+   * フローティングタスクカード更新
    */
   updateTaskCard(taskId, status, options = {}) {
     if (!this.taskCards || !this.taskCards.has(taskId)) return;
@@ -1686,43 +2298,19 @@ export class CommandUI {
       error: '❌'
     };
 
-    const statusText = {
-      pending: '待機中',
-      processing: '生成中',
-      progress: '進行中',
-      completed: '完了',
-      error: 'エラー'
-    };
+    // 温かみのあるメッセージ更新
+    const friendlyMessage = this.getFriendlyMessage(status, taskData.prompt);
+    card.innerHTML = `
+      <span style="font-size: 14px;">${iconMap[status]}</span>
+      <span style="font-size: 13px; margin-left: 6px;">${friendlyMessage}</span>
+    `;
 
-    // アイコンとステータステキスト更新
-    const icon = card.querySelector('.task-icon');
-    const statusEl = card.querySelector('.task-status');
-    if (icon) icon.textContent = iconMap[status];
-    if (statusEl) {
-      statusEl.textContent = statusText[status];
-      statusEl.style.color = this.getStatusColor(status);
-    }
-
-    // ステータスインジケーター更新
-    const progressDiv = card.querySelector('.task-progress');
-    if (progressDiv) {
-      progressDiv.style.display = (status === 'progress' || status === 'processing') ? 'block' : 'none';
-      if (status === 'progress' || status === 'processing') {
-        progressDiv.innerHTML = this.createStatusIndicator(status);
-      }
-    }
-
-    // 完了時の演出
+    // 完了時の自動消去アニメーション
     if (status === 'completed') {
-      this.animateTaskCompletion(card);
-
-      // プログレスバーを非表示
-      const progressDiv = card.querySelector('.task-progress');
-      if (progressDiv) progressDiv.style.display = 'none';
+      this.animateCardSuccess(card, taskId);
+    } else if (status === 'error') {
+      this.animateCardError(card, taskId);
     }
-
-    // カードスタイル更新
-    card.style.cssText = this.getTaskCardStyles(status);
   }
 
   /**
@@ -1771,6 +2359,489 @@ export class CommandUI {
     };
 
     return baseStyles + `border-left: 3px solid ${statusBorders[status] || statusBorders.pending};`;
+  }
+
+  /**
+   * フローティングカードスタイル（iOS 26 Liquid Glass + 2026年トレンド）
+   */
+  getFloatingCardStyles(status) {
+    const baseColor = this.isDarkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.12)';
+    const borderColor = this.isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.15)';
+    const textColor = this.isDarkMode ? 'rgba(255, 255, 255, 0.9)' : 'rgba(0, 0, 0, 0.85)';
+
+    return `
+      height: 32px;
+      padding: 0 16px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: ${baseColor};
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid ${borderColor};
+      border-radius: 16px;
+      color: ${textColor};
+      pointer-events: auto;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-weight: 500;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+      transform: translateY(10px);
+      opacity: 0;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    `;
+  }
+
+  /**
+   * カード表示制限を適用（最大3個まで表示、それ以上は「+ N」で表示）
+   */
+  updateCardDisplayLimit() {
+    const maxVisibleCards = 3;
+    const allCards = Array.from(this.floatingContainer.children).filter(child => 
+      !child.classList.contains('overflow-counter')
+    );
+    
+    // 既存のカウンターを削除
+    const existingCounter = this.floatingContainer.querySelector('.overflow-counter');
+    if (existingCounter) {
+      existingCounter.remove();
+    }
+    
+    if (allCards.length <= maxVisibleCards) {
+      // カードが3個以下の場合、すべて表示
+      allCards.forEach(card => {
+        card.style.display = 'flex';
+      });
+    } else {
+      // カードが4個以上の場合、最新3個のみ表示し、残りはカウンター表示
+      const visibleCards = allCards.slice(-maxVisibleCards); // 最新3個
+      const hiddenCount = allCards.length - maxVisibleCards;
+      
+      // 古いカードを非表示
+      allCards.forEach((card, index) => {
+        if (index < allCards.length - maxVisibleCards) {
+          card.style.display = 'none';
+        } else {
+          card.style.display = 'flex';
+        }
+      });
+      
+      // 「+ N」カウンターを作成
+      const counter = document.createElement('div');
+      counter.className = 'overflow-counter';
+      // テーマに応じたカウンタースタイル
+      const counterBaseColor = this.isDarkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.12)';
+      const counterBorderColor = this.isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.15)';
+      const counterTextColor = this.isDarkMode ? 'rgba(255, 255, 255, 0.7)' : 'rgba(0, 0, 0, 0.6)';
+      
+      counter.style.cssText = `
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 8px 12px;
+        margin: 4px 0;
+        background: ${counterBaseColor};
+        backdrop-filter: blur(20px);
+        border-radius: 12px;
+        border: 1px solid ${counterBorderColor};
+        font-size: 12px;
+        color: ${counterTextColor};
+        font-weight: 500;
+        min-height: 32px;
+        transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        cursor: pointer;
+      `;
+      counter.innerHTML = `+ ${hiddenCount}`;
+      
+      // カウンターを最初に挿入（最上部に配置）
+      this.floatingContainer.insertBefore(counter, this.floatingContainer.firstChild);
+      
+      // カウンターのホバー効果（テーマ対応）
+      const counterHoverColor = this.isDarkMode ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.18)';
+      
+      counter.addEventListener('mouseenter', () => {
+        counter.style.background = counterHoverColor;
+        counter.style.transform = 'scale(1.05)';
+      });
+      
+      counter.addEventListener('mouseleave', () => {
+        counter.style.background = counterBaseColor;
+        counter.style.transform = 'scale(1)';
+      });
+    }
+  }
+
+  /**
+   * カードに詳細モーダル用のイベントリスナーを追加
+   */
+  addCardDetailEvents(card, taskId) {
+    // タッチデバイス検出
+    const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    
+    if (isTouchDevice) {
+      // モバイル/タブレット: タップで詳細表示
+      card.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.showTaskDetailModal(taskId);
+      });
+    } else {
+      // デスクトップ: ホバーで詳細表示
+      let hoverTimeout;
+      
+      card.addEventListener('mouseenter', () => {
+        hoverTimeout = setTimeout(() => {
+          this.showTaskDetailModal(taskId);
+        }, 800); // 0.8秒ホバーで表示
+      });
+      
+      card.addEventListener('mouseleave', () => {
+        if (hoverTimeout) {
+          clearTimeout(hoverTimeout);
+        }
+      });
+      
+      // クリックでも表示（デスクトップでも使いやすく）
+      card.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.showTaskDetailModal(taskId);
+      });
+    }
+  }
+
+  /**
+   * タスク詳細モーダルを表示
+   */
+  showTaskDetailModal(taskId) {
+    const taskData = this.taskCards.get(taskId);
+    if (!taskData) return;
+    
+    // 既存のモーダルを削除
+    const existingModal = document.querySelector('.task-detail-modal');
+    if (existingModal) {
+      existingModal.remove();
+    }
+    
+    // モーダル作成
+    const modal = this.createTaskDetailModal(taskData);
+    document.body.appendChild(modal);
+    
+    // 入場アニメーション
+    requestAnimationFrame(() => {
+      modal.style.opacity = '1';
+      modal.querySelector('.modal-content').style.transform = 'translateY(0) scale(1)';
+    });
+  }
+
+  /**
+   * タスク詳細モーダルのHTML要素を作成
+   */
+  createTaskDetailModal(taskData) {
+    const modal = document.createElement('div');
+    modal.className = 'task-detail-modal';
+    
+    // テーマに応じたスタイル
+    const overlayColor = this.isDarkMode ? 'rgba(0, 0, 0, 0.6)' : 'rgba(0, 0, 0, 0.4)';
+    const modalBg = this.isDarkMode ? 'rgba(20, 20, 20, 0.95)' : 'rgba(255, 255, 255, 0.95)';
+    const modalBorder = this.isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
+    const textColor = this.isDarkMode ? 'rgba(255, 255, 255, 0.9)' : 'rgba(0, 0, 0, 0.9)';
+    const labelColor = this.isDarkMode ? 'rgba(255, 255, 255, 0.6)' : 'rgba(0, 0, 0, 0.6)';
+    
+    modal.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: ${overlayColor};
+      backdrop-filter: blur(10px);
+      z-index: 100000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      cursor: pointer;
+    `;
+    
+    // 実行時間計算
+    const duration = taskData.endTime 
+      ? ((taskData.endTime - taskData.startTime) / 1000).toFixed(1)
+      : ((Date.now() - taskData.startTime) / 1000).toFixed(1);
+    
+    // ステータス表示
+    const statusText = taskData.status === 'pending' ? '待機中' 
+                    : taskData.status === 'in-progress' ? '実行中' 
+                    : taskData.status === 'completed' ? '完了' 
+                    : 'エラー';
+    
+    const modalContent = document.createElement('div');
+    modalContent.className = 'modal-content';
+    modalContent.style.cssText = `
+      background: ${modalBg};
+      backdrop-filter: blur(30px);
+      border: 1px solid ${modalBorder};
+      border-radius: 16px;
+      padding: 24px;
+      max-width: 400px;
+      width: 90%;
+      max-height: 80vh;
+      overflow-y: auto;
+      transform: translateY(20px) scale(0.95);
+      transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      cursor: default;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    `;
+    
+    modalContent.innerHTML = `
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px;">
+        <h3 style="margin: 0; color: ${textColor}; font-size: 18px; font-weight: 600;">タスク詳細</h3>
+        <button class="close-btn" style="
+          background: none;
+          border: none;
+          font-size: 24px;
+          color: ${labelColor};
+          cursor: pointer;
+          padding: 0;
+          line-height: 1;
+          transition: color 0.2s;
+        ">×</button>
+      </div>
+      
+      <div style="space-y: 16px;">
+        <div>
+          <div style="color: ${labelColor}; font-size: 12px; font-weight: 500; margin-bottom: 4px;">📝 元のプロンプト</div>
+          <div style="color: ${textColor}; font-size: 14px; line-height: 1.4;">${taskData.originalPrompt}</div>
+        </div>
+        
+        <div>
+          <div style="color: ${labelColor}; font-size: 12px; font-weight: 500; margin-bottom: 4px;">📊 ステータス</div>
+          <div style="color: ${textColor}; font-size: 14px;">${statusText}</div>
+        </div>
+        
+        <div>
+          <div style="color: ${labelColor}; font-size: 12px; font-weight: 500; margin-bottom: 4px;">⏱️ 実行時間</div>
+          <div style="color: ${textColor}; font-size: 14px;">${duration}秒</div>
+        </div>
+        
+        ${taskData.error ? `
+        <div>
+          <div style="color: ${labelColor}; font-size: 12px; font-weight: 500; margin-bottom: 4px;">❌ エラー詳細</div>
+          <div style="color: #ef4444; font-size: 14px; line-height: 1.4;">${taskData.error}</div>
+        </div>
+        ` : ''}
+        
+        <div>
+          <div style="color: ${labelColor}; font-size: 12px; font-weight: 500; margin-bottom: 4px;">🎨 コンテンツタイプ</div>
+          <div style="color: ${textColor}; font-size: 14px;">${taskData.contentType || '画像'}</div>
+        </div>
+      </div>
+    `;
+    
+    // イベントリスナー
+    modalContent.addEventListener('click', (e) => {
+      e.stopPropagation();
+    });
+    
+    const closeBtn = modalContent.querySelector('.close-btn');
+    closeBtn.addEventListener('click', () => {
+      this.closeTaskDetailModal(modal);
+    });
+    
+    closeBtn.addEventListener('mouseenter', () => {
+      closeBtn.style.color = textColor;
+    });
+    
+    closeBtn.addEventListener('mouseleave', () => {
+      closeBtn.style.color = labelColor;
+    });
+    
+    modal.addEventListener('click', () => {
+      this.closeTaskDetailModal(modal);
+    });
+    
+    modal.appendChild(modalContent);
+    return modal;
+  }
+
+  /**
+   * タスク詳細モーダルを閉じる
+   */
+  closeTaskDetailModal(modal) {
+    modal.style.opacity = '0';
+    modal.querySelector('.modal-content').style.transform = 'translateY(20px) scale(0.95)';
+    
+    setTimeout(() => {
+      if (modal.parentNode) {
+        modal.parentNode.removeChild(modal);
+      }
+    }, 300);
+  }
+
+  /**
+   * カード入場アニメーション（2026年トレンド + iOS 26 Liquid Glass）
+   */
+  animateCardEntrance(card) {
+    // iOS 26 Liquid Glass 入場エフェクト
+    card.style.transform = 'translateY(20px) scale(0.95)';
+    card.style.opacity = '0';
+    card.style.filter = 'blur(4px)';
+
+    requestAnimationFrame(() => {
+      card.style.transition = 'all 0.6s cubic-bezier(0.16, 1, 0.3, 1)';
+      card.style.transform = 'translateY(0) scale(1)';
+      card.style.opacity = '1';
+      card.style.filter = 'blur(0px)';
+
+      // 2026年トレンド: 微細な光る効果
+      card.style.boxShadow = '0 4px 20px rgba(255, 255, 255, 0.1), 0 0 40px rgba(255, 255, 255, 0.05)';
+    });
+  }
+
+  /**
+   * 成功時アニメーション + 自動消去（iOS 26 Liquid Glass）
+   */
+  animateCardSuccess(card, taskId) {
+    // iOS 26 Liquid Glass 成功エフェクト
+    card.style.transition = 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)';
+    card.style.borderColor = 'rgba(76, 175, 80, 0.6)';
+    card.style.transform = 'scale(1.08)';
+    card.style.boxShadow = '0 8px 32px rgba(76, 175, 80, 0.4), 0 0 60px rgba(76, 175, 80, 0.2)';
+    card.style.filter = 'brightness(1.1) saturate(1.2)';
+
+    // 2026年トレンド: 流体的な戻りアニメーション
+    setTimeout(() => {
+      card.style.transform = 'scale(1.02)';
+      card.style.filter = 'brightness(1.05) saturate(1.1)';
+    }, 150);
+
+    // Liquid Glass風のスムーズなフェードアウト（2秒後に自動削除）
+    setTimeout(() => {
+      this.animateCardExit(card, taskId);
+    }, 2000);
+  }
+
+  /**
+   * エラー時アニメーション（2026年トレンド UX）
+   */
+  animateCardError(card, taskId) {
+    // iOS 26 Liquid Glass エラーエフェクト
+    card.style.transition = 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)';
+    card.style.borderColor = 'rgba(244, 67, 54, 0.7)';
+    card.style.boxShadow = '0 8px 32px rgba(244, 67, 54, 0.3), 0 0 60px rgba(244, 67, 54, 0.15)';
+    card.style.filter = 'saturate(1.3) brightness(1.1)';
+
+    // 2026年トレンド: より自然なpulseアニメーション（shakeより洗練）
+    card.style.animation = 'errorPulse 0.6s cubic-bezier(0.16, 1, 0.3, 1) 2';
+
+    // UX改善: エラー内容を表示するツールチップ風UI
+    this.addErrorTooltip(card, taskId);
+
+    // エラーは手動で消すまで表示継続（クリックで消去）
+    card.style.cursor = 'pointer';
+    card.onclick = () => this.animateCardExit(card, taskId);
+
+    // 5秒後に自動フェードアウト（UX改善）
+    setTimeout(() => {
+      if (this.taskCards.has(taskId)) {
+        this.animateCardExit(card, taskId);
+      }
+    }, 5000);
+  }
+
+  /**
+   * エラー時のツールチップ表示（UX改善）
+   */
+  addErrorTooltip(card, taskId) {
+    const taskData = this.taskCards.get(taskId);
+    if (!taskData || !taskData.error) return;
+
+    // ツールチップ要素作成
+    const tooltip = document.createElement('div');
+    tooltip.style.cssText = `
+      position: absolute;
+      bottom: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(244, 67, 54, 0.95);
+      color: white;
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 11px;
+      white-space: nowrap;
+      pointer-events: none;
+      z-index: 1001;
+      backdrop-filter: blur(10px);
+      margin-bottom: 4px;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    `;
+    tooltip.textContent = taskData.error;
+
+    card.style.position = 'relative';
+    card.appendChild(tooltip);
+
+    // フェードイン
+    requestAnimationFrame(() => {
+      tooltip.style.opacity = '1';
+    });
+
+    // 3秒後にフェードアウト
+    setTimeout(() => {
+      if (tooltip.parentNode) {
+        tooltip.style.opacity = '0';
+        setTimeout(() => {
+          if (tooltip.parentNode) {
+            tooltip.parentNode.removeChild(tooltip);
+          }
+        }, 300);
+      }
+    }, 3000);
+  }
+
+  /**
+   * カード退場アニメーション（2026年トレンド + iOS 26 Liquid Glass）
+   */
+  animateCardExit(card, taskId) {
+    // iOS 26 Liquid Glass 退場エフェクト - 2026年トレンドの「スッと消える」
+    card.style.transition = 'all 0.28s cubic-bezier(0.4, 0, 0.2, 1)';
+    card.style.transform = 'translateY(-12px) scale(0.92)';
+    card.style.opacity = '0';
+    card.style.filter = 'blur(6px) brightness(1.2)';
+
+    // 2026年トレンド: 消去時の微細な光の拡散効果
+    card.style.boxShadow = '0 0 40px rgba(255, 255, 255, 0.3), 0 0 80px rgba(255, 255, 255, 0.1)';
+
+    setTimeout(() => {
+      if (card.parentNode) {
+        card.parentNode.removeChild(card);
+      }
+      this.taskCards.delete(taskId);
+      // カード削除後に表示制限を再適用
+      this.updateCardDisplayLimit();
+    }, 280);
+  }
+
+  /**
+   * 温かみのあるメッセージを生成（マーケ提案ベース）
+   */
+  getFriendlyMessage(status, prompt) {
+    const shortPrompt = prompt.length > 15 ? prompt.substring(0, 15) + '...' : prompt;
+
+    switch (status) {
+      case 'pending':
+        return '魔法をかけようとしています...';
+      case 'processing':
+      case 'in-progress':
+      case 'progress':
+        return 'あなただけの世界を創作中...';
+      case 'completed':
+        return '素敵な世界が完成しました！';
+      case 'error':
+        return `${shortPrompt} - もう一度試してみませんか？`;
+      default:
+        return shortPrompt;
+    }
   }
 
   /**
@@ -1943,6 +3014,22 @@ export class CommandUI {
         0%, 20% { opacity: 0; }
         50% { opacity: 1; }
         100% { opacity: 0; }
+      }
+
+      @keyframes errorPulse {
+        0% {
+          transform: scale(1);
+          filter: saturate(1.3) brightness(1.1);
+        }
+        50% {
+          transform: scale(1.03);
+          filter: saturate(1.5) brightness(1.2);
+          box-shadow: 0 12px 40px rgba(244, 67, 54, 0.4), 0 0 80px rgba(244, 67, 54, 0.2);
+        }
+        100% {
+          transform: scale(1);
+          filter: saturate(1.3) brightness(1.1);
+        }
       }
     `;
     document.head.appendChild(style);
@@ -2274,6 +3361,7 @@ export class CommandUI {
    */
   setSceneManager(sceneManager) {
     this.sceneManager = sceneManager;
+    this.applyServiceSelectionToSceneManager();
   }
 
   /**
@@ -2319,7 +3407,9 @@ export class CommandUI {
    * テーマ切り替え
    */
   toggleTheme() {
+    console.log('🎨 CommandUI toggleTheme called - before:', this.isDarkMode);
     this.isDarkMode = !this.isDarkMode;
+    console.log('🎨 CommandUI toggleTheme - after:', this.isDarkMode);
     localStorage.setItem('live-command-theme', this.isDarkMode ? 'dark' : 'light');
 
     // アイコンボタン更新
@@ -2338,13 +3428,18 @@ export class CommandUI {
    * テーマ適用
    */
   applyTheme() {
-    // ボディにテーマクラスを設定
-    document.body.className = this.isDarkMode ? 'dark-mode' : 'light-mode';
+    console.log('🔧 CommandUI applyTheme called - isDarkMode:', this.isDarkMode);
+    console.log('🔧 Before: document.body.className =', document.body.className);
+    
+    // ボディにテーマクラスを設定しない（メインページのスタイルを壊さないため）
+    // document.body.className = this.isDarkMode ? 'dark-mode' : 'light-mode';
+    
+    console.log('🔧 After: document.body.className =', document.body.className, '(unchanged)');
 
     // メインコンテナ（display状態を保持）
     const currentDisplay = this.container.style.display;
     this.container.style.cssText = this.getContainerStyles();
-    this.container.style.display = currentDisplay || 'block';
+    this.container.style.display = currentDisplay || 'flex';
 
     // ヘッダー（タイトル）の再適用
     const header = this.container.querySelector('div:first-child');
@@ -2391,8 +3486,43 @@ export class CommandUI {
       this.selectMode(this.currentMode, false);
     }
 
+    this.updateServiceSelectorTheme();
+
+    // フローティングコンテナとタスクカードのテーマ更新
+    this.updateFloatingContainerTheme();
+
     // 既存の出力テキストの色を更新
     this.updateExistingTextColors();
+  }
+
+  /**
+   * フローティングコンテナとタスクカードのテーマ更新
+   */
+  updateFloatingContainerTheme() {
+    if (!this.floatingContainer) return;
+
+    // フローティングコンテナの表示状態を保持
+    const currentDisplay = this.floatingContainer.style.display;
+
+    // 既存のタスクカードの色だけをテーマに合わせて更新（レイアウトは保持）
+    if (this.taskCards && this.taskCards.size > 0) {
+      this.taskCards.forEach((taskData, taskId) => {
+        const card = taskData.element;
+        if (card) {
+          // テーマ関連の色のみ更新（位置やアニメーション状態は保持）
+          const baseColor = this.isDarkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.12)';
+          const borderColor = this.isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.15)';
+          const textColor = this.isDarkMode ? 'rgba(255, 255, 255, 0.9)' : 'rgba(0, 0, 0, 0.85)';
+
+          card.style.setProperty('background', baseColor, 'important');
+          card.style.setProperty('border-color', borderColor, 'important');
+          card.style.setProperty('color', textColor, 'important');
+        }
+      });
+    }
+
+    // テーマ切り替え時は位置は変更せず、表示状態のみ復元
+    this.floatingContainer.style.display = currentDisplay;
   }
 
   /**
@@ -2484,7 +3614,7 @@ export class CommandUI {
       if (!this.fileInput) {
         this.fileInput = document.createElement('input');
         this.fileInput.type = 'file';
-        this.fileInput.accept = '.jpg,.jpeg,.png,.webp,.mp4,.mov,.webm';
+        this.fileInput.accept = '.glb,.gltf,.jpg,.jpeg,.png,.mp4,.mov';
         this.fileInput.style.display = 'none';
         this.fileInput.onchange = (e) => this.handleFileSelection(e);
         document.body.appendChild(this.fileInput);
@@ -2522,7 +3652,7 @@ export class CommandUI {
   /**
    * ファイル選択処理
    */
-  async handleFileSelection(event, fromDragDrop = false) {
+  async handleFileSelection(event) {
     const file = event.target.files[0];
     if (!file) return;
 
@@ -2547,9 +3677,7 @@ export class CommandUI {
 
       this.selectMode('import', true);
 
-      // ドラッグ&ドロップからの場合はメッセージを表示しない
-      if (!fromDragDrop) {
-        this.addOutput(`📁 ファイル選択: ${file.name} (${fileType})`, 'system');
+      this.addOutput(`📁 ファイル選択: ${file.name} (${fileType})`, 'system');
 
     } catch (error) {
       console.error('File selection error:', error);
@@ -2563,40 +3691,10 @@ export class CommandUI {
   enableDragAndDrop() {
     if (!this.input) return;
 
-    // 既にバインドされている場合は何もしない
-    if (this.boundHandlers.dragOver) return;
-
-    // ハンドラをバインドして保存
-    this.boundHandlers.dragOver = this.handleDragOver.bind(this);
-    this.boundHandlers.drop = this.handleDrop.bind(this);
-    this.boundHandlers.dragEnter = this.handleDragEnter.bind(this);
-    this.boundHandlers.dragLeave = this.handleDragLeave.bind(this);
-    this.boundHandlers.documentDragOver = (e) => {
-      // 入力エリア以外では防止
-      if (e.target !== this.input && !this.input?.contains(e.target)) {
-        e.preventDefault();
-        e.dataTransfer.effectAllowed = 'none';
-        e.dataTransfer.dropEffect = 'none';
-      }
-    };
-    this.boundHandlers.documentDrop = (e) => {
-      // 入力エリア以外では防止
-      if (e.target !== this.input && !this.input?.contains(e.target)) {
-        e.preventDefault();
-      }
-    };
-
-    // イベントリスナーを追加
-    this.input.addEventListener('dragover', this.boundHandlers.dragOver);
-    this.input.addEventListener('drop', this.boundHandlers.drop);
-    this.input.addEventListener('dragenter', this.boundHandlers.dragEnter);
-    this.input.addEventListener('dragleave', this.boundHandlers.dragLeave);
-
-    // document全体でのデフォルト動作を防止（キャプチャフェーズで処理）
-    document.addEventListener('dragover', this.boundHandlers.documentDragOver, true);
-    document.addEventListener('drop', this.boundHandlers.documentDrop, true);
-    document.addEventListener('dragenter', this.boundHandlers.documentDragOver, true);
-    document.addEventListener('dragleave', this.boundHandlers.documentDragOver, true);
+    this.input.addEventListener('dragover', this.handleDragOver.bind(this));
+    this.input.addEventListener('drop', this.handleDrop.bind(this));
+    this.input.addEventListener('dragenter', this.handleDragEnter.bind(this));
+    this.input.addEventListener('dragleave', this.handleDragLeave.bind(this));
   }
 
   /**
@@ -2604,27 +3702,11 @@ export class CommandUI {
    */
   disableDragAndDrop() {
     if (!this.input) return;
-    if (!this.boundHandlers.dragOver) return;
 
-    // 保存されたハンドラを使用して削除
-    this.input.removeEventListener('dragover', this.boundHandlers.dragOver);
-    this.input.removeEventListener('drop', this.boundHandlers.drop);
-    this.input.removeEventListener('dragenter', this.boundHandlers.dragEnter);
-    this.input.removeEventListener('dragleave', this.boundHandlers.dragLeave);
-    
-    // documentレベルのイベントも削除（キャプチャフェーズ）
-    document.removeEventListener('dragover', this.boundHandlers.documentDragOver, true);
-    document.removeEventListener('drop', this.boundHandlers.documentDrop, true);
-    document.removeEventListener('dragenter', this.boundHandlers.documentDragOver, true);
-    document.removeEventListener('dragleave', this.boundHandlers.documentDragOver, true);
-
-    // ハンドラをクリア
-    this.boundHandlers.dragOver = null;
-    this.boundHandlers.drop = null;
-    this.boundHandlers.dragEnter = null;
-    this.boundHandlers.dragLeave = null;
-    this.boundHandlers.documentDragOver = null;
-    this.boundHandlers.documentDrop = null;
+    this.input.removeEventListener('dragover', this.handleDragOver.bind(this));
+    this.input.removeEventListener('drop', this.handleDrop.bind(this));
+    this.input.removeEventListener('dragenter', this.handleDragEnter.bind(this));
+    this.input.removeEventListener('dragleave', this.handleDragLeave.bind(this));
   }
 
   /**
@@ -2632,7 +3714,6 @@ export class CommandUI {
    */
   handleDragOver(e) {
     e.preventDefault();
-    e.stopPropagation();
     this.input.style.background = this.isDarkMode ? 'rgba(236, 72, 153, 0.1)' : 'rgba(236, 72, 153, 0.05)';
   }
 
@@ -2641,7 +3722,6 @@ export class CommandUI {
    */
   handleDragEnter(e) {
     e.preventDefault();
-    e.stopPropagation();
     this.input.style.background = this.isDarkMode ? 'rgba(236, 72, 153, 0.1)' : 'rgba(236, 72, 153, 0.05)';
   }
 
@@ -2650,7 +3730,6 @@ export class CommandUI {
    */
   handleDragLeave(e) {
     e.preventDefault();
-    e.stopPropagation();
     this.input.style.background = '';
   }
 
@@ -2658,13 +3737,10 @@ export class CommandUI {
    * ドロップ処理
    */
   async handleDrop(e) {
-    console.log('🎯 Drop event triggered');
     e.preventDefault();
-    e.stopPropagation();
     this.input.style.background = '';
 
     const files = Array.from(e.dataTransfer.files);
-    console.log('📁 Dropped files:', files.length, files.map(f => f.name));
     if (files.length === 0) return;
 
     const file = files[0]; // 最初のファイルのみ処理
@@ -2676,8 +3752,8 @@ export class CommandUI {
       return;
     }
 
-    // ファイル選択処理と同じ流れ（ドラッグ&ドロップフラグをtrueで渡す）
-    this.handleFileSelection({ target: { files: [file] } }, true);
+    // ファイル選択処理と同じ流れ
+    this.handleFileSelection({ target: { files: [file] } });
   }
 
   /**
@@ -2686,8 +3762,7 @@ export class CommandUI {
   detectFileType(fileName) {
     const ext = fileName.toLowerCase().split('.').pop();
 
-    // 3Dファイルは現在サポート対象外
-    // if (['glb', 'gltf'].includes(ext)) return '3d';
+    if (['glb', 'gltf'].includes(ext)) return '3d';
     if (['jpg', 'jpeg', 'png', 'webp'].includes(ext)) return 'image';
     if (['mp4', 'mov', 'webm'].includes(ext)) return 'video';
 
@@ -2749,7 +3824,13 @@ export class CommandUI {
 
       // ファイル情報をクリーンアップ
       const processedFileName = this.selectedFile?.name;
-      URL.revokeObjectURL(this.selectedFile.url);
+      const importedType = this.selectedFile?.type;
+      const importedUrl = this.selectedFile?.url;
+
+      if (importedType !== 'video' && importedUrl) {
+        URL.revokeObjectURL(importedUrl);
+      }
+
       this.selectedFile = null;
       this.selectMode('generate', false);
 

@@ -1,8 +1,8 @@
 import * as THREE from 'three';
-import { ChocoDroClient, LiveCommandClient } from './LiveCommandClient.js';
+import { ChocoDropClient, ChocoDroClient, LiveCommandClient } from './LiveCommandClient.js';
 
 /**
- * Scene Manager - 3D scene integration for ChocoDro System
+ * Scene Manager - 3D scene integration for ChocoDrop System
  * Handles natural language parsing and 3D object management
  */
 export class SceneManager {
@@ -14,9 +14,9 @@ export class SceneManager {
     this.scene = scene;
     this.camera = options.camera || null;
     this.renderer = options.renderer || null;
-    // ChocoDro Client（共通クライアント注入を優先）
+    // ChocoDrop Client（共通クライアント注入を優先）
     // 外部フォルダから共有する場合は options.client でクライアントを再利用
-    this.client = options.client || new ChocoDroClient(options.serverUrl);
+    this.client = options.client || new ChocoDropClient(options.serverUrl);
     
     // 実験オブジェクト管理用グループ
     this.experimentGroup = new THREE.Group();
@@ -31,6 +31,8 @@ export class SceneManager {
     this.spawnedObjects = new Map();
     this.objectCounter = 0;
     this.selectedObject = null;
+    this.selectedImageService = options.selectedImageService || null;
+    this.selectedVideoService = options.selectedVideoService || null;
 
     // Animation管理（UI要素用）
     this.clock = new THREE.Clock();
@@ -1252,7 +1254,8 @@ export class SceneManager {
       // ChocoDro Client経由で画像生成
       const imageResult = await this.client.generateImage(parsed.prompt, {
         width: 512,
-        height: 512
+        height: 512,
+        service: this.selectedImageService || undefined
       });
       
       // 結果にモデル情報を含める
@@ -1328,7 +1331,8 @@ export class SceneManager {
         id: objectId,
         prompt: parsed.prompt,
         createdAt: Date.now(),
-        type: 'generated_image'
+        type: 'generated_image',
+        modelName: imageResult.modelName || this.selectedImageService || null
       };
       
       this.experimentGroup.add(plane);
@@ -1364,10 +1368,8 @@ export class SceneManager {
       
       // ChocoDro Client経由で動画生成
       const videoResult = await this.client.generateVideo(parsed.prompt, {
-        width: 512,
-        height: 512,
-        duration: 3 // 3秒動画
-        // model: サーバー側の設定を使用（統一設計）
+        duration: 3,
+        model: this.selectedVideoService || undefined
       });
       
       // 結果にモデル情報を含める
@@ -1405,18 +1407,22 @@ export class SceneManager {
       
       // 動画を表示する平面ジオメトリを作成（アスペクト比を考慮）
       const sizeScale = parsed.size?.scale ?? this.config.defaultObjectScale ?? 1;
-      const aspectRatio = 16/9; // 一般的な動画アスペクト比
       const baseSize = 6 * sizeScale;
-      let width = baseSize;
-      let height = baseSize;
-      if (aspectRatio >= 1) {
-        width = baseSize;
-        height = baseSize / aspectRatio;
+
+      const requestedWidth = videoResult.metadata?.width || 512;
+      const requestedHeight = videoResult.metadata?.height || 512;
+      const planeAspect = requestedWidth && requestedHeight ? requestedWidth / requestedHeight : 1;
+
+      let planeWidth = baseSize;
+      let planeHeight = baseSize;
+
+      if (planeAspect >= 1) {
+        planeHeight = baseSize / planeAspect;
       } else {
-        width = baseSize * aspectRatio;
-        height = baseSize;
+        planeWidth = baseSize * planeAspect;
       }
-      const geometry = new THREE.PlaneGeometry(width, height);
+
+      const geometry = new THREE.PlaneGeometry(planeWidth, planeHeight);
       const material = new THREE.MeshBasicMaterial({
         map: videoTexture,
         transparent: false,
@@ -1451,7 +1457,10 @@ export class SceneManager {
         prompt: parsed.prompt,
         createdAt: Date.now(),
         type: 'generated_video',
-        videoUrl: videoResult.videoUrl
+        videoUrl: videoResult.videoUrl,
+        modelName: videoResult.modelName || this.selectedVideoService || null,
+        width: requestedWidth,
+        height: requestedHeight
       };
       
       this.experimentGroup.add(plane);
@@ -2328,6 +2337,24 @@ export class SceneManager {
    */
   updateConfig(newConfig) {
     this.config = { ...this.config, ...newConfig };
+  }
+
+  setImageService(serviceId) {
+    this.selectedImageService = serviceId || null;
+    this.logDebug('🎯 Updated image service:', this.selectedImageService);
+  }
+
+  getImageService() {
+    return this.selectedImageService;
+  }
+
+  setVideoService(serviceId) {
+    this.selectedVideoService = serviceId || null;
+    this.logDebug('🎬 Updated video service:', this.selectedVideoService);
+  }
+
+  getVideoService() {
+    return this.selectedVideoService;
   }
 
 
