@@ -37,23 +37,17 @@
         例: 画像URLを貼り付けて配置
     </div>
 
-    <!-- Three.js (正しいパス) -->
-    <script src="https://unpkg.com/three@0.158.0/build/three.min.js"></script>
-    <script src="https://unpkg.com/three@0.158.0/examples/js/controls/OrbitControls.js"></script>
+    <!-- Three.js (CDN script tag) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r158/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r158/controls/OrbitControls.js"></script>
 
-    <!-- ChocoDrop UMD (ローカルファイル) -->
-    <script src="../../dist/chocodrop.umd.min.js"></script>
-
-    <script>
-        // Three.js読み込み確認
-        if (typeof THREE === 'undefined') {
-            console.error('THREE.js not loaded!');
-        } else {
-            console.log('THREE.js loaded successfully');
-        }
-    </script>
+    <!-- ChocoDrop UMD (ローカル) -->
+    <script src="../dist/chocodrop.umd.min.js"></script>
 
     <script>
+        console.log('THREE loaded:', typeof THREE !== 'undefined');
+        console.log('OrbitControls loaded:', typeof THREE.OrbitControls !== 'undefined');
+
         // Basic Three.js setup
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
