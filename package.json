@@ -11,10 +11,15 @@
     "./bootstrap": "./src/client/bootstrap.js",
     "./server": "./src/server/index.js"
   },
+  "browser": "dist/chocodrop.umd.js",
+  "unpkg": "dist/chocodrop.umd.min.js",
+  "jsdelivr": "dist/chocodrop.umd.min.js",
   "scripts": {
     "dev": "node src/server/server.js",
     "start": "node src/server/server.js",
-    "build": "echo 'No build step required for ES modules'",
+    "build": "rollup -c",
+    "build:watch": "rollup -c -w",
+    "prebuild": "mkdir -p dist",
     "test": "node --test tests/*.test.js",
     "setup:mcp": "node scripts/setup-mcp-config.mjs",
     "example:basic": "python -m http.server 8000 --directory examples",
@@ -43,8 +48,11 @@
     "express": "^4.19.0"
   },
   "devDependencies": {
+    "@rollup/plugin-node-resolve": "^16.0.1",
+    "@rollup/plugin-terser": "^0.4.4",
     "@types/node": "^20.0.0",
-    "@types/three": "^0.170.0"
+    "@types/three": "^0.170.0",
+    "rollup": "^4.52.0"
   },
   "peerDependencies": {
     "three": ">=0.170.0 <=0.180.0"
@@ -54,6 +62,7 @@
   },
   "files": [
     "src/",
+    "dist/",
     "examples/",
     "public/",
     "README.md"

@@ -1,237 +1,333 @@
-# ChocoDrop
+# ChocoDrop 🍫
 
-> Real-time AI content drops for 3D scenes via natural language
-> **あらゆる3D空間に、コンテンツをちょこんとドロップ**
+> **AI-powered content drops for 3D scenes via natural language**
+> あらゆる3D空間に、AIコンテンツをちょこんとドロップ
 
-[🇯🇵 日本語](#japanese) | [📚 Documentation](docs/) | [🎮 Examples](examples/) | [🤝 Contributing](CONTRIBUTING.md)
+**✨ 30秒で始める** | **🎮 Examples** | **📚 API Reference**
+
+---
 
 ## What is ChocoDrop?
 
-> 🚧 **Under Active Development** - Not ready for production use yet!
+Transform any Three.js scene into an AI-powered content studio:
 
-Drop AI-generated content into any 3D scene with natural language commands:
+```javascript
+// Just say what you want in natural language
+"猫の置物を右上に作って" → AI generates cat + places top-right
+"桜を中央に配置" → Cherry blossoms appear instantly
+"青いボールを大きくして" → Scales up blue ball
+```
 
-- **"Add a dragon in the top-right"** → Instant AI generation & 3D placement
-- **"Place cherry blossoms in center"** → Real-time scene integration
-- **Works with** Three.js, React Three Fiber, A-Frame, and more
+**Works with:** Three.js, React Three Fiber, A-Frame, Next.js, Vanilla HTML
+
+---
+
+## 🚀 Quick Start Guide
+
+### Step 1: What's your project type?
+
+<details>
+<summary><strong>📄 HTML + Script Tags</strong> (Most Three.js tutorials)</summary>
+
+```html
+<!DOCTYPE html>
+<html>
+<head>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@chocodrop/core@latest/dist/chocodrop.umd.min.js"></script>
+</head>
+<body>
+    <script>
+        // Your existing Three.js scene
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer();
+
+        // Add ChocoDrop (1 line!)
+        const chocoDrop = ChocoDrop.createChocoDrop(scene, { camera, renderer });
+
+        // Press Space key to start!
+    </script>
+</body>
+</html>
+```
+</details>
+
+<details>
+<summary><strong>📦 npm / Modern JavaScript</strong> (React, Vite, Webpack)</summary>
+
+```bash
+npm install @chocodrop/core
+```
 
 ```javascript
 import { createChocoDrop } from '@chocodrop/core';
 
-const chocoDrop = createChocoDrop(scene, {
-  camera, renderer,
-  serverUrl: 'http://localhost:3011'
-});
+// Your existing Three.js scene
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(/* ... */);
+const renderer = new THREE.WebGLRenderer();
 
-// Just speak naturally to your 3D scene
-chocoDrop.executeCommand('Create a magical forest in the background');
+// Add ChocoDrop (1 line!)
+const chocoDrop = createChocoDrop(scene, { camera, renderer });
+
+// Press Space key to start!
 ```
+</details>
+
+### Step 2: Try it out
+
+1. **Press `Space` key** → Command UI appears
+2. **Type:** `"猫の置物を置いて"` or `"Add a blue cube"`
+3. **Watch** → AI generates and places content instantly
+
+---
 
 ## ✨ Features
 
-- 🎯 **Natural language 3D positioning** - "top-right", "center", "behind camera"
-- 🎨 **Multiple AI generation models** - Flux, DALL-E, Stable Diffusion
-- 🔄 **Real-time editing & effects** - Modify after placement
-- 📦 **Framework agnostic** - Works with any Three.js setup
-- 🌐 **MCP protocol integration** - Extensible AI model support
-- 🎮 **Intuitive UI** - Press `@` key to activate command interface
+| Feature | Description |
+|---------|-------------|
+| 🎯 **Natural Language 3D** | "top-right", "center", "behind camera" positioning |
+| 🎨 **Multiple AI Models** | Flux, DALL-E, Stable Diffusion, Video generation |
+| 🔄 **Real-time Editing** | Modify size, position, effects after placement |
+| 📦 **Framework Agnostic** | Works with any Three.js setup |
+| 🌐 **MCP Integration** | Extensible AI model support |
+| 🎮 **Intuitive UI** | Space key activation, no learning curve |
 
-## Quick Start
+---
 
-### Try it instantly
-```bash
-git clone https://github.com/nyukicorn/chocodrop.git
-cd chocodrop
-npm run example:basic
+## 📖 Complete Examples
+
+### Basic HTML Example
+```html
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { margin: 0; background: #000; overflow: hidden; }
+        #container { width: 100vw; height: 100vh; }
+    </style>
+</head>
+<body>
+    <div id="container"></div>
+
+    <!-- Three.js -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.170.0/examples/js/controls/OrbitControls.js"></script>
+
+    <!-- ChocoDrop -->
+    <script src="https://cdn.jsdelivr.net/npm/@chocodrop/core@latest/dist/chocodrop.umd.min.js"></script>
+
+    <script>
+        // Scene setup
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x1a1a2e);
+
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 2, 5);
+
+        const renderer = new THREE.WebGLRenderer();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.getElementById('container').appendChild(renderer.domElement);
+
+        // Controls
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+
+        // ChocoDrop initialization
+        const chocoDrop = ChocoDrop.createChocoDrop(scene, {
+            camera: camera,
+            renderer: renderer,
+            onControlsToggle: (disabled) => {
+                controls.enabled = !disabled;
+            }
+        });
+
+        // Render loop
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        console.log('✅ ChocoDrop ready! Press Space key to start.');
+    </script>
+</body>
+</html>
 ```
 
-Open http://localhost:8000 and click `basic/index.html` - Press `@` key to start!
+### React Three Fiber Example
+```jsx
+import { Canvas } from '@react-three/fiber';
+import { OrbitControls } from '@react-three/drei';
+import { createChocoDrop } from '@chocodrop/core';
+import { useEffect, useRef } from 'react';
 
-### Add to your project
-```bash
-npm install github:nyukicorn/chocodrop
+function Scene() {
+  const sceneRef = useRef();
+
+  useEffect(() => {
+    if (sceneRef.current) {
+      const chocoDrop = createChocoDrop(sceneRef.current, {
+        camera: /* camera ref */,
+        renderer: /* renderer ref */
+      });
+    }
+  }, []);
+
+  return (
+    <Canvas ref={sceneRef}>
+      <OrbitControls />
+      <ambientLight intensity={0.5} />
+      <pointLight position={[10, 10, 10]} />
+    </Canvas>
+  );
+}
 ```
+
+---
+
+## 🎯 Natural Language Commands
+
+### English Commands
+```javascript
+"Add a dragon in the top-right"     // → AI generates dragon + places top-right
+"Place cherry blossoms in center"   // → Cherry blossoms appear in center
+"Create a magical forest"           // → Forest background generation
+"Make it bigger"                    // → Scale up selected object
+"Delete everything"                 // → Clear all generated content
+```
+
+### Japanese Commands
+```javascript
+"ドラゴンを右上に作って"              // → AI generates dragon + places top-right
+"桜を中央に配置"                    // → Cherry blossoms appear in center
+"背景に森を生成"                    // → Forest background generation
+"大きくして"                       // → Scale up selected object
+"全て削除"                         // → Clear all generated content
+```
+
+---
+
+## 🔧 API Reference
+
+### createChocoDrop(scene, options)
+
+**Parameters:**
+```typescript
+scene: THREE.Scene              // Your Three.js scene
+options: {
+  camera?: THREE.Camera         // Camera for positioning calculations
+  renderer?: THREE.Renderer     // Renderer for mouse interactions
+  serverUrl?: string           // ChocoDrop server URL (default: auto-detect)
+  onControlsToggle?: Function  // Camera controls toggle callback
+  sceneOptions?: Object        // Additional SceneManager options
+  uiOptions?: Object          // Additional CommandUI options
+}
+```
+
+**Returns:**
+```typescript
+{
+  client: ChocoDropClient       // HTTP client for AI generation
+  sceneManager: SceneManager    // 3D scene management
+  ui: CommandUI                // Command interface
+}
+```
+
+### ChocoDropClient Methods
 
 ```javascript
-import { createChocoDrop } from 'chocodrop';
-
-const chocoDrop = createChocoDrop(scene, { camera, renderer });
-```
-
-## 📚 Documentation
-
-- **[📖 Setup Guide](docs/SETUP.md)** - Complete installation and configuration
-- **[🔧 API Reference](docs/API.md)** - Detailed API documentation
-- **[🎮 Examples](examples/)** - Integration examples for different frameworks
-- **[🚨 Troubleshooting](docs/TROUBLESHOOTING.md)** - Common issues and solutions
-
-## 🎯 Features in Detail
-
-### AI Models
-- **Image Generation**: Seedream V4, Flux Schnell, Qwen Image, Imagen4 Fast
-- **Video Generation**: KAMUI Wan v2.2.5B Fast and more
-- **Quality Options**: From ultra-fast (1-2s) to highest quality (15-20s)
-
-### Natural Language Commands
-```
-"ドラゴンを右上に作って"     → AI generates dragon + places top-right
-"桜を中央に配置"           → Cherry blossoms appear in center
-"背景に森を生成"           → Forest background generation
-"大きくして"               → Scale up selected object
-"全て削除"                → Clear all generated content
-```
-
-### Integration Examples
-- **Vanilla Three.js**: Basic integration with minimal setup
-- **React Three Fiber**: Modern React workflow with hooks
-- **A-Frame**: WebXR/VR scene compatibility
-- **Next.js**: SSR-compatible integration
-
-## 🚀 Advanced Usage
-
-### Programmatic Control
-```javascript
-// Generate high-quality image
-const result = await chocoDrop.client.generateImage('magical forest', {
+// Generate AI images
+await chocoDrop.client.generateImage('magical forest', {
   width: 1024,
   height: 1024,
   service: 't2i-kamui-seedream-v4'
 });
 
-// Generate video with custom settings
-const video = await chocoDrop.client.generateVideo('flowing river', {
-  duration: 5,
-  aspect_ratio: '16:9',
-  resolution: '720p'
-});
-
 // Execute natural language commands
-await chocoDrop.client.executeCommand('Create a blue cat on the left side');
+await chocoDrop.client.executeCommand('Create a blue cat on the left');
 
-// Scene management
-chocoDrop.sceneManager.clearAll(); // Clear all objects
-const objects = chocoDrop.sceneManager.getObjects(); // Get object list
+// Generate videos
+await chocoDrop.client.generateVideo('flowing river', {
+  duration: 5,
+  aspect_ratio: '16:9'
+});
 ```
 
-### Custom Materials & Shaders
+### SceneManager Methods
+
 ```javascript
-const chocoDrop = createChocoDrop(scene, {
-  sceneOptions: {
-    customRenderer: (imageUrl, position) => {
-      // Custom 3D object creation logic
-      const geometry = new THREE.PlaneGeometry(2, 2);
-      const texture = new THREE.TextureLoader().load(imageUrl);
-      const material = new THREE.ShaderMaterial({
-        // Custom shader implementation
-      });
-      return new THREE.Mesh(geometry, material);
-    }
-  }
-});
+// Scene management
+chocoDrop.sceneManager.clearAll();                    // Clear all objects
+const objects = chocoDrop.sceneManager.getObjects();  // Get object list
+chocoDrop.sceneManager.removeObject(objectId);        // Remove specific object
+```
+
+### CommandUI Methods
+
+```javascript
+// UI control
+chocoDrop.ui.show();                    // Show command interface
+chocoDrop.ui.hide();                    // Hide command interface
+chocoDrop.ui.toggle();                  // Toggle visibility
 ```
 
 ---
 
-<a id="japanese"></a>
+## 🛠️ Server Setup (Optional)
 
-「ドラゴンを右上に」「桜を中央に」と言うだけで、必要なコンテンツを瞬時に3D空間に配置。配信演出、プロトタイピング、作品展示など、あなたの目的を実現するために「ちょこっと置く」「ちょこんとドロップ」できる手軽なサービスです。
+If you want to run your own ChocoDrop server:
 
-## 🎮 System Architecture
-
-### Core Components
-
-**Backend Engine**
-- **LiveCommandSystem** (`src/experimental/LiveCommandSystem.js`) - Command execution engine
-- **MCPBridge** (`src/experimental/MCPBridge.js`) - AI generation API interface
-
-**Frontend Interface**  
-- **CommandUI** (`src/client/CommandUI.js`) - Browser UI (@ key to activate)
-- **SceneManager** (`src/client/SceneManager.js`) - 3D scene integration
-- **ChocoDropClient** (`src/client/LiveCommandClient.js`) - HTTP client (旧 LiveCommandClient)
-
-### AI Generation Models
-
-- **Seedream V4** - High-quality images (default, ~10-15s)
-- **Flux Schnell** - Highest quality (~15-20s) 
-- **Qwen Image** - Fast generation (~1-2s)
-- **Imagen4 Fast** - Balanced quality/speed (~8-12s)
-- **Gemini 2.5 Flash** - Google latest model (~8-12s)
-
-### ✨ The Magic of "Choco Drop"
-```
-右上に大きなドラゴンを作って    → AI生成 → ちょこんとドロップ
-中央に小さな桜を生成          → 桜が瞬間出現 → ちょこっと配置
-既存の画像を読み込んで         → インポート → ちょこんと置く
-空に鳳凰を作って             → 鳳凰をポンと空中にドロップ
-地面に神社をちょこっと置いて    → 神社を地面にちょこんと設置
-```
-
-## Features
-
-- 🎯 **ちょこんと配置** - 「右上に」「中央に」など自然言語で瞬時に3D空間配置
-- 🎨 **AI生成 & インポート** - 新規作成も既存コンテンツも、どちらもちょこっとドロップ
-- 🔄 **編集・調整** - 配置後のサイズ・位置・エフェクトをリアルタイム調整
-- 🌐 **リアルタイム3D統合** - Three.js ベースの滑らかな3D体験
-- 🎵 **音楽・エフェクト** - 動画コンテンツの音声制御と空間演出
-- 📦 **フレームワーク非依存** - Three.js、React、Vue など既存プロジェクトに簡単統合
-- 🎮 **直感的UI** - @ キーで起動する使いやすいコマンドインターフェース
-- 🔗 **外部MCPサービス連携** - KAMUI Code等のMCPサービスからAI生成機能を利用
-- 🎯 **日本語自然言語解析** - 日本語での直感的な空間指示に対応
-- 📍 **カメラ相対位置システム** - 視点に応じた柔軟な配置システム
-
-### Distribution Models
-
-- **Shared Module:** ChocoDrop を独立フォルダや npm パッケージとして保守し、`createChocoDrop` で複数プロジェクトから共通利用。
-- **Project Bundled:** 単体プロジェクトにコピーしてカスタマイズ。特殊案件ではローカルフォークとして併用可能。
-
-## Quick Start
-
-### Server Setup
 ```bash
-cd packages/chocodrop
+git clone https://github.com/nyukicorn/chocodrop.git
+cd chocodrop
 npm install
-npm run dev
+npm start
 ```
 
-- `.claude/mcp-kamui-code.json` の場所は `config.local.json` か環境変数 `MCP_CONFIG_PATH` で設定できます（未設定時はホームディレクトリ配下を自動使用）。
+The server will start at `http://localhost:3011`
 
-### Client Integration (Shared Folder Friendly)
-```javascript
-import { createChocoDrop } from '@chocodrop/core';
+**Requirements:**
+- Node.js 16+
+- MCP configuration for AI models
 
-const controls = new OrbitControls(camera, renderer.domElement);
+---
 
-const chocoDrop = createChocoDrop(scene, {
-  camera,
-  renderer,
-  serverUrl: 'http://localhost:3011',
-  onControlsToggle: (disabled) => {
-    controls.enabled = !disabled;
-  }
-});
+## 🎮 AI Models Available
 
-// 必要に応じてアクセス
-chocoDrop.ui.show();
-chocoDrop.client.generateImage('桜の森');
-```
+| Model | Speed | Quality | Use Case |
+|-------|-------|---------|----------|
+| **Qwen Image** | ~1-2s | Good | Rapid prototyping |
+| **Imagen4 Fast** | ~8-12s | High | Balanced quality/speed |
+| **Seedream V4** | ~10-15s | Very High | Production content |
+| **Flux Schnell** | ~15-20s | Highest | Premium quality |
 
-`createChocoDrop` は共有ディレクトリや npm パッケージとして配布した ChocoDrop を、任意の Three.js プロジェクトから数行で初期化するためのヘルパーです。サーバー URL を指定しなければ、クライアントが自動検出ロジックで解決します。
+---
 
-## API Documentation
+## 🤝 Contributing
 
-### ChocoDropClient
-- `generateImage(prompt, options)` - Generate AI images
-- `executeCommand(naturalLanguage)` - Process natural language commands
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
-### CommandUI  
-- `show()` - Display command interface
-- `hide()` - Hide command interface
-- `toggle()` - Toggle visibility
+---
 
-## Examples
+## 📄 License
 
-See `examples/` directory for complete integration examples.
+MIT License - see [LICENSE](LICENSE) file for details.
 
-## License
+---
 
-MIT
+## 🔗 Links
+
+- **GitHub:** https://github.com/nyukicorn/chocodrop
+- **npm:** https://www.npmjs.com/package/@chocodrop/core
+- **Examples:** [examples/](examples/)
+- **Issues:** [GitHub Issues](https://github.com/nyukicorn/chocodrop/issues)
+
+---
+
+**Made with ❤️ for the Three.js community**

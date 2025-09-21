@@ -2495,8 +2495,8 @@ export class SceneManager {
     const geometry = videoObject.geometry;
     if (geometry && geometry.parameters) {
       const width = geometry.parameters.width * videoObject.scale.x;
-      const offsetX = width * 0.3; // 動画の右端より少し右
-      const offsetY = -20; // 動画の上端より少し上
+      const offsetX = 150; // 動画の右側に固定距離
+      const offsetY = -50; // 動画の上側に固定距離
 
       audioButton.style.left = `${x + offsetX}px`;
       audioButton.style.top = `${y + offsetY}px`;
