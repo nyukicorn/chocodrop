@@ -32,231 +32,19 @@
 </head>
 <body>
     <div id="info">
-        <strong>ChocoDrop - Basic Example</strong><br>
-        Press <code>@</code> to activate command interface<br>
-        Example: "右上にドラゴンを作って"
+        <strong>ChocoDrop - インポート機能デモ</strong><br>
+        Press <code>Space</code> でUI起動<br>
+        例: 画像URLを貼り付けて配置
     </div>
 
-    <script type="importmap">
-    {
-        "imports": {
-            "three": "https://unpkg.com/three@0.158.0/build/three.module.js",
-            "three/addons/": "https://unpkg.com/three@0.158.0/examples/jsm/"
-        }
-    }
-    </script>
+    <!-- Three.js -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.170.0/examples/js/controls/OrbitControls.js"></script>
 
-    <script type="module">
-        import * as THREE from 'three';
-        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-        
-        // Import ChocoDrop (adjust path as needed)
-        // import { SceneManager, CommandUI } from '../src/index.js';
-        
-        // For this example, we'll use a simplified version
-        class BasicSceneManager {
-            constructor(scene, camera) {
-                this.scene = scene;
-                this.camera = camera;
-                this.objects = new Map();
-                this.counter = 0;
-            }
-            
-            async executeCommand(command) {
-                console.log('Executing command:', command);
-                
-                // Simple parsing
-                const position = this.parsePosition(command);
-                
-                // Create a colorful cube as placeholder
-                const geometry = new THREE.BoxGeometry(2, 2, 2);
-                const material = new THREE.MeshPhongMaterial({
-                    color: Math.random() * 0xffffff
-                });
-                
-                const cube = new THREE.Mesh(geometry, material);
-                
-                // Camera-relative positioning
-                cube.position.set(
-                    this.camera.position.x + position.x,
-                    this.camera.position.y + position.y,
-                    this.camera.position.z + position.z
-                );
-                
-                const objectId = `object_${++this.counter}`;
-                cube.userData = { id: objectId, prompt: command };
-                
-                this.scene.add(cube);
-                this.objects.set(objectId, cube);
-                
-                return {
-                    success: true,
-                    objectId,
-                    position,
-                    prompt: command
-                };
-            }
-            
-            parsePosition(command) {
-                const cmd = command.toLowerCase();
-                if (cmd.includes('右上')) return { x: 5, y: 5, z: -10 };
-                if (cmd.includes('左上')) return { x: -5, y: 5, z: -10 };
-                if (cmd.includes('右下')) return { x: 5, y: -5, z: -10 };
-                if (cmd.includes('左下')) return { x: -5, y: -5, z: -10 };
-                if (cmd.includes('中央')) return { x: 0, y: 0, z: -10 };
-                return { x: 0, y: 0, z: -10 };
-            }
-            
-            clearAll() {
-                this.objects.forEach(obj => {
-                    this.scene.remove(obj);
-                    obj.geometry.dispose();
-                    obj.material.dispose();
-                });
-                this.objects.clear();
-            }
-            
-            getCommandHistory() {
-                return [];
-            }
-        }
-        
-        class BasicCommandUI {
-            constructor(sceneManager) {
-                this.sceneManager = sceneManager;
-                this.isVisible = false;
-                this.createUI();
-                this.bindEvents();
-            }
-            
-            createUI() {
-                this.container = document.createElement('div');
-                this.container.style.cssText = `
-                    position: fixed;
-                    bottom: 20px;
-                    right: 20px;
-                    width: 350px;
-                    background: rgba(0, 0, 0, 0.9);
-                    border: 2px solid #4a90e2;
-                    border-radius: 10px;
-                    color: white;
-                    padding: 15px;
-                    font-family: monospace;
-                    display: none;
-                    z-index: 1000;
-                `;
-                
-                const header = document.createElement('h3');
-                header.textContent = '🧪 ChocoDrop';
-                header.style.margin = '0 0 10px 0';
-                header.style.color = '#4a90e2';
-                
-                this.output = document.createElement('div');
-                this.output.style.cssText = `
-                    height: 150px;
-                    overflow-y: auto;
-                    background: rgba(0, 0, 0, 0.5);
-                    padding: 10px;
-                    margin: 10px 0;
-                    border-radius: 5px;
-                    font-size: 12px;
-                `;
-                
-                this.input = document.createElement('input');
-                this.input.type = 'text';
-                this.input.placeholder = '例: 右上にドラゴンを作って';
-                this.input.style.cssText = `
-                    width: 100%;
-                    padding: 8px;
-                    background: rgba(255, 255, 255, 0.1);
-                    border: 1px solid #4a90e2;
-                    border-radius: 3px;
-                    color: white;
-                    font-size: 14px;
-                    box-sizing: border-box;
-                `;
-                
-                const button = document.createElement('button');
-                button.textContent = '実行';
-                button.style.cssText = `
-                    width: 100%;
-                    padding: 8px;
-                    background: #4a90e2;
-                    border: none;
-                    border-radius: 3px;
-                    color: white;
-                    margin-top: 10px;
-                    cursor: pointer;
-                `;
-                
-                this.container.appendChild(header);
-                this.container.appendChild(this.output);
-                this.container.appendChild(this.input);
-                this.container.appendChild(button);
-                
-                document.body.appendChild(this.container);
-                
-                button.addEventListener('click', () => this.execute());
-                this.input.addEventListener('keydown', (e) => {
-                    if (e.key === 'Enter') this.execute();
-                });
-                
-                this.addOutput('Ready! Type a command and press Enter.');
-            }
-            
-            bindEvents() {
-                document.addEventListener('keydown', (e) => {
-                    if (e.key === '@') {
-                        e.preventDefault();
-                        this.toggle();
-                    }
-                    if (e.key === 'Escape' && this.isVisible) {
-                        this.hide();
-                    }
-                });
-            }
-            
-            toggle() {
-                if (this.isVisible) this.hide();
-                else this.show();
-            }
-            
-            show() {
-                this.container.style.display = 'block';
-                this.isVisible = true;
-                this.input.focus();
-                this.addOutput('UI activated. Camera controls paused.');
-            }
-            
-            hide() {
-                this.container.style.display = 'none';
-                this.isVisible = false;
-            }
-            
-            async execute() {
-                const command = this.input.value.trim();
-                if (!command) return;
-                
-                this.addOutput(`> ${command}`);
-                this.input.value = '';
-                
-                try {
-                    const result = await this.sceneManager.executeCommand(command);
-                    this.addOutput(`✅ Created: ${result.objectId}`);
-                } catch (error) {
-                    this.addOutput(`❌ Error: ${error.message}`);
-                }
-            }
-            
-            addOutput(message) {
-                const line = document.createElement('div');
-                line.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
-                line.style.marginBottom = '3px';
-                this.output.appendChild(line);
-                this.output.scrollTop = this.output.scrollHeight;
-            }
-        }
+    <!-- ChocoDrop UMD -->
+    <script src="https://cdn.jsdelivr.net/npm/@chocodrop/core@latest/dist/chocodrop.umd.min.js"></script>
 
+    <script>
         // Basic Three.js setup
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -294,13 +82,20 @@
         camera.position.set(0, 10, 20);
         
         // Controls
-        const controls = new OrbitControls(camera, renderer.domElement);
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
         controls.dampingFactor = 0.05;
         
-        // Initialize ChocoDrop System
-        const sceneManager = new BasicSceneManager(scene, camera);
-        const commandUI = new BasicCommandUI(sceneManager);
+        // Initialize ChocoDrop (本物!)
+        const chocoDrop = ChocoDrop.createChocoDrop(scene, {
+            camera: camera,
+            renderer: renderer,
+            // GitHub Pagesなので生成機能なし、インポートのみ
+            serverUrl: null,
+            onControlsToggle: (disabled) => {
+                controls.enabled = !disabled;
+            }
+        });
         
         // Animation loop
         function animate() {
@@ -318,8 +113,8 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
         });
         
-        console.log('🎮 Basic Three.js + ChocoDrop example loaded');
-        console.log('Press @ to activate command interface');
+        console.log('🍫 ChocoDrop インポート機能デモ loaded');
+        console.log('Press Space to activate command interface (インポート機能のみ)');
     </script>
 </body>
 </html>
