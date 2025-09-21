@@ -2374,65 +2374,131 @@ export class SceneManager {
   /**
    * 音声制御UIを作成
    */
-  async createAudioControl(videoObject) {
+  createAudioControl(videoObject) {
     const videoElement = videoObject.userData.videoElement;
     if (!videoElement) return;
 
-    // CSS2DRenderer初期化完了まで待機
-    await this.ensureCSS2DRenderer();
-
-    // 音声制御ボタンをThree.jsのCSS2DObjectとして作成
+    // 音声制御ボタンを作成
     const audioButton = document.createElement('div');
-    audioButton.className = 'audio-control-button';
-    audioButton.innerHTML = '🔊'; // 初期状態：音声ありマーク
+    audioButton.className = 'chocodrop-audio-control';
+    audioButton.innerHTML = '🔊'; // 初期状態：ミュート表示
+    audioButton.title = '音声のオン/オフ切り替え';
+
     audioButton.style.cssText = `
-      position: relative;
-      width: 32px;
-      height: 32px;
-      background: rgba(0, 0, 0, 0.7);
-      border: none;
-      border-radius: 50%;
-      color: white;
-      font-size: 16px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      opacity: 0.8;
-      transition: all 0.3s ease;
-      pointer-events: auto;
-      user-select: none;
+      position: absolute !important;
+      width: 40px !important;
+      height: 40px !important;
+      background: rgba(0, 0, 0, 0.8) !important;
+      border: 2px solid rgba(255, 255, 255, 0.4) !important;
+      border-radius: 50% !important;
+      color: white !important;
+      font-size: 18px !important;
+      cursor: pointer !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      z-index: 999999 !important;
+      transition: all 0.3s ease !important;
+      user-select: none !important;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3) !important;
+      backdrop-filter: blur(10px) !important;
+      pointer-events: auto !important;
     `;
 
     // ホバー効果
     audioButton.addEventListener('mouseenter', () => {
-      audioButton.style.opacity = '1.0';
+      audioButton.style.background = 'rgba(0, 0, 0, 0.9)';
       audioButton.style.transform = 'scale(1.1)';
+      audioButton.style.borderColor = 'rgba(255, 255, 255, 0.6)';
     });
 
     audioButton.addEventListener('mouseleave', () => {
-      audioButton.style.opacity = '0.8';
+      audioButton.style.background = 'rgba(0, 0, 0, 0.8)';
       audioButton.style.transform = 'scale(1.0)';
+      audioButton.style.borderColor = 'rgba(255, 255, 255, 0.4)';
     });
 
     // クリックイベント：音声の再生/停止切り替え
     audioButton.addEventListener('click', (e) => {
-      e.stopPropagation(); // 他のクリックイベントを阻止
+      e.stopPropagation();
       this.toggleVideoAudio(videoObject, audioButton);
     });
 
-    // Three.jsのCSS2DObjectとして作成
-    if (window.THREE && window.THREE.CSS2DObject) {
-      const labelObject = new THREE.CSS2DObject(audioButton);
-      labelObject.position.set(3, 2, 0); // 動画の右上に配置
-      videoObject.add(labelObject);
+    // ページに追加
+    document.body.appendChild(audioButton);
 
-      // 動画オブジェクトに音声制御ボタンを関連付け
-      videoObject.userData.audioControl = labelObject;
-      videoObject.userData.audioControlElement = audioButton;
+    // 動画オブジェクトに音声制御ボタンを関連付け
+    videoObject.userData.audioControlElement = audioButton;
+
+    // 位置更新関数を保存
+    videoObject.userData.updateAudioControlPosition = () => {
+      this.updateAudioControlPosition(videoObject, audioButton);
+    };
+
+    // 初期位置設定
+    this.updateAudioControlPosition(videoObject, audioButton);
+
+    // アニメーションループで位置を更新
+    if (!this.audioControlUpdateInterval) {
+      this.audioControlUpdateInterval = setInterval(() => {
+        this.spawnedObjects.forEach(obj => {
+          if (obj.userData.updateAudioControlPosition) {
+            obj.userData.updateAudioControlPosition();
+          }
+        });
+      }, 100); // 100msごとに更新
     }
 
+    // 動画が削除されたときにボタンも削除
+    videoObject.userData.cleanupCallbacks = videoObject.userData.cleanupCallbacks || [];
+    videoObject.userData.cleanupCallbacks.push(() => {
+      if (audioButton.parentNode) {
+        audioButton.parentNode.removeChild(audioButton);
+      }
+    });
+
     console.log('🔊 Audio control created for video:', videoObject.userData.id);
+  }
+
+  /**
+   * 音声制御ボタンの位置を動画オブジェクトに合わせて更新
+   */
+  updateAudioControlPosition(videoObject, audioButton) {
+    if (!this.camera || !this.renderer || !audioButton.parentNode) return;
+
+    // 動画オブジェクトの3D座標を画面座標に変換
+    const vector = new THREE.Vector3();
+    videoObject.getWorldPosition(vector);
+    vector.project(this.camera);
+
+    // 画面座標に変換
+    const canvas = this.renderer.domElement;
+    const rect = canvas.getBoundingClientRect();
+
+    const x = (vector.x * 0.5 + 0.5) * rect.width + rect.left;
+    const y = -(vector.y * 0.5 - 0.5) * rect.height + rect.top;
+
+    // 動画オブジェクトの右上角にボタンを配置
+    const geometry = videoObject.geometry;
+    if (geometry && geometry.parameters) {
+      const width = geometry.parameters.width * videoObject.scale.x;
+      const height = geometry.parameters.height * videoObject.scale.y;
+
+      // 画面上での動画のサイズを計算
+      const screenWidth = width * rect.width / (2 * Math.abs(vector.z));
+      const screenHeight = height * rect.height / (2 * Math.abs(vector.z));
+
+      // 動画の右上角に配置
+      const offsetX = screenWidth * 0.5 - 25; // 動画の右端から少し内側
+      const offsetY = -screenHeight * 0.5 + 5; // 動画の上端から少し下
+
+      audioButton.style.left = `${x + offsetX}px`;
+      audioButton.style.top = `${y + offsetY}px`;
+    } else {
+      // フォールバック: 右上角
+      audioButton.style.left = `${x + 100}px`;
+      audioButton.style.top = `${y - 50}px`;
+    }
   }
 
   /**
@@ -2468,6 +2534,23 @@ export class SceneManager {
   }
 
   /**
+   * CSS2DRendererの準備完了を保証
+   */
+  async ensureCSS2DRenderer() {
+    if (this.labelRenderer) {
+      return; // 既に準備完了
+    }
+
+    // 初期化処理がまだの場合は開始
+    if (!this.css2dInitPromise) {
+      this.css2dInitPromise = this.loadAndInitializeCSS2DRenderer();
+    }
+
+    // 初期化完了まで待機
+    await this.css2dInitPromise;
+  }
+
+  /**
    * CSS2DRendererの動的読み込みと初期化
    */
   async loadAndInitializeCSS2DRenderer() {
@@ -2482,7 +2565,7 @@ export class SceneManager {
       console.log('🏷️ Loading CSS2DRenderer dynamically...');
 
       // CDNからCSS2DRendererを読み込み
-      const module = await import('https://unpkg.com/three@0.158.0/examples/jsm/renderers/CSS2DRenderer.js');
+      const module = await import('https://cdn.skypack.dev/three@0.158.0/examples/jsm/renderers/CSS2DRenderer.js');
 
       // グローバルに設定
       if (!window.THREE) window.THREE = {};

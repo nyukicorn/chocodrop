@@ -30,7 +30,8 @@
             height: 100%;
             background:
                 radial-gradient(circle at 20% 80%, rgba(99, 102, 241, 0.08) 0%, transparent 50%),
-                radial-gradient(circle at 80% 20%, rgba(139, 92, 246, 0.06) 0%, transparent 50%);
+                radial-gradient(circle at 80% 20%, rgba(139, 92, 246, 0.06) 0%, transparent 50%),
+                radial-gradient(circle at 50% 50%, rgba(236, 72, 153, 0.03) 0%, transparent 70%);
             pointer-events: none;
             z-index: -1;
         }
@@ -56,10 +57,26 @@
             margin-bottom: 32px;
             font-size: 48px;
             font-weight: 700;
-            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #ec4899 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
+            position: relative;
+        }
+
+        .hero-logo::after {
+            content: '';
+            position: absolute;
+            inset: -4px;
+            background: linear-gradient(135deg, transparent, rgba(236, 72, 153, 0.2), transparent);
+            border-radius: 12px;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            z-index: -1;
+        }
+
+        .hero-logo:hover::after {
+            opacity: 1;
         }
 
         .hero-title {
@@ -109,7 +126,7 @@
 
         .btn-primary:hover {
             transform: translateY(-2px);
-            box-shadow: 0 8px 30px rgba(99, 102, 241, 0.4);
+            box-shadow: 0 8px 30px rgba(99, 102, 241, 0.4), 0 0 20px rgba(236, 72, 153, 0.3);
         }
 
         .btn-secondary {
@@ -217,7 +234,7 @@
         .feature-card:hover {
             transform: translateY(-4px);
             border-color: rgba(99, 102, 241, 0.3);
-            box-shadow: 0 12px 40px rgba(99, 102, 241, 0.15);
+            box-shadow: 0 12px 40px rgba(99, 102, 241, 0.15), 0 0 30px rgba(236, 72, 153, 0.1);
         }
 
         .feature-icon {
@@ -283,7 +300,11 @@
 
         .example-result {
             font-size: 14px;
-            color: #6366f1;
+            background: linear-gradient(135deg, #6366f1, #ec4899);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-weight: 500;
         }
 
         /* Social Proof */
@@ -314,6 +335,14 @@
             font-weight: 500;
             color: #cbd5e1;
             border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .integration-item:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(236, 72, 153, 0.3);
+            color: #e2e8f0;
+            box-shadow: 0 4px 20px rgba(236, 72, 153, 0.1);
         }
 
         /* Responsive */

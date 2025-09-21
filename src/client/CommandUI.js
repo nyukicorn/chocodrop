@@ -87,6 +87,7 @@ export class CommandUI {
     }
 
     this.createServiceModal();
+    this.createFloatingChocolateIcon();
 
     // DOM読み込み完了後にスタイルを確実に適用
     document.addEventListener('DOMContentLoaded', () => {
@@ -141,14 +142,14 @@ export class CommandUI {
       top: -35px;
       right: -5px;
       padding: 6px 12px;
-      background: ${this.isDarkMode 
-        ? 'linear-gradient(135deg, rgba(15, 23, 42, 0.9), rgba(30, 27, 75, 0.85))'
-        : 'linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.8))'};
-      border: 1px solid ${this.isDarkMode ? 'rgba(99, 102, 241, 0.2)' : 'rgba(255, 255, 255, 0.4)'};
+      background: rgba(255, 255, 255, 0.15);
+      border: 1px solid ${this.isDarkMode ? 'rgba(129, 140, 248, 0.3)' : 'rgba(99, 102, 241, 0.25)'};
       border-radius: 12px;
+      box-shadow: 0 8px 24px rgba(99, 102, 241, 0.2), 0 4px 12px rgba(0, 0, 0, 0.1);
       color: ${this.isDarkMode ? '#ffffff' : '#1f2937'};
       font-size: 11px;
-      font-weight: 600;
+      font-weight: 700;
+      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
       letter-spacing: 0.02em;
       backdrop-filter: blur(20px);
       -webkit-backdrop-filter: blur(20px);
@@ -159,7 +160,7 @@ export class CommandUI {
       z-index: 11;
       white-space: nowrap;
     `;
-    brandText.textContent = '🍫 ChocoDrop';
+    brandText.innerHTML = '<span style="filter: hue-rotate(240deg) saturate(0.8) brightness(1.1);">🍫</span> <span style="color: #6366f1;">ChocoDrop</span>';
     
     // Progressive Disclosure イベント
     brandIndicator.addEventListener('mouseenter', () => {
@@ -207,12 +208,73 @@ export class CommandUI {
     // タスクカード管理用
     this.taskCards = new Map();
 
-    // Ultra-Simple 単一入力フィールド
-    this.input = document.createElement('input');
-    this.input.type = 'text';
+    // 入力フィールドラッパー（展開ボタン用）
+    this.inputWrapper = document.createElement('div');
+    this.inputWrapper.style.cssText = `
+      position: relative;
+      width: 100%;
+      margin-bottom: 14px;
+    `;
+
+    // Ultra-Simple 単一入力フィールド（自動リサイズ対応）
+    this.input = document.createElement('textarea');
+    this.input.rows = 1;
     this.input.id = 'command-input';
     this.input.placeholder = '「右上にドラゴンを」「美しい桜の森を中央に」など... ✨';
     this.input.style.cssText = this.getInputStyles();
+
+    // 展開ボタン（初期状態は非表示）
+    this.expandButton = document.createElement('div');
+    this.expandButton.innerHTML = '⤢';
+    this.expandButton.title = 'テキスト全体を表示';
+    this.expandButton.style.cssText = `
+      position: absolute;
+      bottom: 8px;
+      right: 8px;
+      width: 24px;
+      height: 24px;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: ${this.isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'};
+      border: 1px solid ${this.isDarkMode ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.2)'};
+      border-radius: 6px;
+      color: ${this.isDarkMode ? '#ffffff' : '#1f2937'};
+      font-size: 16px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      z-index: 1;
+    `;
+
+    // 展開ボタンのホバー効果
+    this.expandButton.addEventListener('mouseenter', () => {
+      this.expandButton.style.background = this.isDarkMode ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.2)';
+      this.expandButton.style.transform = 'scale(1.1)';
+    });
+
+    this.expandButton.addEventListener('mouseleave', () => {
+      this.expandButton.style.background = this.isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
+      this.expandButton.style.transform = 'scale(1)';
+    });
+
+    // 展開ボタンのクリック処理
+    this.expandButton.addEventListener('click', () => {
+      if (this.input.style.maxHeight === 'none') {
+        // 縮小する
+        this.input.style.maxHeight = '66px';
+        this.expandButton.innerHTML = '⤢';
+        this.expandButton.title = 'テキスト全体を表示';
+      } else {
+        // 展開する
+        this.input.style.maxHeight = 'none';
+        this.expandButton.innerHTML = '⤡';
+        this.expandButton.title = '元のサイズに戻す';
+      }
+    });
+
+    // ラッパーに要素を追加
+    this.inputWrapper.appendChild(this.input);
+    this.inputWrapper.appendChild(this.expandButton);
 
     // 旧コマンドタイプインジケーターは削除（ラジオボタンUIに統合）
 
@@ -222,10 +284,49 @@ export class CommandUI {
     // ミニマルアクションボタン
     const actionContainer = this.createMinimalActions();
 
+    // ×クローズボタンをフォーム右上に追加
+    const closeButton = document.createElement('div');
+    closeButton.innerHTML = '×';
+    closeButton.style.cssText = `
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: ${this.isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'};
+      color: ${this.isDarkMode ? '#ffffff' : '#1f2937'};
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: normal;
+      transition: all 0.2s ease;
+      backdrop-filter: blur(8px);
+      z-index: 10;
+    `;
+
+    closeButton.addEventListener('mouseover', () => {
+      closeButton.style.background = this.isDarkMode ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.2)';
+      closeButton.style.transform = 'scale(1.1)';
+    });
+
+    closeButton.addEventListener('mouseout', () => {
+      closeButton.style.background = this.isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
+      closeButton.style.color = this.isDarkMode ? '#ffffff' : '#1f2937';
+      closeButton.style.transform = 'scale(1)';
+    });
+
+    closeButton.addEventListener('click', () => {
+      this.hide();
+    });
+
     // 組み立て（ヘッダー削除、ブランドバッジは既に追加済み）
     // this.container.appendChild(this.output); // 大きなタスク表示エリアをDOMに追加しない
+    this.container.appendChild(closeButton);
     this.container.appendChild(modeSelector);
-    this.container.appendChild(this.input);
+    this.container.appendChild(this.inputWrapper);
     this.container.appendChild(actionContainer);
 
     // フローティングカードコンテナをbodyに直接追加
@@ -247,6 +348,10 @@ export class CommandUI {
       if (this.isComposing) {
         return;
       }
+      
+      // 自動リサイズ処理
+      this.autoResizeTextarea();
+      
       this.detectCommandType();
     });
     
@@ -266,6 +371,7 @@ export class CommandUI {
       
       // 確定後のコマンド検出を実行
       setTimeout(() => {
+        this.autoResizeTextarea();
         this.detectCommandType();
       }, 10);
     });
@@ -393,8 +499,9 @@ export class CommandUI {
 
   createServiceModal() {
     if (this.serviceModalOverlay) {
-      this.updateServiceSelectorTheme();
-      return;
+      this.serviceModalOverlay.remove();
+      this.serviceModalOverlay = null;
+      this.serviceModal = null;
     }
 
     this.serviceModalOverlay = document.createElement('div');
@@ -425,6 +532,8 @@ export class CommandUI {
       width: min(420px, 90vw);
       border-radius: 24px;
       padding: 26px 28px;
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
       border: 1px solid rgba(255, 255, 255, 0.2);
       box-shadow: 0 20px 40px rgba(15, 23, 42, 0.35);
       display: flex;
@@ -861,8 +970,8 @@ export class CommandUI {
 
     if (this.serviceModal) {
       this.serviceModal.style.background = this.isDarkMode
-        ? 'linear-gradient(135deg, rgba(17, 24, 39, 0.92), rgba(30, 41, 59, 0.85))'
-        : 'linear-gradient(135deg, rgba(255, 255, 255, 0.92), rgba(229, 231, 255, 0.85))';
+        ? 'rgba(17, 24, 39, 0.15)'
+        : 'rgba(255, 255, 255, 0.15)';
       this.serviceModal.style.border = this.isDarkMode
         ? '1px solid rgba(129, 140, 248, 0.4)'
         : '1px solid rgba(99, 102, 241, 0.25)';
@@ -1025,12 +1134,17 @@ export class CommandUI {
 
       // クリックイベント
       button.addEventListener('click', () => {
-        this.selectMode(mode.value, true); // trueは手動選択を示す
+        if (mode.value === 'import') {
+          this.triggerFileSelection();
+        } else {
+          this.selectMode(mode.value, true); // trueは手動選択を示す
+        }
       });
 
       this.radioModeButtons[mode.value] = { button, autoBadge };
       container.appendChild(button);
     });
+
 
     this.radioModeContainer = container;
     // デフォルトでGenerateを選択
@@ -1285,6 +1399,41 @@ export class CommandUI {
       border: none;
       background: none;
     `;
+  }
+
+  /**
+   * テキストエリアの自動リサイズ処理（最大2行）
+   */
+  autoResizeTextarea() {
+    // 高さをリセットして正確な scrollHeight を取得
+    this.input.style.height = 'auto';
+    
+    // 現在のコンテンツに基づいて高さを計算
+    const lineHeight = 22; // CSS で設定した line-height
+    const padding = 28; // 上下のパディング合計 (14px * 2)
+    const maxLines = 2;
+    const maxHeight = (lineHeight * maxLines) + padding;
+    
+    // スクロール高さに基づいて新しい高さを決定
+    const newHeight = Math.min(this.input.scrollHeight, maxHeight);
+    
+    // 高さを適用
+    this.input.style.height = newHeight + 'px';
+    
+    // 2行を超える場合はスクロールを有効化と展開ボタン表示
+    if (this.input.scrollHeight > maxHeight) {
+      this.input.style.overflowY = 'auto';
+      // 展開ボタンを表示
+      if (this.expandButton) {
+        this.expandButton.style.display = 'flex';
+      }
+    } else {
+      this.input.style.overflowY = 'hidden';
+      // 展開ボタンを非表示
+      if (this.expandButton) {
+        this.expandButton.style.display = 'none';
+      }
+    }
   }
 
   /**
@@ -1809,7 +1958,6 @@ export class CommandUI {
       color: ${this.isDarkMode ? '#ffffff' : '#1f2937'};
       font-size: 14px;
       outline: none;
-      margin-bottom: 14px;
       box-sizing: border-box;
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       font-family: inherit;
@@ -1817,6 +1965,11 @@ export class CommandUI {
       -webkit-backdrop-filter: blur(16px);
       box-shadow: ${theme.boxShadow};
       placeholder-color: ${this.isDarkMode ? 'rgba(255, 255, 255, 0.5)' : 'rgba(55, 65, 81, 0.6)'};
+      resize: none;
+      overflow-y: hidden;
+      min-height: 22px;
+      max-height: 66px;
+      line-height: 22px;
     `;
   }
 
@@ -1961,7 +2114,13 @@ export class CommandUI {
 
     this.isVisible = true;
     this.input.focus();
-    
+
+    // フォーム表示中はチョコアイコンを隠す
+    if (this.floatingChocolateIcon) {
+      this.floatingChocolateIcon.style.opacity = '0';
+      this.floatingChocolateIcon.style.pointerEvents = 'none';
+    }
+
     // コントロールを無効化
     this.onControlsToggle(true);
     // コントロール停止時も静かに
@@ -1974,7 +2133,13 @@ export class CommandUI {
     this.container.style.display = 'none';
     this.floatingContainer.style.display = 'none';
     this.isVisible = false;
-    
+
+    // フォーム非表示時はチョコアイコンを再表示
+    if (this.floatingChocolateIcon) {
+      this.floatingChocolateIcon.style.opacity = '0.8';
+      this.floatingChocolateIcon.style.pointerEvents = 'auto';
+    }
+
     // コントロールを再有効化
     this.onControlsToggle(false);
     this.logDebug('🎮 コントロールを再開');
@@ -2023,7 +2188,7 @@ export class CommandUI {
   getPlaceholderForMode(mode) {
     const placeholders = {
       generate: '「右上にドラゴンを」と話しかけて ⏎ ✨',
-      import: 'ファイルを選択 (.glb, .jpg, .png, .mp4) ⏎',
+      import: 'ファイル読み込み完了！配置場所を指定 ⏎ 📁',
       modify: '選択後「ピンク色に」「大きくして」と伝えて ⏎ ✏️',
       delete: '選択後、削除コマンドが表示されます ⏎ 🗑️'
     };
@@ -3708,6 +3873,15 @@ export class CommandUI {
 
     this.updateServiceSelectorTheme();
 
+    // 閉じるボタンのテーマ更新
+    const closeButton = this.container.querySelector('.close-button');
+    if (closeButton) {
+      closeButton.style.color = this.isDarkMode ? '#ffffff' : '#1f2937';
+      closeButton.style.background = this.isDarkMode 
+        ? 'rgba(255, 255, 255, 0.1)' 
+        : 'rgba(0, 0, 0, 0.1)';
+    }
+
     // フローティングコンテナとタスクカードのテーマ更新
     this.updateFloatingContainerTheme();
 
@@ -3811,51 +3985,14 @@ export class CommandUI {
    * Importインターフェース表示
    */
   showImportInterface() {
-    // ファイル選択ボタンを作成（既存のものがなければ）
-    if (!this.fileSelectButton) {
-      this.fileSelectButton = document.createElement('button');
-      this.fileSelectButton.innerHTML = '📁 ファイルを選択';
-      this.fileSelectButton.style.cssText = `
-        margin: 10px 0;
-        padding: 10px 20px;
-        background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-        color: white;
-        border: none;
-        border-radius: 8px;
-        cursor: pointer;
-        font-size: 14px;
-        font-weight: 500;
-        transition: all 0.2s ease;
-        width: 100%;
-      `;
-
-      // ホバー効果
-      this.fileSelectButton.onmouseover = () => {
-        this.fileSelectButton.style.transform = 'translateY(-1px)';
-        this.fileSelectButton.style.boxShadow = '0 4px 12px rgba(236, 72, 153, 0.3)';
-      };
-      this.fileSelectButton.onmouseout = () => {
-        this.fileSelectButton.style.transform = 'translateY(0)';
-        this.fileSelectButton.style.boxShadow = 'none';
-      };
-
-      // ファイル選択処理
-      this.fileSelectButton.onclick = () => this.openFileSelector();
-
-      // 隠しファイル入力を作成
-      if (!this.fileInput) {
-        this.fileInput = document.createElement('input');
-        this.fileInput.type = 'file';
-        this.fileInput.accept = '.glb,.gltf,.jpg,.jpeg,.png,.mp4,.mov';
-        this.fileInput.style.display = 'none';
-        this.fileInput.onchange = (e) => this.handleFileSelection(e);
-        document.body.appendChild(this.fileInput);
-      }
-    }
-
-    // 入力エリアの前にボタンを挿入
-    if (this.input && this.input.parentNode && !this.input.parentNode.contains(this.fileSelectButton)) {
-      this.input.parentNode.insertBefore(this.fileSelectButton, this.input);
+    // 隠しファイル入力を作成（Importボタンから直接選択できるので、ボタンは不要）
+    if (!this.fileInput) {
+      this.fileInput = document.createElement('input');
+      this.fileInput.type = 'file';
+      this.fileInput.accept = '.glb,.gltf,.jpg,.jpeg,.png,.mp4,.mov';
+      this.fileInput.style.display = 'none';
+      this.fileInput.onchange = (e) => this.handleFileSelection(e);
+      document.body.appendChild(this.fileInput);
     }
 
     // ドラッグ&ドロップ機能を有効化
@@ -3882,6 +4019,22 @@ export class CommandUI {
   }
 
   /**
+   * Importボタンから直接ファイル選択を実行
+   */
+  triggerFileSelection() {
+    // ファイル入力要素が存在しない場合は作成
+    if (!this.fileInput) {
+      this.showImportInterface(); // 既存のファイル入力作成処理を呼び出し
+    }
+
+    // 直接ファイル選択ダイアログを開く
+    this.openFileSelector();
+
+    // Import モードに切り替え（UI反映）
+    this.selectMode('import', true);
+  }
+
+  /**
    * ファイル選択処理
    */
   async handleFileSelection(event) {
@@ -3895,10 +4048,6 @@ export class CommandUI {
       // ファイルをローカルURLとして処理
       const fileUrl = URL.createObjectURL(file);
 
-      // プロンプト入力を促す
-      this.input.value = `中央に設置 (${file.name}) ⏎`;
-      this.input.focus();
-
       // ファイル情報を保存
       this.selectedFile = {
         file: file,
@@ -3909,7 +4058,17 @@ export class CommandUI {
 
       this.selectMode('import', true);
 
+      // 自動的にデフォルトプロンプトで実行
+      const defaultPrompt = `中央に設置 (${file.name})`;
+      this.input.value = defaultPrompt;
+
       this.addOutput(`📁 ファイル選択: ${file.name} (${fileType})`, 'system');
+      this.addOutput(`🚀 自動アップロード開始: ${defaultPrompt}`, 'system');
+
+      // 自動実行（少し遅延を入れてUX向上）
+      setTimeout(() => {
+        this.executeCommand();
+      }, 500);
 
     } catch (error) {
       console.error('File selection error:', error);
@@ -4354,6 +4513,216 @@ export class CommandUI {
     return modeNames[mode] || mode;
   }
 
+  /**
+   * 常時表示フローティングチョコアイコンを作成
+   */
+  createFloatingChocolateIcon() {
+    // 既存のアイコンがあれば削除
+    if (this.floatingChocolateIcon) {
+      this.floatingChocolateIcon.remove();
+    }
+
+    this.floatingChocolateIcon = document.createElement('div');
+    this.floatingChocolateIcon.innerHTML = '🍫';
+    this.floatingChocolateIcon.title = 'ChocoDrop を開く (@キーでも開けます)';
+    this.floatingChocolateIcon.style.cssText = `
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: rgba(99, 102, 241, 0.15);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2), 0 2px 6px rgba(0, 0, 0, 0.05);
+      opacity: 0.8;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      cursor: pointer;
+      z-index: 999;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      transform: scale(1);
+      filter: none;
+    `;
+
+    // ホバー効果
+    this.floatingChocolateIcon.addEventListener('mouseover', () => {
+      this.floatingChocolateIcon.style.transform = 'scale(1.1) translateY(-2px)';
+      this.floatingChocolateIcon.style.boxShadow = '0 6px 16px rgba(99, 102, 241, 0.3), 0 3px 8px rgba(0, 0, 0, 0.1)';
+      this.floatingChocolateIcon.style.opacity = '1';
+      this.floatingChocolateIcon.style.filter = 'none';
+    });
+
+    this.floatingChocolateIcon.addEventListener('mouseout', () => {
+      this.floatingChocolateIcon.style.transform = 'scale(1) translateY(0)';
+      this.floatingChocolateIcon.style.boxShadow = '0 4px 12px rgba(99, 102, 241, 0.2), 0 2px 6px rgba(0, 0, 0, 0.05)';
+      this.floatingChocolateIcon.style.opacity = '0.8';
+      this.floatingChocolateIcon.style.filter = 'none';
+    });
+
+    // クリックで ChocoDrop を開く
+    this.floatingChocolateIcon.addEventListener('click', () => {
+      if (this.isVisible) {
+        this.hide();
+      } else {
+        this.show();
+      }
+    });
+
+    // 右クリックメニュー
+    this.floatingChocolateIcon.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      this.showFloatingIconContextMenu(e);
+    });
+
+    // DOM に追加
+    document.body.appendChild(this.floatingChocolateIcon);
+  }
+
+  /**
+   * フローティングアイコンの右クリックメニューを表示
+   */
+  showFloatingIconContextMenu(event) {
+    // 既存のメニューがあれば削除
+    const existingMenu = document.querySelector('.floating-icon-context-menu');
+    if (existingMenu) {
+      existingMenu.remove();
+    }
+
+    // コンテキストメニュー作成
+    const menu = document.createElement('div');
+    menu.className = 'floating-icon-context-menu';
+    menu.style.cssText = `
+      position: fixed;
+      top: ${event.clientY}px;
+      left: ${event.clientX}px;
+      background: ${this.isDarkMode ? 'rgba(17, 24, 39, 0.85)' : 'rgba(255, 255, 255, 0.85)'};
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid ${this.isDarkMode ? 'rgba(129, 140, 248, 0.3)' : 'rgba(99, 102, 241, 0.2)'};
+      border-radius: 12px;
+      box-shadow: 0 8px 24px rgba(99, 102, 241, 0.2), 0 4px 12px rgba(0, 0, 0, 0.1);
+      padding: 8px 0;
+      min-width: 160px;
+      z-index: 2000;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 14px;
+      color: ${this.isDarkMode ? '#ffffff' : '#1f2937'};
+    `;
+
+    // メニューアイテム1: フォームを開く
+    const openFormItem = document.createElement('div');
+    openFormItem.innerHTML = '📄 フォームを開く';
+    openFormItem.style.cssText = `
+      padding: 8px 16px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #6366f1;
+      text-shadow: 0 2px 4px rgba(99, 102, 241, 0.3);
+    `;
+
+    openFormItem.addEventListener('mouseover', () => {
+      openFormItem.style.background = this.isDarkMode ? 'rgba(99, 102, 241, 0.15)' : 'rgba(99, 102, 241, 0.1)';
+      openFormItem.style.textShadow = '0 2px 6px rgba(99, 102, 241, 0.5)';
+    });
+
+    openFormItem.addEventListener('mouseout', () => {
+      openFormItem.style.background = 'transparent';
+      openFormItem.style.textShadow = '0 2px 4px rgba(99, 102, 241, 0.3)';
+    });
+
+    openFormItem.addEventListener('click', () => {
+      menu.remove();
+      if (this.isVisible) {
+        this.hide();
+      } else {
+        this.show();
+      }
+    });
+
+    // メニューアイテム2: アイコンを非表示
+    const hideIconItem = document.createElement('div');
+    hideIconItem.innerHTML = '✕ アイコンを非表示';
+    hideIconItem.style.cssText = `
+      padding: 8px 16px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #6366f1;
+      text-shadow: 0 2px 4px rgba(99, 102, 241, 0.3);
+    `;
+
+    hideIconItem.addEventListener('mouseover', () => {
+      hideIconItem.style.background = this.isDarkMode ? 'rgba(99, 102, 241, 0.15)' : 'rgba(99, 102, 241, 0.1)';
+      hideIconItem.style.textShadow = '0 2px 6px rgba(99, 102, 241, 0.5)';
+    });
+
+    hideIconItem.addEventListener('mouseout', () => {
+      hideIconItem.style.background = 'transparent';
+      hideIconItem.style.textShadow = '0 2px 4px rgba(99, 102, 241, 0.3)';
+    });
+
+    hideIconItem.addEventListener('click', () => {
+      menu.remove();
+      this.hideFloatingIcon();
+    });
+
+    // メニューに追加
+    menu.appendChild(openFormItem);
+    menu.appendChild(hideIconItem);
+
+    // DOM に追加
+    document.body.appendChild(menu);
+
+    // 画面外に出ないように調整
+    const rect = menu.getBoundingClientRect();
+    if (rect.right > window.innerWidth) {
+      menu.style.left = `${event.clientX - rect.width}px`;
+    }
+    if (rect.bottom > window.innerHeight) {
+      menu.style.top = `${event.clientY - rect.height}px`;
+    }
+
+    // 外部クリックで閉じる
+    const closeMenu = (e) => {
+      if (!menu.contains(e.target)) {
+        menu.remove();
+        document.removeEventListener('click', closeMenu);
+      }
+    };
+
+    setTimeout(() => {
+      document.addEventListener('click', closeMenu);
+    }, 10);
+  }
+
+  /**
+   * フローティングアイコンを非表示にする
+   */
+  hideFloatingIcon() {
+    if (this.floatingChocolateIcon) {
+      this.floatingChocolateIcon.style.display = 'none';
+    }
+  }
+
+  /**
+   * フローティングアイコンを表示する
+   */
+  showFloatingIcon() {
+    if (this.floatingChocolateIcon) {
+      this.floatingChocolateIcon.style.display = 'flex';
+    }
+  }
+
   dispose() {
     // ファイル選択関連のクリーンアップ
     if (this.fileInput && this.fileInput.parentNode) {
@@ -4361,6 +4730,11 @@ export class CommandUI {
     }
     if (this.selectedFile && this.selectedFile.url) {
       URL.revokeObjectURL(this.selectedFile.url);
+    }
+
+    // フローティングチョコアイコンのクリーンアップ
+    if (this.floatingChocolateIcon && this.floatingChocolateIcon.parentNode) {
+      this.floatingChocolateIcon.parentNode.removeChild(this.floatingChocolateIcon);
     }
 
     if (this.container && this.container.parentElement) {
