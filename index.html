@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ChocoDrop - あらゆる3D空間に、コンテンツをちょこんとドロップ</title>
+    <title>ChocoDrop - リアルタイムAI 3Dコンテンツドロップ</title>
     <style>
         * {
             margin: 0;
@@ -12,69 +12,48 @@
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans JP', 'Hiragino Kaku Gothic ProN', sans-serif;
-            background: linear-gradient(135deg, #0f0f23 0%, #1e1b4b 30%, #312e81 60%, #1e293b 100%);
+            font-family: "Helvetica Neue", Arial, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "BIZ UDPGothic", "Noto Sans JP", "Yu Gothic", Meiryo, sans-serif;
+            background: linear-gradient(135deg, #0a0a0f 0%, #1a1a2e 40%, #16213e 100%);
             color: #ffffff;
             min-height: 100vh;
             overflow-x: hidden;
-            position: relative;
+            line-height: 1.6;
         }
 
-        /* Glassmorphism background elements */
+        /* Subtle background elements */
         body::before {
             content: '';
             position: fixed;
-            top: -50%;
-            left: -50%;
-            width: 200%;
-            height: 200%;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
             background:
-                radial-gradient(circle at 20% 80%, rgba(99, 102, 241, 0.15) 0%, transparent 60%),
-                radial-gradient(circle at 80% 20%, rgba(139, 92, 246, 0.1) 0%, transparent 60%);
-            animation: float 20s ease-in-out infinite;
+                radial-gradient(circle at 20% 80%, rgba(99, 102, 241, 0.08) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(139, 92, 246, 0.06) 0%, transparent 50%);
+            pointer-events: none;
             z-index: -1;
-        }
-
-        @keyframes float {
-            0%, 100% { transform: translate(0, 0) rotate(0deg); }
-            33% { transform: translate(30px, -30px) rotate(120deg); }
-            66% { transform: translate(-20px, 20px) rotate(240deg); }
         }
 
         .container {
             max-width: 1200px;
             margin: 0 auto;
-            padding: 40px 20px;
+            padding: 0 24px;
             position: relative;
             z-index: 1;
         }
 
-        /* Header */
-        .header {
+        /* Hero Section */
+        .hero {
+            padding: 80px 0 120px;
             text-align: center;
-            margin-bottom: 60px;
-            padding: 60px 20px;
         }
 
-        .logo {
-            display: flex;
+        .hero-logo {
+            display: inline-flex;
             align-items: center;
-            justify-content: center;
-            gap: 15px;
-            margin-bottom: 20px;
-        }
-
-        .logo .emoji {
-            font-size: 48px;
-            animation: bounce 2s ease-in-out infinite;
-        }
-
-        @keyframes bounce {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-10px); }
-        }
-
-        .logo h1 {
+            gap: 12px;
+            margin-bottom: 32px;
             font-size: 48px;
             font-weight: 700;
             background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
@@ -83,315 +62,399 @@
             background-clip: text;
         }
 
-        .tagline-main {
-            font-size: 24px;
-            color: #e2e8f0;
-            margin-bottom: 10px;
-            font-weight: 600;
+        .hero-title {
+            font-size: clamp(32px, 5vw, 64px);
+            font-weight: 700;
+            margin-bottom: 24px;
+            letter-spacing: -0.02em;
         }
 
-        .tagline-sub {
-            font-size: 18px;
+        .hero-subtitle {
+            font-size: 20px;
             color: #94a3b8;
-            margin-bottom: 40px;
+            margin-bottom: 48px;
+            font-weight: 400;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
         }
 
-        /* Buttons */
-        .buttons {
+        .hero-buttons {
             display: flex;
-            gap: 20px;
+            gap: 16px;
             justify-content: center;
             flex-wrap: wrap;
-            margin-bottom: 60px;
+            margin-bottom: 80px;
         }
 
-        .button {
+        .btn {
             display: inline-flex;
             align-items: center;
             gap: 8px;
             padding: 16px 32px;
-            background: #6366f1;
-            color: white;
-            text-decoration: none;
             border-radius: 12px;
             font-weight: 600;
+            text-decoration: none;
             transition: all 0.3s ease;
+            font-size: 16px;
+            border: none;
+            cursor: pointer;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            color: white;
+            box-shadow: 0 4px 20px rgba(99, 102, 241, 0.3);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(99, 102, 241, 0.4);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.08);
+            color: #e2e8f0;
+            border: 1px solid rgba(255, 255, 255, 0.2);
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
         }
 
-        .button:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 12px 40px rgba(99, 102, 241, 0.4);
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.12);
+            transform: translateY(-2px);
         }
 
-        .button.secondary {
-            background: rgba(99, 102, 241, 0.15);
-            border: 1px solid rgba(99, 102, 241, 0.3);
+        /* Product Preview */
+        .product-preview {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 48px;
+            margin-bottom: 120px;
+            box-shadow: 0 8px 40px rgba(0, 0, 0, 0.3);
         }
 
-        .button.secondary:hover {
-            background: rgba(99, 102, 241, 0.25);
-        }
-
-        /* Main content */
-        .content {
+        .preview-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 60px;
-            align-items: start;
-            margin-bottom: 80px;
-        }
-
-        .quick-start, .usage {
-            background: rgba(255, 255, 255, 0.6);
-            padding: 40px;
-            border-radius: 20px;
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.4);
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
-        }
-
-        .section-title {
-            font-size: 24px;
-            margin-bottom: 20px;
-            color: #1f2937;
-            display: flex;
+            gap: 48px;
             align-items: center;
-            gap: 10px;
-            font-weight: 600;
         }
 
-        pre {
-            background: rgba(55, 65, 81, 0.9);
-            padding: 20px;
+        .preview-content h2 {
+            font-size: 36px;
+            font-weight: 700;
+            margin-bottom: 20px;
+            color: #ffffff;
+        }
+
+        .preview-content p {
+            color: #94a3b8;
+            font-size: 18px;
+            margin-bottom: 32px;
+        }
+
+        .code-block {
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.1);
             border-radius: 12px;
-            overflow-x: auto;
-            margin: 20px 0;
-            border: 1px solid rgba(156, 163, 175, 0.3);
-        }
-
-        code {
-            color: #f9fafb;
+            padding: 24px;
             font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
             font-size: 14px;
             line-height: 1.6;
+            overflow-x: auto;
         }
 
-        /* Features */
+        .code-block pre {
+            margin: 0;
+            color: #f8fafc;
+        }
+
+        .syntax-comment {
+            color: #6b7280;
+        }
+
+        .syntax-string {
+            color: #34d399;
+        }
+
+        .syntax-keyword {
+            color: #fbbf24;
+        }
+
+        /* Features Grid */
         .features {
+            padding: 80px 0;
+        }
+
+        .features h2 {
+            text-align: center;
+            font-size: 40px;
+            font-weight: 700;
+            margin-bottom: 64px;
+            color: #ffffff;
+        }
+
+        .features-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 30px;
-            margin-top: 60px;
+            gap: 32px;
         }
 
-        .feature {
-            background: rgba(255, 255, 255, 0.5);
-            padding: 30px;
+        .feature-card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
             border-radius: 16px;
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            border: 1px solid rgba(255, 255, 255, 0.3);
+            padding: 32px;
             transition: all 0.3s ease;
         }
 
-        .feature:hover {
-            transform: translateY(-5px);
+        .feature-card:hover {
+            transform: translateY(-4px);
             border-color: rgba(99, 102, 241, 0.3);
-            box-shadow: 0 10px 40px rgba(99, 102, 241, 0.1);
+            box-shadow: 0 12px 40px rgba(99, 102, 241, 0.15);
         }
 
-        .feature h3 {
+        .feature-icon {
+            font-size: 32px;
+            margin-bottom: 20px;
+            display: block;
+        }
+
+        .feature-card h3 {
             font-size: 20px;
-            margin-bottom: 15px;
-            color: #1f2937;
-            display: flex;
-            align-items: center;
-            gap: 10px;
             font-weight: 600;
+            margin-bottom: 12px;
+            color: #ffffff;
         }
 
-        .feature p {
-            color: #6b7280;
+        .feature-card p {
+            color: #94a3b8;
             line-height: 1.6;
         }
 
-        .feature .emoji {
-            font-size: 24px;
-        }
-
-        /* Examples section */
-        .examples {
-            margin-top: 60px;
+        /* Usage Examples */
+        .usage-examples {
+            padding: 80px 0;
             text-align: center;
         }
 
-        .examples h2 {
-            font-size: 32px;
-            margin-bottom: 30px;
-            color: #1f2937;
+        .usage-examples h2 {
+            font-size: 40px;
             font-weight: 700;
+            margin-bottom: 48px;
+            color: #ffffff;
         }
 
-        .example-commands {
-            background: rgba(255, 255, 255, 0.6);
-            padding: 40px;
-            border-radius: 20px;
+        .examples-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 24px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .example-item {
+            background: rgba(255, 255, 255, 0.05);
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.4);
-            margin: 0 auto;
-            max-width: 600px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 24px;
+            transition: all 0.3s ease;
         }
 
-        .command {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 15px 0;
-            border-bottom: 1px solid rgba(156, 163, 175, 0.2);
+        .example-item:hover {
+            transform: translateY(-2px);
+            background: rgba(255, 255, 255, 0.08);
         }
 
-        .command:last-child {
-            border-bottom: none;
-        }
-
-        .command-text {
-            color: #374151;
+        .example-command {
+            font-size: 16px;
             font-weight: 500;
+            color: #e2e8f0;
+            margin-bottom: 8px;
         }
 
-        .command-arrow {
-            color: #6366f1;
-            font-weight: bold;
-        }
-
-        .command-result {
-            color: #6366f1;
+        .example-result {
             font-size: 14px;
+            color: #6366f1;
+        }
+
+        /* Social Proof */
+        .social-proof {
+            padding: 80px 0;
+            text-align: center;
+        }
+
+        .social-proof h2 {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 32px;
+            color: #94a3b8;
+        }
+
+        .integrations {
+            display: flex;
+            justify-content: center;
+            gap: 32px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .integration-item {
+            padding: 12px 24px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            font-weight: 500;
+            color: #cbd5e1;
+            border: 1px solid rgba(255, 255, 255, 0.1);
         }
 
         /* Responsive */
         @media (max-width: 768px) {
-            .content {
-                grid-template-columns: 1fr;
-                gap: 40px;
+            .hero {
+                padding: 60px 0 80px;
             }
 
-            .logo h1 {
-                font-size: 36px;
-            }
-
-            .tagline-main {
-                font-size: 20px;
-            }
-
-            .buttons {
+            .hero-buttons {
                 flex-direction: column;
                 align-items: center;
             }
 
-            .button {
-                width: 200px;
+            .btn {
+                width: 100%;
+                max-width: 280px;
                 justify-content: center;
+            }
+
+            .preview-grid {
+                grid-template-columns: 1fr;
+                gap: 32px;
+            }
+
+            .product-preview {
+                padding: 32px 24px;
+            }
+
+            .container {
+                padding: 0 16px;
             }
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="header">
-            <div class="logo">
-                <span class="emoji">🍫</span>
-                <h1>ChocoDrop</h1>
+        <!-- Hero Section -->
+        <section class="hero">
+            <div class="hero-logo">
+                🍫 ChocoDrop
             </div>
-            <p class="tagline-main">あらゆる3D空間に、コンテンツをちょこんとドロップ</p>
-            <p class="tagline-sub">Real-time AI content drops for 3D scenes via natural language</p>
-
-            <div class="buttons">
-                <a href="examples/basic/index.html" class="button">
-                    🎮 デモを試す Try Demo
+            <h1 class="hero-title">3D空間に、AIコンテンツを<br>ちょこんとドロップ</h1>
+            <p class="hero-subtitle">自然言語でリアルタイムAI生成。Three.jsプロジェクトに1行で魔法を追加。</p>
+            <div class="hero-buttons">
+                <a href="examples/basic/index.html" class="btn btn-primary">
+                    ✨ デモを試す
                 </a>
-                <a href="https://github.com/nyukicorn/chocodrop" class="button secondary">
-                    📦 GitHub で見る View on GitHub
+                <a href="https://github.com/nyukicorn/chocodrop" class="btn btn-secondary">
+                    📦 GitHub
                 </a>
             </div>
-        </div>
+        </section>
 
-        <div class="content">
-            <div class="quick-start">
-                <h2 class="section-title">⚡ クイックスタート Quick Start</h2>
-                <pre><code>npm install github:nyukicorn/chocodrop</code></pre>
-                <p style="color: #94a3b8; margin-top: 15px;">
-                    たった1行で、あなたのThree.jsプロジェクトにAI生成機能を追加<br>
-                    <small>Just one line to add AI generation to your Three.js project</small>
-                </p>
-            </div>
+        <!-- Product Preview -->
+        <section class="product-preview">
+            <div class="preview-grid">
+                <div class="preview-content">
+                    <h2>1行で始める</h2>
+                    <p>たった1行のコードで、あなたのThree.jsプロジェクトにAI生成機能を追加できます。</p>
+                    <div class="code-block">
+                        <pre><span class="syntax-keyword">npm install</span> <span class="syntax-string">github:nyukicorn/chocodrop</span></pre>
+                    </div>
+                </div>
+                <div class="preview-content">
+                    <h2>自然言語で操作</h2>
+                    <div class="code-block">
+                        <pre><span class="syntax-keyword">import</span> { <span class="syntax-string">createChocoDrop</span> } <span class="syntax-keyword">from</span> <span class="syntax-string">'chocodrop'</span>;
 
-            <div class="usage">
-                <h2 class="section-title">🛠️ 使い方 Usage</h2>
-                <pre><code>import { createChocoDrop } from 'chocodrop';
-
-const chocoDrop = createChocoDrop(scene, {
-    camera,
-    renderer
+<span class="syntax-keyword">const</span> chocoDrop = <span class="syntax-string">createChocoDrop</span>(scene, {
+  camera,
+  renderer
 });
 
-// @キーでUI起動 Press @ key to activate
-// 自然言語で指示 Natural language commands
-// 魔法が起こる Watch the magic happen!</code></pre>
+<span class="syntax-comment">// @キーでUI起動</span>
+<span class="syntax-comment">// 「ドラゴンを右上に」で即座に生成</span></pre>
+                    </div>
+                </div>
             </div>
-        </div>
+        </section>
 
-        <div class="examples">
-            <h2>✨ 自然言語コマンド例 Natural Language Examples</h2>
-            <div class="example-commands">
-                <div class="command">
-                    <span class="command-text">「ドラゴンを右上に作って」</span>
-                    <span class="command-arrow">→</span>
-                    <span class="command-result">AI生成＆3D配置</span>
+        <!-- Features -->
+        <section class="features">
+            <h2>特徴</h2>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <span class="feature-icon">🗣️</span>
+                    <h3>自然言語対応</h3>
+                    <p>日本語でも英語でも、思った通りに話すだけで3Dオブジェクトを生成・配置できます。</p>
                 </div>
-                <div class="command">
-                    <span class="command-text">「桜を中央に配置」</span>
-                    <span class="command-arrow">→</span>
-                    <span class="command-result">Cherry blossoms appear</span>
+                <div class="feature-card">
+                    <span class="feature-icon">🎨</span>
+                    <h3>AI生成</h3>
+                    <p>複数のAIモデルを活用して、画像・動画・3Dオブジェクトをリアルタイムで生成します。</p>
                 </div>
-                <div class="command">
-                    <span class="command-text">「背景に森を生成」</span>
-                    <span class="command-arrow">→</span>
-                    <span class="command-result">Forest background</span>
+                <div class="feature-card">
+                    <span class="feature-icon">🌐</span>
+                    <h3>Three.js統合</h3>
+                    <p>既存のThree.jsプロジェクトに簡単に統合でき、シーンの拡張が即座に可能です。</p>
                 </div>
-                <div class="command">
-                    <span class="command-text">「全て削除」</span>
-                    <span class="command-arrow">→</span>
-                    <span class="command-result">Clear all objects</span>
+                <div class="feature-card">
+                    <span class="feature-icon">⚡</span>
+                    <h3>リアルタイム</h3>
+                    <p>思考から実現まで30秒以内。ストリーミング配信やライブデモに最適です。</p>
                 </div>
             </div>
-        </div>
+        </section>
 
-        <div class="features">
-            <div class="feature">
-                <h3><span class="emoji">🗣️</span> 自然言語対応<br><small>Natural Language</small></h3>
-                <p>日本語でも英語でも、思った通りに話すだけ<br><small>Just describe what you want in Japanese or English</small></p>
+        <!-- Usage Examples -->
+        <section class="usage-examples">
+            <h2>使用例</h2>
+            <div class="examples-grid">
+                <div class="example-item">
+                    <div class="example-command">「ドラゴンを右上に作って」</div>
+                    <div class="example-result">→ AI生成 & 3D配置</div>
+                </div>
+                <div class="example-item">
+                    <div class="example-command">「桜を中央に配置」</div>
+                    <div class="example-result">→ Cherry blossoms appear</div>
+                </div>
+                <div class="example-item">
+                    <div class="example-command">「背景に森を生成」</div>
+                    <div class="example-result">→ Forest background</div>
+                </div>
+                <div class="example-item">
+                    <div class="example-command">「全て削除」</div>
+                    <div class="example-result">→ Clear all objects</div>
+                </div>
             </div>
-            <div class="feature">
-                <h3><span class="emoji">🎨</span> AI生成<br><small>AI Generation</small></h3>
-                <p>複数のAIモデルで画像・動画生成<br><small>Multiple AI models for images and videos</small></p>
+        </section>
+
+        <!-- Social Proof -->
+        <section class="social-proof">
+            <h2>対応プラットフォーム</h2>
+            <div class="integrations">
+                <div class="integration-item">Three.js</div>
+                <div class="integration-item">Node.js</div>
+                <div class="integration-item">Model Context Protocol</div>
+                <div class="integration-item">WebGL</div>
+                <div class="integration-item">ES Modules</div>
             </div>
-            <div class="feature">
-                <h3><span class="emoji">🌐</span> 3D統合<br><small>3D Integration</small></h3>
-                <p>あらゆるThree.jsプロジェクトで動作<br><small>Works with any Three.js project</small></p>
-            </div>
-            <div class="feature">
-                <h3><span class="emoji">⚡</span> リアルタイム<br><small>Real-time</small></h3>
-                <p>30秒以内に思考から実現へ<br><small>From thought to reality in 30 seconds</small></p>
-            </div>
-        </div>
+        </section>
     </div>
 </body>
 </html>
