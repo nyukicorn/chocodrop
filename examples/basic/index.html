@@ -100,12 +100,16 @@
             }
         });
 
-        // GitHub Pages用: サービス設定ダイアログを非表示 + UIサイズ調整
-        setTimeout(() => {
-            const serviceModal = document.querySelector('[style*="position: fixed"][style*="backdrop"]');
-            if (serviceModal) {
-                serviceModal.style.display = 'none';
-            }
+        // GitHub Pages用: サービス設定ダイアログを強制非表示 + UIサイズ調整
+        const hideServiceDialog = () => {
+            // 複数の方法でサービス設定ダイアログを非表示
+            const modals = document.querySelectorAll('[style*="position: fixed"], [style*="backdrop"], div[style*="rgba"], div[style*="blur"]');
+            modals.forEach(modal => {
+                if (modal.textContent && modal.textContent.includes('サービス設定')) {
+                    modal.style.display = 'none !important';
+                    modal.remove();
+                }
+            });
             
             // UIフォームを小さくする
             const uiContainer = document.querySelector('[style*="width: 450px"]');
@@ -113,7 +117,18 @@
                 uiContainer.style.width = '300px';
                 uiContainer.style.maxWidth = '300px';
             }
-        }, 100);
+        };
+        
+        // 複数回実行して確実に非表示
+        setTimeout(hideServiceDialog, 50);
+        setTimeout(hideServiceDialog, 200);
+        setTimeout(hideServiceDialog, 500);
+        
+        // DOM変更監視
+        const observer = new MutationObserver(() => {
+            hideServiceDialog();
+        });
+        observer.observe(document.body, { childList: true, subtree: true });
         
         // Animation loop
         function animate() {
