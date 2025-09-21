@@ -2504,12 +2504,12 @@ export class SceneManager {
         if (value == 0) {
           audioButton.innerHTML = '<span style="position: relative;">♪<span style="position: absolute; top: 0; left: 0; color: #8b5cf6; font-size: 14px;">⃠</span></span>';
           audioButton.style.background = 'rgba(99, 102, 241, 0.6) !important';
-          audioButton.title = 'ミュート中 - 右クリックで音量変更';
+          audioButton.title = '右クリックで音量変更';
         } else {
           audioButton.innerHTML = '♪';
           audioButton.style.background = 'rgba(0, 0, 0, 0.4) !important';
           audioButton.style.color = 'white !important';
-          audioButton.title = '音声ON - 右クリックで音量変更';
+          audioButton.title = '右クリックで音量変更';
         }
       });
 
@@ -2587,12 +2587,12 @@ export class SceneManager {
         audioButton.innerHTML = '♪';
         audioButton.style.background = 'rgba(0, 0, 0, 0.4) !important';
         audioButton.style.color = 'white !important';
-        audioButton.title = '音声ON';
+        audioButton.title = '右クリックで音量変更';
       } else {
         videoElement.muted = true;
         audioButton.innerHTML = '<span style="position: relative;">♪<span style="position: absolute; top: 0; left: 0; color: #8b5cf6; font-size: 14px;">⃠</span></span>';
         audioButton.style.background = 'rgba(99, 102, 241, 0.6) !important';
-        audioButton.title = 'ミュート中';
+        audioButton.title = '右クリックで音量変更';
       }
     });
 
@@ -2690,15 +2690,17 @@ export class SceneManager {
     if (geometry && geometry.parameters) {
       const width = geometry.parameters.width * videoObject.scale.x;
       const height = geometry.parameters.height * videoObject.scale.y;
-
-      // 画面上での動画のサイズを計算
-      const screenWidth = width * rect.width / (2 * Math.abs(vector.z));
-      const screenHeight = height * rect.height / (2 * Math.abs(vector.z));
-
+      
+      // カメラ距離と視野角を考慮した画面サイズ計算
+      const distance = this.camera.position.distanceTo(videoObject.position);
+      const fov = this.camera.fov * Math.PI / 180;
+      const screenWidth = (width / distance) * (rect.width / (2 * Math.tan(fov / 2)));
+      const screenHeight = (height / distance) * (rect.width / (2 * Math.tan(fov / 2)));
+      
       // 動画の右上角に配置
-      const offsetX = screenWidth * 0.5 - 25; // 動画の右端から少し内側
-      const offsetY = -screenHeight * 0.5 + 5; // 動画の上端から少し下
-
+      // より正確な右上角計算
+      const offsetX = 150; // 動画の右側に固定距離
+      const offsetY = -50; // 動画の上側に固定距離
       audioButton.style.left = `${x + offsetX}px`;
       audioButton.style.top = `${y + offsetY}px`;
     } else {

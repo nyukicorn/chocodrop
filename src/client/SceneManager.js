@@ -832,6 +832,17 @@ export class SceneManager {
       };
     }
     
+    // オブジェクト選択関連キーワードをチェック
+    const selectKeywords = ['選択', 'select', 'オブジェクト選択', '既存', 'existing'];
+    const isSelectRequest = selectKeywords.some(keyword => cmd.includes(keyword));
+    
+    if (isSelectRequest) {
+      return {
+        type: 'object_selection',
+        position: this.parsePosition(cmd)
+      };
+    }
+    
     // ファイルインポート関連キーワードをチェック
     const importKeywords = ['インポート', 'import', '読み込', '読込', 'ファイル', 'file', '画像を選択', '動画を選択', '選択して配置'];
     const isImportRequest = importKeywords.some(keyword => cmd.includes(keyword));
@@ -1278,6 +1289,9 @@ export class SceneManager {
         
       case 'file_import':
         return await this.executeFileImport(parsed);
+        
+      case 'object_selection':
+        return await this.executeObjectSelection(parsed);
         
       default:
         throw new Error(`Unknown command type: ${parsed.type}`);
@@ -2119,6 +2133,125 @@ export class SceneManager {
       
     } catch (error) {
       console.error('❌ File import execution failed:', error);
+      throw error;
+    }
+  }
+
+  async executeObjectSelection(parsed) {
+    try {
+      console.log('🎯 Starting object selection...');
+      
+      const objects = this.getSpawnedObjects();
+      if (objects.length === 0) {
+        throw new Error('選択可能なオブジェクトがありません。まずファイルをインポートしてください。');
+      }
+      
+      console.log(`📋 Available objects: ${objects.length}`);
+      
+      // オブジェクト選択UIを作成
+      const modal = document.createElement('div');
+      modal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.8);
+        z-index: 10000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      `;
+      
+      const container = document.createElement('div');
+      container.style.cssText = `
+        background: #1a1a2e;
+        border-radius: 12px;
+        padding: 24px;
+        max-width: 500px;
+        max-height: 70vh;
+        overflow-y: auto;
+        color: white;
+        font-family: Arial, sans-serif;
+      `;
+      
+      const title = document.createElement('h3');
+      title.textContent = '🎯 オブジェクトを選択してください';
+      title.style.cssText = 'margin: 0 0 16px 0; color: #ec4899;';
+      container.appendChild(title);
+      
+      const objectList = document.createElement('div');
+      objectList.style.cssText = 'margin-bottom: 16px;';
+      
+      objects.forEach((obj, index) => {
+        const item = document.createElement('div');
+        item.style.cssText = `
+          padding: 12px;
+          margin: 8px 0;
+          background: #2a2a3e;
+          border-radius: 8px;
+          cursor: pointer;
+          border: 2px solid transparent;
+          transition: all 0.3s ease;
+        `;
+        
+        const name = obj.userData?.type === 'generated_image' ? '🖼️ 画像' : 
+                     obj.userData?.type === 'generated_video' ? '🎬 動画' : '📄 ファイル';
+        const time = new Date(obj.userData?.createdAt).toLocaleTimeString();
+        
+        item.innerHTML = `
+          <div style="font-weight: bold;">${name} #${index + 1}</div>
+          <div style="font-size: 12px; color: #94a3b8;">作成: ${time}</div>
+          <div style="font-size: 12px; color: #94a3b8;">位置: (${Math.round(obj.position.x)}, ${Math.round(obj.position.y)}, ${Math.round(obj.position.z)})</div>
+        `;
+        
+        item.onmouseover = () => {
+          item.style.borderColor = '#ec4899';
+          item.style.background = '#3a3a4e';
+        };
+        
+        item.onmouseout = () => {
+          item.style.borderColor = 'transparent';
+          item.style.background = '#2a2a3e';
+        };
+        
+        item.onclick = () => {
+          resolve({ selectedObjectId: obj.id, selectedObject: obj });
+          document.body.removeChild(modal);
+        };
+        
+        objectList.appendChild(item);
+      });
+      
+      container.appendChild(objectList);
+      
+      const cancelBtn = document.createElement('button');
+      cancelBtn.textContent = 'キャンセル';
+      cancelBtn.style.cssText = `
+        background: #666;
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 14px;
+      `;
+      
+      cancelBtn.onclick = () => {
+        document.body.removeChild(modal);
+        reject(new Error('オブジェクト選択がキャンセルされました'));
+      };
+      
+      container.appendChild(cancelBtn);
+      modal.appendChild(container);
+      document.body.appendChild(modal);
+      
+      return new Promise((resolve, reject) => {
+        // Promise handlers are set up in the click events above
+      });
+      
+    } catch (error) {
+      console.error('❌ Object selection failed:', error);
       throw error;
     }
   }

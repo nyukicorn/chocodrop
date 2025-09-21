@@ -1010,20 +1010,7 @@
           // 移動可能なオブジェクトの場合はカーソルを変更
           canvas.style.cursor = 'move';
 
-          // 動画オブジェクトの場合は音量ボタンを表示
-          if (object.userData.type === 'generated_video' && object.userData.showAudioControl) {
-            object.userData.showAudioControl();
-          }
-
-          this.lastHoveredObject = {
-            onHoverExit: () => {
-              canvas.style.cursor = 'default';
-              // ホバー終了時に音量ボタンを非表示
-              if (object.userData.type === 'generated_video' && object.userData.hideAudioControl) {
-                object.userData.hideAudioControl();
-              }
-            }
-          };
+          this.lastHoveredObject = { onHoverExit: () => { canvas.style.cursor = 'default'; } };
           return;
         }
       }
@@ -1107,6 +1094,31 @@
         return {
           type: 'video_generation',
           prompt: command,
+          position: this.parsePosition(cmd),
+          size: this.parseSize(cmd)
+        };
+      }
+      
+      // オブジェクト選択関連キーワードをチェック
+      const selectKeywords = ['選択', 'select', 'オブジェクト選択', '既存', 'existing'];
+      const isSelectRequest = selectKeywords.some(keyword => cmd.includes(keyword));
+      
+      if (isSelectRequest) {
+        return {
+          type: 'object_selection',
+          position: this.parsePosition(cmd)
+        };
+      }
+      
+      // ファイルインポート関連キーワードをチェック
+      const importKeywords = ['インポート', 'import', '読み込', '読込', 'ファイル', 'file', '画像を選択', '動画を選択', '選択して配置'];
+      const isImportRequest = importKeywords.some(keyword => cmd.includes(keyword));
+      
+      if (isImportRequest) {
+        const isVideoImport = cmd.includes('動画') || cmd.includes('video') || cmd.includes('mp4');
+        return {
+          type: 'file_import',
+          fileType: isVideoImport ? 'video' : 'image',
           position: this.parsePosition(cmd),
           size: this.parseSize(cmd)
         };
@@ -1519,9 +1531,17 @@
     async dispatchCommand(parsed) {
       switch (parsed.type) {
         case 'image_generation':
+          // サーバーなしの場合は生成機能を無効化
+          if (!this.client || !this.client.serverUrl) {
+            throw new Error('画像生成機能を使用するにはサーバー設定が必要です。インポート機能のみ利用可能です。');
+          }
           return await this.executeImageGeneration(parsed);
           
         case 'video_generation':
+          // サーバーなしの場合は生成機能を無効化
+          if (!this.client || !this.client.serverUrl) {
+            throw new Error('動画生成機能を使用するにはサーバー設定が必要です。インポート機能のみ利用可能です。');
+          }
           return await this.executeVideoGeneration(parsed);
           
         case 'object_modification':
@@ -1532,6 +1552,12 @@
           
         case 'delete':
           return await this.executeDelete(parsed);
+          
+        case 'file_import':
+          return await this.executeFileImport(parsed);
+          
+        case 'object_selection':
+          return await this.executeObjectSelection(parsed);
           
         default:
           throw new Error(`Unknown command type: ${parsed.type}`);
@@ -2314,6 +2340,188 @@
       };
     }
 
+    async executeFileImport(parsed) {
+      try {
+        console.log('🍫 Starting file import process...');
+        
+        // ファイル選択ダイアログを表示
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.style.display = 'none';
+        
+        if (parsed.fileType === 'video') {
+          input.accept = 'video/*';
+        } else {
+          input.accept = 'image/*';
+        }
+        
+        document.body.appendChild(input);
+        
+        return new Promise((resolve, reject) => {
+          input.onchange = async (event) => {
+            try {
+              const file = event.target.files[0];
+              if (!file) {
+                reject(new Error('ファイルが選択されませんでした'));
+                return;
+              }
+              
+              console.log(`📁 Selected file: ${file.name}`);
+              
+              // ファイルのObjectURLを作成
+              const fileUrl = URL.createObjectURL(file);
+              
+              let result;
+              if (parsed.fileType === 'video' || file.type.startsWith('video/')) {
+                result = await this.loadVideoFile(fileUrl, { position: parsed.position });
+              } else {
+                result = await this.loadImageFile(fileUrl, { position: parsed.position });
+              }
+              
+              console.log('✅ File import completed:', result);
+              resolve(result);
+              
+            } catch (error) {
+              console.error('❌ File import failed:', error);
+              reject(error);
+            } finally {
+              document.body.removeChild(input);
+            }
+          };
+          
+          input.oncancel = () => {
+            document.body.removeChild(input);
+            reject(new Error('ファイル選択がキャンセルされました'));
+          };
+          
+          input.click();
+        });
+        
+      } catch (error) {
+        console.error('❌ File import execution failed:', error);
+        throw error;
+      }
+    }
+
+    async executeObjectSelection(parsed) {
+      try {
+        console.log('🎯 Starting object selection...');
+        
+        const objects = this.getSpawnedObjects();
+        if (objects.length === 0) {
+          throw new Error('選択可能なオブジェクトがありません。まずファイルをインポートしてください。');
+        }
+        
+        console.log(`📋 Available objects: ${objects.length}`);
+        
+        // オブジェクト選択UIを作成
+        const modal = document.createElement('div');
+        modal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.8);
+        z-index: 10000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      `;
+        
+        const container = document.createElement('div');
+        container.style.cssText = `
+        background: #1a1a2e;
+        border-radius: 12px;
+        padding: 24px;
+        max-width: 500px;
+        max-height: 70vh;
+        overflow-y: auto;
+        color: white;
+        font-family: Arial, sans-serif;
+      `;
+        
+        const title = document.createElement('h3');
+        title.textContent = '🎯 オブジェクトを選択してください';
+        title.style.cssText = 'margin: 0 0 16px 0; color: #ec4899;';
+        container.appendChild(title);
+        
+        const objectList = document.createElement('div');
+        objectList.style.cssText = 'margin-bottom: 16px;';
+        
+        objects.forEach((obj, index) => {
+          const item = document.createElement('div');
+          item.style.cssText = `
+          padding: 12px;
+          margin: 8px 0;
+          background: #2a2a3e;
+          border-radius: 8px;
+          cursor: pointer;
+          border: 2px solid transparent;
+          transition: all 0.3s ease;
+        `;
+          
+          const name = obj.userData?.type === 'generated_image' ? '🖼️ 画像' : 
+                       obj.userData?.type === 'generated_video' ? '🎬 動画' : '📄 ファイル';
+          const time = new Date(obj.userData?.createdAt).toLocaleTimeString();
+          
+          item.innerHTML = `
+          <div style="font-weight: bold;">${name} #${index + 1}</div>
+          <div style="font-size: 12px; color: #94a3b8;">作成: ${time}</div>
+          <div style="font-size: 12px; color: #94a3b8;">位置: (${Math.round(obj.position.x)}, ${Math.round(obj.position.y)}, ${Math.round(obj.position.z)})</div>
+        `;
+          
+          item.onmouseover = () => {
+            item.style.borderColor = '#ec4899';
+            item.style.background = '#3a3a4e';
+          };
+          
+          item.onmouseout = () => {
+            item.style.borderColor = 'transparent';
+            item.style.background = '#2a2a3e';
+          };
+          
+          item.onclick = () => {
+            resolve({ selectedObjectId: obj.id, selectedObject: obj });
+            document.body.removeChild(modal);
+          };
+          
+          objectList.appendChild(item);
+        });
+        
+        container.appendChild(objectList);
+        
+        const cancelBtn = document.createElement('button');
+        cancelBtn.textContent = 'キャンセル';
+        cancelBtn.style.cssText = `
+        background: #666;
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 14px;
+      `;
+        
+        cancelBtn.onclick = () => {
+          document.body.removeChild(modal);
+          reject(new Error('オブジェクト選択がキャンセルされました'));
+        };
+        
+        container.appendChild(cancelBtn);
+        modal.appendChild(container);
+        document.body.appendChild(modal);
+        
+        return new Promise((resolve, reject) => {
+          // Promise handlers are set up in the click events above
+        });
+        
+      } catch (error) {
+        console.error('❌ Object selection failed:', error);
+        throw error;
+      }
+    }
+
     /**
      * フォールバック用のテクスチャ作成
      */
@@ -2738,15 +2946,16 @@
         slider.max = '100';
         slider.value = '100';
         slider.style.cssText = `
-        width: 12px !important;
-        height: 80px !important;
+        width: 80px !important;
+        height: 12px !important;
         background: rgba(255, 255, 255, 0.2) !important;
         border-radius: 6px !important;
         outline: none !important;
         cursor: pointer !important;
         -webkit-appearance: none !important;
         appearance: none !important;
-        writing-mode: bt-lr !important;
+        transform: rotate(-90deg) !important;
+        transform-origin: center !important;
       `;
 
         // WebKit用のスライダースタイル
@@ -2793,13 +3002,14 @@
 
           // アイコンを音量に応じて変更
           if (value == 0) {
-            audioButton.innerHTML = '♪̸';
+            audioButton.innerHTML = '<span style="position: relative;">♪<span style="position: absolute; top: 0; left: 0; color: #8b5cf6; font-size: 14px;">⃠</span></span>';
             audioButton.style.background = 'rgba(99, 102, 241, 0.6) !important';
-            audioButton.style.color = '#8b5cf6 !important';
+            audioButton.title = 'ミュート中';
           } else {
             audioButton.innerHTML = '♪';
             audioButton.style.background = 'rgba(0, 0, 0, 0.4) !important';
             audioButton.style.color = 'white !important';
+            audioButton.title = '音声ON';
           }
         });
 
@@ -2877,11 +3087,12 @@
           audioButton.innerHTML = '♪';
           audioButton.style.background = 'rgba(0, 0, 0, 0.4) !important';
           audioButton.style.color = 'white !important';
+          audioButton.title = '音声ON';
         } else {
           videoElement.muted = true;
-          audioButton.innerHTML = '♪̸';
+          audioButton.innerHTML = '<span style="position: relative;">♪<span style="position: absolute; top: 0; left: 0; color: #8b5cf6; font-size: 14px;">⃠</span></span>';
           audioButton.style.background = 'rgba(99, 102, 241, 0.6) !important';
-          audioButton.style.color = '#8b5cf6 !important';
+          audioButton.title = 'ミュート中';
         }
       });
 
@@ -2921,18 +3132,7 @@
       // ページに追加
       document.body.appendChild(audioButton);
 
-      // 動画オブジェクトのマウスイベントを追加（音量ボタン表示制御）
-      videoObject.userData.showAudioControl = () => {
-        audioButton.style.opacity = '1';
-        audioButton.style.pointerEvents = 'auto';
-      };
-
-      videoObject.userData.hideAudioControl = () => {
-        if (!isSliderVisible) {
-          audioButton.style.opacity = '0';
-          audioButton.style.pointerEvents = 'none';
-        }
-      };
+      // 音量ボタンは常時表示（非表示機能を削除）
 
       // 動画オブジェクトに音声制御ボタンを関連付け
       videoObject.userData.audioControlElement = audioButton;
