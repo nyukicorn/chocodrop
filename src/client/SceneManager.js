@@ -832,6 +832,20 @@ export class SceneManager {
       };
     }
     
+    // ファイルインポート関連キーワードをチェック
+    const importKeywords = ['インポート', 'import', '読み込', '読込', 'ファイル', 'file', '画像を選択', '動画を選択', '選択して配置'];
+    const isImportRequest = importKeywords.some(keyword => cmd.includes(keyword));
+    
+    if (isImportRequest) {
+      const isVideoImport = cmd.includes('動画') || cmd.includes('video') || cmd.includes('mp4');
+      return {
+        type: 'file_import',
+        fileType: isVideoImport ? 'video' : 'image',
+        position: this.parsePosition(cmd),
+        size: this.parseSize(cmd)
+      };
+    }
+    
     // デフォルト: 画像生成として処理
     return {
       type: 'image_generation',
@@ -1261,6 +1275,9 @@ export class SceneManager {
         
       case 'delete':
         return await this.executeDelete(parsed);
+        
+      case 'file_import':
+        return await this.executeFileImport(parsed);
         
       default:
         throw new Error(`Unknown command type: ${parsed.type}`);
@@ -2041,6 +2058,69 @@ export class SceneManager {
       success: false, 
       message: '削除対象が見つかりませんでした。オブジェクトを選択するか、対象を指定してください' 
     };
+  }
+
+  async executeFileImport(parsed) {
+    try {
+      console.log('🍫 Starting file import process...');
+      
+      // ファイル選択ダイアログを表示
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.style.display = 'none';
+      
+      if (parsed.fileType === 'video') {
+        input.accept = 'video/*';
+      } else {
+        input.accept = 'image/*';
+      }
+      
+      document.body.appendChild(input);
+      
+      return new Promise((resolve, reject) => {
+        input.onchange = async (event) => {
+          try {
+            const file = event.target.files[0];
+            if (!file) {
+              reject(new Error('ファイルが選択されませんでした'));
+              return;
+            }
+            
+            console.log(`📁 Selected file: ${file.name}`);
+            
+            // ファイルのObjectURLを作成
+            const fileUrl = URL.createObjectURL(file);
+            
+            let result;
+            if (parsed.fileType === 'video' || file.type.startsWith('video/')) {
+              result = await this.loadVideoFile(fileUrl, { position: parsed.position });
+            } else {
+              result = await this.loadImageFile(fileUrl, { position: parsed.position });
+            }
+            
+            console.log('✅ File import completed:', result);
+            resolve(result);
+            
+          } catch (error) {
+            console.error('❌ File import failed:', error);
+            reject(error);
+          } finally {
+            document.body.removeChild(input);
+          }
+        };
+        
+        input.oncancel = () => {
+          document.body.removeChild(input);
+          reject(new Error('ファイル選択がキャンセルされました'));
+        };
+        
+        input.click();
+      });
+      
+    } catch (error) {
+      console.error('❌ File import execution failed:', error);
+      throw error;
+    }
   }
 
   /**
