@@ -1240,9 +1240,17 @@ export class SceneManager {
   async dispatchCommand(parsed) {
     switch (parsed.type) {
       case 'image_generation':
+        // サーバーなしの場合は生成機能を無効化
+        if (!this.client || !this.client.serverUrl) {
+          throw new Error('画像生成機能を使用するにはサーバー設定が必要です。インポート機能のみ利用可能です。');
+        }
         return await this.executeImageGeneration(parsed);
         
       case 'video_generation':
+        // サーバーなしの場合は生成機能を無効化
+        if (!this.client || !this.client.serverUrl) {
+          throw new Error('動画生成機能を使用するにはサーバー設定が必要です。インポート機能のみ利用可能です。');
+        }
         return await this.executeVideoGeneration(parsed);
         
       case 'object_modification':

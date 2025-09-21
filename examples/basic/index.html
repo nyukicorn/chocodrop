@@ -111,12 +111,7 @@
                 }
             });
             
-            // UIフォームを小さくする
-            const uiContainer = document.querySelector('[style*="width: 450px"]');
-            if (uiContainer) {
-                uiContainer.style.width = '300px';
-                uiContainer.style.maxWidth = '300px';
-            }
+            // UIサイズ調整は削除（文字が崩れるため）
         };
         
         // 複数回実行して確実に非表示
