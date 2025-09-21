@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChocoDrop - Real-time AI content drops for 3D scenes</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            margin: 0;
+            padding: 40px 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .container {
+            max-width: 800px;
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        .tagline {
+            color: #666;
+            font-size: 18px;
+            margin-bottom: 30px;
+        }
+        .buttons {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+        .button {
+            display: inline-block;
+            padding: 12px 24px;
+            background: #667eea;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            transition: transform 0.2s;
+        }
+        .button:hover {
+            transform: translateY(-2px);
+            background: #5a67d8;
+        }
+        .button.secondary {
+            background: #48bb78;
+        }
+        .button.secondary:hover {
+            background: #38a169;
+        }
+        pre {
+            background: #f7fafc;
+            padding: 20px;
+            border-radius: 8px;
+            overflow-x: auto;
+        }
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-top: 30px;
+        }
+        .feature {
+            padding: 20px;
+            background: #f7fafc;
+            border-radius: 8px;
+        }
+        .feature h3 {
+            margin-top: 0;
+            color: #667eea;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🍫 ChocoDrop</h1>
+        <p class="tagline">Real-time AI content drops for 3D scenes via natural language</p>
+
+        <div class="buttons">
+            <a href="examples/basic/index.html" class="button">🎮 Try Demo</a>
+            <a href="https://github.com/nyukicorn/chocodrop" class="button secondary">📦 View on GitHub</a>
+        </div>
+
+        <h2>Quick Start</h2>
+        <pre><code>npm install github:nyukicorn/chocodrop</code></pre>
+
+        <h2>Usage</h2>
+        <pre><code>import { createChocoDrop } from 'chocodrop';
+
+const chocoDrop = createChocoDrop(scene, {
+    camera,
+    renderer
+});
+
+// Press @ key to activate UI
+// Type: "Add a dragon to the top-right"
+// Watch the magic happen!</code></pre>
+
+        <div class="features">
+            <div class="feature">
+                <h3>🗣️ Natural Language</h3>
+                <p>Just describe what you want in plain language</p>
+            </div>
+            <div class="feature">
+                <h3>🎨 AI Generation</h3>
+                <p>Multiple AI models for images and videos</p>
+            </div>
+            <div class="feature">
+                <h3>🌐 3D Integration</h3>
+                <p>Works with any Three.js project</p>
+            </div>
+            <div class="feature">
+                <h3>⚡ Real-time</h3>
+                <p>Instant placement in 3D space</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

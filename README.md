@@ -1,6 +1,138 @@
 # ChocoDrop
 
-**あらゆる3D空間に、コンテンツをちょこんとドロップ**
+> Real-time AI content drops for 3D scenes via natural language
+> **あらゆる3D空間に、コンテンツをちょこんとドロップ**
+
+[🇯🇵 日本語](#japanese) | [📚 Documentation](docs/) | [🎮 Examples](examples/) | [🤝 Contributing](CONTRIBUTING.md)
+
+## What is ChocoDrop?
+
+> 🚧 **Under Active Development** - Not ready for production use yet!
+
+Drop AI-generated content into any 3D scene with natural language commands:
+
+- **"Add a dragon in the top-right"** → Instant AI generation & 3D placement
+- **"Place cherry blossoms in center"** → Real-time scene integration
+- **Works with** Three.js, React Three Fiber, A-Frame, and more
+
+```javascript
+import { createChocoDrop } from '@chocodrop/core';
+
+const chocoDrop = createChocoDrop(scene, {
+  camera, renderer,
+  serverUrl: 'http://localhost:3011'
+});
+
+// Just speak naturally to your 3D scene
+chocoDrop.executeCommand('Create a magical forest in the background');
+```
+
+## ✨ Features
+
+- 🎯 **Natural language 3D positioning** - "top-right", "center", "behind camera"
+- 🎨 **Multiple AI generation models** - Flux, DALL-E, Stable Diffusion
+- 🔄 **Real-time editing & effects** - Modify after placement
+- 📦 **Framework agnostic** - Works with any Three.js setup
+- 🌐 **MCP protocol integration** - Extensible AI model support
+- 🎮 **Intuitive UI** - Press `@` key to activate command interface
+
+## Quick Start
+
+### Try it instantly
+```bash
+git clone https://github.com/nyukicorn/chocodrop.git
+cd chocodrop
+npm run example:basic
+```
+
+Open http://localhost:8000 and click `basic/index.html` - Press `@` key to start!
+
+### Add to your project
+```bash
+npm install github:nyukicorn/chocodrop
+```
+
+```javascript
+import { createChocoDrop } from 'chocodrop';
+
+const chocoDrop = createChocoDrop(scene, { camera, renderer });
+```
+
+## 📚 Documentation
+
+- **[📖 Setup Guide](docs/SETUP.md)** - Complete installation and configuration
+- **[🔧 API Reference](docs/API.md)** - Detailed API documentation
+- **[🎮 Examples](examples/)** - Integration examples for different frameworks
+- **[🚨 Troubleshooting](docs/TROUBLESHOOTING.md)** - Common issues and solutions
+
+## 🎯 Features in Detail
+
+### AI Models
+- **Image Generation**: Seedream V4, Flux Schnell, Qwen Image, Imagen4 Fast
+- **Video Generation**: KAMUI Wan v2.2.5B Fast and more
+- **Quality Options**: From ultra-fast (1-2s) to highest quality (15-20s)
+
+### Natural Language Commands
+```
+"ドラゴンを右上に作って"     → AI generates dragon + places top-right
+"桜を中央に配置"           → Cherry blossoms appear in center
+"背景に森を生成"           → Forest background generation
+"大きくして"               → Scale up selected object
+"全て削除"                → Clear all generated content
+```
+
+### Integration Examples
+- **Vanilla Three.js**: Basic integration with minimal setup
+- **React Three Fiber**: Modern React workflow with hooks
+- **A-Frame**: WebXR/VR scene compatibility
+- **Next.js**: SSR-compatible integration
+
+## 🚀 Advanced Usage
+
+### Programmatic Control
+```javascript
+// Generate high-quality image
+const result = await chocoDrop.client.generateImage('magical forest', {
+  width: 1024,
+  height: 1024,
+  service: 't2i-kamui-seedream-v4'
+});
+
+// Generate video with custom settings
+const video = await chocoDrop.client.generateVideo('flowing river', {
+  duration: 5,
+  aspect_ratio: '16:9',
+  resolution: '720p'
+});
+
+// Execute natural language commands
+await chocoDrop.client.executeCommand('Create a blue cat on the left side');
+
+// Scene management
+chocoDrop.sceneManager.clearAll(); // Clear all objects
+const objects = chocoDrop.sceneManager.getObjects(); // Get object list
+```
+
+### Custom Materials & Shaders
+```javascript
+const chocoDrop = createChocoDrop(scene, {
+  sceneOptions: {
+    customRenderer: (imageUrl, position) => {
+      // Custom 3D object creation logic
+      const geometry = new THREE.PlaneGeometry(2, 2);
+      const texture = new THREE.TextureLoader().load(imageUrl);
+      const material = new THREE.ShaderMaterial({
+        // Custom shader implementation
+      });
+      return new THREE.Mesh(geometry, material);
+    }
+  }
+});
+```
+
+---
+
+<a id="japanese"></a>
 
 「ドラゴンを右上に」「桜を中央に」と言うだけで、必要なコンテンツを瞬時に3D空間に配置。配信演出、プロトタイピング、作品展示など、あなたの目的を実現するために「ちょこっと置く」「ちょこんとドロップ」できる手軽なサービスです。
 

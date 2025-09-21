@@ -1,0 +1,70 @@
+name: 🐛 Bug Report
+description: Report a bug or issue with ChocoDrop
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug! Please fill out the sections below.
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      description: Which part of ChocoDrop is affected?
+      options:
+        - AI Generation
+        - 3D Integration
+        - Command UI
+        - MCP Bridge
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: threejs-version
+    attributes:
+      label: Three.js Version
+      description: What version of Three.js are you using?
+      placeholder: "e.g., r160, r170"
+
+  - type: textarea
+    id: command
+    attributes:
+      label: Natural Language Command
+      description: What command did you use that caused the issue?
+      placeholder: "e.g., 'Add a dragon in the top-right corner'"
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What did you expect to happen?
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+      description: What actually happened?
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: How can we reproduce this bug?
+      placeholder: |
+        1. Initialize ChocoDrop with...
+        2. Run command...
+        3. See error...
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Browser, Node.js version, etc.
+      placeholder: |
+        - Browser: Chrome 120
+        - Node.js: 18.x
+        - OS: macOS 14

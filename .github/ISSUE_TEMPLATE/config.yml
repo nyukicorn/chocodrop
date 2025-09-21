@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 Discussion / Questions
+    url: https://github.com/nyukicorn/chocodrop/discussions
+    about: Ask questions or discuss ideas (preferred for now)
+  - name: 📧 Direct Contact
+    url: mailto:chocodrop.dev@gmail.com
+    about: For urgent issues or private communication
