@@ -80,6 +80,32 @@
         ground.rotation.x = -Math.PI / 2;
         ground.receiveShadow = true;
         scene.add(ground);
+
+        // Simple trees to make the scene more lively
+        function createSimpleTree(x, z) {
+            // Tree trunk
+            const trunkGeometry = new THREE.CylinderGeometry(0.1, 0.2, 2);
+            const trunkMaterial = new THREE.MeshLambertMaterial({ color: 0x8B4513 });
+            const trunk = new THREE.Mesh(trunkGeometry, trunkMaterial);
+            trunk.position.set(x, 1, z);
+            trunk.castShadow = true;
+            scene.add(trunk);
+
+            // Tree leaves
+            const leavesGeometry = new THREE.SphereGeometry(0.8);
+            const leavesMaterial = new THREE.MeshLambertMaterial({ color: 0x228B22 });
+            const leaves = new THREE.Mesh(leavesGeometry, leavesMaterial);
+            leaves.position.set(x, 2.5, z);
+            leaves.castShadow = true;
+            scene.add(leaves);
+        }
+
+        // Add a few trees around the scene
+        createSimpleTree(-8, -5);
+        createSimpleTree(6, -8);
+        createSimpleTree(-12, 3);
+        createSimpleTree(10, 7);
+        createSimpleTree(0, -12);
         
         // Camera position
         camera.position.set(0, 10, 20);
