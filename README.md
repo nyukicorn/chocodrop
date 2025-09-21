@@ -3,7 +3,7 @@
 > **AI-powered content drops for 3D scenes via natural language**
 > あらゆる3D空間に、AIコンテンツをちょこんとドロップ
 
-**✨ 30秒で始める** | **🎮 Examples** | **📚 API Reference**
+**🌐 [ホームページ](https://nyukicorn.github.io/chocodrop/) | 🎮 [デモを試す](https://nyukicorn.github.io/chocodrop/examples/basic/index.html)**
 
 ---
 
