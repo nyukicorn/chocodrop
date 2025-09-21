@@ -13,7 +13,7 @@
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans JP', 'Hiragino Kaku Gothic ProN', sans-serif;
-            background: linear-gradient(135deg, #0f0f23 0%, #1e1b4b 30%, #312e81 60%, #1e293b 100%);
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 40%, #16213e 70%, #0f3460 100%);
             color: #ffffff;
             min-height: 100vh;
             overflow-x: hidden;
@@ -29,9 +29,8 @@
             width: 200%;
             height: 200%;
             background:
-                radial-gradient(circle at 20% 80%, rgba(99, 102, 241, 0.2) 0%, transparent 60%),
-                radial-gradient(circle at 80% 20%, rgba(139, 92, 246, 0.15) 0%, transparent 60%),
-                radial-gradient(circle at 50% 50%, rgba(99, 102, 241, 0.1) 0%, transparent 80%);
+                radial-gradient(circle at 20% 80%, rgba(99, 102, 241, 0.05) 0%, transparent 70%),
+                radial-gradient(circle at 80% 20%, rgba(139, 92, 246, 0.03) 0%, transparent 70%);
             animation: float 20s ease-in-out infinite;
             z-index: -1;
         }
@@ -147,30 +146,32 @@
         }
 
         .quick-start, .usage {
-            background: linear-gradient(135deg, rgba(30, 27, 75, 0.3), rgba(15, 23, 42, 0.4));
+            background: rgba(255, 255, 255, 0.05);
             padding: 40px;
             border-radius: 20px;
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
             border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
         }
 
         .section-title {
             font-size: 24px;
             margin-bottom: 20px;
-            color: #a5b4fc;
+            color: #ffffff;
             display: flex;
             align-items: center;
             gap: 10px;
+            font-weight: 600;
         }
 
         pre {
-            background: rgba(15, 23, 42, 0.6);
+            background: rgba(0, 0, 0, 0.6);
             padding: 20px;
             border-radius: 12px;
             overflow-x: auto;
             margin: 20px 0;
-            border: 1px solid rgba(99, 102, 241, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.1);
         }
 
         code {
@@ -189,28 +190,29 @@
         }
 
         .feature {
-            background: rgba(99, 102, 241, 0.1);
+            background: rgba(255, 255, 255, 0.03);
             padding: 30px;
             border-radius: 16px;
             backdrop-filter: blur(16px);
             -webkit-backdrop-filter: blur(16px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.1);
             transition: all 0.3s ease;
         }
 
         .feature:hover {
             transform: translateY(-5px);
-            border-color: rgba(99, 102, 241, 0.4);
-            box-shadow: 0 10px 40px rgba(99, 102, 241, 0.2);
+            border-color: rgba(255, 255, 255, 0.3);
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
         }
 
         .feature h3 {
             font-size: 20px;
             margin-bottom: 15px;
-            color: #a5b4fc;
+            color: #ffffff;
             display: flex;
             align-items: center;
             gap: 10px;
+            font-weight: 600;
         }
 
         .feature p {
@@ -231,11 +233,12 @@
         .examples h2 {
             font-size: 32px;
             margin-bottom: 30px;
-            color: #6366f1;
+            color: #ffffff;
+            font-weight: 700;
         }
 
         .example-commands {
-            background: linear-gradient(135deg, rgba(30, 27, 75, 0.3), rgba(15, 23, 42, 0.4));
+            background: rgba(255, 255, 255, 0.05);
             padding: 40px;
             border-radius: 20px;
             backdrop-filter: blur(20px);
@@ -243,6 +246,7 @@
             border: 1px solid rgba(255, 255, 255, 0.1);
             margin: 0 auto;
             max-width: 600px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
         }
 
         .command {
@@ -250,7 +254,7 @@
             align-items: center;
             justify-content: space-between;
             padding: 15px 0;
-            border-bottom: 1px solid rgba(99, 102, 241, 0.2);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
         }
 
         .command:last-child {
