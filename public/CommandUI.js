@@ -399,7 +399,7 @@ export class CommandUI {
       backdrop-filter: blur(18px);
       -webkit-backdrop-filter: blur(18px);
       z-index: 2000;
-      padding: 24px;
+      padding: 16px 16px 8px 16px !important;
       opacity: 0;
       transition: opacity 0.2s ease;
     `;
@@ -1381,7 +1381,7 @@ export class CommandUI {
     };
     
     const typeColors = {
-      generate: 'linear-gradient(135deg, #4f46e5, #4338ca)',
+      generate: 'linear-gradient(135deg, #6b21f0, #5b11d0)',
       modify: 'linear-gradient(135deg, #ec4899, #be185d)',
       delete: 'rgba(107, 114, 128, 0.15)'
     };
@@ -1472,7 +1472,7 @@ export class CommandUI {
     };
     
     const typeColors = {
-      generate: 'linear-gradient(135deg, #4f46e5, #4338ca)',
+      generate: 'linear-gradient(135deg, #6b21f0, #5b11d0)',
       modify: 'linear-gradient(135deg, #ec4899, #be185d)',
       delete: 'rgba(107, 114, 128, 0.15)'
     };
@@ -1497,7 +1497,7 @@ export class CommandUI {
     const container = document.createElement('div');
     container.style.cssText = `
       display: flex;
-      margin-top: 12px;
+      margin-top: 8px;
       gap: 8px;
     `;
 
@@ -1530,7 +1530,7 @@ export class CommandUI {
     return `
       position: fixed;
       ${positions[this.config.position] || positions['bottom-right']}
-      width: ${this.config.width}px;
+      width: 320px;
       max-height: ${this.config.maxHeight}px;
       background: ${this.isDarkMode
         ? 'linear-gradient(135deg, rgba(20, 20, 30, 0.7), rgba(10, 10, 20, 0.8))'
@@ -1543,7 +1543,7 @@ export class CommandUI {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Inter', sans-serif;
       font-size: 14px;
       z-index: 1000;
-      padding: 24px;
+      padding: 16px 16px 8px 16px !important;
       box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(255, 255, 255, 0.1);
       backdrop-filter: blur(20px);
       display: none;
@@ -1680,7 +1680,7 @@ export class CommandUI {
   getModernButtonStyles(type) {
     const styles = {
       primary: `
-        background: linear-gradient(135deg, #4f46e5, #4338ca);
+        background: linear-gradient(135deg, #6b21f0, #5b11d0);
         width: 100%;
         padding: 16px;
         font-size: 14px;
@@ -1722,7 +1722,7 @@ export class CommandUI {
   getModeButtonStyles(isActive, mode) {
     // モードカラー設定
     const modeColors = {
-      generate: 'linear-gradient(135deg, #4f46e5, #4338ca)', // Deep purple - 創造性
+      generate: 'linear-gradient(135deg, #6b21f0, #5b11d0)', // Deep purple - 創造性
       modify: 'linear-gradient(135deg, #ec4899, #be185d)',    // Vibrant pink - 変更・調整
       delete: 'rgba(107, 114, 128, 0.15)'                    // 半透明グレー - セカンダリボタンスタイル
     };
@@ -1863,7 +1863,7 @@ export class CommandUI {
     };
     
     const buttonColors = {
-      generate: 'linear-gradient(135deg, #4f46e5, #4338ca)',
+      generate: 'linear-gradient(135deg, #6b21f0, #5b11d0)',
       modify: 'linear-gradient(135deg, #ec4899, #be185d)', 
       delete: 'rgba(107, 114, 128, 0.15)'
     };
@@ -2106,7 +2106,7 @@ export class CommandUI {
         <p style="margin: 0 0 28px 0; color: ${this.isDarkMode ? '#d1d5db' : '#6b7280'}; line-height: 1.6; font-size: 16px;">
           ${message}
         </p>
-        <div style="display: flex; gap: 12px; justify-content: center;">
+        <div style="display: flex; gap: 8px; justify-content: center;">
           <button id="cancel-btn" style="
             padding: 14px 24px;
             background: ${this.isDarkMode ? 'rgba(107, 114, 128, 0.3)' : 'rgba(156, 163, 175, 0.2)'};
@@ -2582,7 +2582,7 @@ export class CommandUI {
       backdrop-filter: blur(30px);
       border: 1px solid ${modalBorder};
       border-radius: 16px;
-      padding: 24px;
+      padding: 16px 16px 8px 16px !important;
       max-width: 400px;
       width: 90%;
       max-height: 80vh;
@@ -2610,29 +2610,29 @@ export class CommandUI {
       
       <div style="space-y: 16px;">
         <div>
-          <div style="color: ${labelColor}; font-size: 12px; font-weight: 500; margin-bottom: 4px;">📝 元のプロンプト</div>
+          <div style="color: ${labelColor}; font-size: 12px; font-weight: 500; margin-bottom: 8px;">📝 元のプロンプト</div>
           <div style="color: ${textColor}; font-size: 14px; line-height: 1.4;">${taskData.originalPrompt}</div>
         </div>
         
         <div>
-          <div style="color: ${labelColor}; font-size: 12px; font-weight: 500; margin-bottom: 4px;">📊 ステータス</div>
+          <div style="color: ${labelColor}; font-size: 12px; font-weight: 500; margin-bottom: 8px;">📊 ステータス</div>
           <div style="color: ${textColor}; font-size: 14px;">${statusText}</div>
         </div>
         
         <div>
-          <div style="color: ${labelColor}; font-size: 12px; font-weight: 500; margin-bottom: 4px;">⏱️ 実行時間</div>
+          <div style="color: ${labelColor}; font-size: 12px; font-weight: 500; margin-bottom: 8px;">⏱️ 実行時間</div>
           <div style="color: ${textColor}; font-size: 14px;">${duration}秒</div>
         </div>
         
         ${taskData.error ? `
         <div>
-          <div style="color: ${labelColor}; font-size: 12px; font-weight: 500; margin-bottom: 4px;">❌ エラー詳細</div>
+          <div style="color: ${labelColor}; font-size: 12px; font-weight: 500; margin-bottom: 8px;">❌ エラー詳細</div>
           <div style="color: #ef4444; font-size: 14px; line-height: 1.4;">${taskData.error}</div>
         </div>
         ` : ''}
         
         <div>
-          <div style="color: ${labelColor}; font-size: 12px; font-weight: 500; margin-bottom: 4px;">🎨 コンテンツタイプ</div>
+          <div style="color: ${labelColor}; font-size: 12px; font-weight: 500; margin-bottom: 8px;">🎨 コンテンツタイプ</div>
           <div style="color: ${textColor}; font-size: 14px;">${taskData.contentType || '画像'}</div>
         </div>
       </div>
@@ -2772,7 +2772,7 @@ export class CommandUI {
       pointer-events: none;
       z-index: 1001;
       backdrop-filter: blur(10px);
-      margin-bottom: 4px;
+      margin-bottom: 8px;
       opacity: 0;
       transition: opacity 0.3s ease;
     `;
@@ -2881,7 +2881,7 @@ export class CommandUI {
             animation: statusPulse 1.8s ease-in-out infinite;
           "></div>
         </div>
-        <div style="display: flex; align-items: center; gap: 4px; margin-top: 6px;">
+        <div style="display: flex; align-items: center; gap: 4px; margin-top: 8px;">
           <div class="status-dots" style="font-size: 10px; color: ${this.isDarkMode ? '#c084fc' : '#9333ea'};">
             処理中<span style="animation: dots 1.5s infinite;">...</span>
           </div>
