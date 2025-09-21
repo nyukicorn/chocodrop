@@ -1529,11 +1529,13 @@ export class MCPClient {
       const toolsResponse = await client.listTools();
       console.log('🔧 Available video tools:', toolsResponse.tools?.map(t => t.name));
       
-      // Step 1: Submit - リクエストを送信
-      const submitTool = toolsResponse.tools?.find(tool => tool.name.includes('submit'));
-      if (!submitTool) {
-        throw new Error('No submit tool found');
+      // Step 1: シンプルな汎用ツール選択 - 最初に利用可能なツールを使用
+      const availableTools = toolsResponse.tools || [];
+      if (availableTools.length === 0) {
+        throw new Error(`No tools available for service: ${serviceName}`);
       }
+
+      const submitTool = availableTools[0]; // 最初のツールをメインツールとして使用
       
       console.log(`🎯 Step 1: Submitting video with tool: ${submitTool.name}`);
       const submitArgs = {
@@ -1910,11 +1912,13 @@ export class MCPClient {
       const toolsResponse = await client.listTools();
       console.log('🔧 Available tools:', toolsResponse.tools?.map(t => t.name));
       
-      // Step 1: Submit - リクエストを送信
-      const submitTool = toolsResponse.tools?.find(tool => tool.name.includes('submit'));
-      if (!submitTool) {
-        throw new Error('No submit tool found');
+      // Step 1: シンプルな汎用ツール選択 - 最初に利用可能なツールを使用
+      const availableTools = toolsResponse.tools || [];
+      if (availableTools.length === 0) {
+        throw new Error(`No tools available for service: ${serviceName}`);
       }
+
+      const submitTool = availableTools[0]; // 最初のツールをメインツールとして使用
       
       console.log(`🎯 Step 1: Submitting with tool: ${submitTool.name}`);
       const submitResult = await client.callTool({
@@ -1930,41 +1934,79 @@ export class MCPClient {
       
       console.log('📤 Submit result:', submitResult);
       
-      // request_idを取得（マークダウンまたはJSON形式から抽出）
-      let requestId = null;
-      console.log('🔍 Parsing submitResult:', JSON.stringify(submitResult, null, 2));
-      
-      if (submitResult.content && Array.isArray(submitResult.content)) {
-        for (const content of submitResult.content) {
+      // 汎用的なレスポンス処理：どんなMCPサービスでも対応
+      const processResponse = (responseData) => {
+        let requestId = null;
+        let directImageData = null;
+
+        if (!responseData.content || !Array.isArray(responseData.content)) {
+          return { requestId, directImageData };
+        }
+
+        for (const content of responseData.content) {
+          // 直接メディアデータをチェック（画像・動画両対応）
+          if ((content.type === 'image' || content.type === 'video') && content.data) {
+            console.log(`✅ Found direct ${content.type} data`);
+            directImageData = content.data; // 変数名は既存のまま（画像・動画両用）
+          }
+
+          // request_idをチェック
           if (content.type === 'text') {
             const text = content.text;
-            console.log('📝 Parsing text content:', text);
-            
-            // JSON形式をチェック（Seedream V4など）
+
+            // JSON形式のrequest_id
             try {
               const jsonData = JSON.parse(text);
-              console.log('✅ Parsed JSON:', jsonData);
               if (jsonData.request_id) {
                 requestId = jsonData.request_id;
-                console.log('🆔 Found request_id:', requestId);
-                break;
+                console.log('🆔 Found request_id (JSON):', requestId);
               }
             } catch (e) {
-              console.log('❌ JSON parse failed:', e.message);
-              // JSONでない場合は、マークダウン形式をチェック（Qwen Imageなど）
+              // マークダウン形式のrequest_id
               const match = text.match(/\*\*Request ID:\*\*\s+([a-f0-9-]+)/i);
               if (match) {
                 requestId = match[1];
-                console.log('🆔 Found request_id from markdown:', requestId);
-                break;
+                console.log('🆔 Found request_id (markdown):', requestId);
               }
             }
           }
         }
+
+        return { requestId, directImageData };
+      };
+
+      console.log('🔍 Processing MCP response...');
+      const { requestId, directImageData } = processResponse(submitResult);
+
+      // 直接メディアデータがある場合は即座に処理（画像・動画両対応）
+      if (directImageData) {
+        console.log('⚡ Processing direct media response...');
+        const fs = await import('fs');
+
+        // Base64データからメディアタイプを判定して適切に処理
+        const base64Data = directImageData.replace(/^data:(image|video)\/\w+;base64,/, '');
+        const buffer = Buffer.from(base64Data, 'base64');
+
+        await fs.promises.writeFile(localPath, buffer);
+        console.log(`💾 Saved direct media to: ${localPath}`);
+
+        return {
+          success: true,
+          imageUrl: webPath,
+          localPath: localPath,
+          metadata: {
+            prompt: parameters.prompt,
+            service: serviceName,
+            timestamp: timestamp,
+            model: 'Direct Response',
+            type: 'immediate'
+          }
+        };
       }
-      
+
+      // request_idがある場合は非同期処理を継続
       if (!requestId) {
-        throw new Error('No request_id received from submit');
+        throw new Error('No request_id or direct image data received from MCP service');
       }
       
       console.log(`🆔 Got request_id: ${requestId}`);

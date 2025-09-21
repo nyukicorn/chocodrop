@@ -49,6 +49,8 @@ export class CommandUI {
     this.serviceModalOverlay = null;
     this.serviceModal = null;
     this.servicesLoading = false;
+    this.isExpanded = false;
+    this.overlayTextarea = null;
     this.pendingImageService = null;
     this.pendingVideoService = null;
 
@@ -202,7 +204,7 @@ export class CommandUI {
     this.floatingContainer.id = 'floating-cards-container';
     this.floatingContainer.style.cssText = `
       position: fixed;
-      top: 20px;
+      top: var(--floating-top, 20px);
       left: 50%;
       transform: translateX(-50%);
       z-index: 99999;
@@ -3890,5 +3892,103 @@ export class CommandUI {
     if (this.container && this.container.parentElement) {
       this.container.parentElement.removeChild(this.container);
     }
+  }
+
+  showOverlayTextarea() {
+    if (this.overlayTextarea) return;
+
+    this.isExpanded = true;
+    
+    // オーバーレイテキストエリアを作成
+    this.overlayTextarea = document.createElement('textarea');
+    this.overlayTextarea.value = this.input.value;
+    this.overlayTextarea.placeholder = this.input.placeholder;
+    
+    // オーバーレイのスタイル設定
+    this.overlayTextarea.style.cssText = `
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 80vw;
+      max-width: 800px;
+      height: 60vh;
+      max-height: 500px;
+      background: rgba(26, 32, 44, 0.95);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 16px;
+      color: white;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 14px;
+      line-height: 1.5;
+      padding: 20px;
+      resize: none;
+      outline: none;
+      z-index: 10000;
+      box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
+      opacity: 0;
+      transition: opacity 0.2s ease-out;
+    `;
+    
+    // ドキュメントに追加
+    document.body.appendChild(this.overlayTextarea);
+    
+    // アニメーション開始
+    requestAnimationFrame(() => {
+      this.overlayTextarea.style.opacity = '1';
+    });
+    
+    // フォーカス設定
+    this.overlayTextarea.focus();
+    
+    // 入力同期
+    this.overlayTextarea.addEventListener('input', (e) => {
+      this.input.value = e.target.value;
+    });
+    
+    // Escapeキーで閉じる
+    this.overlayTextarea.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        this.hideOverlayTextarea();
+      }
+    });
+    
+    // 外側クリックで閉じる
+    this.overlayTextarea.addEventListener('blur', () => {
+      setTimeout(() => this.hideOverlayTextarea(), 100);
+    });
+  }
+  
+  hideOverlayTextarea() {
+    if (!this.overlayTextarea) return;
+    
+    this.isExpanded = false;
+    
+    // フェードアウトアニメーション
+    this.overlayTextarea.style.opacity = '0';
+    
+    setTimeout(() => {
+      if (this.overlayTextarea) {
+        document.body.removeChild(this.overlayTextarea);
+        this.overlayTextarea = null;
+      }
+    }, 200);
+  }
+  
+  hideOverlayTextarea() {
+    if (!this.overlayTextarea) return;
+    
+    this.isExpanded = false;
+    
+    // フェードアウトアニメーション
+    this.overlayTextarea.style.opacity = '0';
+    
+    setTimeout(() => {
+      if (this.overlayTextarea) {
+        document.body.removeChild(this.overlayTextarea);
+        this.overlayTextarea = null;
+      }
+    }, 200);
   }
 }
