@@ -53,6 +53,9 @@ temp/
 # Internal development docs
 docs/
 
+# Agent configuration (automatically generated)
+AGENTS.md
+
 # Private keys and certificates
 *.pem
 *.key
