@@ -22,40 +22,26 @@ Transform any Three.js scene into an AI-powered content studio:
 
 ---
 
-## 🚀 Quick Start Guide
+## 🚀 始め方は簡単
 
-### Step 1: What's your project type?
-
-<details>
-<summary><strong>📄 HTML + Script Tags</strong> (Most Three.js tutorials)</summary>
-
+### 分からない場合 → こっちでOK
 ```html
-<!DOCTYPE html>
-<html>
-<head>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@chocodrop/core@latest/dist/chocodrop.umd.min.js"></script>
-</head>
-<body>
-    <script>
-        // Your existing Three.js scene
-        const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer();
+<script src="https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@chocodrop/core@latest/dist/chocodrop.umd.min.js"></script>
+<script>
+  // あなたの既存のThree.jsシーン
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(/* ... */);
+  const renderer = new THREE.WebGLRenderer();
 
-        // Add ChocoDrop (1 line!)
-        const chocoDrop = ChocoDrop.createChocoDrop(scene, { camera, renderer });
-
-        // Press Space key to start!
-    </script>
-</body>
-</html>
+  // ChocoDrop追加（1行だけ！）
+  ChocoDrop.createChocoDrop(scene, { camera, renderer });
+  
+  // Spaceキーを押して「猫を置いて」と言うだけ！
+</script>
 ```
-</details>
 
-<details>
-<summary><strong>📦 npm / Modern JavaScript</strong> (React, Vite, Webpack)</summary>
-
+### npm/Vite/React使ってる場合
 ```bash
 npm install @chocodrop/core
 ```
@@ -63,23 +49,18 @@ npm install @chocodrop/core
 ```javascript
 import { createChocoDrop } from '@chocodrop/core';
 
-// Your existing Three.js scene
+// あなたの既存のThree.jsシーン
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(/* ... */);
 const renderer = new THREE.WebGLRenderer();
 
-// Add ChocoDrop (1 line!)
-const chocoDrop = createChocoDrop(scene, { camera, renderer });
+// ChocoDrop追加（1行だけ！）
+createChocoDrop(scene, { camera, renderer });
 
-// Press Space key to start!
+// Spaceキーを押して「猫を置いて」と言うだけ！
 ```
-</details>
 
-### Step 2: Try it out
-
-1. **Press `Space` key** → Command UI appears
-2. **Type:** `"猫の置物を置いて"` or `"Add a blue cube"`
-3. **Watch** → AI generates and places content instantly
+**それだけ！** 3D空間に向かって自然に話しかけるだけで、AIが画像を生成して配置します。
 
 ---
 
