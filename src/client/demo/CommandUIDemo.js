@@ -111,113 +111,67 @@ export class CommandUIDemo {
   }
 
   /**
-   * デモページ用のモーダルメッセージを表示
+   * デモページ用のコンパクトトースト表示
    */
   showDemoMessage() {
-    this.showDisabledModal('デモページではこの機能を利用できません', '🚫');
+    this.showCompactToast('デモページでは利用できません');
   }
 
   /**
-   * 無効化モーダルの共通表示関数
+   * コンパクトトースト通知を表示
    */
-  showDisabledModal(message, icon) {
-    const modal = document.createElement('div');
-    modal.style.cssText = `
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0, 0, 0, 0.6);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 10000;
-      backdrop-filter: blur(4px);
-    `;
+  showCompactToast(message) {
+    // 既存のトーストがあれば削除
+    const existingToast = document.getElementById('demo-toast');
+    if (existingToast) {
+      existingToast.remove();
+    }
 
-    const content = document.createElement('div');
-    content.style.cssText = `
-      background: ${this.isDarkMode ? '#1f2937' : '#ffffff'};
-      border: 2px solid #8b5cf6;
-      border-radius: 16px;
-      padding: 32px;
-      text-align: center;
-      max-width: 400px;
-      box-shadow: 0 20px 40px rgba(139, 92, 246, 0.3);
-      transform: scale(0.9);
-      transition: transform 0.3s ease;
-    `;
+    // ボタンコンテナの位置を取得
+    const buttonContainer = this.radioModeContainer;
+    if (!buttonContainer) return;
 
-    const iconEl = document.createElement('div');
-    iconEl.innerHTML = icon;
-    iconEl.style.cssText = `
-      font-size: 48px;
-      margin-bottom: 16px;
-      filter: hue-rotate(240deg) saturate(0.8) brightness(1.1);
-    `;
-
-    const messageEl = document.createElement('div');
-    messageEl.textContent = message;
-    messageEl.style.cssText = `
-      color: ${this.isDarkMode ? '#ffffff' : '#1f2937'};
-      font-size: 18px;
-      font-weight: 600;
-      margin-bottom: 24px;
-    `;
-
-    const closeBtn = document.createElement('button');
-    closeBtn.textContent = 'OK';
-    closeBtn.style.cssText = `
-      background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+    const toast = document.createElement('div');
+    toast.id = 'demo-toast';
+    toast.textContent = message;
+    toast.style.cssText = `
+      position: absolute;
+      top: -35px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: ${this.isDarkMode ? 'rgba(139, 92, 246, 0.9)' : 'rgba(139, 92, 246, 0.85)'};
       color: white;
-      border: none;
-      border-radius: 8px;
-      padding: 12px 24px;
-      font-size: 16px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.3s ease;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      white-space: nowrap;
+      z-index: 1000;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3);
     `;
 
-    closeBtn.addEventListener('mouseenter', () => {
-      closeBtn.style.transform = 'scale(1.05)';
-      closeBtn.style.background = 'linear-gradient(135deg, #7c3aed, #6d28d9)';
-    });
+    // ボタンコンテナに相対配置
+    buttonContainer.style.position = 'relative';
+    buttonContainer.appendChild(toast);
 
-    closeBtn.addEventListener('mouseleave', () => {
-      closeBtn.style.transform = 'scale(1)';
-      closeBtn.style.background = 'linear-gradient(135deg, #8b5cf6, #7c3aed)';
-    });
-
-    closeBtn.addEventListener('click', () => {
-      content.style.transform = 'scale(0.9)';
-      modal.style.opacity = '0';
-      setTimeout(() => {
-        document.body.removeChild(modal);
-      }, 200);
-    });
-
-    content.appendChild(iconEl);
-    content.appendChild(messageEl);
-    content.appendChild(closeBtn);
-    modal.appendChild(content);
-    
-    document.body.appendChild(modal);
-
-    // アニメーション
+    // フェードイン
     setTimeout(() => {
-      content.style.transform = 'scale(1)';
+      toast.style.opacity = '1';
     }, 10);
 
-    // Escapeキーで閉じる
-    const handleEscape = (e) => {
-      if (e.key === 'Escape') {
-        closeBtn.click();
-        document.removeEventListener('keydown', handleEscape);
+    // 3秒後に自動削除
+    setTimeout(() => {
+      if (toast.parentNode) {
+        toast.style.opacity = '0';
+        setTimeout(() => {
+          if (toast.parentNode) {
+            toast.remove();
+          }
+        }, 300);
       }
-    };
-    document.addEventListener('keydown', handleEscape);
+    }, 3000);
   }
 
   /**
@@ -1246,12 +1200,7 @@ export class CommandUIDemo {
 
       // イベント処理
       if (mode.disabled) {
-        // Generateボタンのホバー時モーダル表示
-        button.addEventListener('mouseenter', () => {
-          this.showDemoMessage();
-        });
-        
-        // クリック無効化
+        // クリック時のみコンパクトトースト表示
         button.addEventListener('click', (e) => {
           e.preventDefault();
           e.stopPropagation();
