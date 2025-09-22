@@ -34,7 +34,8 @@
     <div id="info">
         <strong>ChocoDrop - インポート機能デモ</strong><br>
         <code>@</code>キー または 右下の🍫アイコンクリックでUI起動<br>
-        例: 🍫アイコンクリックでUI起動、ファイル選択で配置
+        例: 🍫アイコンクリックでUI起動、ファイル選択で配置<br>
+        <span style="color: #88ff88;">配置後：オブジェクトをクリックで選択、ドラッグで移動</span>
     </div>
 
     <!-- Three.js (正しい最新版 CDN) -->
@@ -124,6 +125,7 @@
             renderer: renderer,
             // GitHub Pagesなので生成機能なし、インポートのみ
             serverUrl: null,
+            enableMouseInteraction: true,
             onControlsToggle: (disabled) => {
                 controls.enabled = !disabled;
             }
