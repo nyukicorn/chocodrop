@@ -57,12 +57,16 @@ export class CommandUI {
     try {
       const storedImage = localStorage.getItem(IMAGE_SERVICE_STORAGE_KEY);
       const storedVideo = localStorage.getItem(VIDEO_SERVICE_STORAGE_KEY);
+      console.log('🔍 Debug localStorage read:', { storedImage, storedVideo, IMAGE_SERVICE_STORAGE_KEY, VIDEO_SERVICE_STORAGE_KEY });
       if (storedImage) {
         this.selectedImageService = storedImage;
+        console.log('✅ Set selectedImageService:', this.selectedImageService);
       }
       if (storedVideo) {
         this.selectedVideoService = storedVideo;
+        console.log('✅ Set selectedVideoService:', this.selectedVideoService);
       }
+      console.log('🔍 Final values:', { selectedImageService: this.selectedImageService, selectedVideoService: this.selectedVideoService });
     } catch (error) {
       console.warn('⚠️ Failed to load stored service selections:', error);
     }
@@ -71,6 +75,8 @@ export class CommandUI {
     this.pendingVideoService = this.selectedVideoService;
 
     this.applyServiceSelectionToSceneManager();
+    console.log('🔍 After applyServiceSelectionToSceneManager - UI:', { selectedImageService: this.selectedImageService, selectedVideoService: this.selectedVideoService });
+    console.log('🔍 After applyServiceSelectionToSceneManager - SceneManager:', { selectedImageService: this.sceneManager?.selectedImageService, selectedVideoService: this.sceneManager?.selectedVideoService });
 
     // ダークモード状態管理
     this.isDarkMode = localStorage.getItem('live-command-theme') === 'dark' ||
@@ -193,18 +199,18 @@ export class CommandUI {
     this.floatingContainer.id = 'floating-cards-container';
     this.floatingContainer.style.cssText = `
       position: fixed;
-      top: var(--floating-top, 20px);
+      bottom: var(--floating-bottom, 120px);
       left: 50%;
       transform: translateX(-50%);
       z-index: 99999;
       pointer-events: none;
       display: none;
-      flex-direction: column-reverse;
+      flex-direction: column;
       gap: 8px;
       width: 400px;
       max-width: 90vw;
       align-items: center;
-      justify-content: flex-end;
+      justify-content: flex-start;
     `;
 
     // タスクカード管理用
@@ -1897,6 +1903,22 @@ export class CommandUI {
         100% { background-position: 200% 0; }
       }
 
+      /* 2025年トレンド: 微細な浮遊感アニメーション */
+      @keyframes gentleFloat {
+        0%, 100% { 
+          transform: translateY(0px) scale(1);
+        }
+        25% { 
+          transform: translateY(-2px) scale(1.005);
+        }
+        50% { 
+          transform: translateY(-1px) scale(1.002);
+        }
+        75% { 
+          transform: translateY(-3px) scale(1.008);
+        }
+      }
+
       /* タスクステータスコンテナのホバー効果 */
       .task-status-container:hover .progress-bar {
         box-shadow: 0 0 20px rgba(255,123,71,0.6) !important;
@@ -2559,6 +2581,11 @@ export class CommandUI {
     card.className = 'floating-task-card';
     card.setAttribute('data-task-id', taskId);
 
+    // 2025年トレンド: 待機中のアニメーション効果
+    if (status === 'pending' || status === 'processing' || status === 'progress') {
+      card.classList.add('chocodrop-shimmer', 'chocodrop-float');
+    }
+
     // iOS 26 Liquid Glass + 2026年トレンドスタイル
     card.style.cssText = this.getFloatingCardStyles(status);
     // アニメーション用初期状態（非表示）- 強制設定
@@ -2589,10 +2616,10 @@ export class CommandUI {
       <span style="font-size: 13px; margin-left: 6px;">${friendlyMessage}</span>
     `;
 
-    // フローティングコンテナに追加（最新が下に来るように）
-    this.floatingContainer.appendChild(card);
+    // フローティングコンテナに追加（最新が上に来るように）
+    this.floatingContainer.insertBefore(card, this.floatingContainer.firstChild);
     
-    // カード表示制限を適用（最大3個まで表示）
+    // カード表示制限を適用（最新3個まで表示）
     this.updateCardDisplayLimit();
 
     this.taskCards.set(taskId, {
@@ -2613,7 +2640,72 @@ export class CommandUI {
     
     // 入場アニメーション
     this.animateCardEntrance(card);
+    
+    // 2025年トレンド: シマーエフェクトCSS確保
+    this.ensureShimmerStyles();
+    
     return taskId;
+  }
+
+  /**
+   * 2025年トレンド: シマーエフェクトスタイルを確保
+   */
+  ensureShimmerStyles() {
+    if (document.querySelector('#chocodrop-shimmer-styles')) return;
+    
+    const styleSheet = document.createElement('style');
+    styleSheet.id = 'chocodrop-shimmer-styles';
+    styleSheet.textContent = `
+      /* 2025年トレンド: シマーエフェクト（強化版） */
+      .chocodrop-shimmer {
+        position: relative;
+        overflow: hidden;
+      }
+      
+      .chocodrop-shimmer::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(
+          90deg,
+          transparent,
+          ${this.isDarkMode ? 'rgba(255, 255, 255, 0.5)' : 'rgba(255, 255, 255, 0.7)'},
+          transparent
+        );
+        animation: shimmer 1.5s infinite;
+        pointer-events: none;
+        z-index: 1;
+      }
+      
+      .chocodrop-shimmer > * {
+        position: relative;
+        z-index: 2;
+      }
+      
+      /* 2025年トレンド: 微細な浮遊感 */
+      .chocodrop-float {
+        animation: gentleFloat 4s ease-in-out infinite;
+      }
+      
+      /* 待機中の特別なパルス効果（強化版） */
+      .chocodrop-shimmer.floating-task-card {
+        animation: gentleFloat 4s ease-in-out infinite, subtlePulse 3s ease-in-out infinite;
+      }
+      
+      @keyframes subtlePulse {
+        0%, 100% { 
+          box-shadow: 0 8px 32px rgba(15, 23, 42, 0.3), 0 0 0 1px rgba(99, 102, 241, 0.1);
+        }
+        50% { 
+          box-shadow: 0 12px 40px rgba(15, 23, 42, 0.5), 0 0 0 1px rgba(99, 102, 241, 0.3);
+        }
+      }
+    `;
+    
+    document.head.appendChild(styleSheet);
   }
 
   /**
@@ -2627,6 +2719,15 @@ export class CommandUI {
 
     // ステータス更新
     taskData.status = status;
+
+    // 2025年トレンド: アニメーション状態管理
+    if (status === 'pending' || status === 'processing' || status === 'progress') {
+      // 待機中・処理中: シマーエフェクト追加
+      card.classList.add('chocodrop-shimmer', 'chocodrop-float');
+    } else {
+      // 完了・エラー: シマーエフェクト削除
+      card.classList.remove('chocodrop-shimmer', 'chocodrop-float');
+    }
 
     const iconMap = {
       pending: '⏳',
@@ -2642,6 +2743,9 @@ export class CommandUI {
       <span style="font-size: 14px;">${iconMap[status]}</span>
       <span style="font-size: 13px; margin-left: 6px;">${friendlyMessage}</span>
     `;
+
+    // スタイル更新（完了状態に応じて）
+    card.style.cssText = this.getFloatingCardStyles(status);
 
     // 完了時の自動消去アニメーション
     if (status === 'completed') {
@@ -2719,6 +2823,32 @@ export class CommandUI {
     };
 
     const theme = this.isDarkMode ? glassmorphismDark : glassmorphismLight;
+    
+    // 2025年トレンド: 待機中のシマーエフェクト
+    const shimmerEffect = (status === 'pending' || status === 'processing' || status === 'progress') ? `
+      position: relative;
+      overflow: hidden;
+      &::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(
+          90deg,
+          transparent,
+          ${this.isDarkMode ? 'rgba(255, 255, 255, 0.2)' : 'rgba(255, 255, 255, 0.4)'},
+          transparent
+        );
+        animation: shimmer 2s infinite;
+      }
+    ` : '';
+
+    // 2025年トレンド: 微細な浮遊感
+    const floatingAnimation = (status === 'pending' || status === 'processing' || status === 'progress') ? `
+      animation: gentleFloat 4s ease-in-out infinite, shimmer 2s infinite;
+    ` : '';
 
     return `
       height: 36px;
@@ -2741,6 +2871,10 @@ export class CommandUI {
       transform: translateY(10px);
       opacity: 0;
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      ${shimmerEffect}
+      ${floatingAnimation}
+      position: relative;
+      overflow: hidden;
     `;
   }
 
@@ -2766,15 +2900,15 @@ export class CommandUI {
       });
     } else {
       // カードが4個以上の場合、最新3個のみ表示し、残りはカウンター表示
-      const visibleCards = allCards.slice(-maxVisibleCards); // 最新3個
+      const visibleCards = allCards.slice(0, maxVisibleCards); // 最初の3個（最新）
       const hiddenCount = allCards.length - maxVisibleCards;
       
       // 古いカードを非表示
       allCards.forEach((card, index) => {
-        if (index < allCards.length - maxVisibleCards) {
-          card.style.display = 'none';
-        } else {
+        if (index < maxVisibleCards) {
           card.style.display = 'flex';
+        } else {
+          card.style.display = 'none';
         }
       });
       
@@ -2805,8 +2939,8 @@ export class CommandUI {
       `;
       counter.innerHTML = `+ ${hiddenCount}`;
       
-      // カウンターを最初に挿入（最上部に配置）
-      this.floatingContainer.insertBefore(counter, this.floatingContainer.firstChild);
+      // カウンターを最後に挿入（最下部に配置）
+      this.floatingContainer.appendChild(counter);
       
       // カウンターのホバー効果（テーマ対応）
       const counterHoverColor = this.isDarkMode ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.18)';
@@ -4040,6 +4174,11 @@ export class CommandUI {
     if (!file) return;
 
     try {
+      // 前回のObjectURLをクリーンアップ（メモリリーク防止）
+      if (this.selectedFile && this.selectedFile.url) {
+        URL.revokeObjectURL(this.selectedFile.url);
+      }
+
       // ファイルタイプを判定
       const fileType = this.detectFileType(file.name);
 
@@ -4071,6 +4210,11 @@ export class CommandUI {
     } catch (error) {
       console.error('File selection error:', error);
       this.addOutput(`❌ ファイル選択エラー: ${error.message}`, 'error');
+    } finally {
+      // IMPORTANT: ファイル入力をリセットして同じファイルの再選択を可能にする
+      if (event.target) {
+        event.target.value = '';
+      }
     }
   }
 

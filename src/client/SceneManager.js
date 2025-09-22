@@ -820,7 +820,8 @@ export class SceneManager {
     }
     
     // 動画関連キーワードをチェック
-    const videoKeywords = ['動画', 'ビデオ', 'ムービー', '映像', 'アニメーション', '動く'];
+    const videoKeywords = ['動画', 'ビデオ', 'ムービー', '映像', 'アニメーション', '動く', 
+                          'video', 'movie', 'animation', 'animate', 'motion', 'moving', 'clip'];
     const isVideoRequest = videoKeywords.some(keyword => cmd.includes(keyword));
     
     if (isVideoRequest) {
@@ -856,6 +857,11 @@ export class SceneManager {
         size: this.parseSize(cmd)
       };
     }
+    
+    // 画像生成キーワードをチェック
+    const imageKeywords = ['画像', '写真', 'イメージ', '絵', 'ピクチャー', 
+                          'image', 'picture', 'photo', 'generate', 'create', 'make', 'draw'];
+    const isImageRequest = imageKeywords.some(keyword => cmd.includes(keyword));
     
     // デフォルト: 画像生成として処理
     return {
@@ -1305,23 +1311,61 @@ export class SceneManager {
     try {
       console.log(`🎨 Generating image: "${parsed.prompt}"`);
       
-      // ChocoDro Client経由で画像生成
-      const imageResult = await this.client.generateImage(parsed.prompt, {
-        width: 512,
-        height: 512,
-        service: this.selectedImageService || undefined
-      });
+      // 段階的にサイズを試行（シーンに配置しやすいサイズを優先）
+      const fallbackSizes = [
+        { width: 512, height: 512 },    // 1:1 基本サイズ（互換性最高）
+        { width: 768, height: 432 },    // 16:9 現代的サイズ
+        { width: 1024, height: 1024 },  // 大きめ1:1
+        { width: 640, height: 480 },    // 4:3 クラシック
+      ];
+      
+      let imageResult;
+      let lastError;
+      
+      for (let i = 0; i < fallbackSizes.length; i++) {
+        const dimensions = fallbackSizes[i];
+        try {
+          console.log(`🔄 Trying ${dimensions.width}x${dimensions.height}...`);
+          
+          imageResult = await this.client.generateImage(parsed.prompt, {
+            width: dimensions.width,
+            height: dimensions.height,
+            service: this.selectedImageService || undefined
+          });
+          
+          if (imageResult.success) {
+            console.log(`✅ Success with ${dimensions.width}x${dimensions.height}`);
+            break;
+          }
+        } catch (error) {
+          lastError = error;
+          console.log(`⚠️ Failed with ${dimensions.width}x${dimensions.height}: ${error.message}`);
+          
+          // 最後の試行でない場合は続行
+          if (i < fallbackSizes.length - 1) {
+            console.log(`🔄 Retrying with next size...`);
+            continue;
+          }
+        }
+      }
       
       // 結果にモデル情報を含める
-      if (imageResult.modelName) {
+      if (imageResult && imageResult.modelName) {
         console.log(`📡 Used model: ${imageResult.modelName}`);
       }
       
       const loader = new THREE.TextureLoader();
       let texture;
-      if (imageResult.success && (imageResult.imageUrl || imageResult.localPath)) {
+      if (imageResult && imageResult.success && (imageResult.imageUrl || imageResult.localPath)) {
         // 成功: 生成された画像をテクスチャとして使用
-        const imageUrl = imageResult.imageUrl || imageResult.localPath;
+        let imageUrl = imageResult.imageUrl;
+        
+        // localPathの場合はWebアクセス可能なURLに変換
+        if (!imageUrl && imageResult.localPath) {
+          const filename = imageResult.localPath.split('/').pop();
+          imageUrl = `${this.client.serverUrl}/generated/${filename}`;
+        }
+        
         console.log(`✅ Image generated successfully: ${imageUrl}`);
         texture = await loader.loadAsync(imageUrl);
 
@@ -1329,7 +1373,7 @@ export class SceneManager {
         texture.colorSpace = THREE.SRGBColorSpace; // 正しいカラースペース
       } else {
         // 失敗: プレースホルダー画像を使用
-        console.log(`⚠️ Using fallback image`);
+        console.log(`⚠️ Using fallback image (last error: ${lastError?.message || 'unknown'})`);
         texture = this.createFallbackTexture(parsed.prompt);
       }
 
@@ -1387,7 +1431,7 @@ export class SceneManager {
         prompt: parsed.prompt,
         createdAt: Date.now(),
         type: 'generated_image',
-        modelName: imageResult.modelName || this.selectedImageService || null
+        modelName: imageResult?.modelName || this.selectedImageService || null
       };
       
       this.experimentGroup.add(plane);
@@ -1404,7 +1448,7 @@ export class SceneManager {
         objectId,
         position: parsed.position,
         prompt: parsed.prompt,
-        modelName: imageResult.modelName,
+        modelName: imageResult?.modelName,
         success: true
       };
       
@@ -1420,6 +1464,7 @@ export class SceneManager {
   async executeVideoGeneration(parsed) {
     try {
       console.log(`🎬 Generating video: "${parsed.prompt}"`);
+      console.log('🔍 Video generation - selectedVideoService:', this.selectedVideoService);
       
       // ChocoDro Client経由で動画生成
       const videoResult = await this.client.generateVideo(parsed.prompt, {
@@ -1435,12 +1480,14 @@ export class SceneManager {
       }
       
       let videoTexture;
+      let video = null; // video変数をスコープ外で定義
+      
       if (videoResult.success && videoResult.videoUrl) {
         // 成功: 生成された動画をテクスチャとして使用
         console.log(`✅ Video generated successfully: ${videoResult.videoUrl}`);
         
         // HTML5 video要素を作成
-        const video = document.createElement('video');
+        video = document.createElement('video');
         video.src = videoResult.videoUrl;
         video.crossOrigin = 'anonymous';
         video.loop = true;
@@ -1545,7 +1592,61 @@ export class SceneManager {
       
     } catch (error) {
       console.error('🎬 Video generation failed:', error);
-      throw error;
+      
+      // エラー時もプレースホルダー動画を表示
+      console.log('🔄 Creating fallback video plane due to generation error');
+      const fallbackVideoTexture = this.createFallbackVideoTexture(parsed.prompt);
+      
+      // 動画を表示する平面ジオメトリを作成
+      const sizeScale = parsed.size?.scale ?? this.config.defaultObjectScale ?? 1;
+      const baseSize = 6 * sizeScale;
+      const geometry = new THREE.PlaneGeometry(baseSize, baseSize);
+      const material = new THREE.MeshBasicMaterial({
+        map: fallbackVideoTexture,
+        transparent: false,
+        side: THREE.DoubleSide,
+        toneMapped: false
+      });
+      
+      const plane = new THREE.Mesh(geometry, material);
+      
+      // カメラ相対位置で配置
+      if (this.camera) {
+        const finalPosition = this.calculateCameraRelativePosition(parsed.position);
+        plane.position.copy(finalPosition);
+        this.alignPlaneToCamera(plane);
+      } else {
+        plane.position.set(parsed.position.x, parsed.position.y, parsed.position.z);
+      }
+
+      plane.scale.setScalar(1.0);
+
+      // 識別用の名前とメタデータ
+      const objectId = `generated_video_${++this.objectCounter}`;
+      plane.name = objectId;
+      plane.userData = {
+        id: objectId,
+        prompt: parsed.prompt,
+        createdAt: Date.now(),
+        type: 'generated_video',
+        videoUrl: null, // エラー時はnull
+        modelName: 'Error Fallback',
+        width: 512,
+        height: 512,
+        videoElement: null,
+        error: error.message
+      };
+
+      // シーンに追加
+      this.scene.add(plane);
+      console.log('📍 Fallback video plane added to scene');
+
+      return {
+        success: false,
+        error: error.message,
+        object: plane,
+        prompt: parsed.prompt
+      };
     }
   }
 
