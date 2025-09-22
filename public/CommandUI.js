@@ -3904,19 +3904,45 @@ export class CommandUI {
     this.overlayTextarea.value = this.input.value;
     this.overlayTextarea.placeholder = this.input.placeholder;
     
+    // フォームの位置とサイズを取得
+    const containerRect = this.container.getBoundingClientRect();
+    
+    // 画面境界を考慮した位置調整
+    const overlayHeight = 300;
+    const padding = 20;
+    
+    let top = containerRect.top + 60;
+    let left = containerRect.left;
+    let width = containerRect.width;
+    
+    // 右端がはみ出る場合
+    if (left + width > window.innerWidth - padding) {
+      left = window.innerWidth - width - padding;
+    }
+    
+    // 左端がはみ出る場合
+    if (left < padding) {
+      left = padding;
+      width = Math.min(width, window.innerWidth - 2 * padding);
+    }
+    
+    // 下端がはみ出る場合
+    if (top + overlayHeight > window.innerHeight - padding) {
+      top = Math.max(padding, window.innerHeight - overlayHeight - padding);
+    }
+    
     // オーバーレイのスタイル設定
     this.overlayTextarea.style.cssText = `
       position: fixed;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      width: 80vw;
-      max-width: 800px;
-      height: 60vh;
-      max-height: 500px;
-      background: rgba(26, 32, 44, 0.95);
-      backdrop-filter: blur(20px);
-      border: 1px solid rgba(255, 255, 255, 0.1);
+      top: ${top}px;
+      left: ${left}px;
+      width: ${width}px;
+      height: ${overlayHeight}px;
+      box-sizing: border-box;
+      background: ${this.isDarkMode ? 'linear-gradient(135deg, rgba(30, 27, 75, 0.4), rgba(15, 23, 42, 0.5))' : 'linear-gradient(135deg, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.2))'};
+      backdrop-filter: blur(24px) saturate(180%);
+      border: ${this.isDarkMode ? '1px solid rgba(99, 102, 241, 0.25)' : '1px solid rgba(255, 255, 255, 0.5)'};
+      box-shadow: ${this.isDarkMode ? '0 4px 16px rgba(15, 23, 42, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.08)' : '0 4px 16px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.4)'};
       border-radius: 16px;
       color: white;
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;

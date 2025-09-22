@@ -3476,6 +3476,8 @@
       this.serviceModalOverlay = null;
       this.serviceModal = null;
       this.servicesLoading = false;
+      this.isExpanded = false;
+      this.overlayTextarea = null;
       this.pendingImageService = null;
       this.pendingVideoService = null;
 
@@ -3618,7 +3620,7 @@
       this.floatingContainer.id = 'floating-cards-container';
       this.floatingContainer.style.cssText = `
       position: fixed;
-      top: 20px;
+      top: var(--floating-top, 20px);
       left: 50%;
       transform: translateX(-50%);
       z-index: 99999;
@@ -3640,7 +3642,7 @@
       this.inputWrapper.style.cssText = `
       position: relative;
       width: 100%;
-      margin-bottom: 8px;
+      margin-bottom: 0;
     `;
 
       // Ultra-Simple 単一入力フィールド（自動リサイズ対応）
@@ -3686,16 +3688,10 @@
 
       // 展開ボタンのクリック処理
       this.expandButton.addEventListener('click', () => {
-        if (this.input.style.maxHeight === 'none') {
-          // 縮小する
-          this.input.style.maxHeight = '66px';
-          this.expandButton.innerHTML = '⤢';
-          this.expandButton.title = 'テキスト全体を表示';
+        if (this.isExpanded) {
+          this.hideOverlayTextarea();
         } else {
-          // 展開する
-          this.input.style.maxHeight = 'none';
-          this.expandButton.innerHTML = '⤡';
-          this.expandButton.title = '元のサイズに戻す';
+          this.showOverlayTextarea();
         }
       });
 
@@ -3820,6 +3816,12 @@
             return;
           }
           
+          // デモページチェック
+          if (this.isDemo()) {
+            e.preventDefault();
+            this.showDemoMessage();
+            return;
+          }
 
           e.preventDefault();
           this.executeCommand();
@@ -3940,7 +3942,7 @@
       backdrop-filter: blur(18px);
       -webkit-backdrop-filter: blur(18px);
       z-index: 2000;
-      padding: 16px 16px 8px 16px !important;
+      padding: 16px !important;
       opacity: 0;
       transition: opacity 0.2s ease;
     `;
@@ -4815,7 +4817,7 @@
     getCommandTypeIndicatorStyles() {
       return `
       padding: 4px 0;
-      margin-bottom: 8px;
+      margin-bottom: 0;
       font-size: 11px;
       font-weight: 400;
       text-align: left;
@@ -5057,7 +5059,7 @@
         this.proactiveSuggestion = document.createElement('div');
         this.proactiveSuggestion.id = 'proactive-suggestion';
         this.proactiveSuggestion.style.cssText = `
-        margin-bottom: 8px;
+        margin-bottom: 0;
         padding: 10px;
         background: rgba(255, 193, 7, 0.15);
         border: 1px solid rgba(255, 193, 7, 0.3);
@@ -5192,7 +5194,7 @@
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Inter', sans-serif;
       font-size: 14px;
       z-index: 1000;
-      padding: 16px 16px 8px 16px !important;
+      padding: 16px !important;
       box-shadow: ${theme.boxShadow};
       backdrop-filter: ${theme.backdropFilter};
       -webkit-backdrop-filter: ${theme.backdropFilter};
@@ -6331,7 +6333,7 @@
       backdrop-filter: blur(30px);
       border: 1px solid ${modalBorder};
       border-radius: 16px;
-      padding: 16px 16px 8px 16px !important;
+      padding: 16px !important;
       max-width: 400px;
       width: 90%;
       max-height: 80vh;
@@ -6359,29 +6361,29 @@
       
       <div style="space-y: 16px;">
         <div>
-          <div style="color: ${labelColor}; font-size: 12px; font-weight: 500; margin-bottom: 8px;">📝 元のプロンプト</div>
+          <div style="color: ${labelColor}; font-size: 12px; font-weight: 500; margin-bottom: 0;">📝 元のプロンプト</div>
           <div style="color: ${textColor}; font-size: 14px; line-height: 1.4;">${taskData.originalPrompt}</div>
         </div>
         
         <div>
-          <div style="color: ${labelColor}; font-size: 12px; font-weight: 500; margin-bottom: 8px;">📊 ステータス</div>
+          <div style="color: ${labelColor}; font-size: 12px; font-weight: 500; margin-bottom: 0;">📊 ステータス</div>
           <div style="color: ${textColor}; font-size: 14px;">${statusText}</div>
         </div>
         
         <div>
-          <div style="color: ${labelColor}; font-size: 12px; font-weight: 500; margin-bottom: 8px;">⏱️ 実行時間</div>
+          <div style="color: ${labelColor}; font-size: 12px; font-weight: 500; margin-bottom: 0;">⏱️ 実行時間</div>
           <div style="color: ${textColor}; font-size: 14px;">${duration}秒</div>
         </div>
         
         ${taskData.error ? `
         <div>
-          <div style="color: ${labelColor}; font-size: 12px; font-weight: 500; margin-bottom: 8px;">❌ エラー詳細</div>
+          <div style="color: ${labelColor}; font-size: 12px; font-weight: 500; margin-bottom: 0;">❌ エラー詳細</div>
           <div style="color: #ef4444; font-size: 14px; line-height: 1.4;">${taskData.error}</div>
         </div>
         ` : ''}
         
         <div>
-          <div style="color: ${labelColor}; font-size: 12px; font-weight: 500; margin-bottom: 8px;">🎨 コンテンツタイプ</div>
+          <div style="color: ${labelColor}; font-size: 12px; font-weight: 500; margin-bottom: 0;">🎨 コンテンツタイプ</div>
           <div style="color: ${textColor}; font-size: 14px;">${taskData.contentType || '画像'}</div>
         </div>
       </div>
@@ -6521,7 +6523,7 @@
       pointer-events: none;
       z-index: 1001;
       backdrop-filter: blur(10px);
-      margin-bottom: 8px;
+      margin-bottom: 0;
       opacity: 0;
       transition: opacity 0.3s ease;
     `;
@@ -8134,6 +8136,130 @@
       if (this.container && this.container.parentElement) {
         this.container.parentElement.removeChild(this.container);
       }
+    }
+
+    showOverlayTextarea() {
+      if (this.overlayTextarea) return;
+
+      this.isExpanded = true;
+      
+      // オーバーレイテキストエリアを作成
+      this.overlayTextarea = document.createElement('textarea');
+      this.overlayTextarea.value = this.input.value;
+      this.overlayTextarea.placeholder = this.input.placeholder;
+      
+      // フォームの位置とサイズを取得
+      const containerRect = this.container.getBoundingClientRect();
+      
+      // 画面境界を考慮した位置調整
+      const overlayHeight = 300;
+      const padding = 20;
+      
+      let top = containerRect.top + 60;
+      let left = containerRect.left;
+      let width = containerRect.width;
+      
+      // 右端がはみ出る場合
+      if (left + width > window.innerWidth - padding) {
+        left = window.innerWidth - width - padding;
+      }
+      
+      // 左端がはみ出る場合
+      if (left < padding) {
+        left = padding;
+        width = Math.min(width, window.innerWidth - 2 * padding);
+      }
+      
+      // 下端がはみ出る場合
+      if (top + overlayHeight > window.innerHeight - padding) {
+        top = Math.max(padding, window.innerHeight - overlayHeight - padding);
+      }
+      
+      // オーバーレイのスタイル設定
+      this.overlayTextarea.style.cssText = `
+      position: fixed;
+      top: ${top}px;
+      left: ${left}px;
+      width: ${width}px;
+      height: ${overlayHeight}px;
+      box-sizing: border-box;
+      background: ${this.isDarkMode ? 'linear-gradient(135deg, rgba(30, 27, 75, 0.4), rgba(15, 23, 42, 0.5))' : 'linear-gradient(135deg, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.2))'};
+      backdrop-filter: blur(24px) saturate(180%);
+      border: ${this.isDarkMode ? '1px solid rgba(99, 102, 241, 0.25)' : '1px solid rgba(255, 255, 255, 0.5)'};
+      box-shadow: ${this.isDarkMode ? '0 4px 16px rgba(15, 23, 42, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.08)' : '0 4px 16px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.4)'};
+      border-radius: 16px;
+      color: white;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 14px;
+      line-height: 1.5;
+      padding: 20px;
+      resize: none;
+      outline: none;
+      z-index: 10000;
+      box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
+      opacity: 0;
+      transition: opacity 0.2s ease-out;
+    `;
+      
+      // ドキュメントに追加
+      document.body.appendChild(this.overlayTextarea);
+      
+      // アニメーション開始
+      requestAnimationFrame(() => {
+        this.overlayTextarea.style.opacity = '1';
+      });
+      
+      // フォーカス設定
+      this.overlayTextarea.focus();
+      
+      // 入力同期
+      this.overlayTextarea.addEventListener('input', (e) => {
+        this.input.value = e.target.value;
+      });
+      
+      // Escapeキーで閉じる
+      this.overlayTextarea.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          this.hideOverlayTextarea();
+        }
+      });
+      
+      // 外側クリックで閉じる
+      this.overlayTextarea.addEventListener('blur', () => {
+        setTimeout(() => this.hideOverlayTextarea(), 100);
+      });
+    }
+    
+    hideOverlayTextarea() {
+      if (!this.overlayTextarea) return;
+      
+      this.isExpanded = false;
+      
+      // フェードアウトアニメーション
+      this.overlayTextarea.style.opacity = '0';
+      
+      setTimeout(() => {
+        if (this.overlayTextarea) {
+          document.body.removeChild(this.overlayTextarea);
+          this.overlayTextarea = null;
+        }
+      }, 200);
+    }
+    
+    hideOverlayTextarea() {
+      if (!this.overlayTextarea) return;
+      
+      this.isExpanded = false;
+      
+      // フェードアウトアニメーション
+      this.overlayTextarea.style.opacity = '0';
+      
+      setTimeout(() => {
+        if (this.overlayTextarea) {
+          document.body.removeChild(this.overlayTextarea);
+          this.overlayTextarea = null;
+        }
+      }, 200);
     }
   }
 

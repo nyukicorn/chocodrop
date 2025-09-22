@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ChocoDrop - リアルタイムAI 3Dコンテンツドロップ</title>
+    <title>ChocoDrop - 3Dワールドクリエイターのビジュアル実験場</title>
+    <meta name="description" content="3D空間の「ここどうしよう」をちょこっと試せる実験場。保存しない、だから気軽。メタバースクリエイターのビジュアルスケッチパッド。">
     <style>
         * {
             margin: 0;
@@ -80,18 +81,26 @@
         }
 
         .hero-title {
-            font-size: clamp(32px, 5vw, 64px);
+            font-size: clamp(28px, 4.5vw, 56px);
             font-weight: 700;
-            margin-bottom: 24px;
+            margin-bottom: 16px;
             letter-spacing: -0.02em;
+            line-height: 1.2;
         }
 
         .hero-subtitle {
-            font-size: 20px;
+            font-size: 18px;
+            color: #cbd5e1;
+            margin-bottom: 12px;
+            font-weight: 500;
+        }
+
+        .hero-description {
+            font-size: 16px;
             color: #94a3b8;
             margin-bottom: 48px;
             font-weight: 400;
-            max-width: 600px;
+            max-width: 650px;
             margin-left: auto;
             margin-right: auto;
         }
@@ -158,7 +167,7 @@
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 48px;
-            align-items: center;
+            align-items: start;
         }
 
         .preview-content h2 {
@@ -172,6 +181,56 @@
             color: #94a3b8;
             font-size: 18px;
             margin-bottom: 32px;
+        }
+
+        .workflow-steps {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            margin-bottom: 32px;
+        }
+
+        .workflow-step {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 8px;
+            transition: all 0.3s ease;
+        }
+
+        .workflow-step:hover {
+            background: rgba(255, 255, 255, 0.06);
+            transform: translateX(4px);
+        }
+
+        .step-number {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            border-radius: 50%;
+            font-weight: 700;
+            font-size: 16px;
+            flex-shrink: 0;
+        }
+
+        .step-text {
+            color: #e2e8f0;
+            font-size: 16px;
+        }
+
+        .workflow-note {
+            font-size: 16px;
+            color: #cbd5e1;
+            font-weight: 500;
+            padding: 16px;
+            background: rgba(139, 92, 246, 0.1);
+            border-radius: 8px;
+            text-align: center;
         }
 
         .code-block {
@@ -268,42 +327,88 @@
             color: #ffffff;
         }
 
-        .examples-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-            gap: 24px;
+        .use-cases {
+            max-width: 600px;
+            margin: 0 auto 64px;
+            text-align: left;
+        }
+
+        .use-case-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 16px;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 8px;
+            margin-bottom: 12px;
+            transition: all 0.3s ease;
+        }
+
+        .use-case-item:hover {
+            background: rgba(255, 255, 255, 0.06);
+            transform: translateX(4px);
+        }
+
+        .use-case-checkbox {
+            width: 20px;
+            height: 20px;
+            accent-color: #8b5cf6;
+        }
+
+        .use-case-label {
+            color: #e2e8f0;
+            font-size: 16px;
+            flex: 1;
+        }
+
+        .comparison {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 40px;
             max-width: 800px;
             margin: 0 auto;
         }
 
-        .example-item {
-            background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 12px;
-            padding: 24px;
-            transition: all 0.3s ease;
+        .comparison h3 {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 32px;
+            color: #ffffff;
         }
 
-        .example-item:hover {
-            transform: translateY(-2px);
-            background: rgba(255, 255, 255, 0.08);
+        .comparison-grid {
+            display: grid;
+            gap: 16px;
         }
 
-        .example-command {
-            font-size: 16px;
-            font-weight: 500;
-            color: #e2e8f0;
-            margin-bottom: 8px;
+        .comparison-item {
+            display: grid;
+            grid-template-columns: 150px 1fr;
+            gap: 16px;
+            align-items: center;
+            padding: 16px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
         }
 
-        .example-result {
-            font-size: 14px;
-            background: linear-gradient(135deg, #6366f1, #ec4899);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
+        .comparison-item.emphasis {
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(236, 72, 153, 0.1));
+            border: 1px solid rgba(139, 92, 246, 0.3);
+        }
+
+        .tool-name {
+            font-weight: 600;
+            color: #cbd5e1;
+        }
+
+        .tool-issue {
+            color: #94a3b8;
+        }
+
+        .tool-success {
+            color: #34d399;
             font-weight: 500;
         }
 
@@ -313,17 +418,27 @@
             text-align: center;
         }
 
-        .social-proof h2 {
-            font-size: 24px;
+        .final-message {
+            margin-bottom: 64px;
+        }
+
+        .final-message h2 {
+            font-size: 32px;
             font-weight: 600;
-            margin-bottom: 32px;
+            margin-bottom: 16px;
+            color: #ffffff;
+        }
+
+        .final-message p {
+            font-size: 18px;
             color: #94a3b8;
+            margin-bottom: 32px;
         }
 
         .integrations {
             display: flex;
             justify-content: center;
-            gap: 32px;
+            gap: 24px;
             flex-wrap: wrap;
             align-items: center;
         }
@@ -336,6 +451,7 @@
             color: #cbd5e1;
             border: 1px solid rgba(255, 255, 255, 0.1);
             transition: all 0.3s ease;
+            font-size: 14px;
         }
 
         .integration-item:hover {
@@ -384,39 +500,57 @@
             <div class="hero-logo">
                 🍫 ChocoDrop
             </div>
-            <h1 class="hero-title">話すだけで、3Dが生まれる</h1>
-            <p class="hero-subtitle">Three.jsに「ちょこんと」AIコンテンツを置くだけ。元のシーンを汚さず、気軽に創作実験。</p>
+            <h1 class="hero-title">3Dワールドの「ここどうしよう」を<br>ちょこっと試せる実験場</h1>
+            <p class="hero-subtitle">保存しない、だから気軽</p>
+            <p class="hero-description">メタバースクリエイターのビジュアルスケッチパッド。<br>AI生成でも、ローカル素材でも、ポンと置いて試して、気に入ったら本実装へ。</p>
             <div class="hero-buttons">
                 <a href="examples/basic/index.html" class="btn btn-primary">
-                    ✨ デモを試す
+                    🎮 今すぐ試す（インストール不要）
                 </a>
                 <a href="https://github.com/nyukicorn/chocodrop" class="btn btn-secondary">
-                    📦 GitHub
+                    🛠 自分のプロジェクトで使う
                 </a>
             </div>
         </section>
 
-        <!-- Product Preview -->
+        <!-- How It Works Section -->
         <section class="product-preview">
             <div class="preview-grid">
                 <div class="preview-content">
-                    <h2>気軽に試せる設計</h2>
-                    <p>既存のシーンは絶対に変更されません。何度でも気軽に「ちょこっと置いて」試せます。</p>
-                    <div class="code-block">
-                        <pre><span class="syntax-keyword">npm install</span> <span class="syntax-string">@chocodrop/core</span></pre>
+                    <h2>実際の使い方</h2>
+                    <div class="workflow-steps">
+                        <div class="workflow-step">
+                            <span class="step-number">1</span>
+                            <span class="step-text">空の3D空間で「うーん、ここの景色...」</span>
+                        </div>
+                        <div class="workflow-step">
+                            <span class="step-number">2</span>
+                            <span class="step-text">"夕焼けの山" → ポンと配置</span>
+                        </div>
+                        <div class="workflow-step">
+                            <span class="step-number">3</span>
+                            <span class="step-text">「違うな」→ Delete → "都市の夜景"</span>
+                        </div>
+                        <div class="workflow-step">
+                            <span class="step-number">4</span>
+                            <span class="step-text">「これいい！」→ スクショ → 本実装へ</span>
+                        </div>
                     </div>
+                    <p class="workflow-note">リロードしたら全部消える。それがいい。</p>
                 </div>
                 <div class="preview-content">
-                    <h2>作る・置く・動かす・消す</h2>
+                    <h2>導入は1行だけ</h2>
                     <div class="code-block">
                         <pre><span class="syntax-keyword">import</span> { <span class="syntax-string">createChocoDrop</span> } <span class="syntax-keyword">from</span> <span class="syntax-string">'@chocodrop/core'</span>;
 
+<span class="syntax-comment">// あなたの既存のThree.jsシーン</span>
+<span class="syntax-keyword">const</span> scene = <span class="syntax-keyword">new</span> THREE.Scene();
+
+<span class="syntax-comment">// ChocoDrop追加（これだけ！）</span>
 <span class="syntax-keyword">const</span> chocoDrop = <span class="syntax-string">createChocoDrop</span>(scene, {
   camera,
   renderer
-});
-
-</pre>
+});</pre>
                     </div>
                 </div>
             </div>
@@ -424,66 +558,85 @@
 
         <!-- Features -->
         <section class="features">
-            <h2>特徴</h2>
+            <h2>3つの特徴</h2>
             <div class="features-grid">
                 <div class="feature-card">
-                    <span class="feature-icon">🎭</span>
-                    <h3>作る・読む両対応</h3>
-                    <p>AI生成でも既存素材でも自由自在。「猫を作って」「動画を読み込んで」どちらもOK。</p>
-                </div>
-                <div class="feature-card">
-                    <span class="feature-icon">💬</span>
-                    <h3>自然な会話操作</h3>
-                    <p>「右上に」「ピンクにして」「大きくして」「消して」普通に話すだけで思い通りに。</p>
+                    <span class="feature-icon">🍫</span>
+                    <h3>ちょこっと配置、すぐ消せる</h3>
+                    <p>保存前提じゃない実験特化。リロードで全部消えるから、気軽に何度でも試せます。</p>
                 </div>
                 <div class="feature-card">
                     <span class="feature-icon">🎨</span>
-                    <h3>創造性を解放する設計</h3>
-                    <p>シーンを汚さないから何度でも試せる。クリエイティブの自由度が格段にアップします。</p>
+                    <h3>言葉でも画像でも</h3>
+                    <p>「夕焼けを作って」でAI生成、「この画像を配置」でローカル素材。どちらもポンと配置。</p>
+                </div>
+                <div class="feature-card">
+                    <span class="feature-icon">🔄</span>
+                    <h3>試して → 本実装へ</h3>
+                    <p>気に入ったらスクショ撮って、Claude/GPTに投げて本実装。実験から実装への架け橋。</p>
                 </div>
             </div>
         </section>
 
-        <!-- Usage Examples -->
+        <!-- Use Cases -->
         <section class="usage-examples">
-            <h2>こんな体験ができます</h2>
-            <div class="examples-grid">
-                <div class="example-item">
-                    <div class="example-command">「炎を吐く赤いドラゴンの画像を作って」</div>
-                    <div class="example-result">→ AI画像生成で瞬時に配置</div>
+            <h2>こんな時に</h2>
+            <div class="use-cases">
+                <div class="use-case-item">
+                    <input type="checkbox" id="case1" class="use-case-checkbox" checked disabled>
+                    <label for="case1" class="use-case-label">Three.jsワールドの雰囲気を試したい</label>
                 </div>
-                <div class="example-item">
-                    <div class="example-command">「猫がボールで遊んでいる動画を作って」</div>
-                    <div class="example-result">→ AI動画生成で動くコンテンツ</div>
+                <div class="use-case-item">
+                    <input type="checkbox" id="case2" class="use-case-checkbox" checked disabled>
+                    <label for="case2" class="use-case-label">VRChatの空間デザインを実験中</label>
                 </div>
-                <div class="example-item">
-                    <div class="example-command">「ピンクに変更して」</div>
-                    <div class="example-result">→ 思いついたら即座に変更OK</div>
+                <div class="use-case-item">
+                    <input type="checkbox" id="case3" class="use-case-checkbox" checked disabled>
+                    <label for="case3" class="use-case-label">メタバース企画のムードボード作り</label>
                 </div>
-                <div class="example-item">
-                    <div class="example-command">「ここに移動して」</div>
-                    <div class="example-result">→ 言語でも手でも自由に配置</div>
+                <div class="use-case-item">
+                    <input type="checkbox" id="case4" class="use-case-checkbox" checked disabled>
+                    <label for="case4" class="use-case-label">「ここに何か欲しいけど...」の瞬間</label>
                 </div>
-                <div class="example-item">
-                    <div class="example-command">「気に入らないから削除して」</div>
-                    <div class="example-result">→ 失敗を恐れず何度でも実験</div>
-                </div>
-                <div class="example-item">
-                    <div class="example-command">「全部終わったらリロード」</div>
-                    <div class="example-result">→ 元のシーンが綺麗に復活</div>
+            </div>
+
+            <div class="comparison">
+                <h3>他のツールは本格的すぎる</h3>
+                <div class="comparison-grid">
+                    <div class="comparison-item">
+                        <span class="tool-name">Pinterest</span>
+                        <span class="tool-issue">→ 2Dだけ、3D配置できない</span>
+                    </div>
+                    <div class="comparison-item">
+                        <span class="tool-name">Unity/Blender</span>
+                        <span class="tool-issue">→ 学習コスト高い、重すぎる</span>
+                    </div>
+                    <div class="comparison-item">
+                        <span class="tool-name">Foyr/MattoBoard</span>
+                        <span class="tool-issue">→ 特化しすぎ、自由度低い</span>
+                    </div>
+                    <div class="comparison-item emphasis">
+                        <span class="tool-name">ChocoDrop 🍫</span>
+                        <span class="tool-success">→ ちょこっと試すだけ、それがいい</span>
+                    </div>
                 </div>
             </div>
         </section>
 
-        <!-- Social Proof -->
+        <!-- Final CTA -->
         <section class="social-proof">
-            <h2>対応プラットフォーム</h2>
+            <div class="final-message">
+                <h2>「本格的なツールは重すぎる」</h2>
+                <p>そんなあなたのための、3D実験スペース</p>
+                <div class="hero-logo" style="font-size: 32px; margin: 32px 0;">🍫 ChocoDrop</div>
+            </div>
+
             <div class="integrations">
                 <div class="integration-item">Three.js</div>
-                <div class="integration-item">Node.js</div>
-                <div class="integration-item">Model Context Protocol</div>
-                <div class="integration-item">WebGL</div>
-                <div class="integration-item">ES Modules</div>
+                <div class="integration-item">React Three Fiber</div>
+                <div class="integration-item">A-Frame</div>
+                <div class="integration-item">VRChat SDK</div>
+                <div class="integration-item">WebXR</div>
             </div>
         </section>
     </div>
