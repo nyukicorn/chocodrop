@@ -73,6 +73,21 @@
             animation: choco-sparkle-fast 0.8s ease-in-out infinite;
         }
 
+        /* タイトル用の控えめなチョコアニメーション */
+        .choco-title {
+            display: inline-block;
+            animation: choco-title-glow 3s ease-in-out infinite;
+        }
+
+        @keyframes choco-title-glow {
+            0%, 100% {
+                filter: brightness(1) drop-shadow(0 0 1px rgba(139, 92, 246, 0.2));
+            }
+            50% {
+                filter: brightness(1.2) drop-shadow(0 0 4px rgba(139, 92, 246, 0.5));
+            }
+        }
+
         @keyframes choco-sparkle {
             0%, 100% {
                 filter: brightness(1) drop-shadow(0 0 2px rgba(139, 92, 246, 0.3));
@@ -125,7 +140,7 @@
 </head>
 <body>
     <div id="info">
-        <strong><span class="emoji choco-icon">🍫</span> ChocoDrop デモ空間</strong>
+        <strong><span class="emoji choco-title">🍫</span>ChocoDrop デモ空間</strong>
         <div class="subtitle">3D空間を自由に実験しよう</div>
 
         <div style="margin: 16px 0 12px 0;">
