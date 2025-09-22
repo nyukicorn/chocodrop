@@ -59,7 +59,7 @@
         }
 
         #info .highlight {
-            color: #34d399;
+            color: #ec4899;
             font-weight: 500;
         }
 
@@ -110,15 +110,15 @@
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         document.body.appendChild(renderer.domElement);
         
-        // Environment - より美しいグラデーション背景
-        scene.background = new THREE.Color(0x2a2a4a);
-        scene.fog = new THREE.Fog(0x2a2a4a, 80, 250);
+        // Environment - より明るく親しみやすい背景
+        scene.background = new THREE.Color(0x4a5568);
+        scene.fog = new THREE.Fog(0x4a5568, 100, 300);
         
-        // Lighting - より柔らかく美しいライティング
-        const ambientLight = new THREE.AmbientLight(0x6366f1, 0.4);
+        // Lighting - より明るく親しみやすいライティング
+        const ambientLight = new THREE.AmbientLight(0x6366f1, 0.7);
         scene.add(ambientLight);
 
-        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 1.2);
         directionalLight.position.set(30, 40, 30);
         directionalLight.castShadow = true;
         directionalLight.shadow.mapSize.width = 2048;
@@ -131,8 +131,8 @@
         directionalLight.shadow.camera.bottom = -50;
         scene.add(directionalLight);
 
-        // 追加の環境光でより自然な見た目に
-        const hemisphereLight = new THREE.HemisphereLight(0x8b5cf6, 0x2a4a6b, 0.3);
+        // より明るい環境光
+        const hemisphereLight = new THREE.HemisphereLight(0x87ceeb, 0x4a5568, 0.5);
         scene.add(hemisphereLight);
         
         // Ground - より洗練された地面
