@@ -9,22 +9,66 @@
             margin: 0;
             padding: 0;
             overflow: hidden;
-            font-family: Arial, sans-serif;
-            background: #000;
+            font-family: "Helvetica Neue", Arial, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "BIZ UDPGothic", "Noto Sans JP", "Yu Gothic", Meiryo, sans-serif;
+            background: linear-gradient(135deg, #0a0a0f 0%, #1a1a2e 40%, #16213e 100%);
         }
-        
+
         #info {
             position: fixed;
-            top: 10px;
-            left: 10px;
-            color: white;
-            background: rgba(0, 0, 0, 0.7);
-            padding: 10px;
-            border-radius: 5px;
+            top: 20px;
+            left: 20px;
+            color: #ffffff;
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 20px 24px;
+            border-radius: 16px;
             font-size: 14px;
+            font-weight: 400;
             z-index: 100;
+            max-width: 340px;
+            line-height: 1.6;
+            box-shadow: 0 8px 40px rgba(0, 0, 0, 0.3);
         }
-        
+
+        #info strong {
+            font-size: 16px;
+            font-weight: 600;
+            color: #ffffff;
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #ec4899 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            display: block;
+            margin-bottom: 12px;
+        }
+
+        #info code {
+            background: rgba(139, 92, 246, 0.2);
+            color: #e2e8f0;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+            font-size: 13px;
+        }
+
+        #info .emoji {
+            font-size: 16px;
+            margin: 0 2px;
+        }
+
+        #info .highlight {
+            color: #34d399;
+            font-weight: 500;
+        }
+
+        #info .subtitle {
+            color: #cbd5e1;
+            font-size: 13px;
+            margin-top: 8px;
+        }
+
         canvas {
             display: block;
         }
@@ -32,10 +76,17 @@
 </head>
 <body>
     <div id="info">
-        <strong>ChocoDrop - インポート機能デモ</strong><br>
-        <code>@</code>キー または 右下の🍫アイコンクリックでUI起動<br>
-        例: 🍫アイコンクリックでUI起動、ファイル選択で配置<br>
-        <span style="color: #88ff88;">配置後：オブジェクトをクリックで選択、ドラッグで移動</span>
+        <strong><span class="emoji">🍫</span> ChocoDrop デモ空間</strong>
+        <div class="subtitle">3D空間を自由に実験しよう</div>
+
+        <div style="margin: 16px 0 12px 0;">
+            <code>@</code>キー または <span class="emoji">🍫</span> で起動<br>
+            画像をちょこっと配置してみて
+        </div>
+
+        <div class="highlight">
+            <span class="emoji">✨</span> 配置後：クリックで選択、ドラッグで移動
+        </div>
     </div>
 
     <!-- Three.js (正しい最新版 CDN) -->
@@ -59,57 +110,79 @@
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         document.body.appendChild(renderer.domElement);
         
-        // Environment
-        scene.background = new THREE.Color(0x87ceeb);
-        scene.fog = new THREE.Fog(0x87ceeb, 50, 200);
+        // Environment - より美しいグラデーション背景
+        scene.background = new THREE.Color(0x2a2a4a);
+        scene.fog = new THREE.Fog(0x2a2a4a, 80, 250);
         
-        // Lighting
-        const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
+        // Lighting - より柔らかく美しいライティング
+        const ambientLight = new THREE.AmbientLight(0x6366f1, 0.4);
         scene.add(ambientLight);
-        
-        const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
-        directionalLight.position.set(50, 50, 50);
+
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        directionalLight.position.set(30, 40, 30);
         directionalLight.castShadow = true;
         directionalLight.shadow.mapSize.width = 2048;
         directionalLight.shadow.mapSize.height = 2048;
+        directionalLight.shadow.camera.near = 0.1;
+        directionalLight.shadow.camera.far = 200;
+        directionalLight.shadow.camera.left = -50;
+        directionalLight.shadow.camera.right = 50;
+        directionalLight.shadow.camera.top = 50;
+        directionalLight.shadow.camera.bottom = -50;
         scene.add(directionalLight);
+
+        // 追加の環境光でより自然な見た目に
+        const hemisphereLight = new THREE.HemisphereLight(0x8b5cf6, 0x2a4a6b, 0.3);
+        scene.add(hemisphereLight);
         
-        // Ground
+        // Ground - より洗練された地面
         const groundGeometry = new THREE.PlaneGeometry(200, 200);
-        const groundMaterial = new THREE.MeshLambertMaterial({ color: 0x90ee90 });
+        const groundMaterial = new THREE.MeshLambertMaterial({
+            color: 0x4a6741,
+            transparent: true,
+            opacity: 0.9
+        });
         const ground = new THREE.Mesh(groundGeometry, groundMaterial);
         ground.rotation.x = -Math.PI / 2;
         ground.receiveShadow = true;
         scene.add(ground);
 
-        // Simple trees to make the scene more lively
-        function createSimpleTree(x, z) {
+        // 美しい木々を作成
+        function createSimpleTree(x, z, scale = 1) {
             // Tree trunk
-            const trunkGeometry = new THREE.CylinderGeometry(0.1, 0.2, 2);
-            const trunkMaterial = new THREE.MeshLambertMaterial({ color: 0x8B4513 });
+            const trunkGeometry = new THREE.CylinderGeometry(0.1 * scale, 0.2 * scale, 2 * scale);
+            const trunkMaterial = new THREE.MeshLambertMaterial({ color: 0x5d4037 });
             const trunk = new THREE.Mesh(trunkGeometry, trunkMaterial);
-            trunk.position.set(x, 1, z);
+            trunk.position.set(x, 1 * scale, z);
             trunk.castShadow = true;
+            trunk.receiveShadow = true;
             scene.add(trunk);
 
-            // Tree leaves
-            const leavesGeometry = new THREE.SphereGeometry(0.8);
-            const leavesMaterial = new THREE.MeshLambertMaterial({ color: 0x228B22 });
+            // Tree leaves - より自然な色合い
+            const leavesGeometry = new THREE.SphereGeometry(0.8 * scale, 8, 6);
+            const leavesMaterial = new THREE.MeshLambertMaterial({
+                color: 0x2e7d32,
+                transparent: true,
+                opacity: 0.9
+            });
             const leaves = new THREE.Mesh(leavesGeometry, leavesMaterial);
-            leaves.position.set(x, 2.5, z);
+            leaves.position.set(x, 2.5 * scale, z);
             leaves.castShadow = true;
+            leaves.receiveShadow = true;
             scene.add(leaves);
         }
 
-        // Add trees around the scene for a more natural forest feel
-        createSimpleTree(-8, -5);
-        createSimpleTree(6, -8);
-        createSimpleTree(-12, 3);
-        createSimpleTree(10, 7);
-        createSimpleTree(0, -12);
-        createSimpleTree(-3, 2);   // center-left
-        createSimpleTree(4, -3);   // center-right
-        createSimpleTree(-6, -10); // back-left
+        // バランスよく木々を配置
+        createSimpleTree(-8, -5, 0.9);
+        createSimpleTree(6, -8, 1.1);
+        createSimpleTree(-12, 3, 0.8);
+        createSimpleTree(10, 7, 1.0);
+        createSimpleTree(0, -12, 0.9);
+        createSimpleTree(-3, 2, 1.2);
+        createSimpleTree(4, -3, 0.85);
+        createSimpleTree(-6, -10, 1.05);
+        createSimpleTree(8, 2, 0.75);
+        createSimpleTree(-10, -8, 0.95);
         
         // Camera position
         camera.position.set(0, 3, 12);
