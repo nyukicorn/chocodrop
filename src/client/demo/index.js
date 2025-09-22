@@ -63,7 +63,7 @@ export {
   SceneManager,
   CommandUIDemo,
   createChocoDropDemo,
-  // Keep original functions for compatibility
+  createChocoDropDemo as createChocoDrop,  // Alias for compatibility
   createChocoDro,
   createLiveCommand
 };
