@@ -1176,7 +1176,7 @@ export class CommandUIDemo {
     `;
 
     const modes = [
-      { value: 'generate', label: 'Generate', icon: '✨' },
+      { value: 'generate', label: 'Generate', icon: '🚫', disabled: true },
       { value: 'import', label: 'Import', icon: '📥' },
       { value: 'modify', label: 'Modify', icon: '🔧' },
       { value: 'delete', label: 'Delete', icon: '🗑️' }
@@ -1194,15 +1194,16 @@ export class CommandUIDemo {
         gap: 4px;
         padding: 10px 8px;
         border-radius: 12px;
-        cursor: pointer;
+        cursor: ${mode.disabled ? 'not-allowed' : 'pointer'};
         transition: all 0.2s ease;
         font-size: 11px;
         font-weight: 600;
         text-align: center;
-        color: ${this.isDarkMode ? 'rgba(255, 255, 255, 0.7)' : 'rgba(55, 65, 81, 0.8)'};
+        color: ${mode.disabled ? 'rgba(139, 92, 246, 0.6)' : this.isDarkMode ? 'rgba(255, 255, 255, 0.7)' : 'rgba(55, 65, 81, 0.8)'};
         background: transparent;
         border: 1px solid transparent;
         position: relative;
+        opacity: ${mode.disabled ? '0.6' : '1'};
       `;
 
       const icon = document.createElement('div');
@@ -1210,7 +1211,7 @@ export class CommandUIDemo {
       icon.style.cssText = `
         font-size: 16px;
         margin-bottom: 2px;
-        filter: ${this.isDarkMode 
+        filter: ${mode.disabled ? 'hue-rotate(240deg) saturate(0.8) brightness(1.1)' : this.isDarkMode 
           ? 'hue-rotate(220deg) saturate(0.8) brightness(1.2)' 
           : 'hue-rotate(240deg) saturate(0.7) brightness(0.9)'};
         transition: filter 0.2s ease;
@@ -1243,14 +1244,29 @@ export class CommandUIDemo {
       button.appendChild(label);
       button.appendChild(autoBadge);
 
-      // クリックイベント
-      button.addEventListener('click', () => {
-        if (mode.value === 'import') {
-          this.triggerFileSelection();
-        } else {
-          this.selectMode(mode.value, true); // trueは手動選択を示す
-        }
-      });
+      // イベント処理
+      if (mode.disabled) {
+        // Generateボタンのホバー時モーダル表示
+        button.addEventListener('mouseenter', () => {
+          this.showDemoMessage();
+        });
+        
+        // クリック無効化
+        button.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          this.showDemoMessage();
+        });
+      } else {
+        // 通常のクリックイベント
+        button.addEventListener('click', () => {
+          if (mode.value === 'import') {
+            this.triggerFileSelection();
+          } else {
+            this.selectMode(mode.value, true); // trueは手動選択を示す
+          }
+        });
+      }
 
       this.radioModeButtons[mode.value] = { button, autoBadge };
       container.appendChild(button);
@@ -1258,8 +1274,8 @@ export class CommandUIDemo {
 
 
     this.radioModeContainer = container;
-    // デフォルトでGenerateを選択
-    this.selectMode('generate', false);
+    // デモページではImportを初期選択
+    this.selectMode('import', false);
 
     return container;
   }
