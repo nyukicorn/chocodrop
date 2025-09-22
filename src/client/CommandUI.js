@@ -389,12 +389,7 @@ export class CommandUI {
           return;
         }
         
-        // デモページチェック
-        if (this.isDemo()) {
-          e.preventDefault();
-          this.showDemoMessage();
-          return;
-        }
+
 
         e.preventDefault();
         this.executeCommand();

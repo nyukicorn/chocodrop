@@ -1319,10 +1319,11 @@ export class SceneManager {
       
       const loader = new THREE.TextureLoader();
       let texture;
-      if (imageResult.success && imageResult.imageUrl) {
+      if (imageResult.success && (imageResult.imageUrl || imageResult.localPath)) {
         // 成功: 生成された画像をテクスチャとして使用
-        console.log(`✅ Image generated successfully: ${imageResult.imageUrl}`);
-        texture = await loader.loadAsync(imageResult.imageUrl);
+        const imageUrl = imageResult.imageUrl || imageResult.localPath;
+        console.log(`✅ Image generated successfully: ${imageUrl}`);
+        texture = await loader.loadAsync(imageUrl);
 
         // テクスチャの色彩を正確に表示するための設定
         texture.colorSpace = THREE.SRGBColorSpace; // 正しいカラースペース
