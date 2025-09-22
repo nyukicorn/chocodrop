@@ -2,10 +2,10 @@ const IMAGE_SERVICE_STORAGE_KEY = 'chocodrop-service-image';
 const VIDEO_SERVICE_STORAGE_KEY = 'chocodrop-service-video';
 
 /**
- * Command UI - Web interface for ChocoDrop System
- * Real-time natural language command interface for 3D scenes
+ * Command UI Demo - Demo version with restricted functionality
+ * For GitHub Pages demo - import functionality only
  */
-export class CommandUI {
+export class CommandUIDemo {
   constructor(options = {}) {
     this.sceneManager = options.sceneManager || null;
     this.client = options.client || null;
@@ -108,6 +108,116 @@ export class CommandUI {
       return;
     }
     console.log(...args);
+  }
+
+  /**
+   * デモページ用のモーダルメッセージを表示
+   */
+  showDemoMessage() {
+    this.showDisabledModal('デモページではこの機能を利用できません', '🚫');
+  }
+
+  /**
+   * 無効化モーダルの共通表示関数
+   */
+  showDisabledModal(message, icon) {
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10000;
+      backdrop-filter: blur(4px);
+    `;
+
+    const content = document.createElement('div');
+    content.style.cssText = `
+      background: ${this.isDarkMode ? '#1f2937' : '#ffffff'};
+      border: 2px solid #8b5cf6;
+      border-radius: 16px;
+      padding: 32px;
+      text-align: center;
+      max-width: 400px;
+      box-shadow: 0 20px 40px rgba(139, 92, 246, 0.3);
+      transform: scale(0.9);
+      transition: transform 0.3s ease;
+    `;
+
+    const iconEl = document.createElement('div');
+    iconEl.innerHTML = icon;
+    iconEl.style.cssText = `
+      font-size: 48px;
+      margin-bottom: 16px;
+      filter: hue-rotate(240deg) saturate(0.8) brightness(1.1);
+    `;
+
+    const messageEl = document.createElement('div');
+    messageEl.textContent = message;
+    messageEl.style.cssText = `
+      color: ${this.isDarkMode ? '#ffffff' : '#1f2937'};
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 24px;
+    `;
+
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = 'OK';
+    closeBtn.style.cssText = `
+      background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 12px 24px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    `;
+
+    closeBtn.addEventListener('mouseenter', () => {
+      closeBtn.style.transform = 'scale(1.05)';
+      closeBtn.style.background = 'linear-gradient(135deg, #7c3aed, #6d28d9)';
+    });
+
+    closeBtn.addEventListener('mouseleave', () => {
+      closeBtn.style.transform = 'scale(1)';
+      closeBtn.style.background = 'linear-gradient(135deg, #8b5cf6, #7c3aed)';
+    });
+
+    closeBtn.addEventListener('click', () => {
+      content.style.transform = 'scale(0.9)';
+      modal.style.opacity = '0';
+      setTimeout(() => {
+        document.body.removeChild(modal);
+      }, 200);
+    });
+
+    content.appendChild(iconEl);
+    content.appendChild(messageEl);
+    content.appendChild(closeBtn);
+    modal.appendChild(content);
+    
+    document.body.appendChild(modal);
+
+    // アニメーション
+    setTimeout(() => {
+      content.style.transform = 'scale(1)';
+    }, 10);
+
+    // Escapeキーで閉じる
+    const handleEscape = (e) => {
+      if (e.key === 'Escape') {
+        closeBtn.click();
+        document.removeEventListener('keydown', handleEscape);
+      }
+    };
+    document.addEventListener('keydown', handleEscape);
   }
 
   /**
@@ -389,12 +499,10 @@ export class CommandUI {
           return;
         }
         
-        // デモページチェック
-        if (this.isDemo()) {
-          e.preventDefault();
-          this.showDemoMessage();
-          return;
-        }
+        // デモページ - 生成機能無効化
+        e.preventDefault();
+        this.showDemoMessage();
+        return;
 
         e.preventDefault();
         this.executeCommand();
