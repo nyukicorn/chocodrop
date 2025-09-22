@@ -73,21 +73,35 @@
 
         @keyframes choco-sparkle {
             0%, 100% {
-                filter: brightness(1) drop-shadow(0 0 0px rgba(139, 92, 246, 0));
-                transform: scale(1);
+                filter: brightness(1) drop-shadow(0 0 2px rgba(139, 92, 246, 0.3));
+                transform: scale(1) rotate(0deg);
+            }
+            25% {
+                filter: brightness(1.4) drop-shadow(0 0 12px rgba(139, 92, 246, 0.9));
+                transform: scale(1.08) rotate(2deg);
             }
             50% {
-                filter: brightness(1.3) drop-shadow(0 0 8px rgba(139, 92, 246, 0.8));
-                transform: scale(1.05);
+                filter: brightness(1.6) drop-shadow(0 0 16px rgba(139, 92, 246, 1)) drop-shadow(0 0 8px rgba(255, 255, 255, 0.8));
+                transform: scale(1.12) rotate(0deg);
+            }
+            75% {
+                filter: brightness(1.4) drop-shadow(0 0 12px rgba(139, 92, 246, 0.9));
+                transform: scale(1.08) rotate(-2deg);
             }
         }
 
         @keyframes choco-sparkle-fast {
             0%, 100% {
-                filter: brightness(1.2) drop-shadow(0 0 4px rgba(139, 92, 246, 0.6));
+                filter: brightness(1.3) drop-shadow(0 0 8px rgba(139, 92, 246, 0.8)) drop-shadow(0 0 4px rgba(255, 255, 255, 0.6));
+                transform: rotate(0deg);
             }
-            50% {
-                filter: brightness(1.5) drop-shadow(0 0 12px rgba(139, 92, 246, 1));
+            33% {
+                filter: brightness(1.8) drop-shadow(0 0 20px rgba(139, 92, 246, 1)) drop-shadow(0 0 12px rgba(255, 255, 255, 1));
+                transform: rotate(5deg);
+            }
+            66% {
+                filter: brightness(1.8) drop-shadow(0 0 20px rgba(139, 92, 246, 1)) drop-shadow(0 0 12px rgba(255, 255, 255, 1));
+                transform: rotate(-5deg);
             }
         }
 
@@ -143,9 +157,9 @@
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         document.body.appendChild(renderer.domElement);
         
-        // Environment - より明るく親しみやすい背景
-        scene.background = new THREE.Color(0x708090);
-        scene.fog = new THREE.Fog(0x708090, 150, 400);
+        // Environment - 明るい青空
+        scene.background = new THREE.Color(0x87ceeb);
+        scene.fog = new THREE.Fog(0x87ceeb, 150, 400);
         
         // Lighting - より明るく親しみやすいライティング
         const ambientLight = new THREE.AmbientLight(0x6366f1, 0.9);
@@ -165,7 +179,7 @@
         scene.add(directionalLight);
 
         // より明るい環境光
-        const hemisphereLight = new THREE.HemisphereLight(0x87ceeb, 0x708090, 0.7);
+        const hemisphereLight = new THREE.HemisphereLight(0x87ceeb, 0x87ceeb, 0.7);
         scene.add(hemisphereLight);
         
         // Ground - より洗練された地面
