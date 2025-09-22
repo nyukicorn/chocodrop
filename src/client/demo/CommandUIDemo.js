@@ -1424,13 +1424,17 @@ export class CommandUIDemo {
 
     const glowColors = {
       generate: 'rgba(79, 70, 229, 0.4)',   // 紫のグロー
+      import: 'rgba(34, 197, 94, 0.4)',     // 緑のグロー
       modify: 'rgba(236, 72, 153, 0.4)',    // ピンクのグロー  
       delete: 'rgba(107, 114, 128, 0.3)'    // グレーのグロー
     };
 
     // 一時的にグロー効果を適用
-    container.style.boxShadow = `0 0 20px ${glowColors[mode]}, 0 0 40px ${glowColors[mode]}`;
-    container.style.borderColor = glowColors[mode].replace('0.4', '0.6').replace('0.3', '0.5');
+    const glowColor = glowColors[mode];
+    if (glowColor) {
+      container.style.boxShadow = `0 0 20px ${glowColor}, 0 0 40px ${glowColor}`;
+      container.style.borderColor = glowColor.replace('0.4', '0.6').replace('0.3', '0.5');
+    }
     
     // 1秒後にグロー効果を除去
     setTimeout(() => {
@@ -1737,12 +1741,14 @@ export class CommandUIDemo {
     
     const typeLabels = {
       generate: '🎨 生成モード',
+      import: '📥 インポートモード',
       modify: '✏️ 変更モード',
       delete: '🗑️ 削除モード'
     };
     
     const typeColors = {
       generate: 'linear-gradient(135deg, #4f46e5, #4338ca)',
+      import: 'linear-gradient(135deg, #22c55e, #16a34a)',
       modify: 'linear-gradient(135deg, #ec4899, #be185d)',
       delete: 'rgba(107, 114, 128, 0.15)'
     };
@@ -1828,12 +1834,14 @@ export class CommandUIDemo {
   updateIndicatorForMode(mode, confidence) {
     const typeLabels = {
       generate: '🎨 生成モード',
+      import: '📥 インポートモード',
       modify: '✏️ 変更モード',
       delete: '🗑️ 削除モード'
     };
     
     const typeColors = {
       generate: 'linear-gradient(135deg, #4f46e5, #4338ca)',
+      import: 'linear-gradient(135deg, #22c55e, #16a34a)',
       modify: 'linear-gradient(135deg, #ec4899, #be185d)',
       delete: 'rgba(107, 114, 128, 0.15)'
     };
@@ -2146,6 +2154,7 @@ export class CommandUIDemo {
     // モードカラー設定
     const modeColors = {
       generate: 'linear-gradient(135deg, #4f46e5, #4338ca)', // Deep purple - 創造性
+      import: 'linear-gradient(135deg, #22c55e, #16a34a)',   // Green - インポート
       modify: 'linear-gradient(135deg, #ec4899, #be185d)',    // Vibrant pink - 変更・調整
       delete: 'rgba(107, 114, 128, 0.15)'                    // 半透明グレー - セカンダリボタンスタイル
     };
