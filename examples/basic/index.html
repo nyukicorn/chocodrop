@@ -357,13 +357,15 @@
         
         const sparkles = createSparkleParticles();
 
-        // 🌈 ミルキー虹を追加
+        // 🌈 ミルキー虹を追加（縦向きアーチ）
         function createRainbow() {
+            // 縦向きのアーチカーブ
             const curve = new THREE.CatmullRomCurve3([
-                new THREE.Vector3(-30, 10, -20),
-                new THREE.Vector3(-10, 20, -15),
-                new THREE.Vector3(10, 20, -15),
-                new THREE.Vector3(30, 10, -20)
+                new THREE.Vector3(-25, 5, -15),  // 左下
+                new THREE.Vector3(-12, 18, -15), // 左上
+                new THREE.Vector3(0, 22, -15),   // 頂点
+                new THREE.Vector3(12, 18, -15),  // 右上
+                new THREE.Vector3(25, 5, -15)    // 右下
             ]);
             
             // 正しい虹色順序（外側から内側へ）+ ミルキー調
@@ -378,17 +380,16 @@
             ];
             
             colors.forEach((color, i) => {
-                const radius = 0.8 + i * 0.4; // 内側から外側へ（正しい虹の順序）
-                const tubeGeometry = new THREE.TubeGeometry(curve, 100, radius, 16, false);
+                const radius = 0.5 + i * 0.6; // より大きな間隔で分離
+                const tubeGeometry = new THREE.TubeGeometry(curve, 80, radius, 20, false);
                 const tubeMaterial = new THREE.MeshBasicMaterial({
                     color: color,
                     transparent: true,
-                    opacity: 0.9, // もっと濃く
+                    opacity: 0.85, // 少し透明度を下げて重なりを見やすく
                     side: THREE.DoubleSide,
-                    depthWrite: false // 深度書き込み無効で重なりを改善
+                    depthWrite: false
                 });
                 const rainbow = new THREE.Mesh(tubeGeometry, tubeMaterial);
-                // Y位置のずらしは削除（半径で分離）
                 scene.add(rainbow);
             });
         }
