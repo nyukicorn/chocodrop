@@ -2231,6 +2231,16 @@ export class CommandUI {
         0% { transform: translateX(-100%); }
         100% { transform: translateX(100%); }
       }
+
+      /* wabi-sabiモード用の入力フィールドフォーカススタイル */
+      .wabisabi-mode textarea:focus,
+      .wabisabi-mode input:focus {
+        background: linear-gradient(135deg, rgba(97, 97, 97, 0.4), rgba(66, 66, 66, 0.3)) !important;
+        border: 1px solid rgba(141, 110, 99, 0.6) !important;
+        box-shadow: 0 4px 16px rgba(66, 66, 66, 0.3), inset 0 1px 0 rgba(189, 189, 189, 0.2), 0 0 0 2px rgba(141, 110, 99, 0.2) !important;
+        color: #F5F5F5 !important;
+        outline: none !important;
+      }
     `;
 
     document.head.appendChild(style);

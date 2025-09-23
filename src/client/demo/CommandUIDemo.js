@@ -1620,6 +1620,18 @@ export class CommandUIDemo {
       { pattern: /変えて/, keyword: '変えて' },
       { pattern: /修正/, keyword: '修正' },
       { pattern: /調整/, keyword: '調整' },
+      { pattern: /回転/, keyword: '回転' },
+      { pattern: /反転/, keyword: '反転' },
+      { pattern: /ミラー/, keyword: 'ミラー' },
+      { pattern: /傾け/, keyword: '傾け' },
+      { pattern: /向きを変え/, keyword: '向きを変え' },
+      { pattern: /向きを変更/, keyword: '向きを変更' },
+      { pattern: /左右(逆|反転)/, keyword: '左右反転' },
+      { pattern: /上下(逆|反転)/, keyword: '上下反転' },
+      { pattern: /逆さ/, keyword: '逆さ' },
+      { pattern: /ひっくり返/, keyword: 'ひっくり返す' },
+      { pattern: /.*を.*色/, keyword: '色変更' },
+      { pattern: /.*を.*サイズ/, keyword: 'サイズ変更' },
       { pattern: /を.*に.*して/, keyword: '変更' },
       { pattern: /move/i, keyword: 'move' },
       { pattern: /change/i, keyword: 'change' },
@@ -2072,6 +2084,16 @@ export class CommandUIDemo {
         0% { transform: translateX(-100%); }
         100% { transform: translateX(100%); }
       }
+
+      /* wabi-sabiモード用の入力フィールドフォーカススタイル */
+      .wabisabi-mode textarea:focus,
+      .wabisabi-mode input:focus {
+        background: linear-gradient(135deg, rgba(97, 97, 97, 0.4), rgba(66, 66, 66, 0.3)) !important;
+        border: 1px solid rgba(141, 110, 99, 0.6) !important;
+        box-shadow: 0 4px 16px rgba(66, 66, 66, 0.3), inset 0 1px 0 rgba(189, 189, 189, 0.2), 0 0 0 2px rgba(141, 110, 99, 0.2) !important;
+        color: #F5F5F5 !important;
+        outline: none !important;
+      }
     `;
 
     document.head.appendChild(style);
@@ -2372,6 +2394,102 @@ export class CommandUIDemo {
   }
 
   /**
+   * デモ版専用: 向き・反転コマンドをローカルで処理
+   */
+  handleDemoOrientationCommand(command) {
+    if (!this.sceneManager) {
+      return null;
+    }
+
+    const normalized = command.toLowerCase();
+    const wantsVerticalFlip = /上下|逆さ|さかさ|ひっくり返/.test(normalized);
+    const wantsHorizontalFlip = /左右|向きを変え|向きを変更|横向き|ミラー|反転/.test(normalized);
+    const wantsRotateRight = /右向き|右を向|右に向け/.test(normalized);
+    const wantsRotateLeft = /左向き|左を向|左に向け/.test(normalized);
+    const wantsRotateBack = /後ろ向き|反対向き|背中|180度|半回転/.test(normalized);
+
+    const hasOrientationKeyword = wantsVerticalFlip || wantsHorizontalFlip || wantsRotateRight || wantsRotateLeft || wantsRotateBack;
+    if (!hasOrientationKeyword) {
+      return null;
+    }
+
+    let targetObject = this.sceneManager.selectedObject;
+    if (!targetObject && typeof this.sceneManager.findObjectByKeyword === 'function') {
+      targetObject = this.sceneManager.findObjectByKeyword(normalized);
+      if (targetObject) {
+        this.sceneManager.selectObject(targetObject);
+      }
+    }
+
+    if (!targetObject) {
+      this.addOutput('⚠️ 変更したいオブジェクトを先に選択してください。', 'warning');
+      return { handled: true, result: { success: false, message: '対象オブジェクトが見つかりませんでした' } };
+    }
+
+    const operations = [];
+
+    if (wantsHorizontalFlip) {
+      const currentX = targetObject.scale.x === 0 ? 1 : targetObject.scale.x;
+      targetObject.scale.x = -currentX;
+      operations.push('左右反転');
+    }
+
+    if (wantsVerticalFlip) {
+      const currentY = targetObject.scale.y === 0 ? 1 : targetObject.scale.y;
+      targetObject.scale.y = -currentY;
+      operations.push('上下反転');
+    }
+
+    if (wantsRotateRight) {
+      targetObject.rotation.y = Math.PI / 2;
+      operations.push('右向き');
+    }
+
+    if (wantsRotateLeft) {
+      targetObject.rotation.y = -Math.PI / 2;
+      operations.push('左向き');
+    }
+
+    if (wantsRotateBack) {
+      targetObject.rotation.y = Math.PI;
+      operations.push('背面向き');
+    }
+
+    if (operations.length === 0) {
+      // ここまで来て操作が無ければ SceneManager に委譲
+      return { handled: false };
+    }
+
+    // 変更履歴を追加
+    targetObject.userData = targetObject.userData || {};
+    targetObject.userData.modifications = targetObject.userData.modifications || [];
+    targetObject.userData.modifications.push({
+      timestamp: Date.now(),
+      type: 'orientation',
+      operations,
+      command
+    });
+
+    // 選択表示を更新
+    if (typeof this.sceneManager.createModernSelectionIndicator === 'function') {
+      this.sceneManager.createModernSelectionIndicator(targetObject);
+    }
+
+    const message = `✏️ ${operations.join('・')} を適用しました`;
+    this.addOutput(message, 'success');
+
+    return {
+      handled: true,
+      result: {
+        success: true,
+        message,
+        objectId: targetObject.name,
+        operations
+      }
+    };
+  }
+
+  /**
    * コマンド実行
    */
   async executeCommand() {
@@ -2439,8 +2557,16 @@ export class CommandUIDemo {
         }
         result = await this.handleImportCommand(command);
       } else if (this.sceneManager) {
-        // 他のモード: SceneManager経由
-        result = await this.sceneManager.executeCommand(fullCommand);
+        if (this.currentMode === 'modify') {
+          const orientationResult = this.handleDemoOrientationCommand(command);
+          if (orientationResult && orientationResult.handled) {
+            result = orientationResult.result;
+          } else {
+            result = await this.sceneManager.executeCommand(fullCommand);
+          }
+        } else {
+          result = await this.sceneManager.executeCommand(fullCommand);
+        }
       } else if (this.client) {
         // モードに応じてAPIエンドポイントを選択
         if (this.currentMode === 'generate') {
@@ -3945,6 +4071,9 @@ export class CommandUIDemo {
    * スタイル再適用
    */
   refreshStyles() {
+    // ボディにテーマクラスを設定
+    document.body.className = this.isWabiSabiMode ? 'wabisabi-mode' : (this.isDarkMode ? 'dark-mode' : 'light-mode');
+
     // Generateモードボタンのスタイルを再適用
     const generateBtn = this.container?.querySelector('[data-mode="generate"]');
     if (generateBtn) {
