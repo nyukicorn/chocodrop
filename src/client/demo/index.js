@@ -19,18 +19,25 @@ function createChocoDropDemo(scene, options = {}) {
     client = null,
     onControlsToggle = () => {},
     sceneOptions = {},
-    uiOptions = {}
+    uiOptions = {},
+    ...otherSceneOptions
   } = options;
 
   const resolvedServerUrl = serverUrl || sceneOptions.serverUrl || null;
   const chocoDropClient = client || new ChocoDropClient(resolvedServerUrl);
+
+  // 旧APIとの互換のため、トップレベルに渡された追加オプションもSceneManagerへ伝搬させる
+  const mergedSceneOptions = {
+    ...sceneOptions,
+    ...otherSceneOptions
+  };
 
   const sceneManager = new SceneManager(scene, {
     camera,
     renderer,
     serverUrl: resolvedServerUrl,
     client: chocoDropClient,
-    ...sceneOptions
+    ...mergedSceneOptions
   });
 
   // Use CommandUIDemo instead of CommandUI
