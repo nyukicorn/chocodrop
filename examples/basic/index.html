@@ -327,25 +327,29 @@
             return particles;
         }
         
-        // 星のテクスチャ作成（透明）
+        // 星のテクスチャ作成（完全透明背景）
         function createStarTexture() {
             const canvas = document.createElement('canvas');
             canvas.width = 64;
             canvas.height = 64;
             const ctx = canvas.getContext('2d');
             
-            // 透明背景
+            // 完全に透明な背景
             ctx.clearRect(0, 0, 64, 64);
             
-            // 星形のグラデーション
-            const gradient = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+            // 中心から外側へのグラデーション（外側は完全透明）
+            const gradient = ctx.createRadialGradient(32, 32, 0, 32, 32, 28);
             gradient.addColorStop(0, 'rgba(255,255,255,1)');
-            gradient.addColorStop(0.3, 'rgba(255,240,255,0.8)');
-            gradient.addColorStop(0.6, 'rgba(255,220,255,0.4)');
-            gradient.addColorStop(1, 'rgba(255,200,255,0)');
+            gradient.addColorStop(0.2, 'rgba(255,240,255,0.9)');
+            gradient.addColorStop(0.5, 'rgba(255,220,255,0.5)');
+            gradient.addColorStop(0.8, 'rgba(255,200,255,0.2)');
+            gradient.addColorStop(1, 'rgba(255,200,255,0)'); // 完全透明
             
+            // 円形に描画（四角ではなく円）
+            ctx.beginPath();
+            ctx.arc(32, 32, 28, 0, Math.PI * 2);
             ctx.fillStyle = gradient;
-            ctx.fillRect(0, 0, 64, 64);
+            ctx.fill();
             
             const texture = new THREE.CanvasTexture(canvas);
             return texture;
