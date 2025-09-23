@@ -416,6 +416,7 @@
             });
 
             const rainbow = new THREE.Mesh(geometry, material);
+
             scene.add(rainbow);
         }
         
@@ -479,7 +480,9 @@
             renderer: renderer,
             // GitHub Pagesなので生成機能なし、インポートのみ
             serverUrl: null,
-            enableMouseInteraction: true,
+            sceneOptions: {
+                enableMouseInteraction: true
+            },
             onControlsToggle: (disabled) => {
                 controls.enabled = !disabled;
             }
