@@ -357,41 +357,48 @@
         
         const sparkles = createSparkleParticles();
 
-        // 🌈 ミルキー虹を追加（縦向きアーチ）
+        // 🌈 正しい帯状の虹を追加
         function createRainbow() {
-            // 縦向きのアーチカーブ
-            const curve = new THREE.CatmullRomCurve3([
-                new THREE.Vector3(-25, 5, -15),  // 左下
-                new THREE.Vector3(-12, 18, -15), // 左上
-                new THREE.Vector3(0, 22, -15),   // 頂点
-                new THREE.Vector3(12, 18, -15),  // 右上
-                new THREE.Vector3(25, 5, -15)    // 右下
-            ]);
-            
-            // 正しい虹色順序（外側から内側へ）+ ミルキー調
+            // 虹の色順序（左から右へ：赤→紫）
             const colors = [
-                0xffaaaa, // ミルキー赤（もっと赤く）
-                0xffcc99, // ミルキーオレンジ（オレンジっぽく）
-                0xffffaa, // ミルキー黄色（黄色っぽく）
-                0xaaffaa, // ミルキー緑（緑っぽく）
-                0xaaccff, // ミルキー青（青っぽく）
-                0xccaaff, // ミルキー藍（紫っぽく）
-                0xffaaff  // ミルキー紫（紫っぽく）
+                0xffaaaa, // ミルキー赤
+                0xffcc99, // ミルキーオレンジ
+                0xffffaa, // ミルキー黄色
+                0xaaffaa, // ミルキー緑
+                0xaaccff, // ミルキー青
+                0xccaaff, // ミルキー藍
+                0xffaaff  // ミルキー紫
             ];
             
+            const rainbowGroup = new THREE.Group();
+            
+            // 各色の帯を作成
             colors.forEach((color, i) => {
-                const radius = 0.5 + i * 0.6; // より大きな間隔で分離
-                const tubeGeometry = new THREE.TubeGeometry(curve, 80, radius, 20, false);
-                const tubeMaterial = new THREE.MeshBasicMaterial({
+                // 帯状のジオメトリ
+                const geometry = new THREE.PlaneGeometry(8, 1.5, 32, 1);
+                const material = new THREE.MeshBasicMaterial({
                     color: color,
                     transparent: true,
-                    opacity: 0.85, // 少し透明度を下げて重なりを見やすく
-                    side: THREE.DoubleSide,
-                    depthWrite: false
+                    opacity: 0.8,
+                    side: THREE.DoubleSide
                 });
-                const rainbow = new THREE.Mesh(tubeGeometry, tubeMaterial);
-                scene.add(rainbow);
+                
+                const strip = new THREE.Mesh(geometry, material);
+                
+                // アーチ状に配置
+                const angle = (i - 3) * 0.3; // 中央を0として左右に配置
+                const radius = 20;
+                const x = Math.sin(angle) * radius;
+                const y = 15 + Math.cos(angle) * 5; // 高さ調整
+                const z = -15;
+                
+                strip.position.set(x, y, z);
+                strip.rotation.z = angle; // 角度に合わせて回転
+                
+                rainbowGroup.add(strip);
             });
+            
+            scene.add(rainbowGroup);
         }
         
         createRainbow();
