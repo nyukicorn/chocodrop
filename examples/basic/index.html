@@ -371,8 +371,8 @@
                 new THREE.Vector3(20, 5, -15)
             ]);
 
-            // 太いチューブジオメトリ
-            const geometry = new THREE.TubeGeometry(curve, 64, 2, 16, false);
+            // 太いチューブジオメトリ（高解像度）
+            const geometry = new THREE.TubeGeometry(curve, 100, 2.5, 32, false);
             
             // グラデーション用のvertex shader
             const vertexShader = `
@@ -387,7 +387,7 @@
             const fragmentShader = `
                 varying vec2 vUv;
                 void main() {
-                    float t = vUv.x; // 長さ方向でグラデーション
+                    float t = vUv.y; // 長さ方向でグラデーション（修正！）
                     
                     vec3 color;
                     if (t < 0.167) {
