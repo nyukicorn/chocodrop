@@ -354,6 +354,9 @@ export class CommandUI {
       // 自動リサイズ処理
       this.autoResizeTextarea();
       
+      // キーワードハイライト適用
+      this.applyKeywordHighlighting();
+      
       this.detectCommandType();
     });
     
@@ -1566,6 +1569,200 @@ export class CommandUI {
       requiresConfirmation: false,
       detectedKeyword: null
     };
+  }
+
+  /**
+   * Extract all command keywords from the analyzeCommandType patterns
+   * Returns an array of {pattern, keyword, type} objects
+   */
+  getAllCommandKeywords() {
+    const deletePatterns = [
+      { pattern: /削除/, keyword: '削除', type: 'delete' },
+      { pattern: /消去/, keyword: '消去', type: 'delete' },
+      { pattern: /消して/, keyword: '消して', type: 'delete' },
+      { pattern: /消す/, keyword: '消す', type: 'delete' },
+      { pattern: /取り除/, keyword: '取り除', type: 'delete' },
+      { pattern: /除去/, keyword: '除去', type: 'delete' },
+      { pattern: /削除して/, keyword: '削除して', type: 'delete' },
+      { pattern: /delete/i, keyword: 'delete', type: 'delete' },
+      { pattern: /remove/i, keyword: 'remove', type: 'delete' },
+      { pattern: /clear/i, keyword: 'clear', type: 'delete' },
+      { pattern: /erase/i, keyword: 'erase', type: 'delete' }
+    ];
+    
+    const modifyPatterns = [
+      { pattern: /移動/, keyword: '移動', type: 'modify' },
+      { pattern: /動かして/, keyword: '動かして', type: 'modify' },
+      { pattern: /変更/, keyword: '変更', type: 'modify' },
+      { pattern: /変えて/, keyword: '変えて', type: 'modify' },
+      { pattern: /修正/, keyword: '修正', type: 'modify' },
+      { pattern: /調整/, keyword: '調整', type: 'modify' },
+      { pattern: /move/i, keyword: 'move', type: 'modify' },
+      { pattern: /change/i, keyword: 'change', type: 'modify' },
+      { pattern: /modify/i, keyword: 'modify', type: 'modify' },
+      { pattern: /edit/i, keyword: 'edit', type: 'modify' }
+    ];
+    
+    const generatePatterns = [
+      { pattern: /作って/, keyword: '作って', type: 'generate' },
+      { pattern: /生成/, keyword: '生成', type: 'generate' },
+      { pattern: /作成/, keyword: '作成', type: 'generate' },
+      { pattern: /描いて/, keyword: '描いて', type: 'generate' },
+      { pattern: /書いて/, keyword: '書いて', type: 'generate' },
+      { pattern: /create/i, keyword: 'create', type: 'generate' },
+      { pattern: /generate/i, keyword: 'generate', type: 'generate' },
+      { pattern: /make/i, keyword: 'make', type: 'generate' },
+      { pattern: /draw/i, keyword: 'draw', type: 'generate' }
+    ];
+
+    return [...deletePatterns, ...modifyPatterns, ...generatePatterns];
+  }
+
+  /**
+   * Apply keyword highlighting to the input text
+   */
+  applyKeywordHighlighting() {
+    if (!this.input || this.isComposing) {
+      return;
+    }
+
+    const text = this.input.value;
+    if (!text.trim()) {
+      this.clearKeywordHighlighting();
+      return;
+    }
+
+    // Get all keyword patterns
+    const allKeywords = this.getAllCommandKeywords();
+    
+    // Find matches in the text
+    const matches = [];
+    for (const { pattern, keyword, type } of allKeywords) {
+      const match = text.match(pattern);
+      if (match) {
+        const startIndex = match.index;
+        const endIndex = startIndex + match[0].length;
+        matches.push({
+          start: startIndex,
+          end: endIndex,
+          keyword: match[0], // Use actual matched text
+          type: type
+        });
+      }
+    }
+
+    // Sort matches by position to avoid overlaps
+    matches.sort((a, b) => a.start - b.start);
+
+    // Apply highlighting if we have matches
+    if (matches.length > 0) {
+      this.createHighlightOverlay(text, matches);
+    } else {
+      this.clearKeywordHighlighting();
+    }
+  }
+
+  /**
+   * Create a highlighting overlay div that sits behind the textarea
+   */
+  createHighlightOverlay(text, matches) {
+    // Remove existing overlay
+    this.clearKeywordHighlighting();
+
+    // Create highlight overlay div
+    this.highlightOverlay = document.createElement('div');
+    this.highlightOverlay.className = 'keyword-highlight-overlay';
+    
+    // Copy textarea styles to overlay
+    const computedStyle = window.getComputedStyle(this.input);
+    this.highlightOverlay.style.cssText = `
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      overflow: hidden;
+      font-family: ${computedStyle.fontFamily};
+      font-size: ${computedStyle.fontSize};
+      font-weight: ${computedStyle.fontWeight};
+      line-height: ${computedStyle.lineHeight};
+      letter-spacing: ${computedStyle.letterSpacing};
+      padding: ${computedStyle.padding};
+      border: ${computedStyle.borderWidth} solid transparent;
+      margin: 0;
+      z-index: 1;
+      color: transparent;
+      background: transparent;
+    `;
+
+    // Build highlighted HTML
+    let highlightedHTML = '';
+    let lastIndex = 0;
+
+    for (const match of matches) {
+      // Add text before this match
+      highlightedHTML += this.escapeHtml(text.substring(lastIndex, match.start));
+      
+      // Add highlighted keyword
+      const color = this.getKeywordColor(match.type);
+      highlightedHTML += `<span style="color: ${color}; font-weight: 600; background: linear-gradient(135deg, ${color}22 0%, ${color}11 100%); border-radius: 3px; padding: 1px 2px;">${this.escapeHtml(match.keyword)}</span>`;
+      
+      lastIndex = match.end;
+    }
+
+    // Add remaining text
+    highlightedHTML += this.escapeHtml(text.substring(lastIndex));
+
+    this.highlightOverlay.innerHTML = highlightedHTML;
+
+    // Make textarea background transparent so overlay shows through
+    this.input.style.background = 'transparent';
+    this.input.style.color = this.isDarkMode ? '#ffffff' : '#1f2937';
+
+    // Insert overlay before textarea
+    this.inputWrapper.insertBefore(this.highlightOverlay, this.input);
+  }
+
+  /**
+   * Get the appropriate color for each keyword type
+   */
+  getKeywordColor(type) {
+    switch (type) {
+      case 'delete':
+        return '#ef4444'; // Red for delete
+      case 'modify': 
+        return '#f59e0b'; // Orange for modify
+      case 'generate':
+      default:
+        return '#8b5cf6'; // Purple for generate (brand color)
+    }
+  }
+
+  /**
+   * Clear keyword highlighting
+   */
+  clearKeywordHighlighting() {
+    if (this.highlightOverlay) {
+      this.highlightOverlay.remove();
+      this.highlightOverlay = null;
+    }
+    
+    // Restore textarea background
+    if (this.input) {
+      this.input.style.background = this.isDarkMode ? 'rgba(31, 41, 55, 0.8)' : 'rgba(255, 255, 255, 0.9)';
+    }
+  }
+
+  /**
+   * Escape HTML characters
+   */
+  escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
   }
 
   /**
@@ -4866,6 +5063,9 @@ export class CommandUI {
   }
 
   dispose() {
+    // キーワードハイライトのクリーンアップ
+    this.clearKeywordHighlighting();
+
     // ファイル選択関連のクリーンアップ
     if (this.fileInput && this.fileInput.parentNode) {
       this.fileInput.parentNode.removeChild(this.fileInput);

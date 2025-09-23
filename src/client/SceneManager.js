@@ -448,7 +448,7 @@ export class SceneManager {
         }
 
         // 生成された画像・動画・3Dモデル対象（Shift不要の直感的操作）
-        if (object.userData && (object.userData.type === 'generated_image' || object.userData.type === 'generated_video' || object.userData.type === 'generated_3d_model')) {
+        if (object.userData && (object.userData.type === 'generated_image' || object.userData.type === 'generated_video' || object.userData.type === 'generated_3d_model' || object.userData.source === 'imported_file')) {
           
           // 🗑️ Deleteモードでのクリック処理
           if (this.commandUI && this.commandUI.currentMode === 'delete') {
@@ -523,7 +523,6 @@ export class SceneManager {
         }
         
         const corner = this.resizeHandleInfo.corner;
-        console.log(`🔍 Resizing from corner: ${corner}, deltaX: ${deltaX}, deltaY: ${deltaY}`);
         let scaleMultiplier = 1;
         
         // 各ハンドルの位置に応じた直感的な方向計算
@@ -554,7 +553,6 @@ export class SceneManager {
         // 選択インジケーターも更新（パフォーマンス最適化）
         this.updateSelectionIndicatorScale(dragObject);
 
-        console.log(`🔄 Resizing: ${dragObject.name} scale: ${newScale.toFixed(2)} (${scaleMultiplier > 1 ? '拡大' : '縮小'})`);
       } else if (dragMode === 'move') {
         // 移動モード（従来の処理）
         const cameraRight = new THREE.Vector3();
