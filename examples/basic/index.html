@@ -360,52 +360,62 @@
         
         const sparkles = createSparkleParticles();
 
-        // 🌈 正しい帯状の虹を追加
+        // 🌈 グラデーション虹を追加
         function createRainbow() {
-            // 虹の色順序（左から右へ：赤→紫）
-            const colors = [
-                0xffaaaa, // ミルキー赤
-                0xffcc99, // ミルキーオレンジ
-                0xffffaa, // ミルキー黄色
-                0xaaffaa, // ミルキー緑
-                0xaaccff, // ミルキー青
-                0xccaaff, // ミルキー藍
-                0xffaaff  // ミルキー紫
+            // 1つの連続したアーチジオメトリ
+            const curve = new THREE.EllipseCurve(
+                0, 0,            // 中心
+                25, 15,          // 横半径、縦半径
+                Math.PI * 0.2,   // 開始角度
+                Math.PI * 0.8,   // 終了角度
+                false,           // 時計回り
+                0                // 回転
+            );
+            
+            const points = curve.getPoints(100);
+            const geometry = new THREE.BufferGeometry().setFromPoints(points);
+            
+            // 虹色グラデーション用のカラー配列
+            const colors = [];
+            const rainbowColors = [
+                [1.0, 0.67, 0.67], // ミルキー赤
+                [1.0, 0.8, 0.6],   // ミルキーオレンジ  
+                [1.0, 1.0, 0.67],  // ミルキー黄色
+                [0.67, 1.0, 0.67], // ミルキー緑
+                [0.67, 0.8, 1.0],  // ミルキー青
+                [0.8, 0.67, 1.0],  // ミルキー藍
+                [1.0, 0.67, 1.0]   // ミルキー紫
             ];
             
-            const rainbowGroup = new THREE.Group();
+            // 各点に色を割り当て
+            for (let i = 0; i <= 100; i++) {
+                const colorIndex = (i / 100) * (rainbowColors.length - 1);
+                const colorIndex1 = Math.floor(colorIndex);
+                const colorIndex2 = Math.min(colorIndex1 + 1, rainbowColors.length - 1);
+                const factor = colorIndex - colorIndex1;
+                
+                const color1 = rainbowColors[colorIndex1];
+                const color2 = rainbowColors[colorIndex2];
+                
+                const r = color1[0] * (1 - factor) + color2[0] * factor;
+                const g = color1[1] * (1 - factor) + color2[1] * factor;
+                const b = color1[2] * (1 - factor) + color2[2] * factor;
+                
+                colors.push(r, g, b);
+            }
             
-            // 各色の帯を作成（正しいアーチ）
-            colors.forEach((color, i) => {
-                // 帯状のジオメトリ
-                const geometry = new THREE.PlaneGeometry(6, 2, 32, 1);
-                const material = new THREE.MeshBasicMaterial({
-                    color: color,
-                    transparent: true,
-                    opacity: 0.8,
-                    side: THREE.DoubleSide
-                });
-                
-                const strip = new THREE.Mesh(geometry, material);
-                
-                // 正しいアーチ計算
-                const totalColors = colors.length;
-                const angleRange = Math.PI * 0.6; // 約108度のアーチ
-                const angle = (i / (totalColors - 1) - 0.5) * angleRange; // -54度から+54度
-                const radius = 20;
-                
-                // アーチの位置計算
-                const x = Math.sin(angle) * radius;
-                const y = 15 + Math.cos(angle) * radius * 0.3; // Y軸も円弧に
-                const z = -15;
-                
-                strip.position.set(x, y, z);
-                strip.rotation.z = angle; // アーチに沿って回転
-                
-                rainbowGroup.add(strip);
+            geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+            
+            const material = new THREE.LineBasicMaterial({
+                vertexColors: true,
+                transparent: true,
+                opacity: 0.9,
+                linewidth: 10
             });
             
-            scene.add(rainbowGroup);
+            const rainbow = new THREE.Line(geometry, material);
+            rainbow.position.set(0, 8, -15);
+            scene.add(rainbow);
         }
         
         createRainbow();
