@@ -72,9 +72,10 @@ export class CommandUIDemo {
 
     this.applyServiceSelectionToSceneManager();
 
-    // ダークモード状態管理
-    this.isDarkMode = localStorage.getItem('live-command-theme') === 'dark' ||
-                     localStorage.getItem('live-command-theme') === null; // デフォルトはダーク
+    // テーマモード状態管理 (light, dark, wabisabi)
+    this.currentTheme = localStorage.getItem('live-command-theme') || 'light';
+    this.isDarkMode = this.currentTheme === 'dark';
+    this.isWabiSabiMode = this.currentTheme === 'wabisabi';
     
     // Undo/Redo システム
     this.commandHistory = [];
@@ -509,11 +510,39 @@ export class CommandUIDemo {
     rightSection.style.cssText = 'display: flex; gap: 6px; align-items: center;';
 
     const themeToggle = document.createElement('button');
-    themeToggle.innerHTML = this.isDarkMode ? 
-      '<span style="filter: hue-rotate(240deg) saturate(0.8) brightness(1.1);">☀️</span>' : 
-      '<span style="filter: hue-rotate(240deg) saturate(0.8) brightness(1.1);">🌙</span>';
+    const getThemeIcon = () => {
+      const themeConfig = {
+        light: '🌙',
+        dark: '🍵',
+        wabisabi: '☀️'
+      };
+      return themeConfig[this.currentTheme] || '🌙';
+    };
+
+    const getThemeTitle = () => {
+      const titleConfig = {
+        light: 'ダークモードに切り替え',
+        dark: '侘び寂びモードに切り替え',
+        wabisabi: 'ライトモードに切り替え'
+      };
+      return titleConfig[this.currentTheme] || 'ダークモードに切り替え';
+    };
+
+    const getThemeIconWithFilter = () => {
+      const icon = getThemeIcon();
+      // 太陽は黄色く、お茶は緑系、月は紫系フィルター
+      if (icon === '☀️') {
+        return `<span style="filter: saturate(1.2) brightness(1.1);">${icon}</span>`;
+      } else if (icon === '🍵') {
+        return `<span style="filter: hue-rotate(80deg) saturate(1.1) brightness(1.0);">${icon}</span>`;
+      } else {
+        return `<span style="filter: hue-rotate(240deg) saturate(0.8) brightness(1.1);">${icon}</span>`;
+      }
+    };
+
+    themeToggle.innerHTML = getThemeIconWithFilter();
     themeToggle.style.cssText = this.getActionButtonStyles('icon');
-    themeToggle.title = this.isDarkMode ? 'ライトモードに切り替え' : 'ダークモードに切り替え';
+    themeToggle.title = getThemeTitle();
     themeToggle.addEventListener('click', () => this.toggleTheme());
 
     const settingsButton = document.createElement('button');
@@ -1119,10 +1148,14 @@ export class CommandUIDemo {
       gap: 8px;
       margin-bottom: 12px;
       padding: 12px;
-      background: ${this.isDarkMode 
-        ? 'linear-gradient(135deg, rgba(30, 27, 75, 0.3), rgba(15, 23, 42, 0.4))' 
-        : 'linear-gradient(135deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.1))'};
-      border: 1px solid ${this.isDarkMode ? 'rgba(99, 102, 241, 0.15)' : 'rgba(255, 255, 255, 0.25)'};
+      background: ${this.isWabiSabiMode
+        ? 'linear-gradient(135deg, rgba(158, 158, 158, 0.25), rgba(189, 189, 189, 0.2))'
+        : (this.isDarkMode
+          ? 'linear-gradient(135deg, rgba(30, 27, 75, 0.3), rgba(15, 23, 42, 0.4))'
+          : 'linear-gradient(135deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.1))')};
+      border: 1px solid ${this.isWabiSabiMode
+        ? 'rgba(141, 110, 99, 0.4)'
+        : (this.isDarkMode ? 'rgba(99, 102, 241, 0.15)' : 'rgba(255, 255, 255, 0.25)')};
       border-radius: 16px;
       backdrop-filter: blur(12px);
       transition: all 0.3s ease;
@@ -1153,7 +1186,9 @@ export class CommandUIDemo {
         font-size: 11px;
         font-weight: 600;
         text-align: center;
-        color: ${mode.disabled ? 'rgba(139, 92, 246, 0.6)' : this.isDarkMode ? 'rgba(255, 255, 255, 0.7)' : 'rgba(55, 65, 81, 0.8)'};
+        color: ${mode.disabled ? 'rgba(139, 92, 246, 0.6)' : this.isWabiSabiMode
+          ? '#F5F5F5'
+          : (this.isDarkMode ? 'rgba(255, 255, 255, 0.7)' : 'rgba(55, 65, 81, 0.8)')};
         background: transparent;
         border: 1px solid transparent;
         position: relative;
@@ -1238,7 +1273,9 @@ export class CommandUIDemo {
     // 全ボタンをリセット
     Object.keys(this.radioModeButtons).forEach(key => {
       const { button, autoBadge } = this.radioModeButtons[key];
-      button.style.color = this.isDarkMode ? 'rgba(255, 255, 255, 0.7)' : 'rgba(55, 65, 81, 0.8)';
+      button.style.color = this.isWabiSabiMode
+        ? '#F5F5F5'
+        : (this.isDarkMode ? 'rgba(255, 255, 255, 0.7)' : 'rgba(55, 65, 81, 0.8)');
       button.style.background = 'transparent';
       button.style.border = '1px solid transparent';
       button.style.transform = 'scale(1)';
@@ -1252,19 +1289,26 @@ export class CommandUIDemo {
     const { button, autoBadge } = this.radioModeButtons[mode];
     
     // 2025 Glassmorphism選択状態
-    const selectedGlass = this.isDarkMode 
+    const selectedGlass = this.isWabiSabiMode
       ? {
-          background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(139, 92, 246, 0.15))',
-          border: '1px solid rgba(99, 102, 241, 0.4)',
-          boxShadow: '0 4px 16px rgba(99, 102, 241, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
-          color: '#a5b4fc'
+          background: 'linear-gradient(135deg, rgba(109, 76, 65, 0.2), rgba(141, 110, 99, 0.15))',
+          border: '1px solid rgba(109, 76, 65, 0.4)',
+          boxShadow: '0 4px 16px rgba(109, 76, 65, 0.25), inset 0 1px 0 rgba(245, 245, 220, 0.15)',
+          color: '#F5F5F5'
         }
-      : {
-          background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(139, 92, 246, 0.08))',
-          border: '1px solid rgba(99, 102, 241, 0.3)',
-          boxShadow: '0 4px 16px rgba(99, 102, 241, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.2)',
-          color: '#6366f1'
-        };
+      : (this.isDarkMode
+        ? {
+            background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(139, 92, 246, 0.15))',
+            border: '1px solid rgba(99, 102, 241, 0.4)',
+            boxShadow: '0 4px 16px rgba(99, 102, 241, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
+            color: '#a5b4fc'
+          }
+        : {
+            background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(139, 92, 246, 0.08))',
+            border: '1px solid rgba(99, 102, 241, 0.3)',
+            boxShadow: '0 4px 16px rgba(99, 102, 241, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.2)',
+            color: '#6366f1'
+          });
 
     button.style.color = selectedGlass.color;
     button.style.background = selectedGlass.background;
@@ -1417,11 +1461,17 @@ export class CommandUIDemo {
         align-items: center;
         justify-content: center;
         gap: 6px;
-        background: ${this.isDarkMode 
-          ? 'linear-gradient(135deg, rgba(55, 65, 81, 0.3), rgba(75, 85, 99, 0.2))'
-          : 'linear-gradient(135deg, rgba(255, 255, 255, 0.25), rgba(255, 255, 255, 0.15))'};
-        border: 1px solid ${this.isDarkMode ? 'rgba(156, 163, 175, 0.2)' : 'rgba(255, 255, 255, 0.3)'};
-        color: ${this.isDarkMode ? '#d1d5db' : '#374151'};
+        background: ${this.isWabiSabiMode
+          ? 'linear-gradient(135deg, rgba(141, 110, 99, 0.3), rgba(109, 76, 65, 0.2))'
+          : (this.isDarkMode
+            ? 'linear-gradient(135deg, rgba(55, 65, 81, 0.3), rgba(75, 85, 99, 0.2))'
+            : 'linear-gradient(135deg, rgba(255, 255, 255, 0.25), rgba(255, 255, 255, 0.15))')};
+        border: 1px solid ${this.isWabiSabiMode
+          ? 'rgba(93, 64, 55, 0.6)'
+          : (this.isDarkMode ? 'rgba(156, 163, 175, 0.2)' : 'rgba(255, 255, 255, 0.3)')};
+        color: ${this.isWabiSabiMode
+          ? '#F5F5F5'
+          : (this.isDarkMode ? '#d1d5db' : '#374151')};
         text-align: center;
         white-space: nowrap;
       `;
@@ -3868,16 +3918,52 @@ export class CommandUIDemo {
   }
 
   /**
-   * テーマ切り替え
+   * テーマ切り替え (light -> dark -> wabisabi -> light)
    */
   toggleTheme() {
-    this.isDarkMode = !this.isDarkMode;
-    localStorage.setItem('live-command-theme', this.isDarkMode ? 'dark' : 'light');
+    const themeOrder = ['light', 'dark', 'wabisabi'];
+    const currentIndex = themeOrder.indexOf(this.currentTheme);
+    const nextIndex = (currentIndex + 1) % themeOrder.length;
+
+    this.currentTheme = themeOrder[nextIndex];
+    this.isDarkMode = this.currentTheme === 'dark';
+    this.isWabiSabiMode = this.currentTheme === 'wabisabi';
+
+    localStorage.setItem('live-command-theme', this.currentTheme);
 
     // アイコンボタン更新
     if (this.themeToggle) {
-      this.themeToggle.innerHTML = this.isDarkMode ? '☀️' : '🌙';
-      this.themeToggle.title = this.isDarkMode ? 'ライトモードに切り替え' : 'ダークモードに切り替え';
+      const getThemeIcon = () => {
+        const themeConfig = {
+          light: '🌙',
+          dark: '🍵',
+          wabisabi: '☀️'
+        };
+        return themeConfig[this.currentTheme] || '🌙';
+      };
+
+      const getThemeTitle = () => {
+        const titleConfig = {
+          light: 'ダークモードに切り替え',
+          dark: '侘び寂びモードに切り替え',
+          wabisabi: 'ライトモードに切り替え'
+        };
+        return titleConfig[this.currentTheme] || 'ダークモードに切り替え';
+      };
+
+      const getThemeIconWithFilter = () => {
+        const icon = getThemeIcon();
+        if (icon === '☀️') {
+          return `<span style="filter: saturate(1.2) brightness(1.1);">${icon}</span>`;
+        } else if (icon === '🍵') {
+          return `<span style="filter: hue-rotate(80deg) saturate(1.1) brightness(1.0);">${icon}</span>`;
+        } else {
+          return `<span style="filter: hue-rotate(240deg) saturate(0.8) brightness(1.1);">${icon}</span>`;
+        }
+      };
+
+      this.themeToggle.innerHTML = getThemeIconWithFilter();
+      this.themeToggle.title = getThemeTitle();
     }
 
     // 全スタイル再適用

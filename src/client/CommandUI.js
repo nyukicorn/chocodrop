@@ -78,9 +78,10 @@ export class CommandUI {
     console.log('🔍 After applyServiceSelectionToSceneManager - UI:', { selectedImageService: this.selectedImageService, selectedVideoService: this.selectedVideoService });
     console.log('🔍 After applyServiceSelectionToSceneManager - SceneManager:', { selectedImageService: this.sceneManager?.selectedImageService, selectedVideoService: this.sceneManager?.selectedVideoService });
 
-    // ダークモード状態管理
-    this.isDarkMode = localStorage.getItem('live-command-theme') === 'dark' ||
-                     localStorage.getItem('live-command-theme') === null; // デフォルトはダーク
+    // テーマモード状態管理 (light, dark, wabisabi)
+    this.currentTheme = localStorage.getItem('live-command-theme') || 'light';
+    this.isDarkMode = this.currentTheme === 'dark';
+    this.isWabiSabiMode = this.currentTheme === 'wabisabi';
     
     // Undo/Redo システム
     this.commandHistory = [];
@@ -134,7 +135,7 @@ export class CommandUI {
       right: 8px;
       width: 8px;
       height: 8px;
-      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      background: linear-gradient(135deg, ${this.isWabiSabiMode ? '#8BC34A, #689F38' : '#6366f1, #8b5cf6'});
       border-radius: 50%;
       opacity: 0.7;
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -451,11 +452,39 @@ export class CommandUI {
     rightSection.style.cssText = 'display: flex; gap: 6px; align-items: center;';
 
     const themeToggle = document.createElement('button');
-    themeToggle.innerHTML = this.isDarkMode ? 
-      '<span style="filter: hue-rotate(240deg) saturate(0.8) brightness(1.1);">☀️</span>' : 
-      '<span style="filter: hue-rotate(240deg) saturate(0.8) brightness(1.1);">🌙</span>';
+    const getThemeIcon = () => {
+      const themeConfig = {
+        light: '🌙',
+        dark: '🍵',
+        wabisabi: '☀️'
+      };
+      return themeConfig[this.currentTheme] || '🌙';
+    };
+
+    const getThemeTitle = () => {
+      const titleConfig = {
+        light: 'ダークモードに切り替え',
+        dark: '侘び寂びモードに切り替え',
+        wabisabi: 'ライトモードに切り替え'
+      };
+      return titleConfig[this.currentTheme] || 'ダークモードに切り替え';
+    };
+
+    const getThemeIconWithFilter = () => {
+      const icon = getThemeIcon();
+      // 太陽は黄色く、お茶は緑系、月は紫系フィルター
+      if (icon === '☀️') {
+        return `<span style="filter: saturate(1.2) brightness(1.1);">${icon}</span>`;
+      } else if (icon === '🍵') {
+        return `<span style="filter: hue-rotate(80deg) saturate(1.1) brightness(1.0);">${icon}</span>`;
+      } else {
+        return `<span style="filter: hue-rotate(240deg) saturate(0.8) brightness(1.1);">${icon}</span>`;
+      }
+    };
+
+    themeToggle.innerHTML = getThemeIconWithFilter();
     themeToggle.style.cssText = this.getActionButtonStyles('icon');
-    themeToggle.title = this.isDarkMode ? 'ライトモードに切り替え' : 'ダークモードに切り替え';
+    themeToggle.title = getThemeTitle();
     themeToggle.addEventListener('click', () => this.toggleTheme());
 
     const settingsButton = document.createElement('button');
@@ -615,7 +644,7 @@ export class CommandUI {
       border-radius: 10px;
       border: none;
       cursor: pointer;
-      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      background: linear-gradient(135deg, ${this.isWabiSabiMode ? '#8BC34A, #689F38' : '#6366f1, #8b5cf6'});
       color: white;
       font-weight: 600;
       transition: all 0.2s ease;
@@ -996,56 +1025,84 @@ export class CommandUI {
     if (this.serviceSelectorContainer) {
       const labels = this.serviceSelectorContainer.querySelectorAll('label');
       labels.forEach(label => {
-        label.style.color = this.isDarkMode ? 'rgba(255, 255, 255, 0.9)' : 'rgba(31, 41, 55, 0.9)';
+        label.style.color = this.isWabiSabiMode
+          ? '#5D4037'
+          : (this.isDarkMode ? 'rgba(255, 255, 255, 0.9)' : 'rgba(31, 41, 55, 0.9)');
       });
 
       const selects = this.serviceSelectorContainer.querySelectorAll('select');
       selects.forEach(select => {
-        select.style.background = this.isDarkMode ? 'rgba(99, 102, 241, 0.18)' : 'rgba(99, 102, 241, 0.12)';
-        select.style.border = this.isDarkMode ? '1px solid rgba(129, 140, 248, 0.45)' : '1px solid rgba(99, 102, 241, 0.45)';
-        select.style.color = this.isDarkMode ? '#ffffff' : '#1f2937';
+        select.style.background = this.isWabiSabiMode
+          ? 'rgba(161, 136, 127, 0.15)'
+          : (this.isDarkMode ? 'rgba(99, 102, 241, 0.18)' : 'rgba(99, 102, 241, 0.12)');
+        select.style.border = this.isWabiSabiMode
+          ? '1px solid rgba(161, 136, 127, 0.4)'
+          : (this.isDarkMode ? '1px solid rgba(129, 140, 248, 0.45)' : '1px solid rgba(99, 102, 241, 0.45)');
+        select.style.color = this.isWabiSabiMode
+          ? '#5D4037'
+          : (this.isDarkMode ? '#ffffff' : '#1f2937');
         select.style.padding = '10px 12px';
         select.style.borderRadius = '10px';
         select.style.fontSize = '13px';
         select.style.outline = 'none';
-        select.style.boxShadow = this.isDarkMode
-          ? '0 12px 28px rgba(15, 23, 42, 0.5)'
-          : '0 12px 24px rgba(99, 102, 241, 0.2)';
+        select.style.boxShadow = this.isWabiSabiMode
+          ? '0 12px 24px rgba(93, 64, 55, 0.25)'
+          : (this.isDarkMode
+            ? '0 12px 28px rgba(15, 23, 42, 0.5)'
+            : '0 12px 24px rgba(99, 102, 241, 0.2)');
       });
 
       const descriptions = this.serviceSelectorContainer.querySelectorAll('.service-description');
       descriptions.forEach(desc => {
-        desc.style.color = this.isDarkMode ? 'rgba(209, 213, 219, 0.8)' : 'rgba(55, 65, 81, 0.7)';
+        desc.style.color = this.isWabiSabiMode
+          ? 'rgba(93, 64, 55, 0.7)'
+          : (this.isDarkMode ? 'rgba(209, 213, 219, 0.8)' : 'rgba(55, 65, 81, 0.7)');
       });
     }
 
     if (this.serviceSelectorRetryButton) {
-      this.serviceSelectorRetryButton.style.background = this.isDarkMode
-        ? 'rgba(129, 140, 248, 0.35)'
-        : 'rgba(99, 102, 241, 0.15)';
-      this.serviceSelectorRetryButton.style.border = this.isDarkMode
-        ? '1px solid rgba(129, 140, 248, 0.5)'
-        : '1px solid rgba(99, 102, 241, 0.45)';
-      this.serviceSelectorRetryButton.style.color = this.isDarkMode ? '#f9fafb' : '#1e1b4b';
-      this.serviceSelectorRetryButton.style.boxShadow = this.isDarkMode
-        ? '0 0 8px rgba(129, 140, 248, 0.45)'
-        : '0 0 8px rgba(99, 102, 241, 0.35)';
+      this.serviceSelectorRetryButton.style.background = this.isWabiSabiMode
+        ? 'rgba(161, 136, 127, 0.25)'
+        : (this.isDarkMode
+          ? 'rgba(129, 140, 248, 0.35)'
+          : 'rgba(99, 102, 241, 0.15)');
+      this.serviceSelectorRetryButton.style.border = this.isWabiSabiMode
+        ? '1px solid rgba(161, 136, 127, 0.5)'
+        : (this.isDarkMode
+          ? '1px solid rgba(129, 140, 248, 0.5)'
+          : '1px solid rgba(99, 102, 241, 0.45)');
+      this.serviceSelectorRetryButton.style.color = this.isWabiSabiMode
+        ? '#5D4037'
+        : (this.isDarkMode ? '#f9fafb' : '#1e1b4b');
+      this.serviceSelectorRetryButton.style.boxShadow = this.isWabiSabiMode
+        ? '0 0 8px rgba(161, 136, 127, 0.4)'
+        : (this.isDarkMode
+          ? '0 0 8px rgba(129, 140, 248, 0.45)'
+          : '0 0 8px rgba(99, 102, 241, 0.35)');
     }
 
     if (this.serviceSelectorCancelButton) {
-      this.serviceSelectorCancelButton.style.border = this.isDarkMode
-        ? '1px solid rgba(209, 213, 219, 0.3)'
-        : '1px solid rgba(148, 163, 184, 0.5)';
-      this.serviceSelectorCancelButton.style.color = this.isDarkMode ? 'rgba(226, 232, 240, 0.85)' : 'rgba(30, 41, 59, 0.85)';
+      this.serviceSelectorCancelButton.style.border = this.isWabiSabiMode
+        ? '1px solid rgba(161, 136, 127, 0.4)'
+        : (this.isDarkMode
+          ? '1px solid rgba(209, 213, 219, 0.3)'
+          : '1px solid rgba(148, 163, 184, 0.5)');
+      this.serviceSelectorCancelButton.style.color = this.isWabiSabiMode
+        ? 'rgba(93, 64, 55, 0.85)'
+        : (this.isDarkMode ? 'rgba(226, 232, 240, 0.85)' : 'rgba(30, 41, 59, 0.85)');
     }
 
     if (this.serviceSelectorSaveButton) {
-      this.serviceSelectorSaveButton.style.background = this.isDarkMode
-        ? 'linear-gradient(135deg, #6366f1, #8b5cf6)'
-        : 'linear-gradient(135deg, #818cf8, #a855f7)';
-      this.serviceSelectorSaveButton.style.boxShadow = this.isDarkMode
-        ? '0 16px 28px rgba(99, 102, 241, 0.4)'
-        : '0 16px 28px rgba(129, 140, 248, 0.35)';
+      this.serviceSelectorSaveButton.style.background = this.isWabiSabiMode
+        ? 'linear-gradient(135deg, #6D4C41, #5D4037)'
+        : (this.isDarkMode
+          ? 'linear-gradient(135deg, ' + (this.isWabiSabiMode ? '#8BC34A, #689F38' : '#6366f1, #8b5cf6') + ')'
+          : 'linear-gradient(135deg, #818cf8, #a855f7)');
+      this.serviceSelectorSaveButton.style.boxShadow = this.isWabiSabiMode
+        ? '0 16px 28px rgba(93, 64, 55, 0.35)'
+        : (this.isDarkMode
+          ? '0 16px 28px rgba(99, 102, 241, 0.4)'
+          : '0 16px 28px rgba(129, 140, 248, 0.35)');
     }
   }
 
@@ -1061,10 +1118,14 @@ export class CommandUI {
       gap: 8px;
       margin-bottom: 12px;
       padding: 12px;
-      background: ${this.isDarkMode 
-        ? 'linear-gradient(135deg, rgba(30, 27, 75, 0.3), rgba(15, 23, 42, 0.4))' 
-        : 'linear-gradient(135deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.1))'};
-      border: 1px solid ${this.isDarkMode ? 'rgba(99, 102, 241, 0.15)' : 'rgba(255, 255, 255, 0.25)'};
+      background: ${this.isWabiSabiMode
+        ? 'linear-gradient(135deg, rgba(158, 158, 158, 0.25), rgba(189, 189, 189, 0.2))'
+        : (this.isDarkMode
+          ? 'linear-gradient(135deg, rgba(30, 27, 75, 0.3), rgba(15, 23, 42, 0.4))'
+          : 'linear-gradient(135deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.1))')};
+      border: 1px solid ${this.isWabiSabiMode
+        ? 'rgba(141, 110, 99, 0.4)'
+        : (this.isDarkMode ? 'rgba(99, 102, 241, 0.15)' : 'rgba(255, 255, 255, 0.25)')};
       border-radius: 16px;
       backdrop-filter: blur(12px);
       transition: all 0.3s ease;
@@ -1095,7 +1156,9 @@ export class CommandUI {
         font-size: 11px;
         font-weight: 600;
         text-align: center;
-        color: ${this.isDarkMode ? 'rgba(255, 255, 255, 0.7)' : 'rgba(55, 65, 81, 0.8)'};
+        color: ${this.isWabiSabiMode
+          ? '#F5F5F5'
+          : (this.isDarkMode ? 'rgba(255, 255, 255, 0.7)' : 'rgba(55, 65, 81, 0.8)')};
         background: transparent;
         border: 1px solid transparent;
         position: relative;
@@ -1169,7 +1232,9 @@ export class CommandUI {
     // 全ボタンをリセット
     Object.keys(this.radioModeButtons).forEach(key => {
       const { button, autoBadge } = this.radioModeButtons[key];
-      button.style.color = this.isDarkMode ? 'rgba(255, 255, 255, 0.7)' : 'rgba(55, 65, 81, 0.8)';
+      button.style.color = this.isWabiSabiMode
+        ? '#F5F5F5'
+        : (this.isDarkMode ? 'rgba(255, 255, 255, 0.7)' : 'rgba(55, 65, 81, 0.8)');
       button.style.background = 'transparent';
       button.style.border = '1px solid transparent';
       button.style.transform = 'scale(1)';
@@ -1183,19 +1248,26 @@ export class CommandUI {
     const { button, autoBadge } = this.radioModeButtons[mode];
     
     // 2025 Glassmorphism選択状態
-    const selectedGlass = this.isDarkMode 
+    const selectedGlass = this.isWabiSabiMode
       ? {
-          background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(139, 92, 246, 0.15))',
-          border: '1px solid rgba(99, 102, 241, 0.4)',
-          boxShadow: '0 4px 16px rgba(99, 102, 241, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
-          color: '#a5b4fc'
+          background: 'linear-gradient(135deg, rgba(109, 76, 65, 0.2), rgba(141, 110, 99, 0.15))',
+          border: '1px solid rgba(109, 76, 65, 0.4)',
+          boxShadow: '0 4px 16px rgba(109, 76, 65, 0.25), inset 0 1px 0 rgba(245, 245, 220, 0.15)',
+          color: '#F5F5F5'
         }
-      : {
-          background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(139, 92, 246, 0.08))',
-          border: '1px solid rgba(99, 102, 241, 0.3)',
-          boxShadow: '0 4px 16px rgba(99, 102, 241, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.2)',
-          color: '#6366f1'
-        };
+      : (this.isDarkMode
+        ? {
+            background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(139, 92, 246, 0.15))',
+            border: '1px solid rgba(99, 102, 241, 0.4)',
+            boxShadow: '0 4px 16px rgba(99, 102, 241, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
+            color: '#a5b4fc'
+          }
+        : {
+            background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(139, 92, 246, 0.08))',
+            border: '1px solid rgba(99, 102, 241, 0.3)',
+            boxShadow: '0 4px 16px rgba(99, 102, 241, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.2)',
+            color: this.isWabiSabiMode ? '#8BC34A' : '#6366f1'
+          });
 
     button.style.color = selectedGlass.color;
     button.style.background = selectedGlass.background;
@@ -1344,11 +1416,17 @@ export class CommandUI {
         align-items: center;
         justify-content: center;
         gap: 6px;
-        background: ${this.isDarkMode 
-          ? 'linear-gradient(135deg, rgba(55, 65, 81, 0.3), rgba(75, 85, 99, 0.2))'
-          : 'linear-gradient(135deg, rgba(255, 255, 255, 0.25), rgba(255, 255, 255, 0.15))'};
-        border: 1px solid ${this.isDarkMode ? 'rgba(156, 163, 175, 0.2)' : 'rgba(255, 255, 255, 0.3)'};
-        color: ${this.isDarkMode ? '#d1d5db' : '#374151'};
+        background: ${this.isWabiSabiMode
+          ? 'linear-gradient(135deg, rgba(141, 110, 99, 0.3), rgba(109, 76, 65, 0.2))'
+          : (this.isDarkMode
+            ? 'linear-gradient(135deg, rgba(55, 65, 81, 0.3), rgba(75, 85, 99, 0.2))'
+            : 'linear-gradient(135deg, rgba(255, 255, 255, 0.25), rgba(255, 255, 255, 0.15))')};
+        border: 1px solid ${this.isWabiSabiMode
+          ? 'rgba(93, 64, 55, 0.6)'
+          : (this.isDarkMode ? 'rgba(156, 163, 175, 0.2)' : 'rgba(255, 255, 255, 0.3)')};
+        color: ${this.isWabiSabiMode
+          ? '#F5F5F5'
+          : (this.isDarkMode ? '#d1d5db' : '#374151')};
         text-align: center;
         white-space: nowrap;
       `;
@@ -1977,7 +2055,15 @@ export class CommandUI {
       boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(255, 255, 255, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.3)'
     };
 
-    const theme = this.isDarkMode ? glassmorphismDark : glassmorphismLight;
+    // 侘び寂びモード - 枯山水の静寂：独自のアイデンティティ
+    const glassmorphismWabiSabi = {
+      background: 'linear-gradient(135deg, rgba(97, 97, 97, 0.7), rgba(66, 66, 66, 0.6))',
+      backdropFilter: 'blur(20px) saturate(120%)',
+      border: '1px solid rgba(93, 64, 55, 0.5)',
+      boxShadow: '0 8px 32px rgba(33, 33, 33, 0.4), 0 0 0 1px rgba(93, 64, 55, 0.4), inset 0 1px 0 rgba(189, 189, 189, 0.15)'
+    };
+
+    const theme = this.isWabiSabiMode ? glassmorphismWabiSabi : (this.isDarkMode ? glassmorphismDark : glassmorphismLight);
 
     return `
       position: fixed;
@@ -2164,7 +2250,13 @@ export class CommandUI {
       boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.4)'
     };
 
-    const theme = this.isDarkMode ? glassmorphismDark : glassmorphismLight;
+    const glassmorphismWabiSabi = {
+      background: 'linear-gradient(135deg, rgba(97, 97, 97, 0.4), rgba(66, 66, 66, 0.3))',
+      border: '1px solid rgba(97, 97, 97, 0.5)',
+      boxShadow: '0 4px 16px rgba(66, 66, 66, 0.3), inset 0 1px 0 rgba(189, 189, 189, 0.2)'
+    };
+
+    const theme = this.isWabiSabiMode ? glassmorphismWabiSabi : (this.isDarkMode ? glassmorphismDark : glassmorphismLight);
 
     return `
       width: 100%;
@@ -2172,7 +2264,7 @@ export class CommandUI {
       background: ${theme.background};
       border: ${theme.border};
       border-radius: 14px;
-      color: ${this.isDarkMode ? '#ffffff' : '#1f2937'};
+      color: ${this.isWabiSabiMode ? '#F5F5F5' : (this.isDarkMode ? '#ffffff' : '#1f2937')};
       font-size: 14px;
       outline: none;
       box-sizing: border-box;
@@ -2192,14 +2284,30 @@ export class CommandUI {
 
   getModernButtonStyles(type) {
     const styles = {
-      primary: `
+      primary: this.isWabiSabiMode ? `
+        background: linear-gradient(135deg, #8D6E63, #6D4C41);
+        box-shadow: 0 4px 12px rgba(85, 139, 47, 0.4), inset 0 1px 0 rgba(184, 158, 135, 0.15);
+        width: 100%;
+        padding: 16px;
+        font-size: 14px;
+        font-weight: 600;
+      ` : `
         background: linear-gradient(135deg, #4f46e5, #4338ca);
         width: 100%;
         padding: 16px;
         font-size: 14px;
         font-weight: 600;
       `,
-      secondary: `
+      secondary: this.isWabiSabiMode ? `
+        background: rgba(158, 158, 158, 0.2);
+        border: 1px solid rgba(141, 110, 99, 0.4);
+        flex: 1;
+        padding: 12px;
+        font-size: 13px;
+        font-weight: 500;
+        backdrop-filter: blur(8px);
+        color: #F5F5F5;
+      ` : `
         background: rgba(255, 255, 255, 0.08);
         border: 1px solid rgba(255, 255, 255, 0.2);
         flex: 1;
@@ -2208,7 +2316,16 @@ export class CommandUI {
         font-weight: 500;
         backdrop-filter: blur(8px);
       `,
-      danger: `
+      danger: this.isWabiSabiMode ? `
+        background: rgba(141, 110, 99, 0.3);
+        border: 1px solid rgba(93, 64, 55, 0.5);
+        flex: 1;
+        padding: 12px;
+        font-size: 13px;
+        font-weight: 500;
+        backdrop-filter: blur(8px);
+        color: #F5F5F5;
+      ` : `
         background: rgba(255, 59, 48, 0.15);
         border: 1px solid rgba(255, 59, 48, 0.3);
         flex: 1;
@@ -2291,13 +2408,23 @@ export class CommandUI {
 
     // 入力フィールドのスタイル調整
     this.input.addEventListener('focus', () => {
-      this.input.style.borderColor = '#74b9ff';
-      this.input.style.boxShadow = '0 0 5px rgba(116, 185, 255, 0.5)';
+      if (this.isWabiSabiMode) {
+        this.input.style.borderColor = '#8BC34A';
+        this.input.style.boxShadow = '0 0 5px rgba(139, 195, 74, 0.5)';
+      } else {
+        this.input.style.borderColor = '#74b9ff';
+        this.input.style.boxShadow = '0 0 5px rgba(116, 185, 255, 0.5)';
+      }
     });
 
     this.input.addEventListener('blur', () => {
-      this.input.style.borderColor = '#4a90e2';
-      this.input.style.boxShadow = 'none';
+      if (this.isWabiSabiMode) {
+        this.input.style.borderColor = '#8D6E63';
+        this.input.style.boxShadow = 'none';
+      } else {
+        this.input.style.borderColor = '#4a90e2';
+        this.input.style.boxShadow = 'none';
+      }
     });
   }
 
@@ -2622,21 +2749,29 @@ export class CommandUI {
 
       const dialog = document.createElement('div');
       dialog.style.cssText = `
-        background: ${this.isDarkMode 
-          ? 'linear-gradient(135deg, rgba(15, 23, 42, 0.85), rgba(30, 27, 75, 0.8))'
-          : 'linear-gradient(135deg, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0.3))'};
-        border: 1px solid ${this.isDarkMode ? 'rgba(99, 102, 241, 0.3)' : 'rgba(255, 255, 255, 0.5)'};
+        background: ${this.isWabiSabiMode
+          ? 'linear-gradient(135deg, rgba(239, 235, 233, 0.4), rgba(215, 204, 200, 0.3))'
+          : (this.isDarkMode
+            ? 'linear-gradient(135deg, rgba(15, 23, 42, 0.85), rgba(30, 27, 75, 0.8))'
+            : 'linear-gradient(135deg, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0.3))')};
+        border: 1px solid ${this.isWabiSabiMode
+          ? 'rgba(161, 136, 127, 0.4)'
+          : (this.isDarkMode ? 'rgba(99, 102, 241, 0.3)' : 'rgba(255, 255, 255, 0.5)')};
         border-radius: 20px;
         padding: 32px;
         max-width: 420px;
         text-align: center;
-        color: ${this.isDarkMode ? '#ffffff' : '#1f2937'};
+        color: ${this.isWabiSabiMode
+          ? '#5D4037'
+          : (this.isDarkMode ? '#ffffff' : '#1f2937')};
         font-family: inherit;
         backdrop-filter: blur(24px) saturate(180%);
         -webkit-backdrop-filter: blur(24px) saturate(180%);
-        box-shadow: ${this.isDarkMode 
-          ? '0 8px 32px rgba(15, 23, 42, 0.4), 0 0 0 1px rgba(99, 102, 241, 0.1)'
-          : '0 8px 32px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(255, 255, 255, 0.2)'};
+        box-shadow: ${this.isWabiSabiMode
+          ? '0 8px 32px rgba(93, 64, 55, 0.2), 0 0 0 1px rgba(161, 136, 127, 0.2)'
+          : (this.isDarkMode
+            ? '0 8px 32px rgba(15, 23, 42, 0.4), 0 0 0 1px rgba(99, 102, 241, 0.1)'
+            : '0 8px 32px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(255, 255, 255, 0.2)')};
         transform: scale(0.9);
         opacity: 0;
         transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
@@ -2669,8 +2804,8 @@ export class CommandUI {
           ">${cancelText}</button>
           <button id="confirm-btn" style="
             padding: 14px 24px;
-            background: ${confirmColor === '#6366f1' 
-              ? 'linear-gradient(135deg, #6366f1, #8b5cf6)' 
+            background: ${confirmColor === (this.isWabiSabiMode ? '#8BC34A' : '#6366f1') 
+              ? 'linear-gradient(135deg, ' + (this.isWabiSabiMode ? '#8BC34A, #689F38' : '#6366f1, #8b5cf6') + ')' 
               : confirmColor === '#ef4444'
               ? 'linear-gradient(135deg, #ef4444, #dc2626)'
               : 'linear-gradient(135deg, #ff7b47, #f97316)'};
@@ -2682,7 +2817,7 @@ export class CommandUI {
             font-size: 14px;
             font-weight: 700;
             transition: all 0.2s ease;
-            box-shadow: 0 4px 16px ${confirmColor === '#6366f1' 
+            box-shadow: 0 4px 16px ${confirmColor === (this.isWabiSabiMode ? '#8BC34A' : '#6366f1') 
               ? 'rgba(99, 102, 241, 0.3)' 
               : confirmColor === '#ef4444' 
               ? 'rgba(239, 68, 68, 0.3)' 
@@ -3582,7 +3717,7 @@ export class CommandUI {
           position: relative;
         ">
           <div class="status-pulse" style="
-            background: linear-gradient(90deg, transparent, #6366f1, #8b5cf6, transparent);
+            background: linear-gradient(90deg, transparent, ${this.isWabiSabiMode ? '#8BC34A, #689F38' : '#6366f1, #8b5cf6'}, transparent);
             height: 100%;
             width: 30%;
             border-radius: 8px;
@@ -4011,7 +4146,7 @@ export class CommandUI {
       message: 'すべてのオブジェクトが削除されます。<br>この操作は取り消すことができません。',
       confirmText: 'Clear All 実行',
       cancelText: 'キャンセル',
-      confirmColor: '#6366f1'
+      confirmColor: this.isWabiSabiMode ? '#8BC34A' : '#6366f1'
     });
   }
 
@@ -4103,25 +4238,89 @@ export class CommandUI {
     if (generateBtn) {
       generateBtn.style.cssText = this.getModeButtonStyles(true, 'generate');
     }
-    
+
     // Executeボタンのスタイルを再適用
     const executeBtn = this.container?.querySelector('#execute-btn');
     if (executeBtn) {
       executeBtn.style.cssText = this.getModernButtonStyles('primary');
     }
+
+    // サービスモーダルの背景とスタイルを更新
+    if (this.serviceModal) {
+      this.updateServiceModalStyles();
+    }
+
+    // サービスセレクターテーマ更新
+    this.updateServiceSelectorTheme();
+  }
+
+  updateServiceModalStyles() {
+    if (!this.serviceModal) return;
+
+    // モーダルの背景とボーダーを更新（枯山水の静寂）
+    this.serviceModal.style.background = this.isWabiSabiMode
+      ? 'linear-gradient(135deg, rgba(158, 158, 158, 0.4), rgba(189, 189, 189, 0.35))'
+      : (this.isDarkMode
+        ? 'linear-gradient(135deg, rgba(15, 23, 42, 0.85), rgba(30, 27, 75, 0.8))'
+        : 'linear-gradient(135deg, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0.3))');
+
+    this.serviceModal.style.border = this.isWabiSabiMode
+      ? '1px solid rgba(141, 110, 99, 0.4)'
+      : (this.isDarkMode
+        ? '1px solid rgba(99, 102, 241, 0.3)'
+        : '1px solid rgba(255, 255, 255, 0.5)');
+
+    this.serviceModal.style.color = this.isWabiSabiMode
+      ? '#424242'
+      : (this.isDarkMode ? '#ffffff' : '#1f2937');
+
+    this.serviceModal.style.boxShadow = this.isWabiSabiMode
+      ? '0 20px 40px rgba(93, 64, 55, 0.35)'
+      : '0 20px 40px rgba(15, 23, 42, 0.35)';
   }
 
   /**
    * テーマ切り替え
    */
   toggleTheme() {
-    this.isDarkMode = !this.isDarkMode;
-    localStorage.setItem('live-command-theme', this.isDarkMode ? 'dark' : 'light');
+    // 3段階サイクル: light → dark → wabisabi → light
+    switch (this.currentTheme) {
+      case 'light':
+        this.currentTheme = 'dark';
+        break;
+      case 'dark':
+        this.currentTheme = 'wabisabi';
+        break;
+      case 'wabisabi':
+        this.currentTheme = 'light';
+        break;
+      default:
+        this.currentTheme = 'light';
+    }
+
+    // 状態更新
+    this.isDarkMode = this.currentTheme === 'dark';
+    this.isWabiSabiMode = this.currentTheme === 'wabisabi';
+    localStorage.setItem('live-command-theme', this.currentTheme);
 
     // アイコンボタン更新
     if (this.themeToggle) {
-      this.themeToggle.innerHTML = this.isDarkMode ? '☀️' : '🌙';
-      this.themeToggle.title = this.isDarkMode ? 'ライトモードに切り替え' : 'ダークモードに切り替え';
+      const themeConfig = {
+        light: { icon: '🌙', title: 'ダークモードに切り替え' },
+        dark: { icon: '🍵', title: '侘び寂びモードに切り替え' },
+        wabisabi: { icon: '☀️', title: 'ライトモードに切り替え' }
+      };
+
+      const config = themeConfig[this.currentTheme];
+      // 太陽は黄色く、お茶は緑系、月は紫系フィルター
+      if (config.icon === '☀️') {
+        this.themeToggle.innerHTML = `<span style="filter: saturate(1.2) brightness(1.1);">${config.icon}</span>`;
+      } else if (config.icon === '🍵') {
+        this.themeToggle.innerHTML = `<span style="filter: hue-rotate(80deg) saturate(1.1) brightness(1.0);">${config.icon}</span>`;
+      } else {
+        this.themeToggle.innerHTML = `<span style="filter: hue-rotate(240deg) saturate(0.8) brightness(1.1);">${config.icon}</span>`;
+      }
+      this.themeToggle.title = config.title;
     }
 
     // 全スタイル再適用
@@ -4135,7 +4334,7 @@ export class CommandUI {
    */
   applyTheme() {
     // ボディにテーマクラスを設定
-    document.body.className = this.isDarkMode ? 'dark-mode' : 'light-mode';
+    document.body.className = this.isWabiSabiMode ? 'wabisabi-mode' : (this.isDarkMode ? 'dark-mode' : 'light-mode');
 
     // メインコンテナ（display状態を保持）
     const currentDisplay = this.container.style.display;
@@ -4161,18 +4360,24 @@ export class CommandUI {
 
     // ラジオボタンモードセレクターの2025年仕様テーマ再適用
     if (this.radioModeContainer) {
-      this.radioModeContainer.style.background = this.isDarkMode 
-        ? 'linear-gradient(135deg, rgba(30, 27, 75, 0.3), rgba(15, 23, 42, 0.4))' 
-        : 'linear-gradient(135deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.1))';
-      this.radioModeContainer.style.borderColor = this.isDarkMode 
-        ? 'rgba(99, 102, 241, 0.15)' 
-        : 'rgba(255, 255, 255, 0.25)';
+      this.radioModeContainer.style.background = this.isWabiSabiMode
+        ? 'linear-gradient(135deg, rgba(97, 97, 97, 0.7), rgba(66, 66, 66, 0.6))'
+        : (this.isDarkMode
+          ? 'linear-gradient(135deg, rgba(30, 27, 75, 0.3), rgba(15, 23, 42, 0.4))'
+          : 'linear-gradient(135deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.1))');
+      this.radioModeContainer.style.borderColor = this.isWabiSabiMode
+        ? 'rgba(93, 64, 55, 0.4)'
+        : (this.isDarkMode
+          ? 'rgba(99, 102, 241, 0.15)'
+          : 'rgba(255, 255, 255, 0.25)');
 
       // 各ラジオボタンのスタイル更新
       Object.keys(this.radioModeButtons).forEach(key => {
         const { button } = this.radioModeButtons[key];
         if (this.currentMode !== key) {
-          button.style.color = this.isDarkMode ? 'rgba(255, 255, 255, 0.7)' : 'rgba(55, 65, 81, 0.8)';
+          button.style.color = this.isWabiSabiMode
+            ? 'rgba(245, 245, 245, 0.8)'
+            : (this.isDarkMode ? 'rgba(255, 255, 255, 0.7)' : 'rgba(55, 65, 81, 0.8)');
           button.style.background = 'transparent';
           button.style.border = '1px solid transparent';
           button.style.boxShadow = 'none';
@@ -4192,8 +4397,21 @@ export class CommandUI {
       this.historyBtn.style.opacity = '0.5';
     }
     if (this.themeToggle) {
-      this.themeToggle.innerHTML = this.isDarkMode ? '☀️' : '🌙';
-      this.themeToggle.title = this.isDarkMode ? 'ライトモードに切り替え' : 'ダークモードに切り替え';
+      const themeConfig = {
+        light: { icon: '🌙', title: 'ダークモードに切り替え' },
+        dark: { icon: '🍵', title: '侘び寂びモードに切り替え' },
+        wabisabi: { icon: '☀️', title: 'ライトモードに切り替え' }
+      };
+      const config = themeConfig[this.currentTheme] || themeConfig.light;
+      // 太陽は黄色く、お茶は緑系、月は紫系フィルター
+      if (config.icon === '☀️') {
+        this.themeToggle.innerHTML = `<span style="filter: saturate(1.2) brightness(1.1);">${config.icon}</span>`;
+      } else if (config.icon === '🍵') {
+        this.themeToggle.innerHTML = `<span style="filter: hue-rotate(80deg) saturate(1.1) brightness(1.0);">${config.icon}</span>`;
+      } else {
+        this.themeToggle.innerHTML = `<span style="filter: hue-rotate(240deg) saturate(0.8) brightness(1.1);">${config.icon}</span>`;
+      }
+      this.themeToggle.title = config.title;
       this.themeToggle.style.cssText = this.getActionButtonStyles('icon');
     }
     if (this.settingsButton) {
@@ -4694,7 +4912,7 @@ export class CommandUI {
    * 2025年トレンド：Emotional Pulse
    */
   addEmotionalPulse(element, mode) {
-    const pulseColor = mode === 'delete' ? '#ef4444' : '#6366f1';
+    const pulseColor = mode === 'delete' ? '#ef4444' : (this.isWabiSabiMode ? '#8BC34A' : '#6366f1');
     
     element.style.borderLeft = `4px solid ${pulseColor}`;
     element.style.animation = 'emotionalPulse2025 2s ease-in-out infinite';
@@ -4806,7 +5024,14 @@ export class CommandUI {
       /.*をピンク/,
       /.*を大きく/,
       /.*を小さく/,
-      /.*を移動/
+      /.*を移動/,
+      /回転/,
+      /反転/,
+      /ミラー/,
+      /傾け/,
+      /向きを変え/,
+      /.*を.*色/,
+      /.*を.*サイズ/
     ];
     
     const importPatterns = [
@@ -4939,18 +5164,26 @@ export class CommandUI {
       position: fixed;
       top: ${event.clientY}px;
       left: ${event.clientX}px;
-      background: ${this.isDarkMode ? 'rgba(17, 24, 39, 0.85)' : 'rgba(255, 255, 255, 0.85)'};
+      background: ${this.isWabiSabiMode
+        ? 'rgba(239, 235, 233, 0.9)'
+        : (this.isDarkMode ? 'rgba(17, 24, 39, 0.85)' : 'rgba(255, 255, 255, 0.85)')};
       backdrop-filter: blur(20px);
       -webkit-backdrop-filter: blur(20px);
-      border: 1px solid ${this.isDarkMode ? 'rgba(129, 140, 248, 0.3)' : 'rgba(99, 102, 241, 0.2)'};
+      border: 1px solid ${this.isWabiSabiMode
+        ? 'rgba(161, 136, 127, 0.4)'
+        : (this.isDarkMode ? 'rgba(129, 140, 248, 0.3)' : 'rgba(99, 102, 241, 0.2)')};
       border-radius: 12px;
-      box-shadow: 0 8px 24px rgba(99, 102, 241, 0.2), 0 4px 12px rgba(0, 0, 0, 0.1);
+      box-shadow: ${this.isWabiSabiMode
+        ? '0 8px 24px rgba(93, 64, 55, 0.2), 0 4px 12px rgba(0, 0, 0, 0.1)'
+        : '0 8px 24px rgba(99, 102, 241, 0.2), 0 4px 12px rgba(0, 0, 0, 0.1)'};
       padding: 8px 0;
       min-width: 160px;
       z-index: 2000;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       font-size: 14px;
-      color: ${this.isDarkMode ? '#ffffff' : '#1f2937'};
+      color: ${this.isWabiSabiMode
+        ? '#5D4037'
+        : (this.isDarkMode ? '#ffffff' : '#1f2937')};
     `;
 
     // メニューアイテム1: フォームを開く
@@ -4963,18 +5196,26 @@ export class CommandUI {
       display: flex;
       align-items: center;
       gap: 8px;
-      color: #6366f1;
-      text-shadow: 0 2px 4px rgba(99, 102, 241, 0.3);
+      color: ${this.isWabiSabiMode ? '#8D6E63' : '#6366f1'};
+      text-shadow: ${this.isWabiSabiMode
+        ? '0 2px 4px rgba(141, 110, 99, 0.3)'
+        : '0 2px 4px rgba(99, 102, 241, 0.3)'};
     `;
 
     openFormItem.addEventListener('mouseover', () => {
-      openFormItem.style.background = this.isDarkMode ? 'rgba(99, 102, 241, 0.15)' : 'rgba(99, 102, 241, 0.1)';
-      openFormItem.style.textShadow = '0 2px 6px rgba(99, 102, 241, 0.5)';
+      openFormItem.style.background = this.isWabiSabiMode
+        ? 'rgba(161, 136, 127, 0.15)'
+        : (this.isDarkMode ? 'rgba(99, 102, 241, 0.15)' : 'rgba(99, 102, 241, 0.1)');
+      openFormItem.style.textShadow = this.isWabiSabiMode
+        ? '0 2px 6px rgba(141, 110, 99, 0.5)'
+        : '0 2px 6px rgba(99, 102, 241, 0.5)';
     });
 
     openFormItem.addEventListener('mouseout', () => {
       openFormItem.style.background = 'transparent';
-      openFormItem.style.textShadow = '0 2px 4px rgba(99, 102, 241, 0.3)';
+      openFormItem.style.textShadow = this.isWabiSabiMode
+        ? '0 2px 4px rgba(141, 110, 99, 0.3)'
+        : '0 2px 4px rgba(99, 102, 241, 0.3)';
     });
 
     openFormItem.addEventListener('click', () => {
@@ -4996,18 +5237,26 @@ export class CommandUI {
       display: flex;
       align-items: center;
       gap: 8px;
-      color: #6366f1;
-      text-shadow: 0 2px 4px rgba(99, 102, 241, 0.3);
+      color: ${this.isWabiSabiMode ? '#8D6E63' : '#6366f1'};
+      text-shadow: ${this.isWabiSabiMode
+        ? '0 2px 4px rgba(141, 110, 99, 0.3)'
+        : '0 2px 4px rgba(99, 102, 241, 0.3)'};
     `;
 
     hideIconItem.addEventListener('mouseover', () => {
-      hideIconItem.style.background = this.isDarkMode ? 'rgba(99, 102, 241, 0.15)' : 'rgba(99, 102, 241, 0.1)';
-      hideIconItem.style.textShadow = '0 2px 6px rgba(99, 102, 241, 0.5)';
+      hideIconItem.style.background = this.isWabiSabiMode
+        ? 'rgba(161, 136, 127, 0.15)'
+        : (this.isDarkMode ? 'rgba(99, 102, 241, 0.15)' : 'rgba(99, 102, 241, 0.1)');
+      hideIconItem.style.textShadow = this.isWabiSabiMode
+        ? '0 2px 6px rgba(141, 110, 99, 0.5)'
+        : '0 2px 6px rgba(99, 102, 241, 0.5)';
     });
 
     hideIconItem.addEventListener('mouseout', () => {
       hideIconItem.style.background = 'transparent';
-      hideIconItem.style.textShadow = '0 2px 4px rgba(99, 102, 241, 0.3)';
+      hideIconItem.style.textShadow = this.isWabiSabiMode
+        ? '0 2px 4px rgba(141, 110, 99, 0.3)'
+        : '0 2px 4px rgba(99, 102, 241, 0.3)';
     });
 
     hideIconItem.addEventListener('click', () => {
