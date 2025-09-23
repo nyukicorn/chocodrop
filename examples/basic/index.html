@@ -178,87 +178,256 @@
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         document.body.appendChild(renderer.domElement);
         
-        // Environment - 明るい青空
-        scene.background = new THREE.Color(0x87ceeb);
-        scene.fog = new THREE.Fog(0x87ceeb, 150, 400);
+        // 🌈 夢の国の環境設定 - パステルグラデーション背景
+        scene.background = new THREE.Color(0xffd0ff); // パステルピンク
+        scene.fog = new THREE.FogExp2(0xffd0ff, 0.003);
         
-        // Lighting - より明るく親しみやすいライティング
-        const ambientLight = new THREE.AmbientLight(0x6366f1, 0.9);
+        // ✨ より夢っぽいライティング
+        const ambientLight = new THREE.AmbientLight(0xffc0ff, 0.6);
         scene.add(ambientLight);
 
-        const directionalLight = new THREE.DirectionalLight(0xffffff, 1.5);
-        directionalLight.position.set(30, 40, 30);
-        directionalLight.castShadow = true;
-        directionalLight.shadow.mapSize.width = 2048;
-        directionalLight.shadow.mapSize.height = 2048;
-        directionalLight.shadow.camera.near = 0.1;
-        directionalLight.shadow.camera.far = 200;
-        directionalLight.shadow.camera.left = -50;
-        directionalLight.shadow.camera.right = 50;
-        directionalLight.shadow.camera.top = 50;
-        directionalLight.shadow.camera.bottom = -50;
-        scene.add(directionalLight);
+        // 虹色ライト1
+        const directionalLight1 = new THREE.DirectionalLight(0xffd0ff, 0.8);
+        directionalLight1.position.set(30, 40, 30);
+        directionalLight1.castShadow = true;
+        directionalLight1.shadow.mapSize.width = 2048;
+        directionalLight1.shadow.mapSize.height = 2048;
+        scene.add(directionalLight1);
 
-        // より明るい環境光
-        const hemisphereLight = new THREE.HemisphereLight(0x87ceeb, 0x87ceeb, 0.7);
+        // 虹色ライト2
+        const directionalLight2 = new THREE.DirectionalLight(0xc0ffff, 0.6);
+        directionalLight2.position.set(-30, 40, -30);
+        scene.add(directionalLight2);
+
+        // パステル環境光
+        const hemisphereLight = new THREE.HemisphereLight(0xffc0ff, 0xc0c0ff, 0.8);
         scene.add(hemisphereLight);
         
-        // Ground - より洗練された地面
-        const groundGeometry = new THREE.PlaneGeometry(200, 200);
-        const groundMaterial = new THREE.MeshLambertMaterial({
-            color: 0x4a6741,
-            transparent: true,
-            opacity: 0.9
-        });
-        const ground = new THREE.Mesh(groundGeometry, groundMaterial);
-        ground.rotation.x = -Math.PI / 2;
-        ground.receiveShadow = true;
-        scene.add(ground);
-
-        // 美しい木々を作成
-        function createSimpleTree(x, z, scale = 1) {
-            // Tree trunk
-            const trunkGeometry = new THREE.CylinderGeometry(0.1 * scale, 0.2 * scale, 2 * scale);
-            const trunkMaterial = new THREE.MeshLambertMaterial({ color: 0x5d4037 });
-            const trunk = new THREE.Mesh(trunkGeometry, trunkMaterial);
-            trunk.position.set(x, 1 * scale, z);
-            trunk.castShadow = true;
-            trunk.receiveShadow = true;
-            scene.add(trunk);
-
-            // Tree leaves - より自然な色合い
-            const leavesGeometry = new THREE.SphereGeometry(0.8 * scale, 8, 6);
-            const leavesMaterial = new THREE.MeshLambertMaterial({
-                color: 0x2e7d32,
+        // ☁️ 雲のプラットフォーム（複数レイヤー）
+        function createCloudPlatform(x, y, z, scale) {
+            const cloudGroup = new THREE.Group();
+            
+            // 雲の各パーツを球体で作成
+            const cloudMaterial = new THREE.MeshPhongMaterial({
+                color: 0xffffff,
                 transparent: true,
-                opacity: 0.9
+                opacity: 0.9,
+                emissive: 0xffd0ff,
+                emissiveIntensity: 0.2
             });
-            const leaves = new THREE.Mesh(leavesGeometry, leavesMaterial);
-            leaves.position.set(x, 2.5 * scale, z);
-            leaves.castShadow = true;
-            leaves.receiveShadow = true;
-            scene.add(leaves);
+            
+            // メインの雲
+            for(let i = 0; i < 8; i++) {
+                const radius = Math.random() * 3 + 2;
+                const cloud = new THREE.Mesh(
+                    new THREE.SphereGeometry(radius * scale, 16, 12),
+                    cloudMaterial
+                );
+                cloud.position.set(
+                    x + (Math.random() - 0.5) * 10 * scale,
+                    y + (Math.random() - 0.5) * 2 * scale,
+                    z + (Math.random() - 0.5) * 10 * scale
+                );
+                cloud.receiveShadow = true;
+                cloud.castShadow = true;
+                cloudGroup.add(cloud);
+            }
+            
+            scene.add(cloudGroup);
+            return cloudGroup;
         }
+        
+        // メインの雲プラットフォーム
+        const mainCloud = createCloudPlatform(0, -5, 0, 2);
+        
+        // 周りの小さな雲
+        createCloudPlatform(-20, 2, -15, 1);
+        createCloudPlatform(20, 4, -10, 0.8);
+        createCloudPlatform(-15, 1, 20, 1.2);
+        createCloudPlatform(25, 3, 15, 0.9);
 
-        // バランスよく木々を配置
-        createSimpleTree(-8, -5, 0.9);
-        createSimpleTree(6, -8, 1.1);
-        createSimpleTree(-12, 3, 0.8);
-        createSimpleTree(10, 7, 1.0);
-        createSimpleTree(0, -12, 0.9);
-        createSimpleTree(-3, 2, 1.2);
-        createSimpleTree(4, -3, 0.85);
-        createSimpleTree(-6, -10, 1.05);
-        createSimpleTree(8, 2, 0.75);
-        createSimpleTree(-10, -8, 0.95);
+        // 🌈 虹色のクリスタル
+        function createRainbowCrystal(x, y, z, scale = 1) {
+            const geometry = new THREE.OctahedronGeometry(1.5 * scale, 0);
+            
+            // 虹色グラデーションマテリアル
+            const material = new THREE.MeshPhysicalMaterial({
+                color: 0xffffff,
+                metalness: 0.2,
+                roughness: 0.1,
+                transmission: 0.9,
+                thickness: 0.5,
+                envMapIntensity: 3,
+                clearcoat: 1,
+                clearcoatRoughness: 0.1,
+                iridescence: 1,
+                iridescenceIOR: 2.333,
+                iridescenceThicknessRange: [100, 400],
+            });
+            
+            const crystal = new THREE.Mesh(geometry, material);
+            crystal.position.set(x, y, z);
+            crystal.castShadow = true;
+            crystal.receiveShadow = true;
+            
+            // ゆっくり回転
+            crystal.userData.rotationSpeed = Math.random() * 0.02 + 0.01;
+            
+            scene.add(crystal);
+            return crystal;
+        }
+        
+        // クリスタル配置
+        const crystals = [];
+        crystals.push(createRainbowCrystal(-8, 2, -5, 1.2));
+        crystals.push(createRainbowCrystal(7, 3, -8, 0.8));
+        crystals.push(createRainbowCrystal(-12, 1, 8, 1.5));
+        crystals.push(createRainbowCrystal(10, 2.5, 6, 1));
+        crystals.push(createRainbowCrystal(0, 4, -12, 0.9));
+        crystals.push(createRainbowCrystal(-5, 2, 3, 1.1));
+
+        // ⭐ キラキラ星パーティクル
+        function createSparkleParticles() {
+            const particleCount = 200;
+            const geometry = new THREE.BufferGeometry();
+            const positions = [];
+            const colors = [];
+            const sizes = [];
+            
+            for(let i = 0; i < particleCount; i++) {
+                positions.push(
+                    (Math.random() - 0.5) * 100,
+                    Math.random() * 50 - 10,
+                    (Math.random() - 0.5) * 100
+                );
+                
+                // パステルカラー
+                const hue = Math.random();
+                colors.push(
+                    0.7 + Math.random() * 0.3,
+                    0.5 + Math.random() * 0.5,
+                    0.8 + Math.random() * 0.2
+                );
+                
+                sizes.push(Math.random() * 3 + 1);
+            }
+            
+            geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+            geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+            geometry.setAttribute('size', new THREE.Float32BufferAttribute(sizes, 1));
+            
+            const material = new THREE.PointsMaterial({
+                size: 2,
+                sizeAttenuation: true,
+                vertexColors: true,
+                transparent: true,
+                opacity: 0.8,
+                blending: THREE.AdditiveBlending,
+                map: createStarTexture()
+            });
+            
+            const particles = new THREE.Points(geometry, material);
+            scene.add(particles);
+            return particles;
+        }
+        
+        // 星のテクスチャ作成
+        function createStarTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 32;
+            canvas.height = 32;
+            const ctx = canvas.getContext('2d');
+            
+            const gradient = ctx.createRadialGradient(16, 16, 0, 16, 16, 16);
+            gradient.addColorStop(0, 'rgba(255,255,255,1)');
+            gradient.addColorStop(0.4, 'rgba(255,220,255,1)');
+            gradient.addColorStop(1, 'rgba(255,200,255,0)');
+            
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, 32, 32);
+            
+            const texture = new THREE.CanvasTexture(canvas);
+            return texture;
+        }
+        
+        const sparkles = createSparkleParticles();
+
+        // 🌈 虹を追加
+        function createRainbow() {
+            const curve = new THREE.CatmullRomCurve3([
+                new THREE.Vector3(-30, 10, -20),
+                new THREE.Vector3(-10, 20, -15),
+                new THREE.Vector3(10, 20, -15),
+                new THREE.Vector3(30, 10, -20)
+            ]);
+            
+            const colors = [0xff0000, 0xff7f00, 0xffff00, 0x00ff00, 0x0000ff, 0x4b0082, 0x9400d3];
+            
+            colors.forEach((color, i) => {
+                const tubeGeometry = new THREE.TubeGeometry(curve, 50, 1.5 - i * 0.2, 8, false);
+                const tubeMaterial = new THREE.MeshBasicMaterial({
+                    color: color,
+                    transparent: true,
+                    opacity: 0.3
+                });
+                const rainbow = new THREE.Mesh(tubeGeometry, tubeMaterial);
+                scene.add(rainbow);
+            });
+        }
+        
+        createRainbow();
+
+        // 🦄 ユニコーンの角みたいなオブジェクト
+        function createUnicornHorn(x, y, z) {
+            const geometry = new THREE.ConeGeometry(0.5, 3, 8);
+            const material = new THREE.MeshPhysicalMaterial({
+                color: 0xffffff,
+                metalness: 0.3,
+                roughness: 0.2,
+                iridescence: 1,
+                iridescenceIOR: 2.333,
+                iridescenceThicknessRange: [100, 400],
+                emissive: 0xffd0ff,
+                emissiveIntensity: 0.3
+            });
+            
+            const horn = new THREE.Mesh(geometry, material);
+            horn.position.set(x, y, z);
+            horn.rotation.z = Math.PI / 8;
+            horn.castShadow = true;
+            
+            // ゴールドのらせん
+            const spiralGeometry = new THREE.TorusGeometry(0.6, 0.1, 8, 20);
+            const spiralMaterial = new THREE.MeshPhongMaterial({
+                color: 0xffd700,
+                emissive: 0xffd700,
+                emissiveIntensity: 0.3
+            });
+            
+            for(let i = 0; i < 3; i++) {
+                const spiral = new THREE.Mesh(spiralGeometry, spiralMaterial);
+                spiral.position.y = i * 0.8 - 1;
+                spiral.scale.set(1 - i * 0.3, 1 - i * 0.3, 1);
+                horn.add(spiral);
+            }
+            
+            scene.add(horn);
+            return horn;
+        }
+        
+        // ユニコーンの角を配置
+        const horn1 = createUnicornHorn(5, 3, 0);
+        const horn2 = createUnicornHorn(-8, 2, 5);
         
         // Camera position
-        camera.position.set(0, 3, 12);
+        camera.position.set(0, 8, 25);
+        camera.lookAt(0, 0, 0);
         
         // Controls
         const controls = new THREE.OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
         controls.dampingFactor = 0.05;
+        controls.maxPolarAngle = Math.PI / 2.2;
         
         // Initialize ChocoDrop (本物!)
         const chocoDrop = ChocoDrop.createChocoDrop(scene, {
@@ -301,6 +470,46 @@
         function animate() {
             requestAnimationFrame(animate);
             controls.update();
+            
+            // ✨ アニメーション
+            const time = Date.now() * 0.001;
+            
+            // クリスタルの回転
+            crystals.forEach((crystal, i) => {
+                crystal.rotation.y = time * crystal.userData.rotationSpeed;
+                crystal.rotation.x = Math.sin(time * 0.5 + i) * 0.1;
+                crystal.position.y += Math.sin(time + i) * 0.002; // ふわふわ浮遊
+            });
+            
+            // 雲のふわふわアニメーション
+            if (mainCloud) {
+                mainCloud.position.y = -5 + Math.sin(time * 0.3) * 0.5;
+                mainCloud.rotation.y = time * 0.05;
+            }
+            
+            // キラキラパーティクルの回転
+            if (sparkles) {
+                sparkles.rotation.y = time * 0.1;
+                sparkles.rotation.x = time * 0.05;
+                
+                // パーティクルの瞬き効果
+                const positions = sparkles.geometry.attributes.position.array;
+                for (let i = 0; i < positions.length; i += 3) {
+                    positions[i + 1] += Math.sin(time * 2 + i) * 0.01;
+                }
+                sparkles.geometry.attributes.position.needsUpdate = true;
+            }
+            
+            // ユニコーンの角の回転
+            if (horn1) {
+                horn1.rotation.y = time * 0.3;
+                horn1.position.y = 3 + Math.sin(time * 0.7) * 0.3;
+            }
+            if (horn2) {
+                horn2.rotation.y = -time * 0.2;
+                horn2.position.y = 2 + Math.sin(time * 0.5 + 1) * 0.2;
+            }
+            
             renderer.render(scene, camera);
         }
         
