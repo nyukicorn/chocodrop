@@ -364,26 +364,27 @@
             
             // 正しい虹色順序（外側から内側へ）+ ミルキー調
             const colors = [
-                0xffccdd, // ミルキー赤
-                0xffeacc, // ミルキーオレンジ
-                0xffffcc, // ミルキー黄色
-                0xccffcc, // ミルキー緑
-                0xccddff, // ミルキー青
-                0xddccff, // ミルキー藍
-                0xffccff  // ミルキー紫
+                0xffaaaa, // ミルキー赤（もっと赤く）
+                0xffcc99, // ミルキーオレンジ（オレンジっぽく）
+                0xffffaa, // ミルキー黄色（黄色っぽく）
+                0xaaffaa, // ミルキー緑（緑っぽく）
+                0xaaccff, // ミルキー青（青っぽく）
+                0xccaaff, // ミルキー藍（紫っぽく）
+                0xffaaff  // ミルキー紫（紫っぽく）
             ];
             
             colors.forEach((color, i) => {
-                const radius = 2.5 - i * 0.3; // もっと太く、間隔も広く
-                const tubeGeometry = new THREE.TubeGeometry(curve, 100, radius, 12, false);
+                const radius = 0.8 + i * 0.4; // 内側から外側へ（正しい虹の順序）
+                const tubeGeometry = new THREE.TubeGeometry(curve, 100, radius, 16, false);
                 const tubeMaterial = new THREE.MeshBasicMaterial({
                     color: color,
                     transparent: true,
-                    opacity: 0.8, // より濃く
-                    side: THREE.DoubleSide // 両面描画
+                    opacity: 0.9, // もっと濃く
+                    side: THREE.DoubleSide,
+                    depthWrite: false // 深度書き込み無効で重なりを改善
                 });
                 const rainbow = new THREE.Mesh(tubeGeometry, tubeMaterial);
-                rainbow.position.y = i * 0.1; // 少しずつずらして重なりを防ぐ
+                // Y位置のずらしは削除（半径で分離）
                 scene.add(rainbow);
             });
         }
