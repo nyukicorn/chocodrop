@@ -375,10 +375,10 @@
             
             const rainbowGroup = new THREE.Group();
             
-            // 各色の帯を作成
+            // 各色の帯を作成（正しいアーチ）
             colors.forEach((color, i) => {
                 // 帯状のジオメトリ
-                const geometry = new THREE.PlaneGeometry(8, 1.5, 32, 1);
+                const geometry = new THREE.PlaneGeometry(6, 2, 32, 1);
                 const material = new THREE.MeshBasicMaterial({
                     color: color,
                     transparent: true,
@@ -388,15 +388,19 @@
                 
                 const strip = new THREE.Mesh(geometry, material);
                 
-                // アーチ状に配置
-                const angle = (i - 3) * 0.3; // 中央を0として左右に配置
+                // 正しいアーチ計算
+                const totalColors = colors.length;
+                const angleRange = Math.PI * 0.6; // 約108度のアーチ
+                const angle = (i / (totalColors - 1) - 0.5) * angleRange; // -54度から+54度
                 const radius = 20;
+                
+                // アーチの位置計算
                 const x = Math.sin(angle) * radius;
-                const y = 15 + Math.cos(angle) * 5; // 高さ調整
+                const y = 15 + Math.cos(angle) * radius * 0.3; // Y軸も円弧に
                 const z = -15;
                 
                 strip.position.set(x, y, z);
-                strip.rotation.z = angle; // 角度に合わせて回転
+                strip.rotation.z = angle; // アーチに沿って回転
                 
                 rainbowGroup.add(strip);
             });
