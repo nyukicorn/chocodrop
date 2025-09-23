@@ -416,6 +416,11 @@
             });
 
             const rainbow = new THREE.Mesh(geometry, material);
+            
+            // 筒の向きを調整（より自然な角度に）
+            rainbow.rotation.x = Math.PI * 0.1;  // X軸を少し回転
+            rainbow.rotation.y = Math.PI * 0.05; // Y軸を少し回転
+            rainbow.rotation.z = Math.PI * 0.02; // Z軸を少し回転
 
             scene.add(rainbow);
         }
