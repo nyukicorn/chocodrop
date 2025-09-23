@@ -317,8 +317,9 @@
                 sizeAttenuation: true,
                 vertexColors: true,
                 transparent: true,
-                opacity: 0.8,
-                blending: THREE.AdditiveBlending,
+                opacity: 0.9,
+                alphaTest: 0.1, // 透明度の閾値設定
+                blending: THREE.NormalBlending, // AdditiveBlendingをやめる
                 map: createStarTexture()
             });
             
@@ -334,24 +335,26 @@
             canvas.height = 64;
             const ctx = canvas.getContext('2d');
             
-            // 完全に透明な背景
+            // 背景を透明にクリア（白で塗らない）
             ctx.clearRect(0, 0, 64, 64);
             
             // 中心から外側へのグラデーション（外側は完全透明）
-            const gradient = ctx.createRadialGradient(32, 32, 0, 32, 32, 28);
+            const gradient = ctx.createRadialGradient(32, 32, 0, 32, 32, 24);
             gradient.addColorStop(0, 'rgba(255,255,255,1)');
-            gradient.addColorStop(0.2, 'rgba(255,240,255,0.9)');
-            gradient.addColorStop(0.5, 'rgba(255,220,255,0.5)');
-            gradient.addColorStop(0.8, 'rgba(255,200,255,0.2)');
-            gradient.addColorStop(1, 'rgba(255,200,255,0)'); // 完全透明
+            gradient.addColorStop(0.3, 'rgba(255,240,255,0.8)');
+            gradient.addColorStop(0.6, 'rgba(255,220,255,0.4)');
+            gradient.addColorStop(0.9, 'rgba(255,200,255,0.1)');
+            gradient.addColorStop(1, 'rgba(0,0,0,0)'); // 完全透明
             
-            // 円形に描画（四角ではなく円）
+            // 円形だけ描画（背景は触らない）
+            ctx.globalCompositeOperation = 'source-over';
             ctx.beginPath();
-            ctx.arc(32, 32, 28, 0, Math.PI * 2);
+            ctx.arc(32, 32, 24, 0, Math.PI * 2);
             ctx.fillStyle = gradient;
             ctx.fill();
             
             const texture = new THREE.CanvasTexture(canvas);
+            texture.premultiplyAlpha = false; // アルファ事前乗算を無効
             return texture;
         }
         
