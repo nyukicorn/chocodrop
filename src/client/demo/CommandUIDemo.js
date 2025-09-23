@@ -4044,18 +4044,24 @@ export class CommandUIDemo {
 
     // ラジオボタンモードセレクターの2025年仕様テーマ再適用
     if (this.radioModeContainer) {
-      this.radioModeContainer.style.background = this.isDarkMode 
-        ? 'linear-gradient(135deg, rgba(30, 27, 75, 0.3), rgba(15, 23, 42, 0.4))' 
-        : 'linear-gradient(135deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.1))';
-      this.radioModeContainer.style.borderColor = this.isDarkMode 
-        ? 'rgba(99, 102, 241, 0.15)' 
-        : 'rgba(255, 255, 255, 0.25)';
+      this.radioModeContainer.style.background = this.isWabiSabiMode
+        ? 'linear-gradient(135deg, rgba(97, 97, 97, 0.7), rgba(66, 66, 66, 0.6))'
+        : (this.isDarkMode
+          ? 'linear-gradient(135deg, rgba(30, 27, 75, 0.3), rgba(15, 23, 42, 0.4))'
+          : 'linear-gradient(135deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.1))');
+      this.radioModeContainer.style.borderColor = this.isWabiSabiMode
+        ? 'rgba(93, 64, 55, 0.4)'
+        : (this.isDarkMode
+          ? 'rgba(99, 102, 241, 0.15)'
+          : 'rgba(255, 255, 255, 0.25)');
 
       // 各ラジオボタンのスタイル更新
       Object.keys(this.radioModeButtons).forEach(key => {
         const { button } = this.radioModeButtons[key];
         if (this.currentMode !== key) {
-          button.style.color = this.isDarkMode ? 'rgba(255, 255, 255, 0.7)' : 'rgba(55, 65, 81, 0.8)';
+          button.style.color = this.isWabiSabiMode
+            ? 'rgba(245, 245, 245, 0.8)'
+            : (this.isDarkMode ? 'rgba(255, 255, 255, 0.7)' : 'rgba(55, 65, 81, 0.8)');
           button.style.background = 'transparent';
           button.style.border = '1px solid transparent';
           button.style.boxShadow = 'none';
@@ -4075,8 +4081,35 @@ export class CommandUIDemo {
       this.historyBtn.style.opacity = '0.5';
     }
     if (this.themeToggle) {
-      this.themeToggle.innerHTML = this.isDarkMode ? '☀️' : '🌙';
-      this.themeToggle.title = this.isDarkMode ? 'ライトモードに切り替え' : 'ダークモードに切り替え';
+      const getThemeIcon = () => {
+        const themeConfig = {
+          light: '🌙', // ライトモード時は月を表示（次がダーク）
+          dark: '🍵',  // ダークモード時は茶を表示（次がwabi-sabi）
+          wabisabi: '☀️' // wabi-sabiモード時は太陽を表示（次がライト）
+        };
+        return themeConfig[this.currentTheme] || '🌙';
+      };
+      const getThemeTitle = () => {
+        const titleConfig = {
+          light: 'ダークモードに切り替え',
+          dark: '侘び寂びモードに切り替え',
+          wabisabi: 'ライトモードに切り替え'
+        };
+        return titleConfig[this.currentTheme] || 'ダークモードに切り替え';
+      };
+      const getThemeIconWithFilter = () => {
+        const icon = getThemeIcon();
+        // 太陽は黄色く、お茶は緑系、月は紫系フィルター
+        if (icon === '☀️') {
+          return `<span style="filter: saturate(1.2) brightness(1.1);">${icon}</span>`;
+        } else if (icon === '🍵') {
+          return `<span style="filter: hue-rotate(80deg) saturate(1.1) brightness(1.0);">${icon}</span>`;
+        } else {
+          return `<span style="filter: hue-rotate(240deg) saturate(0.8) brightness(1.1);">${icon}</span>`;
+        }
+      };
+      this.themeToggle.innerHTML = getThemeIconWithFilter();
+      this.themeToggle.title = getThemeTitle();
       this.themeToggle.style.cssText = this.getActionButtonStyles('icon');
     }
     if (this.settingsButton) {
@@ -4088,10 +4121,12 @@ export class CommandUIDemo {
     // 閉じるボタンのテーマ更新
     const closeButton = this.container.querySelector('.close-button');
     if (closeButton) {
-      closeButton.style.color = this.isDarkMode ? '#ffffff' : '#1f2937';
-      closeButton.style.background = this.isDarkMode 
-        ? 'rgba(255, 255, 255, 0.1)' 
-        : 'rgba(0, 0, 0, 0.1)';
+      closeButton.style.color = this.isWabiSabiMode ? '#F5F5F5' : (this.isDarkMode ? '#ffffff' : '#1f2937');
+      closeButton.style.background = this.isWabiSabiMode
+        ? 'rgba(245, 245, 245, 0.1)'
+        : (this.isDarkMode
+          ? 'rgba(255, 255, 255, 0.1)'
+          : 'rgba(0, 0, 0, 0.1)');
     }
 
     // フローティングコンテナとタスクカードのテーマ更新
