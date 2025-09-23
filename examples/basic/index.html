@@ -360,61 +360,62 @@
         
         const sparkles = createSparkleParticles();
 
-        // 🌈 グラデーション虹を追加
+        // 🌈 太いグラデーション虹を追加
         function createRainbow() {
-            // 1つの連続したアーチジオメトリ
-            const curve = new THREE.EllipseCurve(
-                0, 0,            // 中心
-                25, 15,          // 横半径、縦半径
-                Math.PI * 0.2,   // 開始角度
-                Math.PI * 0.8,   // 終了角度
-                false,           // 時計回り
-                0                // 回転
-            );
+            // アーチカーブを作成
+            const curve = new THREE.CatmullRomCurve3([
+                new THREE.Vector3(-20, 5, -15),
+                new THREE.Vector3(-10, 18, -15),
+                new THREE.Vector3(0, 22, -15),
+                new THREE.Vector3(10, 18, -15),
+                new THREE.Vector3(20, 5, -15)
+            ]);
+
+            // 太いチューブジオメトリ
+            const geometry = new THREE.TubeGeometry(curve, 64, 2, 16, false);
             
-            const points = curve.getPoints(100);
-            const geometry = new THREE.BufferGeometry().setFromPoints(points);
+            // グラデーション用のvertex shader
+            const vertexShader = `
+                varying vec2 vUv;
+                void main() {
+                    vUv = uv;
+                    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                }
+            `;
             
-            // 虹色グラデーション用のカラー配列
-            const colors = [];
-            const rainbowColors = [
-                [1.0, 0.67, 0.67], // ミルキー赤
-                [1.0, 0.8, 0.6],   // ミルキーオレンジ  
-                [1.0, 1.0, 0.67],  // ミルキー黄色
-                [0.67, 1.0, 0.67], // ミルキー緑
-                [0.67, 0.8, 1.0],  // ミルキー青
-                [0.8, 0.67, 1.0],  // ミルキー藍
-                [1.0, 0.67, 1.0]   // ミルキー紫
-            ];
+            // フラグメントシェーダーで虹色グラデーション
+            const fragmentShader = `
+                varying vec2 vUv;
+                void main() {
+                    float t = vUv.x; // 長さ方向でグラデーション
+                    
+                    vec3 color;
+                    if (t < 0.167) {
+                        color = mix(vec3(1.0, 0.67, 0.67), vec3(1.0, 0.8, 0.6), t * 6.0);
+                    } else if (t < 0.333) {
+                        color = mix(vec3(1.0, 0.8, 0.6), vec3(1.0, 1.0, 0.67), (t - 0.167) * 6.0);
+                    } else if (t < 0.5) {
+                        color = mix(vec3(1.0, 1.0, 0.67), vec3(0.67, 1.0, 0.67), (t - 0.333) * 6.0);
+                    } else if (t < 0.667) {
+                        color = mix(vec3(0.67, 1.0, 0.67), vec3(0.67, 0.8, 1.0), (t - 0.5) * 6.0);
+                    } else if (t < 0.833) {
+                        color = mix(vec3(0.67, 0.8, 1.0), vec3(0.8, 0.67, 1.0), (t - 0.667) * 6.0);
+                    } else {
+                        color = mix(vec3(0.8, 0.67, 1.0), vec3(1.0, 0.67, 1.0), (t - 0.833) * 6.0);
+                    }
+                    
+                    gl_FragColor = vec4(color, 0.8);
+                }
+            `;
             
-            // 各点に色を割り当て
-            for (let i = 0; i <= 100; i++) {
-                const colorIndex = (i / 100) * (rainbowColors.length - 1);
-                const colorIndex1 = Math.floor(colorIndex);
-                const colorIndex2 = Math.min(colorIndex1 + 1, rainbowColors.length - 1);
-                const factor = colorIndex - colorIndex1;
-                
-                const color1 = rainbowColors[colorIndex1];
-                const color2 = rainbowColors[colorIndex2];
-                
-                const r = color1[0] * (1 - factor) + color2[0] * factor;
-                const g = color1[1] * (1 - factor) + color2[1] * factor;
-                const b = color1[2] * (1 - factor) + color2[2] * factor;
-                
-                colors.push(r, g, b);
-            }
-            
-            geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-            
-            const material = new THREE.LineBasicMaterial({
-                vertexColors: true,
+            const material = new THREE.ShaderMaterial({
+                vertexShader: vertexShader,
+                fragmentShader: fragmentShader,
                 transparent: true,
-                opacity: 0.9,
-                linewidth: 10
+                side: THREE.DoubleSide
             });
-            
-            const rainbow = new THREE.Line(geometry, material);
-            rainbow.position.set(0, 8, -15);
+
+            const rainbow = new THREE.Mesh(geometry, material);
             scene.add(rainbow);
         }
         
