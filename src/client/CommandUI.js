@@ -1,5 +1,6 @@
 const IMAGE_SERVICE_STORAGE_KEY = 'chocodrop-service-image';
 const VIDEO_SERVICE_STORAGE_KEY = 'chocodrop-service-video';
+const KEYWORD_HIGHLIGHT_COLOR = '#ff6ad5';
 
 /**
  * Command UI - Web interface for ChocoDrop System
@@ -38,6 +39,8 @@ export class CommandUI {
     this.availableVideoServices = [];
     this.selectedImageService = null;
     this.selectedVideoService = null;
+    this.highlightOverlay = null;
+    this.inputDefaultStyles = null;
     this.imageServiceSelect = null;
     this.videoServiceSelect = null;
     this.serviceSelectorContainer = null;
@@ -1573,6 +1576,13 @@ export class CommandUI {
       { pattern: /変えて/, keyword: '変えて' },
       { pattern: /修正/, keyword: '修正' },
       { pattern: /調整/, keyword: '調整' },
+      { pattern: /回転/, keyword: '回転' },
+      { pattern: /反転/, keyword: '反転' },
+      { pattern: /ミラー/, keyword: 'ミラー' },
+      { pattern: /傾け/, keyword: '傾け' },
+      { pattern: /向きを変え/, keyword: '向きを変え' },
+      { pattern: /.*を.*色/, keyword: '色変更' },
+      { pattern: /.*を.*サイズ/, keyword: 'サイズ変更' },
       { pattern: /を.*に.*して/, keyword: '変更' },
       { pattern: /move/i, keyword: 'move' },
       { pattern: /change/i, keyword: 'change' },
@@ -1700,6 +1710,9 @@ export class CommandUI {
    * Apply keyword highlighting to the input text
    */
   applyKeywordHighlighting() {
+    // TODO: 一時的にキーワードハイライト機能を無効化（リリース後に再検討）
+    return;
+
     if (!this.input || this.isComposing) {
       return;
     }
@@ -1753,6 +1766,10 @@ export class CommandUI {
     
     // Copy textarea styles to overlay
     const computedStyle = window.getComputedStyle(this.input);
+
+    if (!this.inputDefaultStyles) {
+      this.captureInputDefaultStyles();
+    }
     this.highlightOverlay.style.cssText = `
       position: absolute;
       top: 0;
@@ -1798,7 +1815,9 @@ export class CommandUI {
 
     // Make textarea background transparent so overlay shows through
     this.input.style.background = 'transparent';
-    this.input.style.color = this.isDarkMode ? '#ffffff' : '#1f2937';
+    this.input.style.backgroundColor = 'transparent';
+    this.input.style.backgroundImage = 'none';
+    this.input.style.color = this.getInputTextColor();
 
     // Insert overlay before textarea
     this.inputWrapper.insertBefore(this.highlightOverlay, this.input);
@@ -1808,15 +1827,27 @@ export class CommandUI {
    * Get the appropriate color for each keyword type
    */
   getKeywordColor(type) {
-    switch (type) {
-      case 'delete':
-        return '#ef4444'; // Red for delete
-      case 'modify': 
-        return '#f59e0b'; // Orange for modify
-      case 'generate':
-      default:
-        return '#8b5cf6'; // Purple for generate (brand color)
+    return KEYWORD_HIGHLIGHT_COLOR;
+  }
+
+  getInputTextColor() {
+    if (this.isWabiSabiMode) {
+      return '#F5F5F5';
     }
+    return this.isDarkMode ? '#ffffff' : '#1f2937';
+  }
+
+  captureInputDefaultStyles() {
+    if (!this.input) {
+      return;
+    }
+    const computedStyle = window.getComputedStyle(this.input);
+    this.inputDefaultStyles = {
+      background: computedStyle.background,
+      backgroundImage: computedStyle.backgroundImage,
+      backgroundColor: computedStyle.backgroundColor,
+      color: computedStyle.color
+    };
   }
 
   /**
@@ -1830,7 +1861,17 @@ export class CommandUI {
     
     // Restore textarea background
     if (this.input) {
-      this.input.style.background = this.isDarkMode ? 'rgba(31, 41, 55, 0.8)' : 'rgba(255, 255, 255, 0.9)';
+      if (this.inputDefaultStyles) {
+        this.input.style.background = this.inputDefaultStyles.background;
+        this.input.style.backgroundImage = this.inputDefaultStyles.backgroundImage;
+        this.input.style.backgroundColor = this.inputDefaultStyles.backgroundColor;
+        this.input.style.color = this.inputDefaultStyles.color;
+      } else {
+        this.input.style.background = '';
+        this.input.style.backgroundImage = '';
+        this.input.style.backgroundColor = '';
+        this.input.style.color = '';
+      }
     }
   }
 
@@ -2230,16 +2271,6 @@ export class CommandUI {
       @keyframes progress-shine {
         0% { transform: translateX(-100%); }
         100% { transform: translateX(100%); }
-      }
-
-      /* wabi-sabiモード用の入力フィールドフォーカススタイル */
-      .wabisabi-mode textarea:focus,
-      .wabisabi-mode input:focus {
-        background: linear-gradient(135deg, rgba(97, 97, 97, 0.4), rgba(66, 66, 66, 0.3)) !important;
-        border: 1px solid rgba(141, 110, 99, 0.6) !important;
-        box-shadow: 0 4px 16px rgba(66, 66, 66, 0.3), inset 0 1px 0 rgba(189, 189, 189, 0.2), 0 0 0 2px rgba(141, 110, 99, 0.2) !important;
-        color: #F5F5F5 !important;
-        outline: none !important;
       }
     `;
 
@@ -3686,6 +3717,13 @@ export class CommandUI {
                responseType === 'magical' ? 'あなたの想いを形にしています...' :
                'ちょこっと魔法をかけています...';
       case 'completed':
+        // Delete mode specific messages
+        if (this.currentMode === 'delete') {
+          return responseType === 'casual' ? 'ちょこっと削除しました！' :
+                 responseType === 'magical' ? 'すっきりと片付きました！' :
+                 'ちょこんと削除完了！すっきりですね！';
+        }
+        // Default completion messages for other modes
         return responseType === 'casual' ? 'ちょこっとドロップしました！' :
                responseType === 'magical' ? '素敵な世界が完成しました！' :
                'ちょこんと配置完了！素敵ですね！';
@@ -4363,7 +4401,14 @@ export class CommandUI {
     }
 
     // 入力フィールド
+    const hadHighlight = !!this.highlightOverlay;
+    this.inputDefaultStyles = null;
+    this.clearKeywordHighlighting();
     this.input.style.cssText = this.getInputStyles();
+    this.captureInputDefaultStyles();
+    if (hadHighlight || (this.input && this.input.value.trim())) {
+      this.applyKeywordHighlighting();
+    }
 
     // スタイル適用
     this.output.style.cssText = this.getOutputStyles();
@@ -5379,7 +5424,27 @@ export class CommandUI {
     if (top + overlayHeight > window.innerHeight - padding) {
       top = Math.max(padding, window.innerHeight - overlayHeight - padding);
     }
-    
+
+    const overlayBackground = this.isWabiSabiMode
+      ? 'linear-gradient(135deg, rgba(97, 97, 97, 0.7), rgba(66, 66, 66, 0.6))'
+      : (this.isDarkMode
+        ? 'linear-gradient(135deg, rgba(30, 27, 75, 0.4), rgba(15, 23, 42, 0.5))'
+        : 'linear-gradient(135deg, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.2))');
+
+    const overlayBorder = this.isWabiSabiMode
+      ? '1px solid rgba(93, 64, 55, 0.5)'
+      : (this.isDarkMode
+        ? '1px solid rgba(99, 102, 241, 0.25)'
+        : '1px solid rgba(255, 255, 255, 0.5)');
+
+    const overlayInnerShadow = this.isWabiSabiMode
+      ? '0 4px 16px rgba(66, 66, 66, 0.3), inset 0 1px 0 rgba(189, 189, 189, 0.2)'
+      : (this.isDarkMode
+        ? '0 4px 16px rgba(15, 23, 42, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.08)'
+        : '0 4px 16px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.4)');
+
+    const overlayTextColor = this.getInputTextColor();
+
     // オーバーレイのスタイル設定
     this.overlayTextarea.style.cssText = `
       position: fixed;
@@ -5388,12 +5453,12 @@ export class CommandUI {
       width: ${width}px;
       height: ${overlayHeight}px;
       box-sizing: border-box;
-      background: ${this.isDarkMode ? 'linear-gradient(135deg, rgba(30, 27, 75, 0.4), rgba(15, 23, 42, 0.5))' : 'linear-gradient(135deg, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.2))'};
+      background: ${overlayBackground};
       backdrop-filter: blur(24px) saturate(180%);
-      border: ${this.isDarkMode ? '1px solid rgba(99, 102, 241, 0.25)' : '1px solid rgba(255, 255, 255, 0.5)'};
-      box-shadow: ${this.isDarkMode ? '0 4px 16px rgba(15, 23, 42, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.08)' : '0 4px 16px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.4)'};
+      border: ${overlayBorder};
+      box-shadow: ${overlayInnerShadow};
       border-radius: 16px;
-      color: white;
+      color: ${overlayTextColor};
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       font-size: 14px;
       line-height: 1.5;
