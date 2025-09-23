@@ -374,14 +374,16 @@
             ];
             
             colors.forEach((color, i) => {
-                const radius = 1.8 - i * 0.25; // 外側から内側へ
-                const tubeGeometry = new THREE.TubeGeometry(curve, 50, radius, 8, false);
+                const radius = 2.5 - i * 0.3; // もっと太く、間隔も広く
+                const tubeGeometry = new THREE.TubeGeometry(curve, 100, radius, 12, false);
                 const tubeMaterial = new THREE.MeshBasicMaterial({
                     color: color,
                     transparent: true,
-                    opacity: 0.6
+                    opacity: 0.8, // より濃く
+                    side: THREE.DoubleSide // 両面描画
                 });
                 const rainbow = new THREE.Mesh(tubeGeometry, tubeMaterial);
+                rainbow.position.y = i * 0.1; // 少しずつずらして重なりを防ぐ
                 scene.add(rainbow);
             });
         }
