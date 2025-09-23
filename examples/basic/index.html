@@ -178,29 +178,29 @@
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         document.body.appendChild(renderer.domElement);
         
-        // 🌈 夢の国の環境設定 - パステルグラデーション背景
-        scene.background = new THREE.Color(0xffd0ff); // パステルピンク
-        scene.fog = new THREE.FogExp2(0xffd0ff, 0.003);
+        // 🌈 夢の国の環境設定 - ミルキーホワイト背景
+        scene.background = new THREE.Color(0xfaf8ff); // ミルキーホワイト
+        scene.fog = new THREE.FogExp2(0xfaf8ff, 0.002);
         
-        // ✨ より夢っぽいライティング
-        const ambientLight = new THREE.AmbientLight(0xffc0ff, 0.6);
+        // ✨ ミルキーな夢ライティング
+        const ambientLight = new THREE.AmbientLight(0xfff8ff, 0.8);
         scene.add(ambientLight);
 
-        // 虹色ライト1
-        const directionalLight1 = new THREE.DirectionalLight(0xffd0ff, 0.8);
+        // ソフトライト1
+        const directionalLight1 = new THREE.DirectionalLight(0xffe6ff, 0.6);
         directionalLight1.position.set(30, 40, 30);
         directionalLight1.castShadow = true;
         directionalLight1.shadow.mapSize.width = 2048;
         directionalLight1.shadow.mapSize.height = 2048;
         scene.add(directionalLight1);
 
-        // 虹色ライト2
-        const directionalLight2 = new THREE.DirectionalLight(0xc0ffff, 0.6);
+        // ソフトライト2
+        const directionalLight2 = new THREE.DirectionalLight(0xf0f8ff, 0.4);
         directionalLight2.position.set(-30, 40, -30);
         scene.add(directionalLight2);
 
-        // パステル環境光
-        const hemisphereLight = new THREE.HemisphereLight(0xffc0ff, 0xc0c0ff, 0.8);
+        // ミルキー環境光
+        const hemisphereLight = new THREE.HemisphereLight(0xfff8ff, 0xf8f0ff, 0.6);
         scene.add(hemisphereLight);
         
         // ☁️ 雲のプラットフォーム（複数レイヤー）
@@ -209,11 +209,11 @@
             
             // 雲の各パーツを球体で作成
             const cloudMaterial = new THREE.MeshPhongMaterial({
-                color: 0xffffff,
+                color: 0xffddee, // ミルキーピンク
                 transparent: true,
-                opacity: 0.9,
-                emissive: 0xffd0ff,
-                emissiveIntensity: 0.2
+                opacity: 0.8,
+                emissive: 0xffb3d9,
+                emissiveIntensity: 0.3
             });
             
             // メインの雲
@@ -250,19 +250,15 @@
         function createRainbowCrystal(x, y, z, scale = 1) {
             const geometry = new THREE.OctahedronGeometry(1.5 * scale, 0);
             
-            // 虹色グラデーションマテリアル
-            const material = new THREE.MeshPhysicalMaterial({
-                color: 0xffffff,
-                metalness: 0.2,
-                roughness: 0.1,
-                transmission: 0.9,
-                thickness: 0.5,
-                envMapIntensity: 3,
-                clearcoat: 1,
-                clearcoatRoughness: 0.1,
-                iridescence: 1,
-                iridescenceIOR: 2.333,
-                iridescenceThicknessRange: [100, 400],
+            // キラキラクリスタルマテリアル
+            const material = new THREE.MeshPhongMaterial({
+                color: 0xffeeff, // ミルキーピンク
+                transparent: true,
+                opacity: 0.8,
+                emissive: 0xffc0ff,
+                emissiveIntensity: 0.4,
+                shininess: 100,
+                specular: 0xffffff
             });
             
             const crystal = new THREE.Mesh(geometry, material);
@@ -301,12 +297,12 @@
                     (Math.random() - 0.5) * 100
                 );
                 
-                // パステルカラー
+                // ミルキーパステルカラー
                 const hue = Math.random();
                 colors.push(
-                    0.7 + Math.random() * 0.3,
-                    0.5 + Math.random() * 0.5,
-                    0.8 + Math.random() * 0.2
+                    0.9 + Math.random() * 0.1, // より白っぽく
+                    0.7 + Math.random() * 0.3, // ミルキー
+                    0.9 + Math.random() * 0.1  // 明るく
                 );
                 
                 sizes.push(Math.random() * 3 + 1);
@@ -331,20 +327,25 @@
             return particles;
         }
         
-        // 星のテクスチャ作成
+        // 星のテクスチャ作成（透明）
         function createStarTexture() {
             const canvas = document.createElement('canvas');
-            canvas.width = 32;
-            canvas.height = 32;
+            canvas.width = 64;
+            canvas.height = 64;
             const ctx = canvas.getContext('2d');
             
-            const gradient = ctx.createRadialGradient(16, 16, 0, 16, 16, 16);
+            // 透明背景
+            ctx.clearRect(0, 0, 64, 64);
+            
+            // 星形のグラデーション
+            const gradient = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
             gradient.addColorStop(0, 'rgba(255,255,255,1)');
-            gradient.addColorStop(0.4, 'rgba(255,220,255,1)');
+            gradient.addColorStop(0.3, 'rgba(255,240,255,0.8)');
+            gradient.addColorStop(0.6, 'rgba(255,220,255,0.4)');
             gradient.addColorStop(1, 'rgba(255,200,255,0)');
             
             ctx.fillStyle = gradient;
-            ctx.fillRect(0, 0, 32, 32);
+            ctx.fillRect(0, 0, 64, 64);
             
             const texture = new THREE.CanvasTexture(canvas);
             return texture;
@@ -352,7 +353,7 @@
         
         const sparkles = createSparkleParticles();
 
-        // 🌈 虹を追加
+        // 🌈 ミルキー虹を追加
         function createRainbow() {
             const curve = new THREE.CatmullRomCurve3([
                 new THREE.Vector3(-30, 10, -20),
@@ -361,14 +362,24 @@
                 new THREE.Vector3(30, 10, -20)
             ]);
             
-            const colors = [0xff0000, 0xff7f00, 0xffff00, 0x00ff00, 0x0000ff, 0x4b0082, 0x9400d3];
+            // 正しい虹色順序（外側から内側へ）+ ミルキー調
+            const colors = [
+                0xffccdd, // ミルキー赤
+                0xffeacc, // ミルキーオレンジ
+                0xffffcc, // ミルキー黄色
+                0xccffcc, // ミルキー緑
+                0xccddff, // ミルキー青
+                0xddccff, // ミルキー藍
+                0xffccff  // ミルキー紫
+            ];
             
             colors.forEach((color, i) => {
-                const tubeGeometry = new THREE.TubeGeometry(curve, 50, 1.5 - i * 0.2, 8, false);
+                const radius = 1.8 - i * 0.25; // 外側から内側へ
+                const tubeGeometry = new THREE.TubeGeometry(curve, 50, radius, 8, false);
                 const tubeMaterial = new THREE.MeshBasicMaterial({
                     color: color,
                     transparent: true,
-                    opacity: 0.3
+                    opacity: 0.6
                 });
                 const rainbow = new THREE.Mesh(tubeGeometry, tubeMaterial);
                 scene.add(rainbow);
