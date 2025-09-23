@@ -213,7 +213,7 @@ export class CommandUIDemo {
       border: 1px solid ${this.isDarkMode ? 'rgba(129, 140, 248, 0.3)' : 'rgba(99, 102, 241, 0.25)'};
       border-radius: 12px;
       box-shadow: 0 8px 24px rgba(99, 102, 241, 0.2), 0 4px 12px rgba(0, 0, 0, 0.1);
-      color: ${this.isDarkMode ? '#ffffff' : '#1f2937'};
+      color: ${this.isWabiSabiMode ? '#F5F5F5' : (this.isDarkMode ? '#ffffff' : '#1f2937')};
       font-size: 11px;
       font-weight: 700;
       text-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
@@ -306,7 +306,7 @@ export class CommandUIDemo {
       background: ${this.isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'};
       border: 1px solid ${this.isDarkMode ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.2)'};
       border-radius: 6px;
-      color: ${this.isDarkMode ? '#ffffff' : '#1f2937'};
+      color: ${this.isWabiSabiMode ? '#F5F5F5' : (this.isDarkMode ? '#ffffff' : '#1f2937')};
       font-size: 16px;
       cursor: pointer;
       transition: all 0.2s ease;
@@ -356,7 +356,7 @@ export class CommandUIDemo {
       height: 22px;
       border-radius: 50%;
       background: ${this.isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'};
-      color: ${this.isDarkMode ? '#ffffff' : '#1f2937'};
+      color: ${this.isWabiSabiMode ? '#F5F5F5' : (this.isDarkMode ? '#ffffff' : '#1f2937')};
       display: flex;
       align-items: center;
       justify-content: center;
@@ -448,16 +448,18 @@ export class CommandUIDemo {
           this.hasCompositionJustEnded = false;
           return;
         }
-        
+
         // その他のブラウザ: isComposingチェック
         if (!isSafari && (e.isComposing || this.isComposing)) {
           return;
         }
-        
-        // デモページ - 生成機能無効化
-        e.preventDefault();
-        this.showDemoMessage();
-        return;
+
+        // Generate モードのみデモ制限を適用
+        if (this.currentMode === 'generate') {
+          e.preventDefault();
+          this.showDemoMessage();
+          return;
+        }
 
         e.preventDefault();
         this.executeCommand();
@@ -1910,7 +1912,15 @@ export class CommandUIDemo {
       boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(255, 255, 255, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.3)'
     };
 
-    const theme = this.isDarkMode ? glassmorphismDark : glassmorphismLight;
+    // 侘び寂びモード - 枯山水の静寂：独自のアイデンティティ
+    const glassmorphismWabiSabi = {
+      background: 'linear-gradient(135deg, rgba(97, 97, 97, 0.7), rgba(66, 66, 66, 0.6))',
+      backdropFilter: 'blur(20px) saturate(120%)',
+      border: '1px solid rgba(93, 64, 55, 0.5)',
+      boxShadow: '0 8px 32px rgba(33, 33, 33, 0.4), 0 0 0 1px rgba(93, 64, 55, 0.4), inset 0 1px 0 rgba(189, 189, 189, 0.15)'
+    };
+
+    const theme = this.isWabiSabiMode ? glassmorphismWabiSabi : (this.isDarkMode ? glassmorphismDark : glassmorphismLight);
 
     return `
       position: fixed;
@@ -1920,7 +1930,7 @@ export class CommandUIDemo {
       background: ${theme.background};
       border: ${theme.border};
       border-radius: 20px;
-      color: ${this.isDarkMode ? '#ffffff' : '#1f2937'};
+      color: ${this.isWabiSabiMode ? '#F5F5F5' : (this.isDarkMode ? '#ffffff' : '#1f2937')};
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Inter', sans-serif;
       font-size: 14px;
       z-index: 1000;
@@ -2081,7 +2091,13 @@ export class CommandUIDemo {
       boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.4)'
     };
 
-    const theme = this.isDarkMode ? glassmorphismDark : glassmorphismLight;
+    const glassmorphismWabiSabi = {
+      background: 'linear-gradient(135deg, rgba(97, 97, 97, 0.4), rgba(66, 66, 66, 0.3))',
+      border: '1px solid rgba(97, 97, 97, 0.5)',
+      boxShadow: '0 4px 16px rgba(66, 66, 66, 0.3), inset 0 1px 0 rgba(189, 189, 189, 0.2)'
+    };
+
+    const theme = this.isWabiSabiMode ? glassmorphismWabiSabi : (this.isDarkMode ? glassmorphismDark : glassmorphismLight);
 
     return `
       width: 100%;
@@ -2089,7 +2105,7 @@ export class CommandUIDemo {
       background: ${theme.background};
       border: ${theme.border};
       border-radius: 14px;
-      color: ${this.isDarkMode ? '#ffffff' : '#1f2937'};
+      color: ${this.isWabiSabiMode ? '#F5F5F5' : (this.isDarkMode ? '#ffffff' : '#1f2937')};
       font-size: 14px;
       outline: none;
       box-sizing: border-box;
@@ -2109,14 +2125,30 @@ export class CommandUIDemo {
 
   getModernButtonStyles(type) {
     const styles = {
-      primary: `
+      primary: this.isWabiSabiMode ? `
+        background: linear-gradient(135deg, #8D6E63, #6D4C41);
+        box-shadow: 0 4px 12px rgba(85, 139, 47, 0.4), inset 0 1px 0 rgba(184, 158, 135, 0.15);
+        width: 100%;
+        padding: 16px;
+        font-size: 14px;
+        font-weight: 600;
+      ` : `
         background: linear-gradient(135deg, #4f46e5, #4338ca);
         width: 100%;
         padding: 16px;
         font-size: 14px;
         font-weight: 600;
       `,
-      secondary: `
+      secondary: this.isWabiSabiMode ? `
+        background: rgba(158, 158, 158, 0.2);
+        border: 1px solid rgba(141, 110, 99, 0.4);
+        flex: 1;
+        padding: 12px;
+        font-size: 13px;
+        font-weight: 500;
+        backdrop-filter: blur(8px);
+        color: #F5F5F5;
+      ` : `
         background: rgba(255, 255, 255, 0.08);
         border: 1px solid rgba(255, 255, 255, 0.2);
         flex: 1;
@@ -2125,7 +2157,16 @@ export class CommandUIDemo {
         font-weight: 500;
         backdrop-filter: blur(8px);
       `,
-      danger: `
+      danger: this.isWabiSabiMode ? `
+        background: rgba(141, 110, 99, 0.3);
+        border: 1px solid rgba(93, 64, 55, 0.5);
+        flex: 1;
+        padding: 12px;
+        font-size: 13px;
+        font-weight: 500;
+        backdrop-filter: blur(8px);
+        color: #F5F5F5;
+      ` : `
         background: rgba(255, 59, 48, 0.15);
         border: 1px solid rgba(255, 59, 48, 0.3);
         flex: 1;
@@ -2163,7 +2204,7 @@ export class CommandUIDemo {
       padding: 12px 16px;
       border: none;
       border-radius: 8px;
-      color: ${isActive ? 'white' : 'rgba(255, 255, 255, 0.7)'};
+      color: ${isActive ? 'white' : (this.isWabiSabiMode ? '#F5F5F5' : 'rgba(255, 255, 255, 0.7)')};
       background: ${isActive ? modeColors[mode] : 'transparent'};
       font-size: 13px;
       font-weight: 600;
@@ -2548,7 +2589,7 @@ export class CommandUIDemo {
         padding: 32px;
         max-width: 420px;
         text-align: center;
-        color: ${this.isDarkMode ? '#ffffff' : '#1f2937'};
+        color: ${this.isWabiSabiMode ? '#F5F5F5' : (this.isDarkMode ? '#ffffff' : '#1f2937')};
         font-family: inherit;
         backdrop-filter: blur(24px) saturate(180%);
         -webkit-backdrop-filter: blur(24px) saturate(180%);
@@ -4789,7 +4830,7 @@ export class CommandUIDemo {
       z-index: 2000;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       font-size: 14px;
-      color: ${this.isDarkMode ? '#ffffff' : '#1f2937'};
+      color: ${this.isWabiSabiMode ? '#F5F5F5' : (this.isDarkMode ? '#ffffff' : '#1f2937')};
     `;
 
     // メニューアイテム1: フォームを開く
