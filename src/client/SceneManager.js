@@ -1465,11 +1465,11 @@ export class SceneManager {
       console.log('🔍 Video generation - selectedVideoService:', this.selectedVideoService);
       
       // ChocoDro Client経由で動画生成
+      // アスペクト比は各モデルのサポート状況に応じてサーバー側で最適化
       const videoResult = await this.client.generateVideo(parsed.prompt, {
-        width: 512,
-        height: 512,
         duration: 3,
         model: this.selectedVideoService || undefined
+        // width, height指定を削除してサーバー側デフォルト(16:9)を使用
       });
       
       // 結果にモデル情報を含める

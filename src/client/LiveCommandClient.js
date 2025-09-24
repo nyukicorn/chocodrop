@@ -125,7 +125,7 @@ export class ChocoDropClient {
 
     try {
       const safeDefaults = {
-        aspect_ratio: '16:9',
+        // aspect_ratio: サーバー側で各モデル最適な比率を自動選択
         resolution: '720p',
         enable_safety_checker: true,
         enable_prompt_expansion: true
@@ -134,11 +134,16 @@ export class ChocoDropClient {
       const payload = {
         prompt,
         duration: typeof options.duration === 'number' && options.duration > 0 ? options.duration : 3,
-        aspect_ratio: options.aspect_ratio || safeDefaults.aspect_ratio,
         resolution: options.resolution || safeDefaults.resolution,
         enable_safety_checker: options.enable_safety_checker ?? safeDefaults.enable_safety_checker,
         enable_prompt_expansion: options.enable_prompt_expansion ?? safeDefaults.enable_prompt_expansion
       };
+
+      // ユーザーが明示的にアスペクト比を指定した場合のみ追加
+      if (options.aspect_ratio) {
+        payload.aspect_ratio = options.aspect_ratio;
+      }
+      // それ以外はサーバー側で各モデルに最適な比率を自動選択
 
       if (options.model) {
         payload.model = options.model;
