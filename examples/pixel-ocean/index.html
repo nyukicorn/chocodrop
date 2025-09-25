@@ -291,57 +291,154 @@
         seabed.position.y = -8;
         scene.add(seabed);
 
-        // 🐠 大きなイルカ・クジラスタイル（お手本に近い）
+        // 🐠 お手本風＋アート性のピクセル魚（青色で魚らしく！）
         function createPixelFish(x, y, z, scale = 1, color = 0xff6b35, fishType = 'fish') {
             const fishGroup = new THREE.Group();
 
-            // お手本風シルエットマテリアル
-            const silhouetteMaterial = new THREE.MeshLambertMaterial({
-                color: 0x1a1a3e, // 深い紺色でシルエット
-                flatShading: true
-            });
-
             if (fishType === 'dolphin') {
-                // イルカ型（シルエット）
-                const bodyGeometry = new THREE.BoxGeometry(6 * scale, 2.5 * scale, 2 * scale);
-                const body = new THREE.Mesh(bodyGeometry, silhouetteMaterial);
-                fishGroup.add(body);
+                // 🐬 イルカ（お手本の美しい鮮やかな青）
+                const bodyMaterial = new THREE.MeshLambertMaterial({
+                    color: 0x4A90E2, // より鮮やかな青（お手本に近い）
+                    flatShading: true
+                });
 
-                // 背びれ
-                const dorsalFinGeometry = new THREE.BoxGeometry(0.8 * scale, 2 * scale, 0.4 * scale);
-                const dorsalFin = new THREE.Mesh(dorsalFinGeometry, silhouetteMaterial);
-                dorsalFin.position.set(-1 * scale, 1.8 * scale, 0);
-                fishGroup.add(dorsalFin);
+                // 流線型の体（複数ボクセルで曲線表現）
+                const bodyParts = [
+                    {geo: [5*scale, 2.2*scale, 1.8*scale], pos: [0, 0, 0]}, // メイン
+                    {geo: [3*scale, 1.8*scale, 1.4*scale], pos: [2.5*scale, 0, 0]}, // 頭
+                    {geo: [2*scale, 1.4*scale, 1*scale], pos: [3.8*scale, 0.2*scale, 0]}, // 鼻先
+                ];
+                bodyParts.forEach(part => {
+                    const mesh = new THREE.Mesh(
+                        new THREE.BoxGeometry(...part.geo),
+                        bodyMaterial
+                    );
+                    mesh.position.set(...part.pos);
+                    fishGroup.add(mesh);
+                });
 
-                // 尻尾（大きく）
-                const tailGeometry = new THREE.BoxGeometry(2 * scale, 3 * scale, 0.8 * scale);
-                const tail = new THREE.Mesh(tailGeometry, silhouetteMaterial);
-                tail.position.set(-4 * scale, 0, 0);
-                fishGroup.add(tail);
+                // アート的な背びれ（段階的サイズで表現）
+                const dorsalSizes = [
+                    {geo: [0.6*scale, 2*scale, 0.3*scale], pos: [-0.5*scale, 1.8*scale, 0]},
+                    {geo: [0.4*scale, 1.5*scale, 0.2*scale], pos: [0.5*scale, 1.6*scale, 0]}
+                ];
+                dorsalSizes.forEach(fin => {
+                    const mesh = new THREE.Mesh(
+                        new THREE.BoxGeometry(...fin.geo),
+                        new THREE.MeshLambertMaterial({
+                            color: 0x5BA3F5, // 鮮やかな明るい青
+                            flatShading: true
+                        })
+                    );
+                    mesh.position.set(...fin.pos);
+                    fishGroup.add(mesh);
+                });
+
+                // 尻尾（V字型でピクセル表現）
+                const tailParts = [
+                    {geo: [1.5*scale, 2*scale, 0.6*scale], pos: [-3.5*scale, 0.8*scale, 0]},
+                    {geo: [1.5*scale, 2*scale, 0.6*scale], pos: [-3.5*scale, -0.8*scale, 0]},
+                    {geo: [0.8*scale, 1*scale, 0.4*scale], pos: [-4.2*scale, 0, 0]}
+                ];
+                tailParts.forEach(part => {
+                    const mesh = new THREE.Mesh(
+                        new THREE.BoxGeometry(...part.geo),
+                        bodyMaterial
+                    );
+                    mesh.position.set(...part.pos);
+                    fishGroup.add(mesh);
+                });
 
             } else if (fishType === 'whale') {
-                // クジラ型（シルエット）
-                const bodyGeometry = new THREE.BoxGeometry(8 * scale, 3 * scale, 3 * scale);
-                const body = new THREE.Mesh(bodyGeometry, silhouetteMaterial);
-                fishGroup.add(body);
+                // 🐋 クジラ（より大きく、重厚感）
+                const whaleMaterial = new THREE.MeshLambertMaterial({
+                    color: 0x2C5F7C, // より鮮やかなダークブルー
+                    flatShading: true
+                });
 
-                // クジラの尻尾
-                const tailGeometry = new THREE.BoxGeometry(2.5 * scale, 4 * scale, 1 * scale);
-                const tail = new THREE.Mesh(tailGeometry, silhouetteMaterial);
-                tail.position.set(-5.5 * scale, 0, 0);
-                fishGroup.add(tail);
+                // 巨大な体（段階的に細くなる）
+                const whaleBody = [
+                    {geo: [7*scale, 3*scale, 2.8*scale], pos: [0, 0, 0]}, // メイン
+                    {geo: [5*scale, 2.5*scale, 2.2*scale], pos: [3*scale, 0, 0]}, // 頭
+                    {geo: [3*scale, 2*scale, 1.6*scale], pos: [5*scale, 0.2*scale, 0]}, // 鼻先
+                    {geo: [4*scale, 2.2*scale, 2*scale], pos: [-2.5*scale, -0.2*scale, 0]} // 後部
+                ];
+                whaleBody.forEach(part => {
+                    const mesh = new THREE.Mesh(
+                        new THREE.BoxGeometry(...part.geo),
+                        whaleMaterial
+                    );
+                    mesh.position.set(...part.pos);
+                    fishGroup.add(mesh);
+                });
+
+                // クジラの特徴的な尻尾（水平）
+                const whaleTail = [
+                    {geo: [2*scale, 0.8*scale, 3*scale], pos: [-5*scale, 0, 0]},
+                    {geo: [1*scale, 0.4*scale, 4*scale], pos: [-6*scale, 0, 0]}
+                ];
+                whaleTail.forEach(part => {
+                    const mesh = new THREE.Mesh(
+                        new THREE.BoxGeometry(...part.geo),
+                        new THREE.MeshLambertMaterial({
+                            color: 0x1F4A61, // 深い海の青
+                            flatShading: true
+                        })
+                    );
+                    mesh.position.set(...part.pos);
+                    fishGroup.add(mesh);
+                });
 
             } else {
-                // 小さな魚（シルエット）
-                const bodyGeometry = new THREE.BoxGeometry(3 * scale, 1.5 * scale, 1 * scale);
-                const body = new THREE.Mesh(bodyGeometry, silhouetteMaterial);
-                fishGroup.add(body);
+                // 🐟 カラフルな小魚（お手本のような鮮やかさ＋海らしい色調）
+                const fishColors = [
+                    0x6BB6FF, // 明るいスカイブルー
+                    0x4ECDC4, // ターコイズ
+                    0x45B7D1, // オーシャンブルー
+                    0x96CEB4, // シーグリーン
+                    0x85C1E9  // ライトブルー
+                ];
+                const selectedColor = fishColors[Math.floor(Math.random() * fishColors.length)];
 
-                // 尻尾
-                const tailGeometry = new THREE.BoxGeometry(1.2 * scale, 1.8 * scale, 0.4 * scale);
-                const tail = new THREE.Mesh(tailGeometry, silhouetteMaterial);
-                tail.position.set(-2 * scale, 0, 0);
-                fishGroup.add(tail);
+                const fishMaterial = new THREE.MeshLambertMaterial({
+                    color: selectedColor,
+                    flatShading: true
+                });
+
+                // 魚らしいプロポーション
+                const fishBody = [
+                    {geo: [2.5*scale, 1.2*scale, 0.8*scale], pos: [0, 0, 0]}, // メイン
+                    {geo: [1.5*scale, 0.9*scale, 0.6*scale], pos: [1.5*scale, 0, 0]}, // 頭
+                    {geo: [0.8*scale, 0.6*scale, 0.4*scale], pos: [2.5*scale, 0.1*scale, 0]} // 鼻先
+                ];
+                fishBody.forEach(part => {
+                    const mesh = new THREE.Mesh(
+                        new THREE.BoxGeometry(...part.geo),
+                        fishMaterial
+                    );
+                    mesh.position.set(...part.pos);
+                    fishGroup.add(mesh);
+                });
+
+                // カラフルなひれ
+                const finMaterial = new THREE.MeshLambertMaterial({
+                    color: new THREE.Color(selectedColor).multiplyScalar(1.2),
+                    flatShading: true
+                });
+
+                const fins = [
+                    {geo: [0.3*scale, 1*scale, 0.2*scale], pos: [0, 0.8*scale, 0]}, // 背びれ
+                    {geo: [0.3*scale, 0.6*scale, 0.2*scale], pos: [0, -0.6*scale, 0]}, // 腹びれ
+                    {geo: [1*scale, 1.2*scale, 0.3*scale], pos: [-1.8*scale, 0, 0]} // 尻尾
+                ];
+                fins.forEach(fin => {
+                    const mesh = new THREE.Mesh(
+                        new THREE.BoxGeometry(...fin.geo),
+                        finMaterial
+                    );
+                    mesh.position.set(...fin.pos);
+                    fishGroup.add(mesh);
+                });
             }
 
             fishGroup.position.set(x, y, z);
@@ -479,11 +576,11 @@
             geometry.setAttribute('scale', new THREE.BufferAttribute(scales, 1));
 
             const material = new THREE.PointsMaterial({
-                color: 0xccf0ff,
-                size: 0.8,
+                color: 0x87CEEB, // より鮮やかなスカイブルー
+                size: 1.2, // 少し大きめでピクセル感
                 sizeAttenuation: true,
                 transparent: true,
-                opacity: 0.6,
+                opacity: 0.8, // より見やすく
                 blending: THREE.AdditiveBlending
             });
 
@@ -506,7 +603,7 @@
             terrainPositions.forEach(terrain => {
                 const terrainGeometry = new THREE.BoxGeometry(terrain.width, terrain.height, 5);
                 const terrainMaterial = new THREE.MeshLambertMaterial({
-                    color: 0x0d1a2e, // お手本の遠景色（深い青紺）
+                    color: 0x1B4F72, // より鮮やかな遠景色（深い海の青）
                     flatShading: true,
                     transparent: true,
                     opacity: 0.7
@@ -557,8 +654,8 @@
             [8, -25], [-30, -5], [25, -8], [-8, 20]
         ];
         coralPositions.forEach(pos => {
-            // お手本の青緑系カラーパレット
-            const colors = [0x2e8b57, 0x20b2aa, 0x4682b4, 0x5f9ea0, 0x6495ed];
+            // より鮮やかな海の色調（お手本風）
+            const colors = [0x40E0D0, 0x20B2AA, 0x48CAE4, 0x4ECDC4, 0x52DEA4];
             const color = colors[Math.floor(Math.random() * colors.length)];
             const height = 2 + Math.random() * 4;
             corals.push(createPixelCoral(pos[0], pos[1], height, color));
