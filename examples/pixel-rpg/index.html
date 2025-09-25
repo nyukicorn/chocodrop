@@ -131,10 +131,16 @@
             opacity: 0.9;
         }
 
-        .demo-link {
+        .demo-links {
             position: fixed;
             bottom: 20px;
             right: 20px;
+            display: flex;
+            gap: 12px;
+            z-index: 100;
+        }
+
+        .demo-link {
             background: linear-gradient(135deg, #1565c0 0%, #0d47a1 100%);
             color: white;
             text-decoration: none;
@@ -145,7 +151,6 @@
             border: 2px solid #64b5f6;
             box-shadow: 0 0 15px rgba(100, 181, 246, 0.4);
             transition: all 0.3s ease;
-            z-index: 100;
         }
 
         .demo-link:hover {
@@ -175,9 +180,10 @@
         </div>
     </div>
 
-    <a href="../basic/index.html" class="demo-link">
-        🍫 魔法世界デモ
-    </a>
+    <div class="demo-links">
+        <a href="../basic/index.html" class="demo-link">🍫 魔法世界</a>
+        <a href="../space/index.html" class="demo-link">🌌 宇宙空間</a>
+    </div>
 
     <!-- Three.js -->
     <script src="https://cdn.jsdelivr.net/npm/three/build/three.min.js"></script>
@@ -447,10 +453,14 @@
                 chocoDrop = ChocoDrop.createChocoDrop(scene, {
                     camera: camera,
                     renderer: renderer,
+                    // GitHub Pagesなので生成機能なし、インポートのみ
+                    serverUrl: null,
+                    sceneOptions: {
+                        enableMouseInteraction: true
+                    },
                     onControlsToggle: (disabled) => {
                         controls.enabled = !disabled;
-                    },
-                    theme: 'pixel-rpg'
+                    }
                 });
 
                 console.log('🏰 RPG Kingdom ready! Press @ to start your adventure!');

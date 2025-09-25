@@ -460,10 +460,14 @@
                 chocoDrop = ChocoDrop.createChocoDrop(scene, {
                     camera: camera,
                     renderer: renderer,
+                    // GitHub Pagesなので生成機能なし、インポートのみ
+                    serverUrl: null,
+                    sceneOptions: {
+                        enableMouseInteraction: true
+                    },
                     onControlsToggle: (disabled) => {
                         controls.enabled = !disabled;
-                    },
-                    theme: 'space'
+                    }
                 });
 
                 console.log('🌌 Cosmic Space ready! Press @ to explore the universe!');
