@@ -280,10 +280,10 @@
         mysticalLight.position.set(-10, 8, -5);
         scene.add(mysticalLight);
 
-        // 🌊 海底の地面（青緑系に統一）
-        const seabedGeometry = new THREE.PlaneGeometry(100, 100, 20, 20);
+        // 🌊 ピクセルアート風の海底（低解像度でピクセル感強化）
+        const seabedGeometry = new THREE.PlaneGeometry(100, 100, 8, 8); // より低解像度
         const seabedMaterial = new THREE.MeshLambertMaterial({
-            color: 0x2f4f4f, // ダークスレートグレー（青緑系）
+            color: 0x1B4F72, // より鮮やかな深い海の色
             flatShading: true
         });
         const seabed = new THREE.Mesh(seabedGeometry, seabedMaterial);
@@ -302,11 +302,12 @@
                     flatShading: true
                 });
 
-                // 流線型の体（複数ボクセルで曲線表現）
+                // 魚らしい流線型の体（小さなピクセルで細かく）
                 const bodyParts = [
-                    {geo: [5*scale, 2.2*scale, 1.8*scale], pos: [0, 0, 0]}, // メイン
-                    {geo: [3*scale, 1.8*scale, 1.4*scale], pos: [2.5*scale, 0, 0]}, // 頭
-                    {geo: [2*scale, 1.4*scale, 1*scale], pos: [3.8*scale, 0.2*scale, 0]}, // 鼻先
+                    {geo: [2*scale, 1*scale, 0.8*scale], pos: [0, 0, 0]}, // メイン胴体
+                    {geo: [1.5*scale, 0.8*scale, 0.6*scale], pos: [1.2*scale, 0, 0]}, // 中央
+                    {geo: [1*scale, 0.6*scale, 0.4*scale], pos: [2*scale, 0, 0]}, // 頭部
+                    {geo: [0.6*scale, 0.4*scale, 0.3*scale], pos: [2.5*scale, 0, 0]}, // 鼻先
                 ];
                 bodyParts.forEach(part => {
                     const mesh = new THREE.Mesh(
@@ -317,10 +318,10 @@
                     fishGroup.add(mesh);
                 });
 
-                // アート的な背びれ（段階的サイズで表現）
+                // 小さな背びれ（よりピクセル的に）
                 const dorsalSizes = [
-                    {geo: [0.6*scale, 2*scale, 0.3*scale], pos: [-0.5*scale, 1.8*scale, 0]},
-                    {geo: [0.4*scale, 1.5*scale, 0.2*scale], pos: [0.5*scale, 1.6*scale, 0]}
+                    {geo: [0.2*scale, 0.8*scale, 0.1*scale], pos: [0.2*scale, 0.6*scale, 0]}, // メイン背びれ
+                    {geo: [0.15*scale, 0.5*scale, 0.1*scale], pos: [0.8*scale, 0.4*scale, 0]} // 小さな背びれ
                 ];
                 dorsalSizes.forEach(fin => {
                     const mesh = new THREE.Mesh(
@@ -334,11 +335,11 @@
                     fishGroup.add(mesh);
                 });
 
-                // 尻尾（V字型でピクセル表現）
+                // V字型の尻尾（小さなピクセルで）
                 const tailParts = [
-                    {geo: [1.5*scale, 2*scale, 0.6*scale], pos: [-3.5*scale, 0.8*scale, 0]},
-                    {geo: [1.5*scale, 2*scale, 0.6*scale], pos: [-3.5*scale, -0.8*scale, 0]},
-                    {geo: [0.8*scale, 1*scale, 0.4*scale], pos: [-4.2*scale, 0, 0]}
+                    {geo: [0.6*scale, 0.8*scale, 0.2*scale], pos: [-1.8*scale, 0.3*scale, 0]}, // 上の尻尾
+                    {geo: [0.6*scale, 0.8*scale, 0.2*scale], pos: [-1.8*scale, -0.3*scale, 0]}, // 下の尻尾
+                    {geo: [0.3*scale, 0.4*scale, 0.15*scale], pos: [-2.2*scale, 0, 0]} // 尻尾の付け根
                 ];
                 tailParts.forEach(part => {
                     const mesh = new THREE.Mesh(
@@ -356,12 +357,13 @@
                     flatShading: true
                 });
 
-                // 巨大な体（段階的に細くなる）
+                // クジラの体（小さなピクセルで重厚感を表現）
                 const whaleBody = [
-                    {geo: [7*scale, 3*scale, 2.8*scale], pos: [0, 0, 0]}, // メイン
-                    {geo: [5*scale, 2.5*scale, 2.2*scale], pos: [3*scale, 0, 0]}, // 頭
-                    {geo: [3*scale, 2*scale, 1.6*scale], pos: [5*scale, 0.2*scale, 0]}, // 鼻先
-                    {geo: [4*scale, 2.2*scale, 2*scale], pos: [-2.5*scale, -0.2*scale, 0]} // 後部
+                    {geo: [3*scale, 1.5*scale, 1.2*scale], pos: [0, 0, 0]}, // メイン胴体
+                    {geo: [2.5*scale, 1.3*scale, 1*scale], pos: [1.8*scale, 0, 0]}, // 中央部
+                    {geo: [2*scale, 1*scale, 0.8*scale], pos: [3*scale, 0, 0]}, // 頭部
+                    {geo: [1.5*scale, 0.8*scale, 0.6*scale], pos: [4*scale, 0.1*scale, 0]}, // 鼻先
+                    {geo: [2*scale, 1.2*scale, 1*scale], pos: [-1.5*scale, -0.1*scale, 0]} // 後部
                 ];
                 whaleBody.forEach(part => {
                     const mesh = new THREE.Mesh(
@@ -372,10 +374,10 @@
                     fishGroup.add(mesh);
                 });
 
-                // クジラの特徴的な尻尾（水平）
+                // クジラの水平な尻尾（小さなピクセルで）
                 const whaleTail = [
-                    {geo: [2*scale, 0.8*scale, 3*scale], pos: [-5*scale, 0, 0]},
-                    {geo: [1*scale, 0.4*scale, 4*scale], pos: [-6*scale, 0, 0]}
+                    {geo: [0.8*scale, 0.3*scale, 1.2*scale], pos: [-2.5*scale, 0, 0]}, // メイン尻尾
+                    {geo: [0.5*scale, 0.2*scale, 1.5*scale], pos: [-3*scale, 0, 0]} // 尻尾先端
                 ];
                 whaleTail.forEach(part => {
                     const mesh = new THREE.Mesh(
@@ -405,11 +407,12 @@
                     flatShading: true
                 });
 
-                // 魚らしいプロポーション
+                // 小魚のプロポーション（小さなピクセルで）
                 const fishBody = [
-                    {geo: [2.5*scale, 1.2*scale, 0.8*scale], pos: [0, 0, 0]}, // メイン
-                    {geo: [1.5*scale, 0.9*scale, 0.6*scale], pos: [1.5*scale, 0, 0]}, // 頭
-                    {geo: [0.8*scale, 0.6*scale, 0.4*scale], pos: [2.5*scale, 0.1*scale, 0]} // 鼻先
+                    {geo: [1.2*scale, 0.6*scale, 0.4*scale], pos: [0, 0, 0]}, // メイン胴体
+                    {geo: [0.8*scale, 0.5*scale, 0.3*scale], pos: [0.7*scale, 0, 0]}, // 中央
+                    {geo: [0.5*scale, 0.3*scale, 0.2*scale], pos: [1.2*scale, 0, 0]}, // 頭部
+                    {geo: [0.3*scale, 0.2*scale, 0.15*scale], pos: [1.5*scale, 0, 0]} // 鼻先
                 ];
                 fishBody.forEach(part => {
                     const mesh = new THREE.Mesh(
@@ -427,9 +430,9 @@
                 });
 
                 const fins = [
-                    {geo: [0.3*scale, 1*scale, 0.2*scale], pos: [0, 0.8*scale, 0]}, // 背びれ
-                    {geo: [0.3*scale, 0.6*scale, 0.2*scale], pos: [0, -0.6*scale, 0]}, // 腹びれ
-                    {geo: [1*scale, 1.2*scale, 0.3*scale], pos: [-1.8*scale, 0, 0]} // 尻尾
+                    {geo: [0.1*scale, 0.4*scale, 0.08*scale], pos: [0.2*scale, 0.3*scale, 0]}, // 背びれ
+                    {geo: [0.1*scale, 0.2*scale, 0.08*scale], pos: [0.2*scale, -0.3*scale, 0]}, // 腹びれ
+                    {geo: [0.4*scale, 0.5*scale, 0.1*scale], pos: [-0.8*scale, 0, 0]} // 尻尾
                 ];
                 fins.forEach(fin => {
                     const mesh = new THREE.Mesh(
