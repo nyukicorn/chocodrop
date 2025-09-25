@@ -211,9 +211,56 @@
         renderer.shadowMap.enabled = false; // 軽量化のため
         document.body.appendChild(renderer.domElement);
 
-        // 🌊 深海の環境設定 - お手本に近い層状背景
-        scene.background = new THREE.Color(0x4da6ff); // より明るい海の青
-        scene.fog = new THREE.FogExp2(0x0080ff, 0.008); // 薄い霧で遠景を演出
+        // 🌊 お手本の層状グラデーション背景を作成
+        function createLayeredOceanBackground() {
+            // 背景用の大きなジオメトリ
+            const bgGeometry = new THREE.SphereGeometry(200, 32, 16);
+            const bgMaterial = new THREE.ShaderMaterial({
+                vertexShader: `
+                    varying vec3 vWorldPosition;
+                    void main() {
+                        vec4 worldPosition = modelMatrix * vec4(position, 1.0);
+                        vWorldPosition = worldPosition.xyz;
+                        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                    }
+                `,
+                fragmentShader: `
+                    varying vec3 vWorldPosition;
+                    void main() {
+                        // Y座標に基づく垂直グラデーション（お手本風）
+                        float normalizedY = (vWorldPosition.y + 100.0) / 200.0;
+                        normalizedY = clamp(normalizedY, 0.0, 1.0);
+
+                        // お手本の色調: 上部明るい青緑 → 下部深い青
+                        vec3 topColor = vec3(0.4, 0.8, 0.9);    // 明るい青緑
+                        vec3 midColor = vec3(0.2, 0.6, 0.8);    // 中間の青
+                        vec3 bottomColor = vec3(0.1, 0.2, 0.4); // 深い青
+
+                        vec3 color;
+                        if (normalizedY > 0.6) {
+                            // 上部: topColor → midColor
+                            float t = (normalizedY - 0.6) / 0.4;
+                            color = mix(midColor, topColor, t);
+                        } else {
+                            // 下部: bottomColor → midColor
+                            float t = normalizedY / 0.6;
+                            color = mix(bottomColor, midColor, t);
+                        }
+
+                        gl_FragColor = vec4(color, 1.0);
+                    }
+                `,
+                side: THREE.BackSide
+            });
+
+            const bgMesh = new THREE.Mesh(bgGeometry, bgMaterial);
+            scene.add(bgMesh);
+        }
+
+        createLayeredOceanBackground();
+
+        // フォグも青緑系に調整
+        scene.fog = new THREE.FogExp2(0x336699, 0.006);
 
         // 💡 深海ライティング - 神秘的な光
         const ambientLight = new THREE.AmbientLight(0x66ccff, 0.4);
@@ -229,10 +276,10 @@
         mysticalLight.position.set(-10, 8, -5);
         scene.add(mysticalLight);
 
-        // 🌊 海底の地面（砂地）
+        // 🌊 海底の地面（青緑系に統一）
         const seabedGeometry = new THREE.PlaneGeometry(100, 100, 20, 20);
         const seabedMaterial = new THREE.MeshLambertMaterial({
-            color: 0x8b7355, // 砂色
+            color: 0x2f4f4f, // ダークスレートグレー（青緑系）
             flatShading: true
         });
         const seabed = new THREE.Mesh(seabedGeometry, seabedMaterial);
@@ -244,60 +291,51 @@
         function createPixelFish(x, y, z, scale = 1, color = 0xff6b35, fishType = 'fish') {
             const fishGroup = new THREE.Group();
 
+            // お手本風シルエットマテリアル
+            const silhouetteMaterial = new THREE.MeshLambertMaterial({
+                color: 0x1a1a3e, // 深い紺色でシルエット
+                flatShading: true
+            });
+
             if (fishType === 'dolphin') {
-                // イルカ型（お手本の大きな青い魚）
+                // イルカ型（シルエット）
                 const bodyGeometry = new THREE.BoxGeometry(6 * scale, 2.5 * scale, 2 * scale);
-                const bodyMaterial = new THREE.MeshLambertMaterial({
-                    color: 0x0080ff, // 鮮やかな青
-                    flatShading: true
-                });
-                const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+                const body = new THREE.Mesh(bodyGeometry, silhouetteMaterial);
                 fishGroup.add(body);
 
                 // 背びれ
                 const dorsalFinGeometry = new THREE.BoxGeometry(0.8 * scale, 2 * scale, 0.4 * scale);
-                const dorsalFin = new THREE.Mesh(dorsalFinGeometry, bodyMaterial);
+                const dorsalFin = new THREE.Mesh(dorsalFinGeometry, silhouetteMaterial);
                 dorsalFin.position.set(-1 * scale, 1.8 * scale, 0);
                 fishGroup.add(dorsalFin);
 
                 // 尻尾（大きく）
                 const tailGeometry = new THREE.BoxGeometry(2 * scale, 3 * scale, 0.8 * scale);
-                const tail = new THREE.Mesh(tailGeometry, bodyMaterial);
+                const tail = new THREE.Mesh(tailGeometry, silhouetteMaterial);
                 tail.position.set(-4 * scale, 0, 0);
                 fishGroup.add(tail);
 
             } else if (fishType === 'whale') {
-                // クジラ型（さらに大きく）
+                // クジラ型（シルエット）
                 const bodyGeometry = new THREE.BoxGeometry(8 * scale, 3 * scale, 3 * scale);
-                const bodyMaterial = new THREE.MeshLambertMaterial({
-                    color: 0x2d5aa0, // 深い青
-                    flatShading: true
-                });
-                const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+                const body = new THREE.Mesh(bodyGeometry, silhouetteMaterial);
                 fishGroup.add(body);
 
                 // クジラの尻尾
                 const tailGeometry = new THREE.BoxGeometry(2.5 * scale, 4 * scale, 1 * scale);
-                const tail = new THREE.Mesh(tailGeometry, bodyMaterial);
+                const tail = new THREE.Mesh(tailGeometry, silhouetteMaterial);
                 tail.position.set(-5.5 * scale, 0, 0);
                 fishGroup.add(tail);
 
             } else {
-                // 小さな魚（従来）
+                // 小さな魚（シルエット）
                 const bodyGeometry = new THREE.BoxGeometry(3 * scale, 1.5 * scale, 1 * scale);
-                const bodyMaterial = new THREE.MeshLambertMaterial({
-                    color: color,
-                    flatShading: true
-                });
-                const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+                const body = new THREE.Mesh(bodyGeometry, silhouetteMaterial);
                 fishGroup.add(body);
 
                 // 尻尾
                 const tailGeometry = new THREE.BoxGeometry(1.2 * scale, 1.8 * scale, 0.4 * scale);
-                const tail = new THREE.Mesh(tailGeometry, new THREE.MeshLambertMaterial({
-                    color: new THREE.Color(color).multiplyScalar(0.8),
-                    flatShading: true
-                }));
+                const tail = new THREE.Mesh(tailGeometry, silhouetteMaterial);
                 tail.position.set(-2 * scale, 0, 0);
                 fishGroup.add(tail);
             }
@@ -451,6 +489,32 @@
             return bubbles;
         }
 
+        // 🏔️ 遠景地形（お手本の背景山々）
+        function createDistantTerrain() {
+            const terrainPositions = [
+                {x: -60, z: -40, width: 15, height: 8},
+                {x: -40, z: -45, width: 12, height: 6},
+                {x: 40, z: -50, width: 20, height: 10},
+                {x: 65, z: -35, width: 8, height: 5},
+                {x: 0, z: -55, width: 25, height: 12}
+            ];
+
+            terrainPositions.forEach(terrain => {
+                const terrainGeometry = new THREE.BoxGeometry(terrain.width, terrain.height, 5);
+                const terrainMaterial = new THREE.MeshLambertMaterial({
+                    color: 0x0d1a2e, // お手本の遠景色（深い青紺）
+                    flatShading: true,
+                    transparent: true,
+                    opacity: 0.7
+                });
+                const terrainMesh = new THREE.Mesh(terrainGeometry, terrainMaterial);
+                terrainMesh.position.set(terrain.x, terrain.height / 2 - 8, terrain.z);
+                scene.add(terrainMesh);
+            });
+        }
+
+        createDistantTerrain();
+
         // 🌊 海底世界を構築
         const fishes = [];
         const corals = [];
@@ -483,13 +547,14 @@
             ));
         });
 
-        // サンゴ礁を配置
+        // サンゴ礁を配置（青緑系に統一）
         const coralPositions = [
             [-15, -12], [10, -18], [-25, 8], [20, 15],
             [8, -25], [-30, -5], [25, -8], [-8, 20]
         ];
         coralPositions.forEach(pos => {
-            const colors = [0xff69b4, 0xff6347, 0xffa500, 0xda70d6, 0x00ced1];
+            // お手本の青緑系カラーパレット
+            const colors = [0x2e8b57, 0x20b2aa, 0x4682b4, 0x5f9ea0, 0x6495ed];
             const color = colors[Math.floor(Math.random() * colors.length)];
             const height = 2 + Math.random() * 4;
             corals.push(createPixelCoral(pos[0], pos[1], height, color));
