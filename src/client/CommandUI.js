@@ -355,6 +355,11 @@ export class CommandUI {
         return;
       }
       
+      // フィードバック自動クリア（ユーザーが入力を修正している）
+      if (this.currentFeedback) {
+        this.clearInputFeedback();
+      }
+      
       // 自動リサイズ処理
       this.autoResizeTextarea();
       
@@ -1377,10 +1382,15 @@ export class CommandUI {
     const container = this.radioModeContainer;
     if (!container) return;
 
-    const glowColors = {
-      generate: 'rgba(79, 70, 229, 0.4)',   // 紫のグロー
-      modify: 'rgba(236, 72, 153, 0.4)',    // ピンクのグロー  
-      delete: 'rgba(107, 114, 128, 0.3)'    // グレーのグロー
+    // モードに応じてグロー色を設定
+    const glowColors = this.isWabiSabiMode ? {
+      generate: 'rgba(139, 195, 74, 0.4)',  // 侘び寂びモード：チャット欄と同じ緑
+      modify: 'rgba(139, 195, 74, 0.4)',    // 侘び寂びモード：チャット欄と同じ緑
+      delete: 'rgba(139, 195, 74, 0.4)'     // 侘び寂びモード：チャット欄と同じ緑
+    } : {
+      generate: 'rgba(79, 70, 229, 0.4)',   // ライト/ダークモード：元の紫
+      modify: 'rgba(236, 72, 153, 0.4)',    // ライト/ダークモード：元のピンク
+      delete: 'rgba(107, 114, 128, 0.3)'    // ライト/ダークモード：元のグレー
     };
 
     // 一時的にグロー効果を適用
@@ -1547,13 +1557,21 @@ export class CommandUI {
   /**
    * ルールベースコマンド分析
    */
-  analyzeCommandType(text) {
+  analyzeCommandType(text, hasSelectedObject) {
+    const trimmedText = text.trim();
+    
     this.logDebug(`🔍 Analyzing command: "${text}"`);
+    this.logDebug(`📋 Selected object: ${hasSelectedObject ? 'Yes' : 'No'}`);
+    
+    // 空コマンド
+    if (!trimmedText) {
+      return { type: 'empty', reason: '空のコマンド' };
+    }
 
     // メディアタイプの検出
     const mediaInfo = this.detectMediaType(text);
     
-    // 削除コマンドの検出
+    // 1. 削除コマンドの検出（最優先）
     const deletePatterns = [
       { pattern: /削除/, keyword: '削除' },
       { pattern: /消去/, keyword: '消去' },
@@ -1568,42 +1586,6 @@ export class CommandUI {
       { pattern: /erase/i, keyword: 'erase' }
     ];
     
-    // 変更・移動コマンドの検出
-    const modifyPatterns = [
-      { pattern: /移動/, keyword: '移動' },
-      { pattern: /動かして/, keyword: '動かして' },
-      { pattern: /変更/, keyword: '変更' },
-      { pattern: /変えて/, keyword: '変えて' },
-      { pattern: /修正/, keyword: '修正' },
-      { pattern: /調整/, keyword: '調整' },
-      { pattern: /回転/, keyword: '回転' },
-      { pattern: /反転/, keyword: '反転' },
-      { pattern: /ミラー/, keyword: 'ミラー' },
-      { pattern: /傾け/, keyword: '傾け' },
-      { pattern: /向きを変え/, keyword: '向きを変え' },
-      { pattern: /.*を.*色/, keyword: '色変更' },
-      { pattern: /.*を.*サイズ/, keyword: 'サイズ変更' },
-      { pattern: /を.*に.*して/, keyword: '変更' },
-      { pattern: /move/i, keyword: 'move' },
-      { pattern: /change/i, keyword: 'change' },
-      { pattern: /modify/i, keyword: 'modify' },
-      { pattern: /edit/i, keyword: 'edit' }
-    ];
-    
-    // 生成コマンドの検出（デフォルト）
-    const generatePatterns = [
-      { pattern: /作って/, keyword: '作って' },
-      { pattern: /生成/, keyword: '生成' },
-      { pattern: /作成/, keyword: '作成' },
-      { pattern: /描いて/, keyword: '描いて' },
-      { pattern: /書いて/, keyword: '書いて' },
-      { pattern: /create/i, keyword: 'create' },
-      { pattern: /generate/i, keyword: 'generate' },
-      { pattern: /make/i, keyword: 'make' },
-      { pattern: /draw/i, keyword: 'draw' }
-    ];
-
-    // 削除パターンチェック
     for (const { pattern, keyword } of deletePatterns) {
       if (pattern.test(text)) {
         this.logDebug(`✅ Delete pattern matched: ${keyword}`);
@@ -1613,49 +1595,95 @@ export class CommandUI {
           reason: '削除キーワードを検出',
           mediaType: mediaInfo.type,
           requiresConfirmation: true,
-          detectedKeyword: keyword
+          detectedKeyword: keyword,
+          needsTarget: true
         };
       }
     }
     
-    // 変更パターンチェック
-    for (const { pattern, keyword } of modifyPatterns) {
-      if (pattern.test(text)) {
-        this.logDebug(`✅ Modify pattern matched: ${keyword}`);
-        return {
-          type: 'modify',
-          confidence: 0.8,
-          reason: '変更キーワードを検出',
-          mediaType: mediaInfo.type,
-          requiresConfirmation: false,
-          detectedKeyword: keyword
-        };
-      }
-    }
+    // 2. 明確な生成コマンドの検出（選択状態に関係なく）
+    const generatePatterns = [
+      { pattern: /作って/, keyword: '作って' },
+      { pattern: /つくって/, keyword: 'つくって' },
+      { pattern: /生成/, keyword: '生成' },
+      { pattern: /作成/, keyword: '作成' },
+      { pattern: /描いて/, keyword: '描いて' },
+      { pattern: /書いて/, keyword: '書いて' },
+      { pattern: /create/i, keyword: 'create' },
+      { pattern: /generate/i, keyword: 'generate' },
+      { pattern: /make/i, keyword: 'make' },
+      { pattern: /draw/i, keyword: 'draw' }
+    ];
     
-    // 生成パターンチェック
     for (const { pattern, keyword } of generatePatterns) {
       if (pattern.test(text)) {
+        this.logDebug(`✅ Generate pattern matched: ${keyword}`);
         return {
           type: 'generate',
           confidence: mediaInfo.confidence,
-          reason: mediaInfo.reason,
+          reason: '生成キーワードを検出',
           mediaType: mediaInfo.type,
           requiresConfirmation: false,
-          detectedKeyword: keyword
+          detectedKeyword: keyword,
+          needsTarget: false
         };
       }
     }
     
-    // デフォルト（生成モード）
-    this.logDebug(`ℹ️ No specific pattern matched, defaulting to generate mode`);
+    // 3. 自然言語での対象指定（確実にmodify）
+    const targetPatterns = [
+      /インポートした.*を/,
+      /選択した.*を/,
+      /この.*を/,
+      /その.*を/,
+      /あの.*を/,
+      /[0-9]+番目.*を/,
+      /最初.*を/,
+      /初回.*を/,
+      /生成した.*を/,
+      /作った.*を/
+    ];
+    
+    for (const pattern of targetPatterns) {
+      if (pattern.test(text)) {
+        this.logDebug(`✅ Target reference pattern matched`);
+        return {
+          type: 'modify',
+          confidence: 0.9,
+          reason: '対象を明示的に指定',
+          mediaType: mediaInfo.type,
+          requiresConfirmation: false,
+          needsTarget: true,
+          hasExplicitTarget: true
+        };
+      }
+    }
+    
+    // 4. 選択オブジェクトがある場合の処理
+    if (hasSelectedObject && trimmedText) {
+      // 新規作成意図でなければmodify
+      if (!/の画像|の動画|画像を|動画を|画像$|動画$/.test(text)) {
+        this.logDebug(`✅ Selected object + command = modify`);
+        return {
+          type: 'modify',
+          confidence: 0.8,
+          reason: '選択オブジェクトに対する変更',
+          mediaType: mediaInfo.type,
+          requiresConfirmation: false,
+          needsTarget: false  // 既に選択済み
+        };
+      }
+    }
+    
+    // 5. デフォルト（安全な生成）
+    this.logDebug(`ℹ️ Defaulting to generate mode`);
     return {
       type: 'generate',
       confidence: mediaInfo.confidence,
-      reason: mediaInfo.reason,
+      reason: 'デフォルト動作（新規生成）',
       mediaType: mediaInfo.type,
       requiresConfirmation: false,
-      detectedKeyword: null
+      needsTarget: false
     };
   }
 
@@ -2393,9 +2421,9 @@ export class CommandUI {
   getModeButtonStyles(isActive, mode) {
     // モードカラー設定
     const modeColors = {
-      generate: 'linear-gradient(135deg, #4f46e5, #4338ca)', // Deep purple - 創造性
-      modify: 'linear-gradient(135deg, #ec4899, #be185d)',    // Vibrant pink - 変更・調整
-      delete: 'rgba(107, 114, 128, 0.15)'                    // 半透明グレー - セカンダリボタンスタイル
+      generate: 'linear-gradient(135deg, #22c55e, #16a34a)',  // Green - チャット欄と同じ緑色
+      modify: 'linear-gradient(135deg, #22c55e, #16a34a)',    // Green - チャット欄と同じ緑色
+      delete: 'linear-gradient(135deg, #22c55e, #16a34a)'     // Green - チャット欄と同じ緑色
     };
     
     return `
@@ -2587,8 +2615,16 @@ export class CommandUI {
     const command = this.input.value.trim();
     if (!command) return;
 
+    // 事前バリデーション（2025年UX改善）
+    const preValidation = await this.preValidateCommand(command);
+    if (!preValidation.canExecute) {
+      // バリデーション失敗時はフィードバック表示して終了
+      return;
+    }
+
     // 最終的なコマンドタイプ判定
-    const commandType = this.analyzeCommandType(command);
+    const hasSelectedObject = this.sceneManager?.selectedObject || this.selectedFile;
+    const commandType = this.analyzeCommandType(command, hasSelectedObject);
 
     if (this.selectedFile) {
       if (this.currentMode !== 'import') {
@@ -2610,6 +2646,8 @@ export class CommandUI {
 
     // 入力をクリア
     this.input.value = '';
+    // フィードバックもクリア
+    this.clearInputFeedback();
     // 旧コマンドタイプインジケーターは削除（ラジオボタンUIに統合済み）
     // this.commandTypeIndicator.style.display = 'none';
     this.hideProactiveSuggestion();
@@ -2665,13 +2703,15 @@ export class CommandUI {
           }
         } else if (this.currentMode === 'modify') {
           // 変更モード: 既存オブジェクトを変更（選択が必要）
-          if (!this.selectedObject) {
+          const selectedObject = this.sceneManager?.selectedObject;
+          if (!selectedObject) {
             throw new Error('変更するオブジェクトが選択されていません。まず対象オブジェクトを選択してください。');
           }
-          result = await this.client.modifySelectedObject(this.selectedObject, command);
+          result = await this.client.modifySelectedObject(selectedObject, command);
         } else if (this.currentMode === 'delete') {
           // 削除モード: オブジェクト選択チェック
-          if (!this.selectedObject && !this.sceneManager?.getSelectedObjects()?.length) {
+          const selectedObject = this.sceneManager?.selectedObject;
+          if (!selectedObject && !this.sceneManager?.getSelectedObjects()?.length) {
             this.addOutput('⚠️ 削除するオブジェクトが選択されていません。まず3Dシーン内のオブジェクトをクリックで選択してから、再度Deleteボタンを押してください。', 'system');
             return;
           }
@@ -2735,7 +2775,7 @@ export class CommandUI {
       };
       // タスクカードエラー
       if (taskId) {
-        this.updateTaskCard(taskId, 'error');
+        this.updateTaskCard(taskId, 'error', { errorMessage: error.message });
       }
 
       this.addOutput(`${errorMessages[this.currentMode]}: ${error.message}`, 'error');
@@ -2983,7 +3023,7 @@ export class CommandUI {
     };
 
     // 温かみのあるメッセージ表示
-    const friendlyMessage = this.getFriendlyMessage(status, prompt);
+    const friendlyMessage = this.getFriendlyMessage(status, prompt, options.errorMessage);
     card.innerHTML = `
       <span style="font-size: 14px;">${iconMap[status]}</span>
       <span style="font-size: 13px; margin-left: 6px;">${friendlyMessage}</span>
@@ -3093,6 +3133,11 @@ export class CommandUI {
     // ステータス更新
     taskData.status = status;
 
+    // エラー情報を保存
+    if (status === 'error' && options.errorMessage) {
+      taskData.error = options.errorMessage;
+    }
+
     // 2025年トレンド: アニメーション状態管理
     if (status === 'pending' || status === 'processing' || status === 'progress') {
       // 待機中・処理中: シマーエフェクト追加
@@ -3110,8 +3155,8 @@ export class CommandUI {
       error: '❌'
     };
 
-    // 温かみのあるメッセージ更新
-    const friendlyMessage = this.getFriendlyMessage(status, taskData.prompt);
+    // 温かみのあるメッセージ更新（エラー時は理由も含める）
+    const friendlyMessage = this.getFriendlyMessage(status, taskData.prompt, taskData.error);
     card.innerHTML = `
       <span style="font-size: 14px;">${iconMap[status]}</span>
       <span style="font-size: 13px; margin-left: 6px;">${friendlyMessage}</span>
@@ -3148,6 +3193,306 @@ export class CommandUI {
     entry.textContent = message;
     this.outputDiv.appendChild(entry);
     this.scrollToBottom();
+  }
+
+  /**
+   * 入力フィールド直下のフィードバック表示（2025年トレンド準拠）
+   */
+  showInputFeedback(message, type = 'error', options = {}) {
+    // 既存のタスクカード/システムメッセージを使用してレイアウト崩れを防ぐ
+    if (type === 'error') {
+      this.addOutput(`⚠️ ${message}`, 'error');
+    } else if (type === 'success') {
+      this.addOutput(`✅ ${message}`, 'system');
+    } else {
+      this.addOutput(`💡 ${message}`, 'system');
+    }
+    return; // 以下の古いインライン処理をスキップ
+    // 既存のフィードバックをクリア
+    this.clearInputFeedback();
+    
+    const feedbackDiv = document.createElement('div');
+    feedbackDiv.className = 'input-feedback';
+    feedbackDiv.setAttribute('data-feedback-type', type);
+    
+    const isError = type === 'error';
+    const isSuccess = type === 'success';
+    
+    feedbackDiv.style.cssText = `
+      position: relative;
+      margin-top: 8px;
+      padding: 16px 20px;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 500;
+      line-height: 1.5;
+      animation: feedbackSlideIn 300ms ease-out;
+      backdrop-filter: blur(12px);
+      border: 2px solid;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      ${isError ? `
+        background: ${this.isDarkMode ? 'rgba(239, 68, 68, 0.25)' : 'rgba(254, 226, 226, 0.9)'};
+        border-color: ${this.isDarkMode ? 'rgba(239, 68, 68, 0.6)' : 'rgba(239, 68, 68, 0.8)'};
+        color: ${this.isDarkMode ? '#fca5a5' : '#991b1b'};
+      ` : isSuccess ? `
+        background: rgba(34, 197, 94, 0.1);
+        border-color: rgba(34, 197, 94, 0.4);
+        color: ${this.isDarkMode ? '#86efac' : '#16a34a'};
+      ` : `
+        background: rgba(59, 130, 246, 0.1);
+        border-color: rgba(59, 130, 246, 0.4);
+        color: ${this.isDarkMode ? '#93c5fd' : '#2563eb'};
+      `}
+    `;
+    
+    // メッセージ部分
+    const messageSpan = document.createElement('span');
+    messageSpan.textContent = message;
+    messageSpan.style.flex = '1';
+    feedbackDiv.appendChild(messageSpan);
+    
+    // アクションボタン（エラー時のみ）
+    if (isError && options.actions) {
+      const actionContainer = document.createElement('div');
+      actionContainer.style.cssText = `
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      `;
+      
+      options.actions.forEach(action => {
+        const button = document.createElement('button');
+        button.textContent = action.label;
+        button.onclick = action.onClick;
+        button.style.cssText = `
+          padding: 8px 16px;
+          border: 1px solid ${this.isDarkMode ? 'rgba(239, 68, 68, 0.8)' : '#dc2626'};
+          background: ${this.isDarkMode ? 'rgba(239, 68, 68, 0.3)' : '#ffffff'};
+          color: ${this.isDarkMode ? '#ffffff' : '#dc2626'};
+          border-radius: 8px;
+          font-size: 12px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          white-space: nowrap;
+        `;
+        button.onmouseenter = () => {
+          button.style.background = this.isDarkMode ? 'rgba(239, 68, 68, 0.5)' : '#fef2f2';
+          button.style.transform = 'translateY(-1px)';
+        };
+        button.onmouseleave = () => {
+          button.style.background = this.isDarkMode ? 'rgba(239, 68, 68, 0.3)' : '#ffffff';
+          button.style.transform = 'translateY(0)';
+        };
+        actionContainer.appendChild(button);
+      });
+      
+      feedbackDiv.appendChild(actionContainer);
+    }
+    
+    // 閉じるボタン
+    const closeButton = document.createElement('button');
+    closeButton.innerHTML = '×';
+    closeButton.onclick = () => this.clearInputFeedback();
+    closeButton.style.cssText = `
+      background: none;
+      border: none;
+      color: inherit;
+      font-size: 16px;
+      cursor: pointer;
+      padding: 4px;
+      opacity: 0.7;
+      transition: opacity 0.2s ease;
+    `;
+    closeButton.onmouseenter = () => closeButton.style.opacity = '1';
+    closeButton.onmouseleave = () => closeButton.style.opacity = '0.7';
+    feedbackDiv.appendChild(closeButton);
+    
+    // 入力フィールドの直下に配置
+    this.input.parentNode.insertBefore(feedbackDiv, this.input.nextSibling);
+    this.currentFeedback = feedbackDiv;
+    
+    // 成功メッセージは3秒で自動消去
+    if (isSuccess) {
+      setTimeout(() => this.clearInputFeedback(), 3000);
+    }
+    
+    // CSSアニメーションを追加（存在しない場合）
+    this.ensureFeedbackStyles();
+  }
+
+  /**
+   * 入力フィードバックをクリア
+   */
+  clearInputFeedback() {
+    // 既存のシステムメッセージを使用するため、特別な処理は不要
+  }
+
+  /**
+   * フィードバック用CSSスタイルを確保
+   */
+  ensureFeedbackStyles() {
+    if (document.getElementById('feedback-styles')) return;
+    
+    const style = document.createElement('style');
+    style.id = 'feedback-styles';
+    style.textContent = `
+      @keyframes feedbackSlideIn {
+        from {
+          opacity: 0;
+          transform: translateY(-10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      
+      @keyframes feedbackSlideOut {
+        from {
+          opacity: 1;
+          transform: translateY(0);
+        }
+        to {
+          opacity: 0;
+          transform: translateY(-10px);
+        }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  /**
+   * コマンド事前バリデーション（送信前チェック）
+   */
+  async preValidateCommand(command) {
+    // 1. コマンドタイプ判定
+    const hasSelectedObject = this.sceneManager?.selectedObject || this.selectedFile;
+    const commandType = this.analyzeCommandType(command, hasSelectedObject);
+    
+    // 2. 空コマンドの場合
+    if (commandType.type === 'empty') {
+      this.showInputFeedback('💡 何をしましょうか？コマンドを入力してください', 'info');
+      return { canExecute: false, reason: 'empty_command' };
+    }
+    
+    // 3. 対象が必要なコマンドの事前チェック
+    if (commandType.needsTarget && !hasSelectedObject) {
+      
+      // まず自然言語で対象を探してみる
+      if (commandType.hasExplicitTarget) {
+        this.logDebug('🔍 Searching for explicitly mentioned target...');
+        try {
+          const foundTarget = await this.sceneManager?.findObjectByKeyword(command);
+          if (foundTarget) {
+            // 対象を発見！選択してアニメーション表示
+            this.sceneManager.selectObject(foundTarget);
+            this.showInputFeedback(`✨ 「${foundTarget.name || foundTarget.userData?.originalPrompt || 'オブジェクト'}」を見つけました！`, 'success');
+            // 1秒待ってから実行継続
+            setTimeout(() => this.executeCommandAfterValidation(command, commandType), 1000);
+            return { canExecute: false, reason: 'target_found_waiting' };
+          } else {
+            // 対象が見つからない場合
+            this.showInputFeedback(
+              '🔍 指定されたオブジェクトが見つかりません',
+              'error',
+              {
+                actions: [
+                  {
+                    label: '選択する',
+                    onClick: () => {
+                      this.clearInputFeedback();
+                      this.showInputFeedback('👆 3Dシーン内のオブジェクトをクリックで選択してください', 'info');
+                    }
+                  },
+                  {
+                    label: '新規作成に変更',
+                    onClick: () => {
+                      // コマンドを生成モード向けに変換
+                      const newCommand = this.convertToGenerateCommand(command);
+                      this.input.value = newCommand;
+                      this.clearInputFeedback();
+                      this.showInputFeedback('✏️ コマンドを新規作成用に変更しました', 'success');
+                    }
+                  }
+                ]
+              }
+            );
+            return { canExecute: false, reason: 'target_not_found' };
+          }
+        } catch (error) {
+          this.logDebug('❌ Error searching for target:', error);
+          this.showInputFeedback('⚠️ 対象の検索中にエラーが発生しました', 'error');
+          return { canExecute: false, reason: 'search_error' };
+        }
+      } else {
+        // 一般的な「対象が必要」エラー
+        this.showInputFeedback(
+          '🎯 操作対象が選択されていません',
+          'error',
+          {
+            actions: [
+              {
+                label: '選択する',
+                onClick: () => {
+                  this.clearInputFeedback();
+                  this.showInputFeedback('👆 3Dシーン内のオブジェクトをクリックで選択してください', 'info');
+                }
+              },
+              {
+                label: 'ヒント',
+                onClick: () => {
+                  this.clearInputFeedback();
+                  this.showInputFeedback('💡 「インポートした猫を」「選択した画像を」のように対象を明示してみてください', 'info');
+                }
+              }
+            ]
+          }
+        );
+        return { canExecute: false, reason: 'no_target_selected' };
+      }
+    }
+    
+    // 4. バリデーション成功
+    return { canExecute: true, commandType };
+  }
+
+  /**
+   * バリデーション後のコマンド実行
+   */
+  async executeCommandAfterValidation(command, commandType) {
+    // 既存のexecuteCommandロジックを継続
+    // フィードバックをクリアしてから実行
+    this.clearInputFeedback();
+    
+    // 元のexecuteCommandの続きを実行
+    this.proceedWithExecution(command, commandType);
+  }
+
+  /**
+   * コマンドを生成モード向けに変換
+   */
+  convertToGenerateCommand(command) {
+    // 「猫を大きく」→「大きな猫の画像を作って」のような変換
+    const patterns = [
+      { from: /(.+)を大きく/, to: '大きな$1の画像を作って' },
+      { from: /(.+)を小さく/, to: '小さな$1の画像を作って' },
+      { from: /(.+)を(.+)に/, to: '$2の$1の画像を作って' },
+      { from: /(.+)を(.+)く/, to: '$2い$1の画像を作って' }
+    ];
+    
+    for (const { from, to } of patterns) {
+      if (from.test(command)) {
+        return command.replace(from, to);
+      }
+    }
+    
+    // パターンマッチしない場合はデフォルト
+    return `${command}の画像を作って`;
   }
 
   /**
@@ -3699,7 +4044,7 @@ export class CommandUI {
   /**
    * 温かみのあるメッセージを生成（マーケ提案ベース）
    */
-  getFriendlyMessage(status, prompt) {
+  getFriendlyMessage(status, prompt, errorMessage = null) {
     const shortPrompt = prompt.length > 15 ? prompt.substring(0, 15) + '...' : prompt;
 
     // 自然な応答システム適用
@@ -3713,6 +4058,12 @@ export class CommandUI {
       case 'processing':
       case 'in-progress':
       case 'progress':
+        // Modify mode specific messages for processing
+        if (this.currentMode === 'modify') {
+          return responseType === 'casual' ? 'ちょこっと調整中です...' :
+                 responseType === 'magical' ? 'イメージを変化させています...' :
+                 'ちょこんと編集中です...';
+        }
         return responseType === 'casual' ? 'ちょこんと配置中です...' :
                responseType === 'magical' ? 'あなたの想いを形にしています...' :
                'ちょこっと魔法をかけています...';
@@ -3723,13 +4074,25 @@ export class CommandUI {
                  responseType === 'magical' ? 'すっきりと片付きました！' :
                  'ちょこんと削除完了！すっきりですね！';
         }
+        // Modify mode specific messages
+        if (this.currentMode === 'modify') {
+          return responseType === 'casual' ? 'ちょこっと調整しました！' :
+                 responseType === 'magical' ? '素敵に変身しました！' :
+                 'ちょこんと編集完了！いい感じですね！';
+        }
         // Default completion messages for other modes
         return responseType === 'casual' ? 'ちょこっとドロップしました！' :
                responseType === 'magical' ? '素敵な世界が完成しました！' :
                'ちょこんと配置完了！素敵ですね！';
       case 'error':
-        return responseType === 'casual' ? 'ちょこっと失敗... もう一度どうぞ' :
-               'うまくいかなかったようです... もう一度試してみませんか？';
+        // エラー理由があれば含める
+        if (errorMessage) {
+          const shortError = errorMessage.length > 30 ? errorMessage.substring(0, 30) + '...' : errorMessage;
+          return `❌ ${shortError}`;
+        }
+        return responseType === 'casual' ? 'おっと、エラーが発生しました' :
+               responseType === 'magical' ? '申し訳ございません、処理に失敗しました' :
+               'エラーが発生しました。もう一度お試しください';
       default:
         return shortPrompt;
     }
@@ -4022,7 +4385,7 @@ export class CommandUI {
 
       case 'error':
         if (data.uiTaskId) {
-          this.updateTaskCard(data.uiTaskId, 'error');
+          this.updateTaskCard(data.uiTaskId, 'error', { errorMessage: data.message });
         }
         this.addOutput(`❌ ${data.message}`, 'error');
         this.disconnectProgress(data.taskId);
@@ -4803,7 +5166,8 @@ export class CommandUI {
           // 画像をテクスチャプレーンとして配置
           if (this.sceneManager) {
             result = await this.sceneManager.loadImageFile(this.selectedFile.url, {
-              position: position
+              position: position,
+              fileName: this.selectedFile.name
             });
           } else {
             throw new Error('SceneManager が利用できません');
@@ -4814,7 +5178,8 @@ export class CommandUI {
           // 動画をビデオテクスチャとして配置
           if (this.sceneManager) {
             result = await this.sceneManager.loadVideoFile(this.selectedFile.url, {
-              position: position
+              position: position,
+              fileName: this.selectedFile.name
             });
           } else {
             throw new Error('SceneManager が利用できません');
