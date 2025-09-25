@@ -140,6 +140,35 @@
         canvas {
             display: block;
         }
+
+        .demo-links {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            display: flex;
+            gap: 12px;
+            z-index: 100;
+        }
+
+        .demo-link {
+            background: linear-gradient(135deg, rgba(139, 92, 246, 0.9) 0%, rgba(236, 72, 153, 0.9) 100%);
+            color: white;
+            text-decoration: none;
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-size: 11px;
+            font-weight: 600;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            box-shadow: 0 4px 15px rgba(139, 92, 246, 0.3);
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+
+        .demo-link:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(139, 92, 246, 0.5);
+            border-color: rgba(255, 255, 255, 0.6);
+        }
     </style>
 </head>
 <body>
@@ -155,6 +184,11 @@
         <div class="highlight">
             <span class="emoji">✨</span> 配置後：クリックで選択、<br>ドラッグで移動
         </div>
+    </div>
+
+    <div class="demo-links">
+        <a href="../pixel-rpg/index.html" class="demo-link">🏰 RPG王国</a>
+        <a href="../space/index.html" class="demo-link">🌌 宇宙空間</a>
     </div>
 
     <!-- Three.js (正しい最新版 CDN) -->

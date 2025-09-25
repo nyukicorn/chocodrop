@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChocoDrop - Cosmic Space</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            font-family: "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: radial-gradient(ellipse at center, #0a0a1a 0%, #000000 100%);
+        }
+
+        #info {
+            position: fixed;
+            top: 16px;
+            left: 16px;
+            color: #ffffff;
+            background: linear-gradient(135deg, rgba(0, 17, 82, 0.85) 0%, rgba(0, 0, 0, 0.95) 100%);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(100, 200, 255, 0.3);
+            padding: 18px 24px;
+            border-radius: 16px;
+            font-size: 14px;
+            font-weight: 400;
+            z-index: 100;
+            max-width: 320px;
+            text-align: center;
+            line-height: 1.6;
+            box-shadow:
+                0 8px 32px rgba(0, 100, 255, 0.15),
+                0 0 40px rgba(100, 200, 255, 0.1),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        }
+
+        #info strong {
+            font-size: 18px;
+            font-weight: 700;
+            color: #64c8ff;
+            display: block;
+            margin-bottom: 12px;
+            text-align: center;
+            text-shadow: 0 0 20px rgba(100, 200, 255, 0.8);
+            letter-spacing: 0.5px;
+        }
+
+        #info code {
+            background: rgba(100, 200, 255, 0.15);
+            color: #a8daff;
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-family: 'SF Mono', 'Monaco', 'Inconsolata', monospace;
+            font-size: 13px;
+            font-weight: 500;
+            border: 1px solid rgba(100, 200, 255, 0.2);
+        }
+
+        .space-icon {
+            display: inline-block;
+            animation: space-float 3s ease-in-out infinite;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-shadow: 0 0 15px currentColor;
+        }
+
+        .space-icon:hover {
+            transform: scale(1.4);
+            animation: space-pulse 0.8s ease-in-out infinite;
+        }
+
+        .space-title {
+            display: inline-block;
+            animation: space-glow 4s ease-in-out infinite;
+            background: linear-gradient(45deg, #64c8ff, #4facfe, #00f2fe);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        @keyframes space-glow {
+            0%, 100% {
+                text-shadow: 0 0 20px rgba(100, 200, 255, 0.8);
+                filter: brightness(1);
+            }
+            50% {
+                text-shadow: 0 0 30px rgba(100, 200, 255, 1), 0 0 50px rgba(79, 172, 254, 0.8);
+                filter: brightness(1.2);
+            }
+        }
+
+        @keyframes space-float {
+            0%, 100% {
+                transform: translateY(0px) rotate(0deg);
+                filter: brightness(1) drop-shadow(0 0 10px currentColor);
+            }
+            33% {
+                transform: translateY(-8px) rotate(5deg);
+                filter: brightness(1.3) drop-shadow(0 0 20px currentColor);
+            }
+            66% {
+                transform: translateY(4px) rotate(-3deg);
+                filter: brightness(1.1) drop-shadow(0 0 15px currentColor);
+            }
+        }
+
+        @keyframes space-pulse {
+            0%, 100% {
+                filter: brightness(1.2) drop-shadow(0 0 15px currentColor);
+                transform: rotate(0deg);
+            }
+            50% {
+                filter: brightness(2) drop-shadow(0 0 30px currentColor) drop-shadow(0 0 20px #fff);
+                transform: rotate(10deg);
+            }
+        }
+
+        .highlight {
+            color: #4facfe;
+            font-weight: 600;
+            text-shadow: 0 0 10px rgba(79, 172, 254, 0.6);
+        }
+
+        .subtitle {
+            color: #a8daff;
+            font-size: 13px;
+            margin-top: 10px;
+            opacity: 0.85;
+            font-weight: 300;
+        }
+
+        .demo-links {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            display: flex;
+            gap: 12px;
+            z-index: 100;
+        }
+
+        .demo-link {
+            background: linear-gradient(135deg, rgba(0, 17, 82, 0.9) 0%, rgba(0, 0, 0, 0.95) 100%);
+            color: white;
+            text-decoration: none;
+            padding: 12px 18px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            border: 1px solid rgba(100, 200, 255, 0.3);
+            box-shadow: 0 4px 20px rgba(0, 100, 255, 0.2);
+            transition: all 0.3s ease;
+            backdrop-filter: blur(20px);
+        }
+
+        .demo-link:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(100, 200, 255, 0.4);
+            border-color: rgba(100, 200, 255, 0.6);
+            text-shadow: 0 0 10px currentColor;
+        }
+
+        canvas {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div id="info">
+        <strong><span class="space-title">🌌 コズミック空間</span></strong>
+        <div class="subtitle">無限の宇宙で創造しよう</div>
+
+        <div style="margin: 18px 0 14px 0;">
+            <code>@</code>キー または <span class="space-icon">🚀</span> で起動<br>
+            画像を宇宙空間に配置
+        </div>
+
+        <div class="highlight">
+            ✨ 試してみて:<br>
+            「宇宙船を中央に」「惑星を右に配置」
+        </div>
+    </div>
+
+    <div class="demo-links">
+        <a href="../basic/index.html" class="demo-link">🍫 魔法世界</a>
+        <a href="../pixel-rpg/index.html" class="demo-link">🏰 RPG王国</a>
+    </div>
+
+    <!-- Three.js -->
+    <script src="https://cdn.jsdelivr.net/npm/three/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three/examples/js/controls/OrbitControls.js"></script>
+
+    <!-- ChocoDrop Demo UMD -->
+    <script src="../basic/chocodrop-demo.umd.min.js"></script>
+
+    <script>
+        console.log('🌌 Cosmic Space Loading...');
+        console.log('THREE loaded:', typeof THREE !== 'undefined');
+
+        // Basic Three.js setup
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
+        const renderer = new THREE.WebGLRenderer({
+            antialias: true,
+            alpha: true,
+            powerPreference: "high-performance"
+        });
+
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = false; // 軽量化のため影は無効
+        renderer.outputEncoding = THREE.sRGBEncoding;
+        document.body.appendChild(renderer.domElement);
+
+        // 🌌 深宇宙の環境設定
+        scene.background = new THREE.Color(0x000510); // 深い宇宙の色
+        scene.fog = new THREE.FogExp2(0x000510, 0.0008); // 遠くのオブジェクトをフェード
+
+        // ⭐ 効率的な星field作成
+        function createStarField() {
+            const starGeometry = new THREE.BufferGeometry();
+            const starCount = 8000; // 軽量化のため適度な数
+
+            const positions = new Float32Array(starCount * 3);
+            const colors = new Float32Array(starCount * 3);
+            const sizes = new Float32Array(starCount);
+
+            // 星の色バリエーション
+            const starColors = [
+                new THREE.Color(0xffffff), // 白
+                new THREE.Color(0xadd8e6), // ライトブルー
+                new THREE.Color(0xffd700), // 金
+                new THREE.Color(0xffa500), // オレンジ
+                new THREE.Color(0xff69b4)  // ピンク
+            ];
+
+            for (let i = 0; i < starCount; i++) {
+                const i3 = i * 3;
+
+                // 球面上にランダム配置
+                const radius = 800 + Math.random() * 400;
+                const theta = Math.random() * Math.PI * 2;
+                const phi = Math.acos(2 * Math.random() - 1);
+
+                positions[i3] = radius * Math.sin(phi) * Math.cos(theta);
+                positions[i3 + 1] = radius * Math.sin(phi) * Math.sin(theta);
+                positions[i3 + 2] = radius * Math.cos(phi);
+
+                // ランダムな色
+                const color = starColors[Math.floor(Math.random() * starColors.length)];
+                colors[i3] = color.r;
+                colors[i3 + 1] = color.g;
+                colors[i3 + 2] = color.b;
+
+                sizes[i] = Math.random() * 3 + 1;
+            }
+
+            starGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            starGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+            starGeometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+
+            const starMaterial = new THREE.PointsMaterial({
+                size: 2,
+                sizeAttenuation: true,
+                vertexColors: true,
+                transparent: true,
+                opacity: 0.8,
+                blending: THREE.AdditiveBlending
+            });
+
+            const stars = new THREE.Points(starGeometry, starMaterial);
+            scene.add(stars);
+            return stars;
+        }
+
+        // 🪐 軽量惑星作成
+        function createPlanet(radius, color, x, y, z, textureType = 'solid') {
+            const geometry = new THREE.IcosahedronGeometry(radius, 2); // 低ポリゴン
+
+            let material;
+            if (textureType === 'earth') {
+                material = new THREE.MeshPhongMaterial({
+                    color: color,
+                    emissive: new THREE.Color(color).multiplyScalar(0.1),
+                    shininess: 50
+                });
+            } else if (textureType === 'gas') {
+                material = new THREE.MeshLambertMaterial({
+                    color: color,
+                    emissive: new THREE.Color(color).multiplyScalar(0.2),
+                    transparent: true,
+                    opacity: 0.9
+                });
+            } else {
+                material = new THREE.MeshLambertMaterial({
+                    color: color,
+                    emissive: new THREE.Color(color).multiplyScalar(0.15)
+                });
+            }
+
+            const planet = new THREE.Mesh(geometry, material);
+            planet.position.set(x, y, z);
+
+            // 惑星の自転
+            planet.userData.rotationSpeed = {
+                x: (Math.random() - 0.5) * 0.01,
+                y: Math.random() * 0.02 + 0.005,
+                z: (Math.random() - 0.5) * 0.005
+            };
+
+            scene.add(planet);
+            return planet;
+        }
+
+        // 🌟 軽量ネビュラ（パーティクルクラウド）
+        function createNebula(x, y, z, color, count = 2000) {
+            const nebulaGeometry = new THREE.BufferGeometry();
+            const positions = new Float32Array(count * 3);
+            const colors = new Float32Array(count * 3);
+            const sizes = new Float32Array(count);
+
+            const nebulaColor = new THREE.Color(color);
+
+            for (let i = 0; i < count; i++) {
+                const i3 = i * 3;
+
+                // ガウス分布っぽい雲状配置
+                positions[i3] = x + (Math.random() - 0.5) * 80;
+                positions[i3 + 1] = y + (Math.random() - 0.5) * 40;
+                positions[i3 + 2] = z + (Math.random() - 0.5) * 60;
+
+                // グラデーション色
+                const brightness = Math.random() * 0.8 + 0.2;
+                colors[i3] = nebulaColor.r * brightness;
+                colors[i3 + 1] = nebulaColor.g * brightness;
+                colors[i3 + 2] = nebulaColor.b * brightness;
+
+                sizes[i] = Math.random() * 8 + 2;
+            }
+
+            nebulaGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            nebulaGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+            nebulaGeometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+
+            const nebulaMaterial = new THREE.PointsMaterial({
+                size: 10,
+                sizeAttenuation: true,
+                vertexColors: true,
+                transparent: true,
+                opacity: 0.6,
+                blending: THREE.AdditiveBlending
+            });
+
+            const nebula = new THREE.Points(nebulaGeometry, nebulaMaterial);
+            scene.add(nebula);
+            return nebula;
+        }
+
+        // 🛰️ 軽量スペースステーション
+        function createSpaceStation(x, y, z) {
+            const stationGroup = new THREE.Group();
+
+            // 中央ハブ
+            const hub = new THREE.Mesh(
+                new THREE.CylinderGeometry(2, 2, 8, 8),
+                new THREE.MeshPhongMaterial({
+                    color: 0x444444,
+                    emissive: 0x002244,
+                    shininess: 100
+                })
+            );
+            stationGroup.add(hub);
+
+            // 回転リング
+            const ring = new THREE.Mesh(
+                new THREE.TorusGeometry(6, 0.8, 6, 12),
+                new THREE.MeshPhongMaterial({
+                    color: 0x666666,
+                    emissive: 0x001122,
+                    shininess: 80
+                })
+            );
+            ring.rotation.x = Math.PI / 2;
+            stationGroup.add(ring);
+
+            // ソーラーパネル
+            const panelGeometry = new THREE.BoxGeometry(8, 0.1, 3);
+            const panelMaterial = new THREE.MeshPhongMaterial({
+                color: 0x001155,
+                emissive: 0x000033,
+                shininess: 200
+            });
+
+            const panel1 = new THREE.Mesh(panelGeometry, panelMaterial);
+            panel1.position.set(0, 0, 10);
+            stationGroup.add(panel1);
+
+            const panel2 = new THREE.Mesh(panelGeometry, panelMaterial);
+            panel2.position.set(0, 0, -10);
+            stationGroup.add(panel2);
+
+            stationGroup.position.set(x, y, z);
+
+            // 回転アニメーション
+            stationGroup.userData.rotationSpeed = 0.003;
+
+            scene.add(stationGroup);
+            return stationGroup;
+        }
+
+        // 🌌 宇宙環境構築
+        const starField = createStarField();
+
+        // 惑星系
+        const planets = [];
+        planets.push(createPlanet(8, 0x4169e1, -80, 10, -40, 'earth')); // 地球型
+        planets.push(createPlanet(6, 0xff6347, 60, -15, -80, 'solid')); // 火星型
+        planets.push(createPlanet(12, 0xffd700, -120, 25, 50, 'gas')); // ガス惑星
+        planets.push(createPlanet(4, 0xc0c0c0, 90, 5, 70, 'solid')); // 月型
+
+        // ネビュラ
+        const nebulas = [];
+        nebulas.push(createNebula(-200, 30, -100, 0x9932cc)); // パープル
+        nebulas.push(createNebula(180, -40, 80, 0x00ced1)); // シアン
+        nebulas.push(createNebula(-50, 60, 150, 0xff69b4)); // ピンク
+
+        // スペースステーション
+        const spaceStation = createSpaceStation(0, 0, -30);
+
+        // ✨ 宇宙ライティング
+        const ambientLight = new THREE.AmbientLight(0x404040, 0.3); // 薄暗い環境光
+        scene.add(ambientLight);
+
+        // 遠方の恒星光
+        const starLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        starLight.position.set(100, 50, 100);
+        scene.add(starLight);
+
+        // ネビュラからの光
+        const nebulaLight = new THREE.PointLight(0x9932cc, 0.5, 200);
+        nebulaLight.position.set(-200, 30, -100);
+        scene.add(nebulaLight);
+
+        // 📷 カメラ位置
+        camera.position.set(0, 30, 100);
+        camera.lookAt(0, 0, 0);
+
+        // 🎮 コントロール
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.minDistance = 10;
+        controls.maxDistance = 500;
+
+        // 🍫 ChocoDrop初期化
+        let chocoDrop;
+
+        function initChocoDrop() {
+            try {
+                chocoDrop = ChocoDrop.createChocoDrop(scene, {
+                    camera: camera,
+                    renderer: renderer,
+                    onControlsToggle: (disabled) => {
+                        controls.enabled = !disabled;
+                    },
+                    theme: 'space'
+                });
+
+                console.log('🌌 Cosmic Space ready! Press @ to explore the universe!');
+
+                // 宇宙風のヒント
+                window.addEventListener('keydown', (event) => {
+                    if (event.code === 'Space' || event.key === '@') {
+                        console.log('🚀 Try: "宇宙船を中央に", "惑星を左に", "衛星を配置"');
+                    }
+                });
+
+            } catch (error) {
+                console.error('ChocoDrop initialization failed:', error);
+            }
+        }
+
+        // 初期化
+        setTimeout(initChocoDrop, 1000);
+
+        // 🎬 アニメーションループ
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // 星fieldの回転
+            if (starField) {
+                starField.rotation.y += 0.0002;
+                starField.rotation.x += 0.0001;
+            }
+
+            // 惑星の自転
+            planets.forEach(planet => {
+                if (planet.userData.rotationSpeed) {
+                    planet.rotation.x += planet.userData.rotationSpeed.x;
+                    planet.rotation.y += planet.userData.rotationSpeed.y;
+                    planet.rotation.z += planet.userData.rotationSpeed.z;
+                }
+            });
+
+            // スペースステーションの回転
+            if (spaceStation && spaceStation.userData.rotationSpeed) {
+                spaceStation.rotation.y += spaceStation.userData.rotationSpeed;
+            }
+
+            // ネビュラのゆっくりした動き
+            nebulas.forEach((nebula, index) => {
+                nebula.rotation.y += 0.0001 * (index + 1);
+                nebula.rotation.z += 0.0002 * (index + 1);
+            });
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        animate();
+
+        // 📱 レスポンシブ対応
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+    </script>
+</body>
+</html>
