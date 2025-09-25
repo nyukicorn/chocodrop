@@ -188,8 +188,8 @@
     </div>
 
     <!-- Three.js -->
-    <script src="https://cdn.jsdelivr.net/npm/three/build/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/examples/js/controls/OrbitControls.js"></script>
 
     <!-- ChocoDrop Demo UMD -->
     <script src="../basic/chocodrop-demo.umd.min.js"></script>
@@ -412,76 +412,7 @@
             return fishGroup;
         }
 
-        // 旧実装の続き（クジラと小魚）を一旦スキップして新実装に置き換え
-        if (false) {
-                // 🐟 カラフルな小魚（お手本のような鮮やかさ＋海らしい色調）
-                const fishColors = [
-                    0x6BB6FF, // 明るいスカイブルー
-                    0x4ECDC4, // ターコイズ
-                    0x45B7D1, // オーシャンブルー
-                    0x96CEB4, // シーグリーン
-                    0x85C1E9  // ライトブルー
-                ];
-                const selectedColor = fishColors[Math.floor(Math.random() * fishColors.length)];
-
-                const fishMaterial = new THREE.MeshLambertMaterial({
-                    color: selectedColor,
-                    flatShading: true
-                });
-
-                // 小魚のプロポーション（小さなピクセルで）
-                const fishBody = [
-                    {geo: [1.2*scale, 0.6*scale, 0.4*scale], pos: [0, 0, 0]}, // メイン胴体
-                    {geo: [0.8*scale, 0.5*scale, 0.3*scale], pos: [0.7*scale, 0, 0]}, // 中央
-                    {geo: [0.5*scale, 0.3*scale, 0.2*scale], pos: [1.2*scale, 0, 0]}, // 頭部
-                    {geo: [0.3*scale, 0.2*scale, 0.15*scale], pos: [1.5*scale, 0, 0]} // 鼻先
-                ];
-                fishBody.forEach(part => {
-                    const mesh = new THREE.Mesh(
-                        new THREE.BoxGeometry(...part.geo),
-                        fishMaterial
-                    );
-                    mesh.position.set(...part.pos);
-                    fishGroup.add(mesh);
-                });
-
-                // カラフルなひれ
-                const finMaterial = new THREE.MeshLambertMaterial({
-                    color: new THREE.Color(selectedColor).multiplyScalar(1.2),
-                    flatShading: true
-                });
-
-                const fins = [
-                    {geo: [0.1*scale, 0.4*scale, 0.08*scale], pos: [0.2*scale, 0.3*scale, 0]}, // 背びれ
-                    {geo: [0.1*scale, 0.2*scale, 0.08*scale], pos: [0.2*scale, -0.3*scale, 0]}, // 腹びれ
-                    {geo: [0.4*scale, 0.5*scale, 0.1*scale], pos: [-0.8*scale, 0, 0]} // 尻尾
-                ];
-                fins.forEach(fin => {
-                    const mesh = new THREE.Mesh(
-                        new THREE.BoxGeometry(...fin.geo),
-                        finMaterial
-                    );
-                    mesh.position.set(...fin.pos);
-                    fishGroup.add(mesh);
-                });
-            }
-
-            fishGroup.position.set(x, y, z);
-
-            // 魚の泳ぎアニメーション用データ
-            fishGroup.userData = {
-                swimSpeed: fishType === 'whale' ? 0.005 : (fishType === 'dolphin' ? 0.008 : 0.015),
-                swimRadius: fishType === 'whale' ? 15 : (fishType === 'dolphin' ? 12 : 8),
-                swimPhase: Math.random() * Math.PI * 2,
-                originalY: y,
-                originalX: x,
-                originalZ: z,
-                fishType: fishType
-            };
-
-            scene.add(fishGroup);
-            return fishGroup;
-        }
+        
 
         // 🪸 サンゴ礁を作成
         function createPixelCoral(x, z, height = 3, color = 0xff69b4) {
