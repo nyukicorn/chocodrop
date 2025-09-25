@@ -207,14 +207,18 @@
         });
 
         renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.setPixelRatio(1); // ピクセルアート感を強化
         renderer.shadowMap.enabled = false; // 軽量化のため
         document.body.appendChild(renderer.domElement);
 
+        // ピクセルアート風のシャープな描画
+        renderer.domElement.style.imageRendering = 'pixelated';
+        renderer.domElement.style.imageRendering = 'crisp-edges';
+
         // 🌊 お手本の層状グラデーション背景を作成
         function createLayeredOceanBackground() {
-            // 背景用の大きなジオメトリ
-            const bgGeometry = new THREE.SphereGeometry(200, 32, 16);
+            // 背景用の大きなジオメトリ（低ポリゴンでピクセル感）
+            const bgGeometry = new THREE.SphereGeometry(200, 16, 8);
             const bgMaterial = new THREE.ShaderMaterial({
                 vertexShader: `
                     varying vec3 vWorldPosition;
