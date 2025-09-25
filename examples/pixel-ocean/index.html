@@ -414,93 +414,160 @@
 
         
 
-        // 🪸 サンゴ礁を作成
-        function createPixelCoral(x, z, height = 3, color = 0xff69b4) {
+        // 🪸 ピクセルアートサンゴ礁（InstancedMesh）
+        function createPixelCoral(x, z, scale = 1, type = 'coral1') {
             const coralGroup = new THREE.Group();
-
-            // サンゴの幹
-            const stemHeight = height * 0.6;
-            const stemGeometry = new THREE.BoxGeometry(0.6, stemHeight, 0.6);
-            const stemMaterial = new THREE.MeshLambertMaterial({
-                color: new THREE.Color(color).multiplyScalar(0.7),
+            
+            // サンゴのピクセルパターン
+            const coralPatterns = {
+                coral1: [
+                    [0,0,2,0,0],
+                    [0,2,1,2,0],
+                    [2,1,1,1,2],
+                    [0,1,1,1,0],
+                    [0,1,1,1,0],
+                    [1,1,1,1,1]
+                ],
+                coral2: [
+                    [0,2,0,2,0],
+                    [2,1,2,1,2],
+                    [1,1,1,1,1],
+                    [0,1,1,1,0],
+                    [0,1,1,1,0],
+                    [1,1,1,1,1]
+                ],
+                coral3: [
+                    [0,0,2,0,0],
+                    [0,2,1,2,0],
+                    [0,1,1,1,0],
+                    [2,1,1,1,2],
+                    [1,1,1,1,1],
+                    [1,1,1,1,1]
+                ]
+            };
+            
+            const pattern = coralPatterns[type] || coralPatterns.coral1;
+            const pixelSize = 0.2 * scale;
+            
+            // サンゴの色パレット（海らしい色）
+            const colors = [
+                0x40E0D0, // ターコイズ（体）
+                0x48CAE4  // 明るい青（先端）
+            ];
+            
+            // ピクセル数カウント
+            let pixelCount = 0;
+            pattern.forEach(row => {
+                row.forEach(pixel => {
+                    if (pixel > 0) pixelCount++;
+                });
+            });
+            
+            // InstancedMesh作成
+            const pixelGeometry = new THREE.BoxGeometry(pixelSize, pixelSize, pixelSize);
+            const pixelMaterial = new THREE.MeshLambertMaterial({
                 flatShading: true
             });
-            const stem = new THREE.Mesh(stemGeometry, stemMaterial);
-            stem.position.set(0, stemHeight / 2 - 8, 0);
-            coralGroup.add(stem);
-
-            // サンゴの枝（複数）
-            const branchCount = 3 + Math.floor(Math.random() * 3);
-            for (let i = 0; i < branchCount; i++) {
-                const branchHeight = height * 0.4 * (0.5 + Math.random() * 0.5);
-                const branchGeometry = new THREE.BoxGeometry(
-                    0.4 + Math.random() * 0.3,
-                    branchHeight,
-                    0.4 + Math.random() * 0.3
-                );
-                const branchMaterial = new THREE.MeshLambertMaterial({
-                    color: color,
-                    flatShading: true,
-                    emissive: new THREE.Color(color).multiplyScalar(0.1)
-                });
-                const branch = new THREE.Mesh(branchGeometry, branchMaterial);
-
-                const angle = (i / branchCount) * Math.PI * 2;
-                const radius = 0.8 + Math.random() * 0.5;
-                branch.position.set(
-                    Math.cos(angle) * radius,
-                    stemHeight + branchHeight / 2 - 8,
-                    Math.sin(angle) * radius
-                );
-                coralGroup.add(branch);
+            
+            const instancedMesh = new THREE.InstancedMesh(
+                pixelGeometry,
+                pixelMaterial,
+                pixelCount
+            );
+            
+            // 各ピクセルの配置
+            let instanceIndex = 0;
+            const matrix = new THREE.Matrix4();
+            const pixelColor = new THREE.Color();
+            
+            for (let row = 0; row < pattern.length; row++) {
+                for (let col = 0; col < pattern[row].length; col++) {
+                    const pixel = pattern[row][col];
+                    if (pixel > 0) {
+                        const px = (col - pattern[row].length / 2) * pixelSize;
+                        const py = (pattern.length - row - 1) * pixelSize - 8; // 海底に配置
+                        const pz = 0;
+                        
+                        matrix.makeTranslation(px, py, pz);
+                        instancedMesh.setMatrixAt(instanceIndex, matrix);
+                        
+                        pixelColor.setHex(colors[pixel - 1]);
+                        instancedMesh.setColorAt(instanceIndex, pixelColor);
+                        
+                        instanceIndex++;
+                    }
+                }
             }
-
+            
+            instancedMesh.instanceMatrix.needsUpdate = true;
+            instancedMesh.instanceColor.needsUpdate = true;
+            
+            coralGroup.add(instancedMesh);
             coralGroup.position.set(x, 0, z);
+            
             scene.add(coralGroup);
             return coralGroup;
         }
 
-        // 🌿 海藻を作成
+        // 🌿 ピクセルアート海藻
         function createPixelSeaweed(x, z, height = 4) {
             const seaweedGroup = new THREE.Group();
-
-            const segmentCount = 4 + Math.floor(Math.random() * 3);
-            const segmentHeight = height / segmentCount;
-
-            for (let i = 0; i < segmentCount; i++) {
-                const segmentGeometry = new THREE.BoxGeometry(
-                    0.3 + Math.random() * 0.2,
-                    segmentHeight,
-                    0.1
-                );
-                const segmentMaterial = new THREE.MeshLambertMaterial({
-                    color: new THREE.Color(0x228b22).multiplyScalar(0.6 + Math.random() * 0.4),
-                    flatShading: true,
-                    transparent: true,
-                    opacity: 0.8
+            
+            // 海藻のピクセルパターン（縦長）
+            const seaweedPattern = [
+                [0,1,0],
+                [0,1,0],
+                [1,1,1],
+                [0,1,0],
+                [0,1,0],
+                [1,1,1],
+                [0,1,0],
+                [1,1,0]
+            ];
+            
+            const pixelSize = 0.3;
+            const pixelGeometry = new THREE.BoxGeometry(pixelSize, pixelSize * 1.5, pixelSize * 0.5);
+            
+            // 海藻の色（緑系のグラデーション）
+            const colors = [0x2E8B57, 0x3CB371, 0x228B22];
+            const selectedColor = colors[Math.floor(Math.random() * colors.length)];
+            
+            const material = new THREE.MeshLambertMaterial({
+                color: selectedColor,
+                flatShading: true,
+                transparent: true,
+                opacity: 0.8
+            });
+            
+            // ピクセル配置
+            seaweedPattern.forEach((row, rowIndex) => {
+                row.forEach((pixel, colIndex) => {
+                    if (pixel > 0) {
+                        const mesh = new THREE.Mesh(pixelGeometry, material);
+                        mesh.position.set(
+                            (colIndex - 1) * pixelSize * 0.8,
+                            rowIndex * pixelSize * 1.2 - 8 + height,
+                            0
+                        );
+                        
+                        // 少し揺れるような傾き
+                        mesh.rotation.z = Math.sin(rowIndex * 0.5) * 0.1;
+                        
+                        seaweedGroup.add(mesh);
+                    }
                 });
-                const segment = new THREE.Mesh(segmentGeometry, segmentMaterial);
-
-                // 海藻の揺らぎ
-                const sway = (Math.sin(i * 0.5) * 0.3) + (Math.random() - 0.5) * 0.2;
-                segment.position.set(
-                    sway,
-                    (i + 0.5) * segmentHeight - 8,
-                    0
-                );
-                segment.rotation.z = sway * 0.3;
-
-                // アニメーション用データ
-                segment.userData = {
-                    swayAmount: sway,
-                    swaySpeed: 0.005 + Math.random() * 0.01,
-                    swayPhase: Math.random() * Math.PI * 2
-                };
-
-                seaweedGroup.add(segment);
-            }
-
+            });
+            
             seaweedGroup.position.set(x, 0, z);
+            seaweedGroup.rotation.y = Math.random() * Math.PI * 2;
+            
+            // アニメーション用データ
+            seaweedGroup.userData = {
+                swaySpeed: 0.001 + Math.random() * 0.002,
+                swayAmount: 0.05 + Math.random() * 0.05,
+                originalRotation: seaweedGroup.rotation.z
+            };
+            
             scene.add(seaweedGroup);
             return seaweedGroup;
         }
@@ -546,27 +613,42 @@
             return bubbles;
         }
 
-        // 🏔️ 遠景地形（お手本の背景山々）
+        // 🏔️ 自然な岩場と地形
         function createDistantTerrain() {
-            const terrainPositions = [
-                {x: -60, z: -40, width: 15, height: 8},
-                {x: -40, z: -45, width: 12, height: 6},
-                {x: 40, z: -50, width: 20, height: 10},
-                {x: 65, z: -35, width: 8, height: 5},
-                {x: 0, z: -55, width: 25, height: 12}
-            ];
-
-            terrainPositions.forEach(terrain => {
-                const terrainGeometry = new THREE.BoxGeometry(terrain.width, terrain.height, 5);
-                const terrainMaterial = new THREE.MeshLambertMaterial({
-                    color: 0x1B4F72, // より鮮やかな遠景色（深い海の青）
+            // 低ポリゴンの岩を作成
+            function createRock(x, y, z, size) {
+                const rockGeometry = new THREE.DodecahedronGeometry(size, 0); // 12面体で岩らしさ
+                const rockMaterial = new THREE.MeshLambertMaterial({
+                    color: 0x1B4F72, // 深い海の青
                     flatShading: true,
                     transparent: true,
                     opacity: 0.7
                 });
-                const terrainMesh = new THREE.Mesh(terrainGeometry, terrainMaterial);
-                terrainMesh.position.set(terrain.x, terrain.height / 2 - 8, terrain.z);
-                scene.add(terrainMesh);
+                
+                const rock = new THREE.Mesh(rockGeometry, rockMaterial);
+                rock.position.set(x, y, z);
+                
+                // ランダムに回転させて自然な見た目に
+                rock.rotation.x = Math.random() * Math.PI;
+                rock.rotation.y = Math.random() * Math.PI;
+                rock.scale.y = 0.5 + Math.random() * 0.5; // 高さをランダムに
+                
+                return rock;
+            }
+            
+            // 複数の岩を配置
+            const rockPositions = [
+                {x: -60, y: -5, z: -40, size: 8},
+                {x: -40, y: -6, z: -45, size: 6},
+                {x: 40, y: -4, z: -50, size: 10},
+                {x: 65, y: -7, z: -35, size: 5},
+                {x: 0, y: -3, z: -55, size: 12},
+                {x: -30, y: -6, z: -42, size: 7},
+                {x: 50, y: -5, z: -48, size: 9}
+            ];
+            
+            rockPositions.forEach(rock => {
+                scene.add(createRock(rock.x, rock.y, rock.z, rock.size));
             });
         }
 
@@ -608,12 +690,12 @@
             [-15, -12], [10, -18], [-25, 8], [20, 15],
             [8, -25], [-30, -5], [25, -8], [-8, 20]
         ];
-        coralPositions.forEach(pos => {
-            // より鮮やかな海の色調（お手本風）
-            const colors = [0x40E0D0, 0x20B2AA, 0x48CAE4, 0x4ECDC4, 0x52DEA4];
-            const color = colors[Math.floor(Math.random() * colors.length)];
-            const height = 2 + Math.random() * 4;
-            corals.push(createPixelCoral(pos[0], pos[1], height, color));
+        coralPositions.forEach((pos, index) => {
+            // 3種類のサンゴをランダムに配置
+            const types = ['coral1', 'coral2', 'coral3'];
+            const type = types[index % 3];
+            const scale = 1 + Math.random() * 0.5;
+            corals.push(createPixelCoral(pos[0], pos[1], scale, type));
         });
 
         // 海藻の森を配置
