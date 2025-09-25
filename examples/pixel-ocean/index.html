@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChocoDrop - Pixel Ocean Depths</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            font-family: 'Courier New', 'Monaco', monospace;
+            background: linear-gradient(180deg, #0066cc 0%, #004499 30%, #002266 70%, #001133 100%);
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+        }
+
+        #info {
+            position: fixed;
+            top: 16px;
+            left: 16px;
+            color: #ffffff;
+            background: linear-gradient(135deg, rgba(0, 102, 204, 0.9) 0%, rgba(0, 34, 102, 0.95) 100%);
+            backdrop-filter: blur(12px);
+            border: 2px solid rgba(102, 204, 255, 0.6);
+            padding: 16px 20px;
+            border-radius: 12px;
+            font-size: 13px;
+            font-weight: bold;
+            z-index: 100;
+            max-width: 280px;
+            text-align: center;
+            line-height: 1.5;
+            box-shadow: 0 0 25px rgba(102, 204, 255, 0.4);
+        }
+
+        #info strong {
+            font-size: 16px;
+            font-weight: 900;
+            color: #66ccff;
+            display: block;
+            margin-bottom: 12px;
+            text-align: center;
+            text-shadow: 0 0 15px #0099ff;
+        }
+
+        #info code {
+            background: rgba(102, 204, 255, 0.3);
+            color: #ccf0ff;
+            padding: 3px 6px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .ocean-icon {
+            display: inline-block;
+            animation: ocean-wave 2.5s ease-in-out infinite;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+            text-shadow: 0 0 10px currentColor;
+        }
+
+        .ocean-icon:hover {
+            transform: scale(1.3);
+            animation: ocean-wave-fast 0.8s ease-in-out infinite;
+        }
+
+        .ocean-title {
+            display: inline-block;
+            animation: ocean-glow 3.5s ease-in-out infinite;
+            background: linear-gradient(45deg, #66ccff, #0099ff, #00ccff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        @keyframes ocean-glow {
+            0%, 100% {
+                text-shadow: 0 0 20px rgba(102, 204, 255, 0.8);
+                filter: brightness(1);
+            }
+            50% {
+                text-shadow: 0 0 30px rgba(0, 153, 255, 1), 0 0 40px rgba(0, 204, 255, 0.8);
+                filter: brightness(1.3);
+            }
+        }
+
+        @keyframes ocean-wave {
+            0%, 100% {
+                transform: translateY(0px) rotate(0deg);
+                filter: brightness(1) drop-shadow(0 0 8px currentColor);
+            }
+            25% {
+                transform: translateY(-4px) rotate(2deg);
+                filter: brightness(1.3) drop-shadow(0 0 15px currentColor);
+            }
+            50% {
+                transform: translateY(-2px) rotate(0deg);
+                filter: brightness(1.5) drop-shadow(0 0 20px currentColor);
+            }
+            75% {
+                transform: translateY(-6px) rotate(-2deg);
+                filter: brightness(1.2) drop-shadow(0 0 12px currentColor);
+            }
+        }
+
+        @keyframes ocean-wave-fast {
+            0%, 100% {
+                filter: brightness(1.4) drop-shadow(0 0 15px currentColor);
+                transform: rotate(0deg) scale(1);
+            }
+            50% {
+                filter: brightness(2) drop-shadow(0 0 25px currentColor) drop-shadow(0 0 15px #fff);
+                transform: rotate(5deg) scale(1.1);
+            }
+        }
+
+        .highlight {
+            color: #66ccff;
+            font-weight: bold;
+            text-shadow: 0 0 10px rgba(102, 204, 255, 0.8);
+        }
+
+        .subtitle {
+            color: #b3e5ff;
+            font-size: 12px;
+            margin-top: 8px;
+            opacity: 0.9;
+        }
+
+        .demo-links {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            display: flex;
+            gap: 12px;
+            z-index: 100;
+        }
+
+        .demo-link {
+            background: linear-gradient(135deg, rgba(0, 102, 204, 0.9) 0%, rgba(0, 34, 102, 0.95) 100%);
+            color: white;
+            text-decoration: none;
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: bold;
+            border: 2px solid rgba(102, 204, 255, 0.5);
+            box-shadow: 0 0 20px rgba(102, 204, 255, 0.3);
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+
+        .demo-link:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 25px rgba(102, 204, 255, 0.6);
+            border-color: rgba(102, 204, 255, 0.8);
+            text-shadow: 0 0 10px #fff;
+        }
+
+        canvas {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div id="info">
+        <strong><span class="ocean-title">🌊 ピクセル海底世界</span></strong>
+        <div class="subtitle">8bitの海で冒険しよう</div>
+
+        <div style="margin: 16px 0 12px 0;">
+            <code>@</code>キー または <span class="ocean-icon">🍫</span> で起動<br>
+            画像を海底に配置
+        </div>
+
+        <div class="highlight">
+            ✨ 試してみて:<br>
+            「画像を中央に」「右上に配置」
+        </div>
+    </div>
+
+    <div class="demo-links">
+        <a href="../basic/index.html" class="demo-link">🍫 魔法世界</a>
+        <a href="../pixel-rpg/index.html" class="demo-link">🏰 RPG王国</a>
+        <a href="../space/index.html" class="demo-link">🌌 宇宙空間</a>
+    </div>
+
+    <!-- Three.js -->
+    <script src="https://cdn.jsdelivr.net/npm/three/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three/examples/js/controls/OrbitControls.js"></script>
+
+    <!-- ChocoDrop Demo UMD -->
+    <script src="../basic/chocodrop-demo.umd.min.js"></script>
+
+    <script>
+        console.log('🌊 Pixel Ocean Loading...');
+        console.log('THREE loaded:', typeof THREE !== 'undefined');
+
+        // Basic Three.js setup
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({
+            antialias: false, // ピクセルアート風に
+            powerPreference: "high-performance"
+        });
+
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = false; // 軽量化のため
+        document.body.appendChild(renderer.domElement);
+
+        // 🌊 深海の環境設定
+        scene.background = new THREE.Color(0x0066cc); // 深い海の青
+        scene.fog = new THREE.FogExp2(0x002266, 0.012); // 深海の霧
+
+        // 💡 深海ライティング - 神秘的な光
+        const ambientLight = new THREE.AmbientLight(0x66ccff, 0.4);
+        scene.add(ambientLight);
+
+        // 水面からの光（上から斜めに）
+        const sunLight = new THREE.DirectionalLight(0x66ddff, 0.8);
+        sunLight.position.set(8, 20, 5);
+        scene.add(sunLight);
+
+        // 深海の神秘的な光
+        const mysticalLight = new THREE.PointLight(0x00ccff, 0.6, 50);
+        mysticalLight.position.set(-10, 8, -5);
+        scene.add(mysticalLight);
+
+        // 🌊 海底の地面（砂地）
+        const seabedGeometry = new THREE.PlaneGeometry(100, 100, 20, 20);
+        const seabedMaterial = new THREE.MeshLambertMaterial({
+            color: 0x8b7355, // 砂色
+            flatShading: true
+        });
+        const seabed = new THREE.Mesh(seabedGeometry, seabedMaterial);
+        seabed.rotation.x = -Math.PI / 2;
+        seabed.position.y = -8;
+        scene.add(seabed);
+
+        // 🐠 8bitスタイルの魚を作成
+        function createPixelFish(x, y, z, scale = 1, color = 0xff6b35) {
+            const fishGroup = new THREE.Group();
+
+            // 魚の体（楕円形を模した直方体）
+            const bodyGeometry = new THREE.BoxGeometry(2 * scale, 1 * scale, 0.8 * scale);
+            const bodyMaterial = new THREE.MeshLambertMaterial({
+                color: color,
+                flatShading: true
+            });
+            const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+            fishGroup.add(body);
+
+            // 尻尾
+            const tailGeometry = new THREE.BoxGeometry(0.8 * scale, 1.2 * scale, 0.3 * scale);
+            const tailMaterial = new THREE.MeshLambertMaterial({
+                color: new THREE.Color(color).multiplyScalar(0.8),
+                flatShading: true
+            });
+            const tail = new THREE.Mesh(tailGeometry, tailMaterial);
+            tail.position.set(-1.4 * scale, 0, 0);
+            fishGroup.add(tail);
+
+            // ひれ
+            const finGeometry = new THREE.BoxGeometry(0.3 * scale, 0.8 * scale, 0.6 * scale);
+            const finMaterial = new THREE.MeshLambertMaterial({
+                color: new THREE.Color(color).multiplyScalar(0.9),
+                flatShading: true
+            });
+            const topFin = new THREE.Mesh(finGeometry, finMaterial);
+            topFin.position.set(0, 0.6 * scale, 0);
+            fishGroup.add(topFin);
+
+            const bottomFin = new THREE.Mesh(finGeometry, finMaterial);
+            bottomFin.position.set(0, -0.6 * scale, 0);
+            fishGroup.add(bottomFin);
+
+            fishGroup.position.set(x, y, z);
+
+            // 魚の泳ぎアニメーション用データ
+            fishGroup.userData = {
+                swimSpeed: 0.01 + Math.random() * 0.02,
+                swimRadius: 5 + Math.random() * 10,
+                swimPhase: Math.random() * Math.PI * 2,
+                originalY: y,
+                originalX: x,
+                originalZ: z
+            };
+
+            scene.add(fishGroup);
+            return fishGroup;
+        }
+
+        // 🪸 サンゴ礁を作成
+        function createPixelCoral(x, z, height = 3, color = 0xff69b4) {
+            const coralGroup = new THREE.Group();
+
+            // サンゴの幹
+            const stemHeight = height * 0.6;
+            const stemGeometry = new THREE.BoxGeometry(0.6, stemHeight, 0.6);
+            const stemMaterial = new THREE.MeshLambertMaterial({
+                color: new THREE.Color(color).multiplyScalar(0.7),
+                flatShading: true
+            });
+            const stem = new THREE.Mesh(stemGeometry, stemMaterial);
+            stem.position.set(0, stemHeight / 2 - 8, 0);
+            coralGroup.add(stem);
+
+            // サンゴの枝（複数）
+            const branchCount = 3 + Math.floor(Math.random() * 3);
+            for (let i = 0; i < branchCount; i++) {
+                const branchHeight = height * 0.4 * (0.5 + Math.random() * 0.5);
+                const branchGeometry = new THREE.BoxGeometry(
+                    0.4 + Math.random() * 0.3,
+                    branchHeight,
+                    0.4 + Math.random() * 0.3
+                );
+                const branchMaterial = new THREE.MeshLambertMaterial({
+                    color: color,
+                    flatShading: true,
+                    emissive: new THREE.Color(color).multiplyScalar(0.1)
+                });
+                const branch = new THREE.Mesh(branchGeometry, branchMaterial);
+
+                const angle = (i / branchCount) * Math.PI * 2;
+                const radius = 0.8 + Math.random() * 0.5;
+                branch.position.set(
+                    Math.cos(angle) * radius,
+                    stemHeight + branchHeight / 2 - 8,
+                    Math.sin(angle) * radius
+                );
+                coralGroup.add(branch);
+            }
+
+            coralGroup.position.set(x, 0, z);
+            scene.add(coralGroup);
+            return coralGroup;
+        }
+
+        // 🌿 海藻を作成
+        function createPixelSeaweed(x, z, height = 4) {
+            const seaweedGroup = new THREE.Group();
+
+            const segmentCount = 4 + Math.floor(Math.random() * 3);
+            const segmentHeight = height / segmentCount;
+
+            for (let i = 0; i < segmentCount; i++) {
+                const segmentGeometry = new THREE.BoxGeometry(
+                    0.3 + Math.random() * 0.2,
+                    segmentHeight,
+                    0.1
+                );
+                const segmentMaterial = new THREE.MeshLambertMaterial({
+                    color: new THREE.Color(0x228b22).multiplyScalar(0.6 + Math.random() * 0.4),
+                    flatShading: true,
+                    transparent: true,
+                    opacity: 0.8
+                });
+                const segment = new THREE.Mesh(segmentGeometry, segmentMaterial);
+
+                // 海藻の揺らぎ
+                const sway = (Math.sin(i * 0.5) * 0.3) + (Math.random() - 0.5) * 0.2;
+                segment.position.set(
+                    sway,
+                    (i + 0.5) * segmentHeight - 8,
+                    0
+                );
+                segment.rotation.z = sway * 0.3;
+
+                // アニメーション用データ
+                segment.userData = {
+                    swayAmount: sway,
+                    swaySpeed: 0.005 + Math.random() * 0.01,
+                    swayPhase: Math.random() * Math.PI * 2
+                };
+
+                seaweedGroup.add(segment);
+            }
+
+            seaweedGroup.position.set(x, 0, z);
+            scene.add(seaweedGroup);
+            return seaweedGroup;
+        }
+
+        // 🫧 泡パーティクルシステム
+        function createBubbleParticles() {
+            const bubbleCount = 300;
+            const geometry = new THREE.BufferGeometry();
+            const positions = new Float32Array(bubbleCount * 3);
+            const scales = new Float32Array(bubbleCount);
+            const velocities = new Float32Array(bubbleCount * 3);
+
+            for (let i = 0; i < bubbleCount; i++) {
+                const i3 = i * 3;
+
+                positions[i3] = (Math.random() - 0.5) * 80; // x
+                positions[i3 + 1] = Math.random() * 40 - 20; // y
+                positions[i3 + 2] = (Math.random() - 0.5) * 80; // z
+
+                scales[i] = Math.random() * 0.5 + 0.2;
+
+                // 上昇速度
+                velocities[i3] = (Math.random() - 0.5) * 0.01; // x drift
+                velocities[i3 + 1] = 0.02 + Math.random() * 0.03; // y (up)
+                velocities[i3 + 2] = (Math.random() - 0.5) * 0.01; // z drift
+            }
+
+            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            geometry.setAttribute('scale', new THREE.BufferAttribute(scales, 1));
+
+            const material = new THREE.PointsMaterial({
+                color: 0xccf0ff,
+                size: 0.8,
+                sizeAttenuation: true,
+                transparent: true,
+                opacity: 0.6,
+                blending: THREE.AdditiveBlending
+            });
+
+            const bubbles = new THREE.Points(geometry, material);
+            bubbles.userData = { velocities };
+            scene.add(bubbles);
+            return bubbles;
+        }
+
+        // 🌊 海底世界を構築
+        const fishes = [];
+        const corals = [];
+        const seaweeds = [];
+
+        // 魚の群れを配置
+        for (let i = 0; i < 12; i++) {
+            const colors = [0xff6b35, 0x4ecdc4, 0xffe66d, 0xff8b94, 0x95e1d3];
+            const color = colors[Math.floor(Math.random() * colors.length)];
+            const scale = 0.8 + Math.random() * 0.6;
+            fishes.push(createPixelFish(
+                (Math.random() - 0.5) * 60,
+                Math.random() * 15 - 5,
+                (Math.random() - 0.5) * 60,
+                scale,
+                color
+            ));
+        }
+
+        // サンゴ礁を配置
+        const coralPositions = [
+            [-15, -12], [10, -18], [-25, 8], [20, 15],
+            [8, -25], [-30, -5], [25, -8], [-8, 20]
+        ];
+        coralPositions.forEach(pos => {
+            const colors = [0xff69b4, 0xff6347, 0xffa500, 0xda70d6, 0x00ced1];
+            const color = colors[Math.floor(Math.random() * colors.length)];
+            const height = 2 + Math.random() * 4;
+            corals.push(createPixelCoral(pos[0], pos[1], height, color));
+        });
+
+        // 海藻の森を配置
+        for (let i = 0; i < 20; i++) {
+            const x = (Math.random() - 0.5) * 80;
+            const z = (Math.random() - 0.5) * 80;
+            const height = 3 + Math.random() * 5;
+            seaweeds.push(createPixelSeaweed(x, z, height));
+        }
+
+        // 泡パーティクル
+        const bubbles = createBubbleParticles();
+
+        // 📷 カメラ位置（水中感を演出）
+        camera.position.set(0, 0, 15);
+        camera.lookAt(0, -3, 0);
+
+        // 🎮 コントロール
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.03; // より滑らかな水中感
+        controls.minDistance = 5;
+        controls.maxDistance = 50;
+        controls.maxPolarAngle = Math.PI;
+
+        // 🍫 ChocoDrop初期化
+        let chocoDrop;
+
+        function initChocoDrop() {
+            try {
+                chocoDrop = ChocoDrop.createChocoDrop(scene, {
+                    camera: camera,
+                    renderer: renderer,
+                    // GitHub Pagesなので生成機能なし、インポートのみ
+                    serverUrl: null,
+                    sceneOptions: {
+                        enableMouseInteraction: true
+                    },
+                    onControlsToggle: (disabled) => {
+                        controls.enabled = !disabled;
+                    }
+                });
+
+                console.log('🌊 Pixel Ocean ready! Press @ to dive in!');
+
+                // 海底風のヒント
+                window.addEventListener('keydown', (event) => {
+                    if (event.code === 'Space' || event.key === '@') {
+                        console.log('🐠 Try: "画像を中央に", "右上に配置", "ファイルを選択"');
+                    }
+                });
+
+            } catch (error) {
+                console.error('ChocoDrop initialization failed:', error);
+            }
+        }
+
+        // 初期化
+        setTimeout(initChocoDrop, 1000);
+
+        // 🎬 アニメーションループ
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const time = Date.now() * 0.001;
+
+            // 魚の泳ぎアニメーション
+            fishes.forEach(fish => {
+                if (fish.userData) {
+                    const data = fish.userData;
+                    fish.position.x = data.originalX + Math.sin(time * data.swimSpeed + data.swimPhase) * data.swimRadius;
+                    fish.position.y = data.originalY + Math.sin(time * data.swimSpeed * 0.5) * 2;
+                    fish.position.z = data.originalZ + Math.cos(time * data.swimSpeed + data.swimPhase) * data.swimRadius * 0.5;
+
+                    // 向きを進行方向に
+                    const dx = Math.cos(time * data.swimSpeed + data.swimPhase) * data.swimRadius;
+                    fish.rotation.y = Math.atan2(dx, 0) + Math.PI / 2;
+                }
+            });
+
+            // 海藻の揺らぎ
+            seaweeds.forEach(seaweed => {
+                seaweed.children.forEach(segment => {
+                    if (segment.userData) {
+                        const data = segment.userData;
+                        const sway = Math.sin(time * data.swaySpeed + data.swayPhase) * 0.3;
+                        segment.rotation.z = data.swayAmount * 0.3 + sway;
+                    }
+                });
+            });
+
+            // 泡の上昇アニメーション
+            if (bubbles && bubbles.userData.velocities) {
+                const positions = bubbles.geometry.attributes.position.array;
+                const velocities = bubbles.userData.velocities;
+
+                for (let i = 0; i < positions.length; i += 3) {
+                    positions[i] += velocities[i];     // x
+                    positions[i + 1] += velocities[i + 1]; // y
+                    positions[i + 2] += velocities[i + 2]; // z
+
+                    // 泡が水面に達したらリセット
+                    if (positions[i + 1] > 25) {
+                        positions[i] = (Math.random() - 0.5) * 80;
+                        positions[i + 1] = -20;
+                        positions[i + 2] = (Math.random() - 0.5) * 80;
+                    }
+                }
+                bubbles.geometry.attributes.position.needsUpdate = true;
+            }
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        animate();
+
+        // 📱 レスポンシブ対応
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+    </script>
+</body>
+</html>
