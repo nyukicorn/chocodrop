@@ -295,36 +295,36 @@
         function createPixelFish(x, y, z, scale = 1, color = null, fishType = 'fish') {
             const fishGroup = new THREE.Group();
 
-            // ピクセルアート魚のパターン定義（1=体、2=ひれ、3=目）
+            // ピクセルアート魚のパターン定義（1=体、2=ひれ、3=目、4=キラキラ）
             const fishPatterns = {
                 small: [
                     [0,0,2,2,0,0,0],
-                    [0,2,1,1,2,0,0],
+                    [0,2,1,4,2,0,0],
                     [2,1,1,1,1,2,2],
-                    [1,1,3,1,1,1,1],
+                    [1,4,3,1,1,4,1],
                     [2,1,1,1,1,2,2],
-                    [0,2,1,1,2,0,0],
+                    [0,2,1,4,2,0,0],
                     [0,0,2,2,0,0,0]
                 ],
                 medium: [
                     [0,0,0,2,2,0,0,0,0],
-                    [0,0,2,1,1,2,0,0,0],
-                    [0,2,1,1,1,1,2,2,0],
-                    [2,1,1,1,1,1,1,1,2],
-                    [1,1,3,1,1,1,1,1,1],
-                    [2,1,1,1,1,1,1,1,2],
-                    [0,2,1,1,1,1,2,2,0],
+                    [0,0,2,1,4,2,0,0,0],
+                    [0,2,1,4,1,1,2,2,0],
+                    [2,1,1,1,1,4,1,1,2],
+                    [1,4,3,1,1,1,1,4,1],
+                    [2,1,1,1,4,1,1,1,2],
+                    [0,2,1,1,1,4,2,2,0],
                     [0,0,2,1,1,2,0,0,0],
                     [0,0,0,2,2,0,0,0,0]
                 ],
                 dolphin: [
                     [0,0,0,0,2,0,0,0,0,0],
                     [0,0,0,2,1,2,0,0,0,0],
-                    [0,0,2,1,1,1,2,0,0,0],
-                    [0,2,1,1,1,1,1,2,2,0],
-                    [2,1,1,3,1,1,1,1,1,2],
-                    [1,1,1,1,1,1,1,1,1,1],
-                    [2,1,1,1,1,1,1,1,1,2],
+                    [0,0,2,1,4,1,2,0,0,0],
+                    [0,2,1,4,1,1,4,2,2,0],
+                    [2,1,1,3,1,4,1,1,1,2],
+                    [1,4,1,1,1,1,1,4,1,1],
+                    [2,1,1,4,1,1,4,1,1,2],
                     [0,2,1,1,1,1,1,2,2,0],
                     [0,0,2,2,2,2,2,0,0,0]
                 ]
@@ -334,11 +334,11 @@
             const pattern = fishPatterns[fishType] || fishPatterns.small;
             const pixelSize = 0.15 * scale;
             
-            // カラーパレット設定
+            // カラーパレット設定（4番目はキラキラ用）
             const colors = {
-                dolphin: [0x4A90E2, 0x5BA3F5, 0x000000], // 青系
-                medium: [0x40E0D0, 0x48CAE4, 0x000000],  // ターコイズ系
-                small: [0x6BB6FF, 0x87CEEB, 0x000000]    // スカイブルー系
+                dolphin: [0x4A90E2, 0x5BA3F5, 0x000000, 0xFFFFFF], // 青系＋白キラキラ
+                medium: [0x40E0D0, 0x48CAE4, 0x000000, 0xE0FFFF],  // ターコイズ系＋水色キラキラ
+                small: [0x6BB6FF, 0x87CEEB, 0x000000, 0xF0F8FF]    // スカイブルー系＋薄青キラキラ
             };
             
             const palette = colors[fishType] || colors.small;
@@ -452,7 +452,7 @@
             // サンゴの色パレット（海らしい色）
             const colors = [
                 0x40E0D0, // ターコイズ（体）
-                0x48CAE4  // 明るい青（先端）
+                0x7FFFD4  // アクアマリン（先端・より明るく）
             ];
             
             // ピクセル数カウント
@@ -708,6 +708,63 @@
 
         // 泡パーティクル
         const bubbles = createBubbleParticles();
+        
+        // ✨ 水中の光粒子（キラキラエフェクト）
+        function createLightParticles() {
+            const particleCount = 200;
+            const geometry = new THREE.BufferGeometry();
+            const positions = new Float32Array(particleCount * 3);
+            const colors = new Float32Array(particleCount * 3);
+            const sizes = new Float32Array(particleCount);
+            
+            const lightColors = [
+                new THREE.Color(0xFFFFFF), // 純白
+                new THREE.Color(0xE0FFFF), // 水色
+                new THREE.Color(0xF0F8FF), // アリスブルー
+                new THREE.Color(0xFFF8DC)  // コーンシルク（暖かい白）
+            ];
+            
+            for (let i = 0; i < particleCount; i++) {
+                const i3 = i * 3;
+                
+                // ランダムな位置
+                positions[i3] = (Math.random() - 0.5) * 60;
+                positions[i3 + 1] = Math.random() * 30 - 10;
+                positions[i3 + 2] = (Math.random() - 0.5) * 60;
+                
+                // ランダムな色
+                const color = lightColors[Math.floor(Math.random() * lightColors.length)];
+                colors[i3] = color.r;
+                colors[i3 + 1] = color.g;
+                colors[i3 + 2] = color.b;
+                
+                // サイズ（小さめでキラキラ感）
+                sizes[i] = Math.random() * 1.5 + 0.5;
+            }
+            
+            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+            geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+            
+            const material = new THREE.PointsMaterial({
+                size: 3,
+                sizeAttenuation: true,
+                vertexColors: true,
+                transparent: true,
+                opacity: 0.9,
+                blending: THREE.AdditiveBlending
+            });
+            
+            const lightParticles = new THREE.Points(geometry, material);
+            lightParticles.userData = {
+                twinkleSpeed: new Float32Array(particleCount).map(() => Math.random() * 0.05 + 0.01)
+            };
+            
+            scene.add(lightParticles);
+            return lightParticles;
+        }
+        
+        const lightParticles = createLightParticles();
 
         // 📷 カメラ位置（水中感を演出）
         camera.position.set(0, 0, 15);
@@ -786,6 +843,22 @@
                     }
                 });
             });
+
+            // 光粒子のキラキラアニメーション
+            if (lightParticles) {
+                const time2 = time * 2;
+                const sizes = lightParticles.geometry.attributes.size.array;
+                const twinkleSpeed = lightParticles.userData.twinkleSpeed;
+                
+                for (let i = 0; i < sizes.length; i++) {
+                    // サイズを変化させてキラキラ感を演出
+                    sizes[i] = (Math.sin(time2 * twinkleSpeed[i]) * 0.5 + 0.5) * 2 + 0.5;
+                }
+                lightParticles.geometry.attributes.size.needsUpdate = true;
+                
+                // ゆっくり回転
+                lightParticles.rotation.y += 0.0001;
+            }
 
             // 泡の上昇アニメーション
             if (bubbles && bubbles.userData.velocities) {
