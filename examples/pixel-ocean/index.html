@@ -726,28 +726,28 @@
             for (let i = 0; i < particleCount; i++) {
                 const i3 = i * 3;
 
-                // 銀河の螺旋形状を作成
-                const radius = Math.random() * 30;  // 中心からの距離
+                // 銀河の螺旋形状を作成（もっと広く散らばらせる）
+                const radius = Math.random() * 150;  // 半径を30→150に拡大！
                 const branchAngle = (i % branches) * ((Math.PI * 2) / branches);
-                const spinAngle = radius * 0.3;  // 螺旋の回転量
+                const spinAngle = radius * 0.2;  // 螺旋の回転量を緩やかに
                 const angle = branchAngle + spinAngle;
 
                 // 基本位置（螺旋状）
                 const x = Math.cos(angle) * radius;
                 const z = Math.sin(angle) * radius;
-                const y = 0;
+                const y = (Math.random() - 0.5) * 10;  // Y軸にも少し広がり
 
-                // ランダムな揺らぎを追加（自然な散らばり）
-                const randomX = Math.pow(Math.random(), 3) * (Math.random() < 0.5 ? 1 : -1) * radius * 0.3;
-                const randomY = Math.pow(Math.random(), 3) * (Math.random() < 0.5 ? 1 : -1) * radius * 0.3;
-                const randomZ = Math.pow(Math.random(), 3) * (Math.random() < 0.5 ? 1 : -1) * radius * 0.3;
+                // ランダムな揺らぎを追加（より自然な散らばり）
+                const randomX = Math.pow(Math.random(), 2) * (Math.random() < 0.5 ? 1 : -1) * radius * 0.5;
+                const randomY = Math.pow(Math.random(), 2) * (Math.random() < 0.5 ? 1 : -1) * 5;
+                const randomZ = Math.pow(Math.random(), 2) * (Math.random() < 0.5 ? 1 : -1) * radius * 0.5;
 
                 positions[i3] = x + randomX;
                 positions[i3 + 1] = y + randomY;
                 positions[i3 + 2] = z + randomZ;
 
                 // 距離に応じた色のグラデーション
-                const mixValue = radius / 30;  // 0から1の値
+                const mixValue = radius / 150;  // 半径150に合わせて調整
                 const color = colorInside.clone().lerp(colorOutside, mixValue);
                 colors[i3] = color.r;
                 colors[i3 + 1] = color.g;
