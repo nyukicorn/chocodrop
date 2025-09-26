@@ -743,25 +743,42 @@
         // 音声コンテキストを初期化
         initAudioContext();
         
-        // 🎵 DOM video要素を定期的に監視して音声接続
-        function monitorVideoElements() {
-            const videos = document.querySelectorAll('video');
+        // 🎵 Three.js Scene内のVideoTextureを監視して音声接続
+        function monitorVideoTextures() {
+            let foundVideo = false;
             
-            videos.forEach(video => {
-                // まだ接続していない動画要素があれば接続
-                if (!video.audioConnected && video.readyState >= 2) {
-                    console.log('🎵 Found unconnected video, connecting audio:', video);
-                    connectVideoToAudio(video);
-                    video.audioConnected = true;
+            scene.traverse((child) => {
+                if (child.material && child.material.map && child.material.map.image) {
+                    const image = child.material.map.image;
+                    
+                    // HTMLVideoElementを発見
+                    if (image instanceof HTMLVideoElement && !image.audioConnected) {
+                        console.log('🎵 Found VideoTexture with HTMLVideoElement:', image);
+                        console.log('  - src:', image.src);
+                        console.log('  - readyState:', image.readyState);
+                        console.log('  - paused:', image.paused);
+                        
+                        if (image.readyState >= 2) {
+                            connectVideoToAudio(image);
+                            image.audioConnected = true;
+                            foundVideo = true;
+                        }
+                    }
                 }
             });
+            
+            // デバッグ情報更新
+            if (foundVideo && !window.videoTextureFound) {
+                console.log('✅ VideoTexture audio connection established!');
+                window.videoTextureFound = true;
+            }
         }
         
         // 1秒ごとに監視
-        setInterval(monitorVideoElements, 1000);
+        setInterval(monitorVideoTextures, 1000);
         
         // 初回実行
-        setTimeout(monitorVideoElements, 2000);
+        setTimeout(monitorVideoTextures, 2000);
 
         console.log('🍫 ChocoDrop Music Garden initialized');
         console.log('Press @ key to activate command interface');
