@@ -269,37 +269,32 @@
             petalRings.forEach((ring, ringIndex) => {
                 for (let i = 0; i < ring.count; i++) {
                     // 各花びらの角度（少しランダムさを加える）
-                    const angle = (i / ring.count) * Math.PI * 2 + (Math.random() - 0.5) * 0.3;
+                    const angle = (i / ring.count) * Math.PI * 2 + (Math.random() - 0.5) * 0.2;
 
-                    // より自然な花びらの形状（楕円形でセグメント数を増やす）
-                    const petalShape = new THREE.Shape();
-                    const petalWidth = ring.size * 0.4;
-                    const petalHeight = ring.size;
+                    // 楕円形の花びら（EllipseCurveを使用）
+                    const curve = new THREE.EllipseCurve(
+                        0, 0,  // 中心
+                        ring.size * 0.4, ring.size,  // xRadius, yRadius
+                        0, Math.PI * 2,  // 開始角度、終了角度
+                        false,  // 時計回り
+                        0  // 回転
+                    );
 
-                    // 花びらの輪郭を描く（より有機的な形状）
-                    petalShape.moveTo(0, 0);
-                    petalShape.quadraticCurveTo(petalWidth * 0.5, petalHeight * 0.3, petalWidth * 0.3, petalHeight * 0.6);
-                    petalShape.quadraticCurveTo(petalWidth * 0.2, petalHeight * 0.9, 0, petalHeight);
-                    petalShape.quadraticCurveTo(-petalWidth * 0.2, petalHeight * 0.9, -petalWidth * 0.3, petalHeight * 0.6);
-                    petalShape.quadraticCurveTo(-petalWidth * 0.5, petalHeight * 0.3, 0, 0);
-
-                    const geometry = new THREE.ShapeGeometry(petalShape, 12);
+                    const points = curve.getPoints(32);
+                    const petalShape = new THREE.Shape(points);
+                    const geometry = new THREE.ShapeGeometry(petalShape);
 
                     // 色をリング内でバリエーション（グラデーション効果）
                     const colorIndex = Math.floor(Math.random() * ring.colors.length);
                     const baseColor = new THREE.Color(ring.colors[colorIndex]);
 
-                    // より美しいマテリアル（光沢感とグラデーション）
-                    const material = new THREE.MeshPhongMaterial({
+                    // より柔らかいマテリアル
+                    const material = new THREE.MeshBasicMaterial({
                         color: baseColor,
-                        emissive: baseColor,
-                        emissiveIntensity: 0.2,
                         transparent: true,
-                        opacity: ring.opacity * 0.9,
+                        opacity: ring.opacity * 0.8,
                         side: THREE.DoubleSide,
-                        blending: THREE.AdditiveBlending,
-                        shininess: 100,
-                        specular: new THREE.Color(0xffffff)
+                        blending: THREE.AdditiveBlending
                     });
 
                     const petal = new THREE.Mesh(geometry, material);
@@ -522,7 +517,7 @@
                     console.log(`📹 Found ${videoElements.length} video elements`);
 
                     videoElements.forEach((videoElement, index) => {
-                        console.log(`🎥 Video ${index}: src=${videoElement.src}, readyState=${videoElement.readyState}`);
+                        console.log(`🎥 Video ${index}: src=${videoElement.src}, readyState=${videoElement.readyState}, paused=${videoElement.paused}, volume=${videoElement.volume}`);
 
                         // まだ接続されていない動画要素を処理
                         if (!videoElement.audioSource) {
