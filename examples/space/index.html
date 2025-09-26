@@ -381,8 +381,8 @@
             
             const nebulaTexture = createNebulaTexture();
             
-            // 🌫️ 複数レイヤーの雲状スプライト
-            for (let layer = 0; layer < 5; layer++) {
+            // 🌫️ 複数レイヤーの雲状スプライト（軽量化：3レイヤー）
+            for (let layer = 0; layer < 3; layer++) {
                 const layerGroup = new THREE.Group();
                 
                 for (let i = 0; i < 8; i++) {
