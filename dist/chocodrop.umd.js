@@ -1164,6 +1164,10 @@
 
       // 選択したオブジェクトの角度調整キーボードコントロール
       document.addEventListener('keydown', (event) => {
+        const activeEl = document.activeElement;
+        if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.isContentEditable)) {
+          return;
+        }
         if (!this.selectedObject) return;
         
         const object = this.selectedObject;
@@ -1941,10 +1945,12 @@
       }
 
       const chromaRequested = this.requiresChromaKey(cmd);
+      const chromaConfig = chromaRequested ? this.detectChromaKeyConfig(cmd) : null;
+      const canApplyChroma = chromaConfig !== null;
 
       // 個別効果をチェック
       for (const [keyword, effect] of Object.entries(effectKeywords)) {
-        if (chromaRequested && keyword === '透明') {
+        if (canApplyChroma && keyword === '透明') {
           continue;
         }
         if (cmd.includes(keyword)) {
@@ -1954,15 +1960,18 @@
       }
 
       if (chromaRequested) {
-        const chromaConfig = this.detectChromaKeyConfig(cmd);
-        effects.push({
-          type: 'chroma_key',
-          color: chromaConfig.color,
-          threshold: chromaConfig.threshold,
-          smoothing: chromaConfig.smoothing,
-          name: 'chroma_key'
-        });
-        console.log(`🪄 Chroma key requested (color: #${chromaConfig.color.toString(16)}, threshold: ${chromaConfig.threshold})`);
+        if (canApplyChroma) {
+          effects.push({
+            type: 'chroma_key',
+            color: chromaConfig.color,
+            threshold: chromaConfig.threshold,
+            smoothing: chromaConfig.smoothing,
+            name: 'chroma_key'
+          });
+          console.log(`🪄 Chroma key requested (color: #${chromaConfig.color.toString(16)}, threshold: ${chromaConfig.threshold})`);
+        } else if (this.commandUI) {
+          this.commandUI.showInputFeedback('背景を透過するには背景色を指定してください（例：「背景の白を透過して」）', 'info');
+        }
       }
 
       return effects;
@@ -1970,11 +1979,13 @@
 
     requiresChromaKey(cmd) {
       if (!cmd) return false;
-      const chromaKeywords = ['クロマキー', 'グリーンバック', '背景を透過', '背景透過', '背景を透明', '背景透明', '背景を消', '背景消', '背景抜', 'remove background', 'transparent background'];
+      const chromaKeywords = ['クロマキー', 'グリーンバック', 'remove background', 'transparent background'];
       if (chromaKeywords.some(keyword => cmd.includes(keyword))) {
         return true;
       }
-      if (cmd.includes('背景') && (cmd.includes('透過') || cmd.includes('透明') || cmd.includes('消') || cmd.includes('なくして'))) {
+      const backgroundTerms = ['背景を', '背景の', '背景'];
+      const actionTerms = ['透過', '透明', '消', '抜', 'なくして'];
+      if (backgroundTerms.some(term => cmd.includes(term)) && actionTerms.some(term => cmd.includes(term))) {
         return true;
       }
       return false;
@@ -1982,13 +1993,16 @@
 
     detectChromaKeyConfig(cmd) {
       const color = this.detectChromaKeyColor(cmd);
+      if (color === null) {
+        return null;
+      }
       let threshold;
       switch (color) {
         case 0xffffff:
-          threshold = 0.22;
+          threshold = 0.12;
           break;
         case 0x000000:
-          threshold = 0.24;
+          threshold = 0.14;
           break;
         case 0x00ff00:
           threshold = 0.32;
@@ -1997,7 +2011,7 @@
           threshold = 0.3;
           break;
         default:
-          threshold = 0.28;
+          threshold = 0.2;
       }
       return {
         color,
@@ -2029,7 +2043,11 @@
         }
       }
 
-      return 0xffffff; // デフォルトはホワイト背景
+      if (cmd.includes('グリーンバック')) {
+        return 0x00ff00;
+      }
+
+      return null;
     }
 
     /**
@@ -3926,9 +3944,11 @@
           opacity: parsed.opacity,
           command: parsed.command
         });
-        
-        return { 
-          success: true, 
+
+        this.updateAllAudioControlPositions();
+
+        return {
+          success: true,
           message: `オブジェクト「${targetObject.name}」を変更しました`,
           objectId: targetObject.name,
           modifications: {
@@ -4833,12 +4853,11 @@
       // 初期位置設定
       this.updateAudioControlPosition(videoObject, audioButton);
 
-      // 管理マップに登録
-      this.audioControls.set(videoObject.uuid, {
+      this.audioControls.set(videoObject.userData.id || videoObject.uuid, {
+        object: videoObject,
         audioButton,
         tooltip,
         volumeSlider,
-        isSliderVisible: () => isSliderVisible,
         hideSlider: () => {
           isSliderVisible = false;
           volumeSlider.style.opacity = '0';
@@ -4866,7 +4885,7 @@
         if (audioButton.parentNode) audioButton.parentNode.removeChild(audioButton);
         if (tooltip.parentNode) tooltip.parentNode.removeChild(tooltip);
         if (volumeSlider.parentNode) volumeSlider.parentNode.removeChild(volumeSlider);
-        this.audioControls.delete(videoObject.uuid);
+        this.audioControls.delete(videoObject.userData.id || videoObject.uuid);
 
         if (this.audioControls.size === 0) {
           if (this.audioControlUpdateInterval) {
@@ -4936,8 +4955,8 @@
         return;
       }
 
-      this.audioControls.forEach((_, uuid) => {
-        const obj = this.spawnedObjects.get(uuid);
+      this.audioControls.forEach((entry) => {
+        const obj = entry.object;
         if (obj && obj.userData && obj.userData.updateAudioControlPosition) {
           obj.userData.updateAudioControlPosition();
         }
@@ -6856,7 +6875,7 @@
       }
 
       // 5. 変更系のキーワードが含まれる場合（対象未選択でもmodify判定）
-      const modificationIndicators = /(にして|に変えて|へ変えて|へ変更|変えて|変更|調整|加工|編集|塗(って|り)|染め|彩色|彩度|明るく|暗く|薄く|濃く|ぼかし|シャープ|左右反転|上下反転|反転|回転|移動|並べ|整列|揃え|寄せて|拡大|縮小|大きく|小さく|伸ばして|縮めて|高く|低く|近づけ|遠ざけ|透明|半透明|不透明|輝かせて|光らせて|暗くして|焼き込み|焼き付け|flip|rotate|move|align|scale|resize|tint|color|brighten|darken|adjust|edit|modify)/i;
+      const modificationIndicators = /(にして|に変えて|へ変えて|へ変更|変えて|変更|調整|加工|編集|塗(って|り)|染め|彩色|彩度|明るく|暗く|薄く|濃く|ぼかし|シャープ|左右反転|上下反転|反転|回転|移動|並べ|整列|揃え|寄せて|拡大|縮小|大きく|小さく|伸ばして|縮めて|高く|低く|近づけ|遠ざけ|透明|半透明|不透明|透過|背景を透過|背景透過|背景を消|背景消|背景抜|輝かせて|光らせて|暗くして|焼き込み|焼き付け|flip|rotate|move|align|scale|resize|tint|color|brighten|darken|adjust|edit|modify)/i;
       const mediaReferenceIndicators = /(画像|写真|イメージ|絵|イラスト|ピクチャー|メディア|素材|動画|ビデオ|ムービー|映像|クリップ|オブジェクト|モデル)/i;
 
       if (modificationIndicators.test(text)) {
