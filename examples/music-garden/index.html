@@ -825,15 +825,13 @@
                 // 全体音量を計算
                 volume = dataArray.reduce((sum, freq) => sum + freq, 0) / dataArray.length / 255;
 
-                // デバッグ: 音量が検出されているか表示
+                // 音楽検出時のステータス更新（ログなし）
                 if (volume > 0.005) {
-                    console.log('🎵 Audio detected! Volume:', volume.toFixed(3));
                     if (!window.audioDetected) {
                         updateAudioStatus('🎵 音楽反応中!', 'audio-active');
                         window.audioDetected = true;
                     }
                 } else if (window.audioDetected) {
-                    console.log('🔇 Audio stopped, volume:', volume.toFixed(3));
                     updateAudioStatus('🔇 音声待機中...', 'audio-waiting');
                     window.audioDetected = false;
                 }
