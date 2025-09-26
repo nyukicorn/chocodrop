@@ -227,39 +227,48 @@
             const petalRings = [
                 // 外側のリング - 大きな花びら
                 {
-                    count: 12,
-                    size: 2.5 * scale,
-                    opacity: 0.7,
-                    colors: [0x9b59b6, 0x8e44ad, 0x6c3483],
-                    radius: 2.2 * scale,
+                    count: 18,
+                    size: 2.2 * scale,
+                    opacity: 0.8,
+                    colors: [0x9b59b6, 0xb19cd9, 0x8e44ad, 0xdda0dd, 0x9370db],
+                    radius: 2.0 * scale,
                     zOffset: 0
                 },
-                // 中間のリング - 中サイズ花びら
+                // 外中間のリング
                 {
                     count: 16,
-                    size: 1.8 * scale,
-                    opacity: 0.8,
-                    colors: [0xe74c3c, 0xff6b9d, 0xf39c12],
-                    radius: 1.5 * scale,
-                    zOffset: 0.1
+                    size: 1.9 * scale,
+                    opacity: 0.85,
+                    colors: [0xff69b4, 0xff1493, 0xda70d6, 0xff6b9d, 0xf39c12],
+                    radius: 1.6 * scale,
+                    zOffset: 0.05
                 },
-                // 内側のリング - 小さな花びら
+                // 中間のリング
                 {
                     count: 20,
-                    size: 1.2 * scale,
+                    size: 1.5 * scale,
                     opacity: 0.9,
-                    colors: [0xf1c40f, 0xff9ff3, 0x74b9ff],
-                    radius: 0.8 * scale,
-                    zOffset: 0.2
+                    colors: [0x87ceeb, 0x00bfff, 0x87cefa, 0x6495ed, 0x4169e1],
+                    radius: 1.2 * scale,
+                    zOffset: 0.1
+                },
+                // 内側のリング
+                {
+                    count: 16,
+                    size: 1.0 * scale,
+                    opacity: 0.95,
+                    colors: [0xffd700, 0xffa500, 0xff8c00, 0xffb347, 0xffc125],
+                    radius: 0.7 * scale,
+                    zOffset: 0.15
                 },
                 // 最内側 - 極小花びら
                 {
                     count: 12,
-                    size: 0.6 * scale,
+                    size: 0.5 * scale,
                     opacity: 1.0,
-                    colors: [0xffeaa7, 0xfd79a8, 0xa29bfe],
-                    radius: 0.3 * scale,
-                    zOffset: 0.3
+                    colors: [0xffffe0, 0xfffacd, 0xffefd5, 0xffe4b5, 0xffdead],
+                    radius: 0.25 * scale,
+                    zOffset: 0.2
                 }
             ];
 
@@ -271,30 +280,68 @@
                     // 各花びらの角度（少しランダムさを加える）
                     const angle = (i / ring.count) * Math.PI * 2 + (Math.random() - 0.5) * 0.2;
 
-                    // 楕円形の花びら（EllipseCurveを使用）
-                    const curve = new THREE.EllipseCurve(
-                        0, 0,  // 中心
-                        ring.size * 0.4, ring.size,  // xRadius, yRadius
-                        0, Math.PI * 2,  // 開始角度、終了角度
-                        false,  // 時計回り
-                        0  // 回転
+                    // ダリアの花びらのような涙滴型を作成
+                    const petalShape = new THREE.Shape();
+                    const width = ring.size * 0.35;
+                    const height = ring.size;
+
+                    // 花びらの輪郭（根元から先端へ）
+                    petalShape.moveTo(0, 0);
+                    // 左側のカーブ
+                    petalShape.bezierCurveTo(
+                        -width * 0.2, height * 0.2,
+                        -width * 0.8, height * 0.5,
+                        -width * 0.4, height * 0.85
+                    );
+                    // 先端の丸み
+                    petalShape.bezierCurveTo(
+                        -width * 0.2, height * 0.95,
+                        width * 0.2, height * 0.95,
+                        width * 0.4, height * 0.85
+                    );
+                    // 右側のカーブ
+                    petalShape.bezierCurveTo(
+                        width * 0.8, height * 0.5,
+                        width * 0.2, height * 0.2,
+                        0, 0
                     );
 
-                    const points = curve.getPoints(32);
-                    const petalShape = new THREE.Shape(points);
-                    const geometry = new THREE.ShapeGeometry(petalShape);
+                    const geometry = new THREE.ShapeGeometry(petalShape, 16);
 
-                    // 色をリング内でバリエーション（グラデーション効果）
+                    // 色をリング内でバリエーション（美しいグラデーション）
                     const colorIndex = Math.floor(Math.random() * ring.colors.length);
                     const baseColor = new THREE.Color(ring.colors[colorIndex]);
 
-                    // より柔らかいマテリアル
-                    const material = new THREE.MeshBasicMaterial({
-                        color: baseColor,
+                    // グラデーション効果のために頂点カラーを設定
+                    const colors = [];
+                    const positions = geometry.attributes.position;
+                    for (let j = 0; j < positions.count; j++) {
+                        const y = positions.getY(j);
+                        const intensity = y / height; // 高さに応じて色を変化
+
+                        // ベースカラーから明度を調整
+                        const hsl = {};
+                        baseColor.getHSL(hsl);
+                        const gradientColor = new THREE.Color().setHSL(
+                            hsl.h + intensity * 0.1,
+                            hsl.s,
+                            Math.min(1, hsl.l + intensity * 0.3)
+                        );
+                        colors.push(gradientColor.r, gradientColor.g, gradientColor.b);
+                    }
+                    geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+
+                    // 洗練されたマテリアル（光沢を抑える）
+                    const material = new THREE.MeshPhongMaterial({
+                        vertexColors: true,
                         transparent: true,
-                        opacity: ring.opacity * 0.8,
+                        opacity: ring.opacity * 0.7,
                         side: THREE.DoubleSide,
-                        blending: THREE.AdditiveBlending
+                        blending: THREE.NormalBlending,
+                        shininess: 30,
+                        specular: new THREE.Color(0x333333),
+                        emissive: baseColor,
+                        emissiveIntensity: 0.1
                     });
 
                     const petal = new THREE.Mesh(geometry, material);
@@ -470,16 +517,16 @@
         });
 
         // ✨ 環境光（全体を柔らかく照らす）
-        const ambientLight = new THREE.AmbientLight(0x404040, 0.5);
+        const ambientLight = new THREE.AmbientLight(0x404040, 0.3);
         scene.add(ambientLight);
 
         // 🌟 メインのポイントライト（花を美しく照らす）
-        const pointLight = new THREE.PointLight(0xffffff, 1.5, 50);
+        const pointLight = new THREE.PointLight(0xffffff, 0.8, 50);
         pointLight.position.set(0, 10, 5);
         scene.add(pointLight);
 
         // 追加のライト（より立体的に）
-        const spotLight = new THREE.SpotLight(0xff6b9d, 0.8);
+        const spotLight = new THREE.SpotLight(0xff6b9d, 0.3);
         spotLight.position.set(-10, 10, 10);
         spotLight.target.position.set(0, 0, 0);
         scene.add(spotLight);
