@@ -599,6 +599,10 @@
         controls.maxDistance = 30;
 
         // 🍫 ChocoDrop初期化
+        console.log('🔍 Pre-ChocoDrop system check:');
+        console.log('  - AudioContext support:', typeof AudioContext !== 'undefined' || typeof webkitAudioContext !== 'undefined');
+        console.log('  - Video elements before ChocoDrop:', document.querySelectorAll('video').length);
+        
         const chocoDrop = ChocoDrop.createChocoDrop(scene, {
             camera: camera,
             renderer: renderer,
@@ -614,6 +618,10 @@
                 console.log('🎬 Video object added to scene:', videoObject);
                 console.log('🔍 Video object type:', typeof videoObject);
                 console.log('🔍 Video object constructor:', videoObject.constructor.name);
+                
+                // 🚨 重要: onVideoAddedが呼ばれていることを確認
+                console.log('🚨 onVideoAdded callback was triggered!');
+                console.log('🔍 DOM video elements at callback time:', document.querySelectorAll('video').length);
 
                 // ChocoDrop オブジェクトから video 要素を直接取得する試み
                 if (videoObject && videoObject.userData && videoObject.userData.videoElement) {
@@ -717,6 +725,15 @@
 
         // 音声コンテキストを初期化
         initAudioContext();
+        
+        // 🔍 初期化後の状態確認
+        setTimeout(() => {
+            console.log('🔍 Audio system status after init:');
+            console.log('  - audioContext:', audioContext ? audioContext.state : 'null');
+            console.log('  - analyser:', !!analyser);
+            console.log('  - isAudioActive:', isAudioActive);
+            console.log('  - DOM videos:', document.querySelectorAll('video').length);
+        }, 1000);
 
         console.log('🍫 ChocoDrop Music Garden initialized');
         console.log('Press @ key to activate command interface');
@@ -728,9 +745,21 @@
 
             const time = Date.now() * 0.001;
 
-            // 音声解析
+            // 音声解析（デバッグ強化版）
             let volume = 0;
             let frequencies = new Array(8).fill(0);
+
+            // デバッグ: 5秒ごとに状態をログ出力
+            if (!window.lastDebugLog || Date.now() - window.lastDebugLog > 5000) {
+                console.log('🔍 Audio Debug Status:');
+                console.log('  - isAudioActive:', isAudioActive);
+                console.log('  - analyser exists:', !!analyser);
+                console.log('  - audioContext state:', audioContext ? audioContext.state : 'none');
+                console.log('  - dataArray exists:', !!dataArray);
+                console.log('  - video elements count:', document.querySelectorAll('video').length);
+                console.log('  - alternative audio:', window.alternativeAudioData ? window.alternativeAudioData.isActive : 'none');
+                window.lastDebugLog = Date.now();
+            }
 
             if (isAudioActive && analyser) {
                 analyser.getByteFrequencyData(dataArray);
@@ -738,10 +767,17 @@
                 // 全体音量を計算
                 volume = dataArray.reduce((sum, freq) => sum + freq, 0) / dataArray.length / 255;
 
-                // デバッグ: 音量が検出されているか表示（初回のみ）
-                if (volume > 0.01 && !window.audioDetected) {
-                    console.log('🎵 Audio detected! Volume:', volume);
-                    window.audioDetected = true;
+                // デバッグ: 音量が検出されているか表示
+                if (volume > 0.005) {
+                    console.log('🎵 Audio detected! Volume:', volume.toFixed(3));
+                    if (!window.audioDetected) {
+                        updateAudioStatus('🎵 音楽反応中!', 'audio-active');
+                        window.audioDetected = true;
+                    }
+                } else if (window.audioDetected) {
+                    console.log('🔇 Audio stopped, volume:', volume.toFixed(3));
+                    updateAudioStatus('🔇 音声待機中...', 'audio-waiting');
+                    window.audioDetected = false;
                 }
 
                 // 周波数帯域を分析（低音〜高音）
@@ -778,67 +814,90 @@
             flowers.forEach((flower, index) => {
                 const userData = flower.userData;
 
-                // ベースのパルス（音楽がなくても美しく）
-                const basePulse = Math.sin(time + userData.pulsePhase) * 0.1 + 1;
+                // 音楽検出時のみアニメーション
+                if (volume > 0.005) { // 音楽がある程度大きい時のみ
+                    // ベースのパルス（音楽に連動）
+                    const basePulse = Math.sin(time + userData.pulsePhase) * 0.15 + 1;
+                    
+                    // 音楽に反応するスケール
+                    const musicScale = 1 + volume * 0.4;
+                    flower.scale.setScalar(userData.originalScale * basePulse * musicScale);
+                } else {
+                    // 音楽がない時は静止（オリジナルスケールのみ）
+                    flower.scale.setScalar(userData.originalScale);
+                }
 
-                // 音楽に反応するスケール
-                const musicScale = 1 + volume * 0.3;
-                flower.scale.setScalar(userData.originalScale * basePulse * musicScale);
-
-                // 花びらリング別のアニメーション
+                // 花びらリング別のアニメーション（音楽がある時のみ）
                 userData.petals.forEach((petal, petalIndex) => {
                     const freqIndex = petalIndex % frequencies.length;
                     const intensity = frequencies[freqIndex];
-
-                    // ベースカラーから音楽に応じて色を変化（より自然なグラデーション）
                     const baseColor = userData.baseColors[petalIndex];
-                    const hsl = {};
-                    baseColor.getHSL(hsl);
 
-                    // 音楽に合わせて色相をシフト（お手本のような虹色効果）
-                    const hueShift = intensity * 0.2 + Math.sin(time * 0.5 + petalIndex * 0.1) * 0.1;
-                    const newHue = (hsl.h + hueShift) % 1;
+                    if (volume > 0.005) { // 音楽検出時のみアニメーション
+                        const hsl = {};
+                        baseColor.getHSL(hsl);
 
-                    // 彩度と明度も音楽に反応
-                    const saturation = Math.max(0.6, hsl.s + intensity * 0.3);
-                    const lightness = Math.max(0.4, hsl.l + intensity * 0.2);
+                        // 音楽に合わせて色相をシフト（お手本のような虹色効果）
+                        const hueShift = intensity * 0.2;
+                        const newHue = (hsl.h + hueShift) % 1;
 
-                    petal.material.color.setHSL(newHue, saturation, lightness);
+                        // 彩度と明度も音楽に反応
+                        const saturation = Math.max(0.6, hsl.s + intensity * 0.3);
+                        const lightness = Math.max(0.4, hsl.l + intensity * 0.2);
 
-                    // リングごとの透明度調整（内側ほど濃く）
-                    const ringIndex = Math.floor(petalIndex / 15); // 概算のリング判定
-                    const baseOpacity = userData.petalRings[Math.min(ringIndex, userData.petalRings.length - 1)].opacity;
-                    petal.material.opacity = baseOpacity + intensity * 0.2;
+                        petal.material.color.setHSL(newHue, saturation, lightness);
 
-                    // 個別の花びらの微細な動き
-                    const petalPulse = Math.sin(time * 2 + petalIndex * 0.3) * intensity * 0.1;
-                    petal.scale.setScalar(1 + petalPulse);
+                        // リングごとの透明度調整（内側ほど濃く）
+                        const ringIndex = Math.floor(petalIndex / 15);
+                        const baseOpacity = userData.petalRings[Math.min(ringIndex, userData.petalRings.length - 1)].opacity;
+                        petal.material.opacity = baseOpacity + intensity * 0.2;
 
-                    // 花びらの微細な回転
-                    petal.rotation.z += (intensity * 0.01 + 0.002);
+                        // 個別の花びらの微細な動き
+                        const petalPulse = Math.sin(time * 2 + petalIndex * 0.3) * intensity * 0.1;
+                        petal.scale.setScalar(1 + petalPulse);
+
+                        // 花びらの微細な回転
+                        petal.rotation.z += (intensity * 0.01 + 0.002);
+                    } else {
+                        // 音楽がない時は静的な美しい色を保持
+                        petal.material.color.copy(baseColor);
+                        const ringIndex = Math.floor(petalIndex / 15);
+                        const baseOpacity = userData.petalRings[Math.min(ringIndex, userData.petalRings.length - 1)].opacity;
+                        petal.material.opacity = baseOpacity;
+                        petal.scale.setScalar(1);
+                    }
                 });
 
-                // 花の中心の発光（より強烈に）
+                // 花の中心の発光と回転（音楽がある時のみ）
                 if (userData.center && userData.center.material && userData.center.material.emissive) {
-                    const centerIntensity = Math.max(0.5, volume * 1.5);
-                    userData.center.material.emissive.setHSL(
-                        (time * 0.3) % 1, // 虹色に変化
-                        0.8,
-                        centerIntensity * 0.6
-                    );
-                    userData.center.material.emissiveIntensity = centerIntensity;
+                    if (volume > 0.005) {
+                        const centerIntensity = Math.max(0.5, volume * 1.5);
+                        userData.center.material.emissive.setHSL(
+                            (time * 0.3) % 1, // 虹色に変化
+                            0.8,
+                            centerIntensity * 0.6
+                        );
+                        userData.center.material.emissiveIntensity = centerIntensity;
+                    } else {
+                        // 音楽がない時は発光を抑制
+                        userData.center.material.emissive.setRGB(0, 0, 0);
+                        userData.center.material.emissiveIntensity = 0;
+                    }
                 }
 
-                // 花全体の回転（音楽に合わせて）
-                flower.rotation.z += 0.005 + volume * 0.015;
+                // 花全体の回転（音楽がある時のみ）
+                if (volume > 0.005) {
+                    flower.rotation.z += 0.005 + volume * 0.015;
+                    
+                    // 立体的な動き
+                    flower.rotation.x = Math.sin(time * 0.3 + index) * 0.1;
+                    flower.rotation.y = Math.cos(time * 0.2 + index) * 0.05;
+                }
 
-                // 立体的な動き
-                flower.rotation.x = Math.sin(time * 0.3 + index) * 0.1;
-                flower.rotation.y = Math.cos(time * 0.2 + index) * 0.05;
-
-                // パーティクルのアニメーション
+                // パーティクルのアニメーション（音楽がある時のみ）
                 if (userData.particles) {
-                    userData.particles.rotation.y += 0.01 + volume * 0.02;
+                    if (volume > 0.005) {
+                        userData.particles.rotation.y += 0.01 + volume * 0.02;
                     userData.particles.rotation.z += 0.005;
 
                     // 音楽に合わせてパーティクルの明度を変化
