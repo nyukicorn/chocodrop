@@ -1415,10 +1415,12 @@ export class SceneManager {
     }
 
     const chromaRequested = this.requiresChromaKey(cmd);
+    const chromaConfig = chromaRequested ? this.detectChromaKeyConfig(cmd) : null;
+    const canApplyChroma = chromaConfig !== null;
 
     // 個別効果をチェック
     for (const [keyword, effect] of Object.entries(effectKeywords)) {
-      if (chromaRequested && keyword === '透明') {
+      if (canApplyChroma && keyword === '透明') {
         continue;
       }
       if (cmd.includes(keyword)) {
@@ -1428,15 +1430,18 @@ export class SceneManager {
     }
 
     if (chromaRequested) {
-      const chromaConfig = this.detectChromaKeyConfig(cmd);
-      effects.push({
-        type: 'chroma_key',
-        color: chromaConfig.color,
-        threshold: chromaConfig.threshold,
-        smoothing: chromaConfig.smoothing,
-        name: 'chroma_key'
-      });
-      console.log(`🪄 Chroma key requested (color: #${chromaConfig.color.toString(16)}, threshold: ${chromaConfig.threshold})`);
+      if (canApplyChroma) {
+        effects.push({
+          type: 'chroma_key',
+          color: chromaConfig.color,
+          threshold: chromaConfig.threshold,
+          smoothing: chromaConfig.smoothing,
+          name: 'chroma_key'
+        });
+        console.log(`🪄 Chroma key requested (color: #${chromaConfig.color.toString(16)}, threshold: ${chromaConfig.threshold})`);
+      } else if (this.commandUI) {
+        this.commandUI.showInputFeedback('背景を透過するには背景色を指定してください（例：「背景の白を透過して」）', 'info');
+      }
     }
 
     return effects;
@@ -1444,11 +1449,13 @@ export class SceneManager {
 
   requiresChromaKey(cmd) {
     if (!cmd) return false;
-    const chromaKeywords = ['クロマキー', 'グリーンバック', '背景を透過', '背景透過', '背景を透明', '背景透明', '背景を消', '背景消', '背景抜', 'remove background', 'transparent background'];
+    const chromaKeywords = ['クロマキー', 'グリーンバック', 'remove background', 'transparent background'];
     if (chromaKeywords.some(keyword => cmd.includes(keyword))) {
       return true;
     }
-    if (cmd.includes('背景') && (cmd.includes('透過') || cmd.includes('透明') || cmd.includes('消') || cmd.includes('なくして'))) {
+    const backgroundTerms = ['背景を', '背景の', '背景'];
+    const actionTerms = ['透過', '透明', '消', '抜', 'なくして'];
+    if (backgroundTerms.some(term => cmd.includes(term)) && actionTerms.some(term => cmd.includes(term))) {
       return true;
     }
     return false;
@@ -1456,13 +1463,16 @@ export class SceneManager {
 
   detectChromaKeyConfig(cmd) {
     const color = this.detectChromaKeyColor(cmd);
+    if (color === null) {
+      return null;
+    }
     let threshold;
     switch (color) {
       case 0xffffff:
-        threshold = 0.22;
+        threshold = 0.12;
         break;
       case 0x000000:
-        threshold = 0.24;
+        threshold = 0.14;
         break;
       case 0x00ff00:
         threshold = 0.32;
@@ -1471,7 +1481,7 @@ export class SceneManager {
         threshold = 0.3;
         break;
       default:
-        threshold = 0.28;
+        threshold = 0.2;
     }
     return {
       color,
@@ -1503,7 +1513,11 @@ export class SceneManager {
       }
     }
 
-    return 0xffffff; // デフォルトはホワイト背景
+    if (cmd.includes('グリーンバック')) {
+      return 0x00ff00;
+    }
+
+    return null;
   }
 
   /**
