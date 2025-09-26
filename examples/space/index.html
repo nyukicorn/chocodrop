@@ -288,9 +288,11 @@
             const galaxy = new THREE.Points(geometry, material);
             scene.add(galaxy);
             
-            // ゆっくり回転
+            // 動的回転設定
             galaxy.userData = {
-                rotationSpeed: 0.0001  // さらにゆっくりと優雅に
+                rotationSpeed: 0.0002,  // 時計回りの基本速度
+                initialPositions: positions.slice(),  // 初期位置保存
+                time: 0
             };
             
             return galaxy;
@@ -516,8 +518,39 @@
             requestAnimationFrame(animate);
 
             // 銀河のゆっくり回転
+            // 銀河の動的アニメーション（時計回り、内側ほど速く）
             if (galaxy && galaxy.userData.rotationSpeed) {
+                const time = performance.now() * 0.001;
+                galaxy.userData.time = time;
+                
+                // 全体をゆっくり時計回りに回転
                 galaxy.rotation.y += galaxy.userData.rotationSpeed;
+                
+                // 各星の個別動き（内側ほど速く回転）
+                const positions = galaxy.geometry.attributes.position.array;
+                const initialPositions = galaxy.userData.initialPositions;
+                
+                for (let i = 0; i < positions.length; i += 3) {
+                    const x = initialPositions[i];
+                    const z = initialPositions[i + 2];
+                    const radius = Math.sqrt(x * x + z * z);
+                    
+                    // 内側ほど速く回転（実際の銀河のように）
+                    const speedMultiplier = Math.max(0.3, 1 - (radius / 150) * 0.6);
+                    const angle = time * speedMultiplier * 0.2;
+                    
+                    // 時計回りの回転を適用
+                    const cosAngle = Math.cos(angle);
+                    const sinAngle = Math.sin(angle);
+                    
+                    positions[i] = x * cosAngle - z * sinAngle;
+                    positions[i + 2] = x * sinAngle + z * cosAngle;
+                    
+                    // Y軸にも微細な波打つような動き
+                    positions[i + 1] = initialPositions[i + 1] + Math.sin(time * 0.5 + i * 0.01) * 0.5;
+                }
+                
+                galaxy.geometry.attributes.position.needsUpdate = true;
             }
 
             // 惑星の自転
