@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { ChocoDropClient, ChocoDroClient, LiveCommandClient } from './LiveCommandClient.js';
-import { createObjectKeywords, matchKeywordWithFilename } from './translation-dictionary.js';
+import { createObjectKeywords, matchKeywordWithFilename } from '../common/translation-dictionary.js';
 
 /**
  * Scene Manager - 3D scene integration for ChocoDrop System
@@ -35,9 +35,6 @@ export class SceneManager {
     this.selectedObject = null;
     this.selectedImageService = options.selectedImageService || null;
     this.selectedVideoService = options.selectedVideoService || null;
-    this.audioControls = new Map();
-    this.audioControlUpdateInterval = null;
-    this.audioControlUpdateListener = null;
     this.audioControls = new Map();
     this.audioControlUpdateInterval = null;
     this.audioControlUpdateListener = null;
@@ -4331,7 +4328,6 @@ export class SceneManager {
     // 初期位置設定
     this.updateAudioControlPosition(videoObject, audioButton);
 
-    // 管理マップに登録
     this.audioControls.set(videoObject.userData.id || videoObject.uuid, {
       object: videoObject,
       audioButton,
