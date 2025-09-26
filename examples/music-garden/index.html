@@ -622,6 +622,23 @@
                 // 🚨 重要: onVideoAddedが呼ばれていることを確認
                 console.log('🚨 onVideoAdded callback was triggered!');
                 console.log('🔍 DOM video elements at callback time:', document.querySelectorAll('video').length);
+                
+                // 🔍 ChocoDrop Three.js オブジェクト詳細調査
+                console.log('🔍 Video object properties:', Object.keys(videoObject));
+                console.log('🔍 Video object material:', videoObject.material);
+                console.log('🔍 Video object material map:', videoObject.material?.map);
+                console.log('🔍 Video object userData:', videoObject.userData);
+                console.log('🔍 Video object children:', videoObject.children);
+                
+                // 🔍 Scene内の全オブジェクトを調査
+                console.log('🔍 Scene children count:', scene.children.length);
+                scene.traverse((child) => {
+                    if (child.material && child.material.map && child.material.map.image) {
+                        console.log('🔍 Found textured object:', child);
+                        console.log('🔍 Texture image:', child.material.map.image);
+                        console.log('🔍 Image tagName:', child.material.map.image.tagName);
+                    }
+                });
 
                 // ChocoDrop オブジェクトから video 要素を直接取得する試み
                 if (videoObject && videoObject.userData && videoObject.userData.videoElement) {
