@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🌸 音楽の花園 - ChocoDrop Demo</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #16213e 100%);
+            font-family: 'Arial', sans-serif;
+            color: white;
+        }
+
+        #info {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 100;
+            background: rgba(0, 20, 40, 0.8);
+            padding: 20px;
+            border-radius: 10px;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            max-width: 300px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        .title {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            background: linear-gradient(45deg, #ff6b9d, #c44569, #6c7b95);
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-align: center;
+        }
+
+        .description {
+            font-size: 14px;
+            line-height: 1.6;
+            margin-bottom: 15px;
+            opacity: 0.9;
+        }
+
+        .controls {
+            text-align: center;
+        }
+
+        .control-item {
+            margin: 8px 0;
+            font-size: 13px;
+            opacity: 0.8;
+        }
+
+        .emoji {
+            display: inline-block;
+            margin-right: 8px;
+        }
+
+        .highlight {
+            color: #ff6b9d;
+            font-weight: bold;
+        }
+
+        .demo-links {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            z-index: 100;
+            display: flex;
+            gap: 10px;
+        }
+
+        .demo-link {
+            padding: 12px 20px;
+            background: rgba(20, 30, 60, 0.9);
+            color: white;
+            text-decoration: none;
+            border-radius: 25px;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            font-size: 14px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+
+        .demo-link:hover {
+            background: rgba(40, 50, 80, 0.9);
+            border-color: rgba(255, 255, 255, 0.4);
+            transform: translateY(-2px);
+        }
+
+        #audio-status {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 100;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .audio-active {
+            color: #4CAF50 !important;
+        }
+
+        .audio-inactive {
+            color: #ff6b9d !important;
+        }
+    </style>
+</head>
+<body>
+    <div id="info">
+        <div class="title">🌸 音楽の花園</div>
+        <div class="description">
+            歌声や音楽の海で冒険しよう
+        </div>
+
+        <div class="controls">
+            <div class="control-item"><span class="emoji">🎵</span>歌うと花が咲きます</div>
+            <div class="control-item"><span class="emoji">🌈</span>音程で色が変化</div>
+            <div class="control-item"><span class="emoji">✨</span>リズムで光が踊る</div>
+        </div>
+
+        <div class="controls">
+            <div class="control-item">✨ 試してみて：</div>
+            <div class="control-item highlight">「動画を中央に」「音楽を開始」</div>
+        </div>
+    </div>
+
+    <div id="audio-status" class="audio-inactive">🎤 音声待機中...</div>
+
+    <div class="demo-links">
+        <a href="../basic/index.html" class="demo-link">🍫 魔法世界</a>
+        <a href="../pixel-rpg/index.html" class="demo-link">🏰 RPG王国</a>
+        <a href="../space/index.html" class="demo-link">🌌 宇宙空間</a>
+        <a href="../pixel-ocean/index.html" class="demo-link">🌊 海底世界</a>
+    </div>
+
+    <!-- Three.js -->
+    <script src="https://cdn.jsdelivr.net/npm/three/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three/examples/js/controls/OrbitControls.js"></script>
+
+    <!-- ChocoDrop Demo UMD -->
+    <script src="../basic/chocodrop-demo.umd.min.js"></script>
+
+    <script>
+        console.log('🌸 Music Garden Loading...');
+        console.log('THREE loaded:', typeof THREE !== 'undefined');
+
+        // Basic Three.js setup
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.setClearColor(0x000000, 0);
+        document.body.appendChild(renderer.domElement);
+
+        // 🌸 音楽に反応する花を作成（ダリアのような多層花びら）
+        function createMusicFlower(x, y, z, scale = 1) {
+            const flowerGroup = new THREE.Group();
+
+            // より自然な花びらの配置パターン
+            const petalRings = [
+                // 外側のリング - 大きな花びら
+                {
+                    count: 12,
+                    size: 2.5 * scale,
+                    opacity: 0.7,
+                    colors: [0x9b59b6, 0x8e44ad, 0x6c3483],
+                    radius: 2.2 * scale,
+                    zOffset: 0
+                },
+                // 中間のリング - 中サイズ花びら
+                {
+                    count: 16,
+                    size: 1.8 * scale,
+                    opacity: 0.8,
+                    colors: [0xe74c3c, 0xff6b9d, 0xf39c12],
+                    radius: 1.5 * scale,
+                    zOffset: 0.1
+                },
+                // 内側のリング - 小さな花びら
+                {
+                    count: 20,
+                    size: 1.2 * scale,
+                    opacity: 0.9,
+                    colors: [0xf1c40f, 0xff9ff3, 0x74b9ff],
+                    radius: 0.8 * scale,
+                    zOffset: 0.2
+                },
+                // 最内側 - 極小花びら
+                {
+                    count: 12,
+                    size: 0.6 * scale,
+                    opacity: 1.0,
+                    colors: [0xffeaa7, 0xfd79a8, 0xa29bfe],
+                    radius: 0.3 * scale,
+                    zOffset: 0.3
+                }
+            ];
+
+            const allPetals = [];
+            const allBaseColors = [];
+
+            petalRings.forEach((ring, ringIndex) => {
+                for (let i = 0; i < ring.count; i++) {
+                    // 各花びらの角度（少しランダムさを加える）
+                    const angle = (i / ring.count) * Math.PI * 2 + (Math.random() - 0.5) * 0.3;
+
+                    // 花びらの形状（楕円形で花びららしく）
+                    const geometry = new THREE.RingGeometry(0.1 * ring.size, ring.size, 6, 1);
+
+                    // 色をリング内でバリエーション
+                    const colorIndex = Math.floor(Math.random() * ring.colors.length);
+                    const color = ring.colors[colorIndex];
+
+                    const material = new THREE.MeshBasicMaterial({
+                        color: color,
+                        transparent: true,
+                        opacity: ring.opacity,
+                        side: THREE.DoubleSide,
+                        blending: THREE.NormalBlending
+                    });
+
+                    const petal = new THREE.Mesh(geometry, material);
+
+                    // 花びらの位置と向き
+                    const x_pos = Math.cos(angle) * ring.radius;
+                    const y_pos = Math.sin(angle) * ring.radius;
+                    petal.position.set(x_pos, y_pos, ring.zOffset);
+
+                    // 花びらを中心に向ける + 少し立体感を出すため角度調整
+                    petal.lookAt(0, 0, ring.zOffset + 1);
+                    petal.rotation.z = angle;
+
+                    // 少し花びらを立体的に配置
+                    petal.rotation.x = (Math.random() - 0.5) * 0.4;
+                    petal.rotation.y = (Math.random() - 0.5) * 0.4;
+
+                    flowerGroup.add(petal);
+                    allPetals.push(petal);
+                    allBaseColors.push(new THREE.Color(color));
+                }
+            });
+
+            // 花の中心（グラデーションのある美しい中心）
+            const centerGeometry = new THREE.CircleGeometry(0.4 * scale, 16);
+            const centerMaterial = new THREE.MeshBasicMaterial({
+                color: 0xffd700,
+                emissive: new THREE.Color(0xffa500),
+                transparent: true,
+                opacity: 0.9
+            });
+            const center = new THREE.Mesh(centerGeometry, centerMaterial);
+            center.position.z = 0.4;
+            flowerGroup.add(center);
+
+            flowerGroup.position.set(x, y, z);
+
+            // アニメーション用データ
+            flowerGroup.userData = {
+                originalScale: scale,
+                petals: allPetals,
+                center: center,
+                pulsePhase: Math.random() * Math.PI * 2,
+                baseColors: allBaseColors,
+                petalRings: petalRings
+            };
+
+            return flowerGroup;
+        }
+
+        // 🎵 Web Audio API セットアップ
+        let audioContext;
+        let analyser;
+        let dataArray;
+        let isAudioActive = false;
+
+        function initAudioContext() {
+            try {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                analyser = audioContext.createAnalyser();
+                analyser.fftSize = 256;
+                dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+                console.log('🎵 Audio context initialized');
+            } catch (error) {
+                console.warn('🚫 Audio context not supported:', error);
+            }
+        }
+
+        function connectVideoToAudio(videoElement) {
+            if (!audioContext || !analyser) return;
+
+            try {
+                const source = audioContext.createMediaElementSource(videoElement);
+                source.connect(analyser);
+                analyser.connect(audioContext.destination);
+
+                isAudioActive = true;
+                updateAudioStatus('🎤 音声解析中...', 'audio-active');
+                console.log('🔗 Video connected to audio analyser');
+            } catch (error) {
+                console.warn('🚫 Failed to connect video:', error);
+            }
+        }
+
+        function updateAudioStatus(text, className) {
+            const status = document.getElementById('audio-status');
+            status.textContent = text;
+            status.className = className;
+        }
+
+        // 🌸 花畑を作成
+        const flowers = [];
+        const flowerPositions = [
+            [0, 0, 0],      // 中央
+            [-8, 2, -5],    // 左
+            [8, -1, -3],    // 右
+            [-3, -3, -8],   // 左奥
+            [5, 3, -6],     // 右奥
+            [0, 5, -10],    // 上奥
+            [-6, -2, 3],    // 左手前
+            [7, 1, 4]       // 右手前
+        ];
+
+        flowerPositions.forEach(pos => {
+            const flower = createMusicFlower(pos[0], pos[1], pos[2], 0.8 + Math.random() * 0.4);
+            flowers.push(flower);
+            scene.add(flower);
+        });
+
+        // ✨ 環境光
+        const ambientLight = new THREE.AmbientLight(0x404040, 0.3);
+        scene.add(ambientLight);
+
+        // 🌟 ポイントライト
+        const pointLight = new THREE.PointLight(0xffffff, 1, 50);
+        pointLight.position.set(0, 10, 5);
+        scene.add(pointLight);
+
+        // 📷 カメラ設定
+        camera.position.set(0, 3, 12);
+        camera.lookAt(0, 0, 0);
+
+        // 🎮 コントロール
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.minDistance = 5;
+        controls.maxDistance = 30;
+
+        // 🍫 ChocoDrop初期化
+        let chocoDrop;
+        (async () => {
+            try {
+                chocoDrop = new ChocoDropClient();
+                await chocoDrop.ensureInitialized();
+                console.log('🍫 ChocoDrop initialized in Music Garden');
+
+                // 音声コンテキストを初期化
+                initAudioContext();
+
+                // 動画が追加された時のイベントリスナー
+                const observer = new MutationObserver((mutations) => {
+                    mutations.forEach((mutation) => {
+                        mutation.addedNodes.forEach((node) => {
+                            if (node.tagName === 'VIDEO') {
+                                console.log('🎬 Video detected, connecting to audio');
+                                connectVideoToAudio(node);
+                            }
+                        });
+                    });
+                });
+
+                observer.observe(document.body, { childList: true, subtree: true });
+
+            } catch (error) {
+                console.error('❌ ChocoDrop initialization failed:', error);
+            }
+        })();
+
+        // 🎬 アニメーションループ
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const time = Date.now() * 0.001;
+
+            // 音声解析
+            let volume = 0;
+            let frequencies = new Array(8).fill(0);
+
+            if (isAudioActive && analyser) {
+                analyser.getByteFrequencyData(dataArray);
+
+                // 全体音量を計算
+                volume = dataArray.reduce((sum, freq) => sum + freq, 0) / dataArray.length / 255;
+
+                // 周波数帯域を分析（低音〜高音）
+                const bands = 8;
+                const bandSize = Math.floor(dataArray.length / bands);
+                for (let i = 0; i < bands; i++) {
+                    let sum = 0;
+                    for (let j = 0; j < bandSize; j++) {
+                        sum += dataArray[i * bandSize + j];
+                    }
+                    frequencies[i] = sum / bandSize / 255;
+                }
+            }
+
+            // 🌸 花のアニメーション（ダリア版）
+            flowers.forEach((flower, index) => {
+                const userData = flower.userData;
+
+                // ベースのパルス（音楽がなくても美しく）
+                const basePulse = Math.sin(time + userData.pulsePhase) * 0.1 + 1;
+
+                // 音楽に反応するスケール
+                const musicScale = 1 + volume * 0.3;
+                flower.scale.setScalar(userData.originalScale * basePulse * musicScale);
+
+                // 花びらリング別のアニメーション
+                userData.petals.forEach((petal, petalIndex) => {
+                    const freqIndex = petalIndex % frequencies.length;
+                    const intensity = frequencies[freqIndex];
+
+                    // ベースカラーから音楽に応じて色を変化（より自然なグラデーション）
+                    const baseColor = userData.baseColors[petalIndex];
+                    const hsl = {};
+                    baseColor.getHSL(hsl);
+
+                    // 音楽に合わせて色相をシフト（お手本のような虹色効果）
+                    const hueShift = intensity * 0.2 + Math.sin(time * 0.5 + petalIndex * 0.1) * 0.1;
+                    const newHue = (hsl.h + hueShift) % 1;
+
+                    // 彩度と明度も音楽に反応
+                    const saturation = Math.max(0.6, hsl.s + intensity * 0.3);
+                    const lightness = Math.max(0.4, hsl.l + intensity * 0.2);
+
+                    petal.material.color.setHSL(newHue, saturation, lightness);
+
+                    // リングごとの透明度調整（内側ほど濃く）
+                    const ringIndex = Math.floor(petalIndex / 15); // 概算のリング判定
+                    const baseOpacity = userData.petalRings[Math.min(ringIndex, userData.petalRings.length - 1)].opacity;
+                    petal.material.opacity = baseOpacity + intensity * 0.2;
+
+                    // 個別の花びらの微細な動き
+                    const petalPulse = Math.sin(time * 2 + petalIndex * 0.3) * intensity * 0.1;
+                    petal.scale.setScalar(1 + petalPulse);
+
+                    // 花びらの微細な回転
+                    petal.rotation.z += (intensity * 0.01 + 0.002);
+                });
+
+                // 花の中心の発光（より強烈に）
+                if (userData.center && userData.center.material && userData.center.material.emissive) {
+                    const centerIntensity = Math.max(0.5, volume * 1.5);
+                    userData.center.material.emissive.setHSL(
+                        (time * 0.3) % 1, // 虹色に変化
+                        0.8,
+                        centerIntensity * 0.6
+                    );
+                    userData.center.material.emissiveIntensity = centerIntensity;
+                }
+
+                // 花全体の回転（音楽に合わせて）
+                flower.rotation.z += 0.005 + volume * 0.015;
+
+                // 立体的な動き
+                flower.rotation.x = Math.sin(time * 0.3 + index) * 0.1;
+                flower.rotation.y = Math.cos(time * 0.2 + index) * 0.05;
+            });
+
+            // ライトも音楽に反応
+            pointLight.intensity = 0.8 + volume * 0.5;
+            pointLight.color.setHSL((time * 0.1) % 1, 0.5, 1);
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        animate();
+
+        // 📱 レスポンシブ対応
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+    </script>
+</body>
+</html>
