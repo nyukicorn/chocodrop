@@ -354,18 +354,43 @@
         }
 
         function connectVideoToAudio(videoElement) {
-            if (!audioContext || !analyser) return;
+            if (!audioContext || !analyser) {
+                console.warn('🚫 Audio context not initialized, initializing now...');
+                initAudioContext();
+                if (!audioContext || !analyser) return;
+            }
 
             try {
+                // AudioContextがsuspendedの場合、再開する
+                if (audioContext.state === 'suspended') {
+                    audioContext.resume().then(() => {
+                        console.log('🎵 Audio context resumed');
+                    });
+                }
+
+                // 既に接続されている場合はスキップ
+                if (videoElement.audioSource) {
+                    console.log('✅ Video already connected to audio');
+                    return;
+                }
+
                 const source = audioContext.createMediaElementSource(videoElement);
                 source.connect(analyser);
                 analyser.connect(audioContext.destination);
+
+                // 接続済みマーク
+                videoElement.audioSource = source;
 
                 isAudioActive = true;
                 updateAudioStatus('🎤 音声解析中...', 'audio-active');
                 console.log('🔗 Video connected to audio analyser');
             } catch (error) {
                 console.warn('🚫 Failed to connect video:', error);
+                // 既に接続されている場合のエラーは無視
+                if (error.name === 'InvalidStateError') {
+                    isAudioActive = true;
+                    updateAudioStatus('🎤 音声解析中...', 'audio-active');
+                }
             }
         }
 
@@ -428,11 +453,24 @@
             },
             onVideoAdded: (videoElement) => {
                 console.log('🎬 Video detected, connecting to audio');
-                connectVideoToAudio(videoElement);
 
                 // 動画を前面に配置するために z-index を調整
                 videoElement.style.zIndex = '10';
                 videoElement.style.position = 'relative';
+
+                // 動画の準備ができてから音声接続
+                videoElement.addEventListener('loadedmetadata', () => {
+                    console.log('📹 Video metadata loaded, connecting audio...');
+                    connectVideoToAudio(videoElement);
+                });
+
+                // 再生開始時にも確実に接続
+                videoElement.addEventListener('play', () => {
+                    if (!isAudioActive) {
+                        console.log('▶️ Video playing, ensuring audio connection...');
+                        connectVideoToAudio(videoElement);
+                    }
+                });
             }
         });
 
