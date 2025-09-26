@@ -898,10 +898,11 @@
                 if (userData.particles) {
                     if (volume > 0.005) {
                         userData.particles.rotation.y += 0.01 + volume * 0.02;
-                    userData.particles.rotation.z += 0.005;
+                        userData.particles.rotation.z += 0.005;
 
-                    // 音楽に合わせてパーティクルの明度を変化
-                    userData.particles.material.opacity = 0.3 + volume * 0.5;
+                        // 音楽に合わせてパーティクルの明度を変化
+                        userData.particles.material.opacity = 0.3 + volume * 0.5;
+                    }
                 }
             });
 
