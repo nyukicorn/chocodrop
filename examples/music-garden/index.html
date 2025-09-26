@@ -743,14 +743,25 @@
         // 音声コンテキストを初期化
         initAudioContext();
         
-        // 🔍 初期化後の状態確認
-        setTimeout(() => {
-            console.log('🔍 Audio system status after init:');
-            console.log('  - audioContext:', audioContext ? audioContext.state : 'null');
-            console.log('  - analyser:', !!analyser);
-            console.log('  - isAudioActive:', isAudioActive);
-            console.log('  - DOM videos:', document.querySelectorAll('video').length);
-        }, 1000);
+        // 🎵 DOM video要素を定期的に監視して音声接続
+        function monitorVideoElements() {
+            const videos = document.querySelectorAll('video');
+            
+            videos.forEach(video => {
+                // まだ接続していない動画要素があれば接続
+                if (!video.audioConnected && video.readyState >= 2) {
+                    console.log('🎵 Found unconnected video, connecting audio:', video);
+                    connectVideoToAudio(video);
+                    video.audioConnected = true;
+                }
+            });
+        }
+        
+        // 1秒ごとに監視
+        setInterval(monitorVideoElements, 1000);
+        
+        // 初回実行
+        setTimeout(monitorVideoElements, 2000);
 
         console.log('🍫 ChocoDrop Music Garden initialized');
         console.log('Press @ key to activate command interface');
