@@ -56,6 +56,8 @@ export class CommandUI {
     this.overlayTextarea = null;
     this.pendingImageService = null;
     this.pendingVideoService = null;
+    this.feedbackAutoClearTimer = null;
+    this.currentFeedback = null;
 
     try {
       const storedImage = localStorage.getItem(IMAGE_SERVICE_STORAGE_KEY);
@@ -1303,8 +1305,10 @@ export class CommandUI {
     }
 
     // パルス効果を追加
-    if (!isManual) {
+    if (!isManual && mode !== 'import') {
       this.addPulseEffect(button);
+      this.addContainerGlow(mode);
+    } else if (mode === 'import') {
       this.addContainerGlow(mode);
     }
 
@@ -1384,18 +1388,24 @@ export class CommandUI {
 
     // モードに応じてグロー色を設定
     const glowColors = this.isWabiSabiMode ? {
-      generate: 'rgba(139, 195, 74, 0.4)',  // 侘び寂びモード：チャット欄と同じ緑
-      modify: 'rgba(139, 195, 74, 0.4)',    // 侘び寂びモード：チャット欄と同じ緑
-      delete: 'rgba(139, 195, 74, 0.4)'     // 侘び寂びモード：チャット欄と同じ緑
+      generate: 'rgba(139, 195, 74, 0.4)',
+      modify: 'rgba(139, 195, 74, 0.4)',
+      delete: 'rgba(139, 195, 74, 0.4)',
+      import: 'rgba(139, 195, 74, 0.4)'
     } : {
-      generate: 'rgba(79, 70, 229, 0.4)',   // ライト/ダークモード：元の紫
-      modify: 'rgba(236, 72, 153, 0.4)',    // ライト/ダークモード：元のピンク
-      delete: 'rgba(107, 114, 128, 0.3)'    // ライト/ダークモード：元のグレー
+      generate: 'rgba(79, 70, 229, 0.4)',
+      modify: 'rgba(236, 72, 153, 0.4)',
+      delete: 'rgba(107, 114, 128, 0.3)',
+      import: 'rgba(59, 130, 246, 0.35)'
     };
 
+    const glowColor = glowColors[mode] || glowColors.generate;
+
     // 一時的にグロー効果を適用
-    container.style.boxShadow = `0 0 20px ${glowColors[mode]}, 0 0 40px ${glowColors[mode]}`;
-    container.style.borderColor = glowColors[mode].replace('0.4', '0.6').replace('0.3', '0.5');
+    container.style.boxShadow = `0 0 20px ${glowColor}, 0 0 40px ${glowColor}`;
+
+    const intensified = glowColor.replace('0.4', '0.6').replace('0.3', '0.5');
+    container.style.borderColor = intensified !== glowColor ? intensified : glowColor;
     
     // 1秒後にグロー効果を除去
     setTimeout(() => {
@@ -1641,24 +1651,27 @@ export class CommandUI {
       /最初.*を/,
       /初回.*を/,
       /生成した.*を/,
-      /作った.*を/
+      /作った.*を/,
+      /.+の(画像|写真|イメージ|絵|イラスト|ピクチャー)(を|に)/,
+      /.+の(動画|ビデオ|ムービー|映像|クリップ)(を|に)/,
+      /(.+?)(画像|写真|イメージ|絵|イラスト|ピクチャー)を.*(変えて|変更|にして|加工|編集|調整|塗り|並べ|移動|回転|反転|整列)/,
+      /(.+?)(動画|ビデオ|ムービー|映像|クリップ)を.*(変えて|変更|にして|加工|編集|調整|塗り|並べ|移動|回転|反転|整列)/
     ];
-    
-    for (const pattern of targetPatterns) {
-      if (pattern.test(text)) {
-        this.logDebug(`✅ Target reference pattern matched`);
-        return {
-          type: 'modify',
-          confidence: 0.9,
-          reason: '対象を明示的に指定',
-          mediaType: mediaInfo.type,
-          requiresConfirmation: false,
-          needsTarget: true,
-          hasExplicitTarget: true
-        };
-      }
+
+    const explicitTargetMatched = targetPatterns.some(pattern => pattern.test(text));
+    if (explicitTargetMatched) {
+      this.logDebug('✅ Target reference pattern matched');
+      return {
+        type: 'modify',
+        confidence: 0.9,
+        reason: '対象を明示的に指定',
+        mediaType: mediaInfo.type,
+        requiresConfirmation: false,
+        needsTarget: true,
+        hasExplicitTarget: true
+      };
     }
-    
+
     // 4. 選択オブジェクトがある場合の処理
     if (hasSelectedObject && trimmedText) {
       // 新規作成意図でなければmodify
@@ -1674,8 +1687,25 @@ export class CommandUI {
         };
       }
     }
-    
-    // 5. デフォルト（安全な生成）
+
+    // 5. 変更系のキーワードが含まれる場合（対象未選択でもmodify判定）
+    const modificationIndicators = /(にして|に変えて|へ変えて|へ変更|変えて|変更|調整|加工|編集|塗(って|り)|染め|彩色|彩度|明るく|暗く|薄く|濃く|ぼかし|シャープ|左右反転|上下反転|反転|回転|移動|並べ|整列|揃え|寄せて|拡大|縮小|大きく|小さく|伸ばして|縮めて|高く|低く|近づけ|遠ざけ|透明|半透明|不透明|輝かせて|光らせて|暗くして|焼き込み|焼き付け|flip|rotate|move|align|scale|resize|tint|color|brighten|darken|adjust|edit|modify)/i;
+    const mediaReferenceIndicators = /(画像|写真|イメージ|絵|イラスト|ピクチャー|メディア|素材|動画|ビデオ|ムービー|映像|クリップ|オブジェクト|モデル)/i;
+
+    if (modificationIndicators.test(text)) {
+      this.logDebug('✅ Modification indicators detected');
+      return {
+        type: 'modify',
+        confidence: 0.7,
+        reason: '変更キーワードを検出',
+        mediaType: mediaInfo.type,
+        requiresConfirmation: false,
+        needsTarget: !hasSelectedObject,
+        hasExplicitTarget: explicitTargetMatched || mediaReferenceIndicators.test(text)
+      };
+    }
+
+    // 6. デフォルト（安全な生成）
     this.logDebug(`ℹ️ Defaulting to generate mode`);
     return {
       type: 'generate',
@@ -2622,180 +2652,7 @@ export class CommandUI {
       return;
     }
 
-    // 最終的なコマンドタイプ判定
-    const hasSelectedObject = this.sceneManager?.selectedObject || this.selectedFile;
-    const commandType = this.analyzeCommandType(command, hasSelectedObject);
-
-    if (this.selectedFile) {
-      if (this.currentMode !== 'import') {
-        this.selectMode('import', false);
-      }
-      this.currentMode = 'import';
-    } else {
-      this.currentMode = commandType.type;
-    }
-
-    // 削除の場合は確認ダイアログ
-    if (commandType.requiresConfirmation) {
-      const confirmed = await this.showDeleteConfirmation(command);
-      if (!confirmed) {
-        this.addOutput('❌ 削除をキャンセルしました', 'system');
-        return;
-      }
-    }
-
-    // 入力をクリア
-    this.input.value = '';
-    // フィードバックもクリア
-    this.clearInputFeedback();
-    // 旧コマンドタイプインジケーターは削除（ラジオボタンUIに統合済み）
-    // this.commandTypeIndicator.style.display = 'none';
-    this.hideProactiveSuggestion();
-
-    // コマンド表示（メディアタイプ付き）
-    const mediaIcon = commandType.mediaType === 'video' ? '🎬' : '🖼️';
-    // タスクカード作成
-    const taskId = this.addTaskCard(command, { status: 'processing' });
-
-    // コマンド実行前の状態を履歴に保存
-    this.saveCommandToHistory({
-      command: command,
-      mode: this.currentMode,
-      mediaType: commandType.mediaType,
-      timestamp: Date.now()
-    });
-
-    try {
-      // 処理メッセージ表示
-      // タスクカードは既に1183行目で作成済み（taskId変数）
-      // 重複を避けるため、ここでは作成しない
-
-      let result;
-      
-      // モードに応じたコマンド処理
-      const modePrefix = this.getModePrefix(this.currentMode);
-      const fullCommand = `${modePrefix}${command}`;
-
-      // モード別の実行処理
-      this.logDebug('🔍 Current mode check:', this.currentMode);
-      if (this.currentMode === 'import') {
-        this.logDebug('📁 Import mode detected - bypassing SceneManager');
-        // Importモード: 直接処理（SceneManagerを迂回）
-        if (!this.selectedFile) {
-          throw new Error('ファイルが選択されていません。まずファイルを選択してください。');
-        }
-        result = await this.handleImportCommand(command);
-      } else if (this.sceneManager) {
-        // 他のモード: SceneManager経由
-        result = await this.sceneManager.executeCommand(fullCommand);
-      } else if (this.client) {
-        // モードに応じてAPIエンドポイントを選択
-        if (this.currentMode === 'generate') {
-          // 生成モード: 新しいオブジェクトを作成
-          if (commandType.mediaType === 'video') {
-            result = await this.client.generateVideo(command, {
-              model: this.selectedVideoService || undefined
-            });
-          } else {
-            result = await this.client.generateImage(command, {
-              service: this.selectedImageService || undefined
-            });
-          }
-        } else if (this.currentMode === 'modify') {
-          // 変更モード: 既存オブジェクトを変更（選択が必要）
-          const selectedObject = this.sceneManager?.selectedObject;
-          if (!selectedObject) {
-            throw new Error('変更するオブジェクトが選択されていません。まず対象オブジェクトを選択してください。');
-          }
-          result = await this.client.modifySelectedObject(selectedObject, command);
-        } else if (this.currentMode === 'delete') {
-          // 削除モード: オブジェクト選択チェック
-          const selectedObject = this.sceneManager?.selectedObject;
-          if (!selectedObject && !this.sceneManager?.getSelectedObjects()?.length) {
-            this.addOutput('⚠️ 削除するオブジェクトが選択されていません。まず3Dシーン内のオブジェクトをクリックで選択してから、再度Deleteボタンを押してください。', 'system');
-            return;
-          }
-          // 削除モード: 確認ダイアログを表示してから削除
-          const confirmMessage = `本当に「${command}」を実行しますか？
-
-この操作は取り消せません。`;
-          if (!confirm(confirmMessage)) {
-            this.addOutput('❌ 削除がキャンセルされました', 'system');
-            return;
-          }
-          result = await this.client.deleteObjects(command);
-        } else {
-          // その他のモード
-          result = await this.client.executeCommand(fullCommand);
-        }
-      } else {
-        throw new Error('SceneManager または Client が設定されていません');
-      }
-
-      // taskId取得とSSE接続開始
-      if (result && result.taskId) {
-        this.connectToProgress(result.taskId, taskId);
-        this.currentTaskId = result.taskId;
-      }
-
-      // 成功メッセージ
-      const successMessages = {
-        generate: ``, // 成功メッセージ削除 - 結果で十分
-        modify: '✅ 変更を適用しました',
-        delete: '🗑️ 削除しました'
-      };
-      
-      // タスクカード完了
-      if (taskId) {
-        this.updateTaskCard(taskId, 'completed');
-      }
-      
-      // 詳細情報表示
-      if (result.modelName) {
-        // デバッグ情報削除 - モーダル表示用に保存
-      }
-      
-      if (result.objectId) {
-        // オブジェクトID削除
-      }
-      
-      if (result.position) {
-        // 位置情報削除
-      }
-
-      if (commandType.mediaType) {
-        // メディアタイプ削除
-      }
-
-    } catch (error) {
-      const errorMessages = {
-        generate: `❌ ${commandType.mediaType === 'video' ? '動画' : '画像'}生成エラー`,
-        modify: '❌ 変更エラー', 
-        delete: '❌ 削除エラー'
-      };
-      // タスクカードエラー
-      if (taskId) {
-        this.updateTaskCard(taskId, 'error', { errorMessage: error.message });
-      }
-
-      this.addOutput(`${errorMessages[this.currentMode]}: ${error.message}`, 'error');
-      console.error('Command execution error:', error);
-    }
-
-    // 2025年UXトレンド: コマンド実行後の自動選択解除
-    if (this.sceneManager && this.sceneManager.selectedObject) {
-      // Modify/Deleteコマンド後は選択を自動解除してストレス軽減
-      if (this.currentMode === 'modify' || this.currentMode === 'delete') {
-        setTimeout(() => {
-          this.sceneManager.deselectObject();
-        }, 500); // 少し遅延させて操作完了を視覚的に確認
-      }
-    }
-
-    // 出力エリアを最下部にスクロール
-    if (this.config.autoScroll) {
-      this.scrollToBottom();
-    }
+    await this.proceedWithExecution(command, preValidation.commandType);
   }
 
   /**
@@ -3199,137 +3056,137 @@ export class CommandUI {
    * 入力フィールド直下のフィードバック表示（2025年トレンド準拠）
    */
   showInputFeedback(message, type = 'error', options = {}) {
-    // 既存のタスクカード/システムメッセージを使用してレイアウト崩れを防ぐ
+    if (type === 'success') {
+      return;
+    }
+
     if (type === 'error') {
       this.addOutput(`⚠️ ${message}`, 'error');
-    } else if (type === 'success') {
-      this.addOutput(`✅ ${message}`, 'system');
     } else {
       this.addOutput(`💡 ${message}`, 'system');
     }
-    return; // 以下の古いインライン処理をスキップ
-    // 既存のフィードバックをクリア
-    this.clearInputFeedback();
-    
-    const feedbackDiv = document.createElement('div');
-    feedbackDiv.className = 'input-feedback';
-    feedbackDiv.setAttribute('data-feedback-type', type);
-    
-    const isError = type === 'error';
-    const isSuccess = type === 'success';
-    
-    feedbackDiv.style.cssText = `
-      position: relative;
-      margin-top: 8px;
-      padding: 16px 20px;
-      border-radius: 12px;
-      font-size: 14px;
-      font-weight: 500;
-      line-height: 1.5;
-      animation: feedbackSlideIn 300ms ease-out;
-      backdrop-filter: blur(12px);
-      border: 2px solid;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 16px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-      ${isError ? `
-        background: ${this.isDarkMode ? 'rgba(239, 68, 68, 0.25)' : 'rgba(254, 226, 226, 0.9)'};
-        border-color: ${this.isDarkMode ? 'rgba(239, 68, 68, 0.6)' : 'rgba(239, 68, 68, 0.8)'};
-        color: ${this.isDarkMode ? '#fca5a5' : '#991b1b'};
-      ` : isSuccess ? `
-        background: rgba(34, 197, 94, 0.1);
-        border-color: rgba(34, 197, 94, 0.4);
-        color: ${this.isDarkMode ? '#86efac' : '#16a34a'};
-      ` : `
-        background: rgba(59, 130, 246, 0.1);
-        border-color: rgba(59, 130, 246, 0.4);
-        color: ${this.isDarkMode ? '#93c5fd' : '#2563eb'};
-      `}
-    `;
-    
-    // メッセージ部分
-    const messageSpan = document.createElement('span');
-    messageSpan.textContent = message;
-    messageSpan.style.flex = '1';
-    feedbackDiv.appendChild(messageSpan);
-    
-    // アクションボタン（エラー時のみ）
-    if (isError && options.actions) {
-      const actionContainer = document.createElement('div');
-      actionContainer.style.cssText = `
+
+    if (!this.feedbackOverlay) {
+      const overlay = document.createElement('div');
+      overlay.className = 'input-feedback-overlay';
+      overlay.style.cssText = `
+        position: absolute;
+        left: 16px;
+        right: 16px;
+        bottom: 12px;
+        z-index: 1200;
+        pointer-events: auto;
         display: flex;
         gap: 8px;
         align-items: center;
+        padding: 12px 16px;
+        border-radius: 12px;
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        transition: opacity 180ms ease, transform 180ms ease;
+        opacity: 0;
+        transform: translateY(8px);
       `;
-      
+      this.container.appendChild(overlay);
+      this.feedbackOverlay = overlay;
+    }
+
+    const overlay = this.feedbackOverlay;
+    overlay.innerHTML = '';
+
+    const isError = type === 'error';
+    const background = isError
+      ? (this.isDarkMode ? 'rgba(239, 68, 68, 0.28)' : 'rgba(239, 68, 68, 0.18)')
+      : (this.isDarkMode ? 'rgba(59, 130, 246, 0.25)' : 'rgba(59, 130, 246, 0.18)');
+    const border = isError
+      ? '1px solid rgba(239, 68, 68, 0.45)'
+      : '1px solid rgba(59, 130, 246, 0.35)';
+    const color = isError
+      ? (this.isDarkMode ? '#fca5a5' : '#b91c1c')
+      : (this.isDarkMode ? '#bfdbfe' : '#1d4ed8');
+
+    overlay.style.background = background;
+    overlay.style.border = border;
+    overlay.style.color = color;
+
+    const messageSpan = document.createElement('span');
+    messageSpan.textContent = message;
+    messageSpan.style.flex = '1';
+    overlay.appendChild(messageSpan);
+
+    if (options.actions && Array.isArray(options.actions) && options.actions.length > 0) {
+      const actionsContainer = document.createElement('div');
+      actionsContainer.style.cssText = `
+        display: flex;
+        gap: 8px;
+      `;
+
       options.actions.forEach(action => {
         const button = document.createElement('button');
+        button.type = 'button';
         button.textContent = action.label;
-        button.onclick = action.onClick;
         button.style.cssText = `
-          padding: 8px 16px;
-          border: 1px solid ${this.isDarkMode ? 'rgba(239, 68, 68, 0.8)' : '#dc2626'};
-          background: ${this.isDarkMode ? 'rgba(239, 68, 68, 0.3)' : '#ffffff'};
-          color: ${this.isDarkMode ? '#ffffff' : '#dc2626'};
-          border-radius: 8px;
-          font-size: 12px;
-          font-weight: 500;
+          padding: 6px 12px;
+          border-radius: 999px;
+          border: none;
           cursor: pointer;
-          transition: all 0.2s ease;
-          white-space: nowrap;
+          background: ${isError ? 'rgba(239, 68, 68, 0.28)' : 'rgba(59, 130, 246, 0.25)'};
+          color: inherit;
+          font-size: 11px;
+          transition: background 0.2s ease;
         `;
-        button.onmouseenter = () => {
-          button.style.background = this.isDarkMode ? 'rgba(239, 68, 68, 0.5)' : '#fef2f2';
-          button.style.transform = 'translateY(-1px)';
-        };
-        button.onmouseleave = () => {
-          button.style.background = this.isDarkMode ? 'rgba(239, 68, 68, 0.3)' : '#ffffff';
-          button.style.transform = 'translateY(0)';
-        };
-        actionContainer.appendChild(button);
+        button.addEventListener('mouseenter', () => {
+          button.style.background = isError ? 'rgba(239, 68, 68, 0.38)' : 'rgba(59, 130, 246, 0.35)';
+        });
+        button.addEventListener('mouseleave', () => {
+          button.style.background = isError ? 'rgba(239, 68, 68, 0.28)' : 'rgba(59, 130, 246, 0.25)';
+        });
+        button.addEventListener('click', () => {
+          if (typeof action.onClick === 'function') {
+            action.onClick();
+          }
+        });
+        actionsContainer.appendChild(button);
       });
-      
-      feedbackDiv.appendChild(actionContainer);
+
+      overlay.appendChild(actionsContainer);
     }
-    
-    // 閉じるボタン
-    const closeButton = document.createElement('button');
-    closeButton.innerHTML = '×';
-    closeButton.onclick = () => this.clearInputFeedback();
-    closeButton.style.cssText = `
-      background: none;
-      border: none;
-      color: inherit;
-      font-size: 16px;
-      cursor: pointer;
-      padding: 4px;
-      opacity: 0.7;
-      transition: opacity 0.2s ease;
-    `;
-    closeButton.onmouseenter = () => closeButton.style.opacity = '1';
-    closeButton.onmouseleave = () => closeButton.style.opacity = '0.7';
-    feedbackDiv.appendChild(closeButton);
-    
-    // 入力フィールドの直下に配置
-    this.input.parentNode.insertBefore(feedbackDiv, this.input.nextSibling);
-    this.currentFeedback = feedbackDiv;
-    
-    // 成功メッセージは3秒で自動消去
-    if (isSuccess) {
-      setTimeout(() => this.clearInputFeedback(), 3000);
+
+    if (this.feedbackAutoClearTimer) {
+      clearTimeout(this.feedbackAutoClearTimer);
+      this.feedbackAutoClearTimer = null;
     }
-    
-    // CSSアニメーションを追加（存在しない場合）
-    this.ensureFeedbackStyles();
+
+    overlay.style.pointerEvents = 'auto';
+    overlay.style.opacity = '1';
+    overlay.style.transform = 'translateY(0)';
+
+    this.currentFeedback = overlay;
+
+    if (type === 'info') {
+      this.feedbackAutoClearTimer = setTimeout(() => this.clearInputFeedback(), options.duration || 3000);
+    }
   }
 
   /**
    * 入力フィードバックをクリア
    */
   clearInputFeedback() {
-    // 既存のシステムメッセージを使用するため、特別な処理は不要
+    if (this.feedbackAutoClearTimer) {
+      clearTimeout(this.feedbackAutoClearTimer);
+      this.feedbackAutoClearTimer = null;
+    }
+
+    if (this.currentFeedback) {
+      const element = this.currentFeedback;
+      element.style.pointerEvents = 'none';
+      element.style.opacity = '0';
+      element.style.transform = 'translateY(8px)';
+      this.currentFeedback = null;
+      setTimeout(() => {
+        element.innerHTML = '';
+      }, 180);
+    }
   }
 
   /**
@@ -3373,7 +3230,21 @@ export class CommandUI {
     // 1. コマンドタイプ判定
     const hasSelectedObject = this.sceneManager?.selectedObject || this.selectedFile;
     const commandType = this.analyzeCommandType(command, hasSelectedObject);
-    
+
+    if (this.selectedFile) {
+      commandType.type = 'import';
+      commandType.mediaType = this.selectedFile.type === 'video' ? 'video' : 'image';
+      commandType.needsTarget = false;
+      commandType.requiresConfirmation = false;
+      commandType.hasExplicitTarget = true;
+      commandType.detectedKeyword = commandType.detectedKeyword || 'import';
+    }
+
+    // 最新の解析結果をUIモードへ反映（ユーザー入力優先）
+    if (commandType.type && this.selectMode && commandType.type !== this.currentMode) {
+      this.selectMode(commandType.type, false, commandType.detectedKeyword || null);
+    }
+
     // 2. 空コマンドの場合
     if (commandType.type === 'empty') {
       this.showInputFeedback('💡 何をしましょうか？コマンドを入力してください', 'info');
@@ -3382,9 +3253,10 @@ export class CommandUI {
     
     // 3. 対象が必要なコマンドの事前チェック
     if (commandType.needsTarget && !hasSelectedObject) {
+      const canAttemptSearch = !!this.sceneManager && (commandType.hasExplicitTarget || commandType.type === 'modify');
       
       // まず自然言語で対象を探してみる
-      if (commandType.hasExplicitTarget) {
+      if (canAttemptSearch) {
         this.logDebug('🔍 Searching for explicitly mentioned target...');
         try {
           const foundTarget = await this.sceneManager?.findObjectByKeyword(command);
@@ -3470,7 +3342,148 @@ export class CommandUI {
     this.clearInputFeedback();
     
     // 元のexecuteCommandの続きを実行
-    this.proceedWithExecution(command, commandType);
+    await this.proceedWithExecution(command, commandType);
+  }
+
+  async proceedWithExecution(command, commandType) {
+    const hasSelectedObject = this.sceneManager?.selectedObject || this.selectedFile;
+    if (!commandType) {
+      commandType = this.analyzeCommandType(command, hasSelectedObject);
+    }
+
+    if (this.selectedFile) {
+      if (this.currentMode !== 'import') {
+        this.selectMode('import', false);
+      }
+      this.currentMode = 'import';
+    } else {
+      this.currentMode = commandType.type;
+    }
+
+    if (commandType.requiresConfirmation) {
+      const confirmed = await this.showDeleteConfirmation(command);
+      if (!confirmed) {
+        this.addOutput('❌ 削除をキャンセルしました', 'system');
+        return;
+      }
+    }
+
+    this.input.value = '';
+    this.clearInputFeedback();
+    this.hideProactiveSuggestion();
+
+    const taskId = this.addTaskCard(command, { status: 'processing' });
+
+    this.saveCommandToHistory({
+      command: command,
+      mode: this.currentMode,
+      mediaType: commandType.mediaType,
+      timestamp: Date.now()
+    });
+
+    let result;
+
+    try {
+      const modePrefix = this.getModePrefix(this.currentMode);
+      const fullCommand = `${modePrefix}${command}`;
+
+      this.logDebug('🔍 Current mode check:', this.currentMode);
+      if (this.currentMode === 'import') {
+        this.logDebug('📁 Import mode detected - bypassing SceneManager');
+        if (!this.selectedFile) {
+          throw new Error('ファイルが選択されていません。まずファイルを選択してください。');
+        }
+        result = await this.handleImportCommand(command);
+      } else if (this.sceneManager) {
+        result = await this.sceneManager.executeCommand(fullCommand);
+      } else if (this.client) {
+        if (this.currentMode === 'generate') {
+          if (commandType.mediaType === 'video') {
+            result = await this.client.generateVideo(command, {
+              model: this.selectedVideoService || undefined
+            });
+          } else {
+            result = await this.client.generateImage(command, {
+              service: this.selectedImageService || undefined
+            });
+          }
+        } else if (this.currentMode === 'modify') {
+          const selectedObject = this.sceneManager?.selectedObject;
+          if (!selectedObject) {
+            throw new Error('変更するオブジェクトが選択されていません。まず対象オブジェクトを選択してください。');
+          }
+          result = await this.client.modifySelectedObject(selectedObject, command);
+        } else if (this.currentMode === 'delete') {
+          const selectedObject = this.sceneManager?.selectedObject;
+          if (!selectedObject && !this.sceneManager?.getSelectedObjects()?.length) {
+            this.addOutput('⚠️ 削除するオブジェクトが選択されていません。まず3Dシーン内のオブジェクトをクリックで選択してから、再度Deleteボタンを押してください。', 'system');
+            return;
+          }
+          const confirmMessage = `本当に「${command}」を実行しますか？
+
+この操作は取り消せません。`;
+          if (!confirm(confirmMessage)) {
+            this.addOutput('❌ 削除がキャンセルされました', 'system');
+            return;
+          }
+          result = await this.client.deleteObjects(command);
+        } else {
+          result = await this.client.executeCommand(fullCommand);
+        }
+      } else {
+        throw new Error('SceneManager または Client が設定されていません');
+      }
+
+      if (result && result.taskId) {
+        this.connectToProgress(result.taskId, taskId);
+        this.currentTaskId = result.taskId;
+      }
+
+      if (taskId) {
+        this.updateTaskCard(taskId, 'completed');
+      }
+
+      if (result.modelName) {
+        // モデル情報がある場合はモーダル表示用に保持（必要に応じて拡張）
+      }
+
+      if (result.objectId) {
+        // オブジェクト ID の提示は将来のUI更新で対応
+      }
+
+      if (result.position) {
+        // 位置情報はデバッグ表示のみ（現状は未使用）
+      }
+
+      if (commandType.mediaType) {
+        // メディアタイプ別の追加処理が必要になった場合に備えたフック
+      }
+    } catch (error) {
+      const errorMessages = {
+        generate: `❌ ${commandType.mediaType === 'video' ? '動画' : '画像'}生成エラー`,
+        modify: '❌ 変更エラー',
+        delete: '❌ 削除エラー'
+      };
+
+      if (taskId) {
+        this.updateTaskCard(taskId, 'error', { errorMessage: error.message });
+      }
+
+      this.addOutput(`${errorMessages[this.currentMode]}: ${error.message}`, 'error');
+      console.error('Command execution error:', error);
+    }
+
+    if (this.sceneManager && this.sceneManager.selectedObject) {
+      if (this.currentMode === 'modify' || this.currentMode === 'delete') {
+        setTimeout(() => {
+          this.sceneManager.deselectObject();
+        }, 500);
+      }
+    }
+
+    if (this.config.autoScroll) {
+      this.scrollToBottom();
+    }
   }
 
   /**

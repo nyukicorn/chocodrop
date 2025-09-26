@@ -205,11 +205,11 @@
         // Basic Three.js setup
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
 
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-        renderer.setClearColor(0x000000, 0);
+        renderer.setClearColor(0x000000, 1);  // 黒背景に変更
 
         // Three.js キャンバスのz-indexを設定（動画より背景に配置）
         renderer.domElement.style.position = 'fixed';
@@ -271,19 +271,35 @@
                     // 各花びらの角度（少しランダムさを加える）
                     const angle = (i / ring.count) * Math.PI * 2 + (Math.random() - 0.5) * 0.3;
 
-                    // 花びらの形状（楕円形で花びららしく）
-                    const geometry = new THREE.RingGeometry(0.1 * ring.size, ring.size, 6, 1);
+                    // より自然な花びらの形状（楕円形でセグメント数を増やす）
+                    const petalShape = new THREE.Shape();
+                    const petalWidth = ring.size * 0.4;
+                    const petalHeight = ring.size;
 
-                    // 色をリング内でバリエーション
+                    // 花びらの輪郭を描く（より有機的な形状）
+                    petalShape.moveTo(0, 0);
+                    petalShape.quadraticCurveTo(petalWidth * 0.5, petalHeight * 0.3, petalWidth * 0.3, petalHeight * 0.6);
+                    petalShape.quadraticCurveTo(petalWidth * 0.2, petalHeight * 0.9, 0, petalHeight);
+                    petalShape.quadraticCurveTo(-petalWidth * 0.2, petalHeight * 0.9, -petalWidth * 0.3, petalHeight * 0.6);
+                    petalShape.quadraticCurveTo(-petalWidth * 0.5, petalHeight * 0.3, 0, 0);
+
+                    const geometry = new THREE.ShapeGeometry(petalShape, 12);
+
+                    // 色をリング内でバリエーション（グラデーション効果）
                     const colorIndex = Math.floor(Math.random() * ring.colors.length);
-                    const color = ring.colors[colorIndex];
+                    const baseColor = new THREE.Color(ring.colors[colorIndex]);
 
-                    const material = new THREE.MeshBasicMaterial({
-                        color: color,
+                    // より美しいマテリアル（光沢感とグラデーション）
+                    const material = new THREE.MeshPhongMaterial({
+                        color: baseColor,
+                        emissive: baseColor,
+                        emissiveIntensity: 0.2,
                         transparent: true,
-                        opacity: ring.opacity,
+                        opacity: ring.opacity * 0.9,
                         side: THREE.DoubleSide,
-                        blending: THREE.NormalBlending
+                        blending: THREE.AdditiveBlending,
+                        shininess: 100,
+                        specular: new THREE.Color(0xffffff)
                     });
 
                     const petal = new THREE.Mesh(geometry, material);
@@ -319,6 +335,44 @@
             center.position.z = 0.4;
             flowerGroup.add(center);
 
+            // ✨ キラキラパーティクル効果を追加
+            const particleCount = 100;
+            const particlesGeometry = new THREE.BufferGeometry();
+            const particlePositions = new Float32Array(particleCount * 3);
+            const particleColors = new Float32Array(particleCount * 3);
+
+            for (let i = 0; i < particleCount; i++) {
+                // 花の周りにランダムに配置
+                const r = (Math.random() * 2 + 1) * scale;
+                const theta = Math.random() * Math.PI * 2;
+                const phi = Math.random() * Math.PI;
+
+                particlePositions[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+                particlePositions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+                particlePositions[i * 3 + 2] = r * Math.cos(phi) * 0.3;
+
+                // 虹色のパーティクル
+                const hue = Math.random();
+                const color = new THREE.Color().setHSL(hue, 0.8, 0.7);
+                particleColors[i * 3] = color.r;
+                particleColors[i * 3 + 1] = color.g;
+                particleColors[i * 3 + 2] = color.b;
+            }
+
+            particlesGeometry.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
+            particlesGeometry.setAttribute('color', new THREE.BufferAttribute(particleColors, 3));
+
+            const particleMaterial = new THREE.PointsMaterial({
+                size: 0.05 * scale,
+                vertexColors: true,
+                blending: THREE.AdditiveBlending,
+                transparent: true,
+                opacity: 0.6
+            });
+
+            const particles = new THREE.Points(particlesGeometry, particleMaterial);
+            flowerGroup.add(particles);
+
             flowerGroup.position.set(x, y, z);
 
             // アニメーション用データ
@@ -326,6 +380,7 @@
                 originalScale: scale,
                 petals: allPetals,
                 center: center,
+                particles: particles,
                 pulsePhase: Math.random() * Math.PI * 2,
                 baseColors: allBaseColors,
                 petalRings: petalRings
@@ -419,14 +474,21 @@
             scene.add(flower);
         });
 
-        // ✨ 環境光
-        const ambientLight = new THREE.AmbientLight(0x404040, 0.3);
+        // ✨ 環境光（全体を柔らかく照らす）
+        const ambientLight = new THREE.AmbientLight(0x404040, 0.5);
         scene.add(ambientLight);
 
-        // 🌟 ポイントライト
-        const pointLight = new THREE.PointLight(0xffffff, 1, 50);
+        // 🌟 メインのポイントライト（花を美しく照らす）
+        const pointLight = new THREE.PointLight(0xffffff, 1.5, 50);
         pointLight.position.set(0, 10, 5);
         scene.add(pointLight);
+
+        // 追加のライト（より立体的に）
+        const spotLight = new THREE.SpotLight(0xff6b9d, 0.8);
+        spotLight.position.set(-10, 10, 10);
+        spotLight.target.position.set(0, 0, 0);
+        scene.add(spotLight);
+        scene.add(spotLight.target);
 
         // 📷 カメラ設定
         camera.position.set(0, 3, 12);
@@ -570,6 +632,15 @@
                 // 立体的な動き
                 flower.rotation.x = Math.sin(time * 0.3 + index) * 0.1;
                 flower.rotation.y = Math.cos(time * 0.2 + index) * 0.05;
+
+                // パーティクルのアニメーション
+                if (userData.particles) {
+                    userData.particles.rotation.y += 0.01 + volume * 0.02;
+                    userData.particles.rotation.z += 0.005;
+
+                    // 音楽に合わせてパーティクルの明度を変化
+                    userData.particles.material.opacity = 0.3 + volume * 0.5;
+                }
             });
 
             // ライトも音楽に反応
