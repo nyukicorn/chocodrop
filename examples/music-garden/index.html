@@ -397,34 +397,24 @@
         controls.maxDistance = 30;
 
         // 🍫 ChocoDrop初期化
-        let chocoDrop;
-        (async () => {
-            try {
-                chocoDrop = new ChocoDropClient();
-                await chocoDrop.ensureInitialized();
-                console.log('🍫 ChocoDrop initialized in Music Garden');
-
-                // 音声コンテキストを初期化
-                initAudioContext();
-
-                // 動画が追加された時のイベントリスナー
-                const observer = new MutationObserver((mutations) => {
-                    mutations.forEach((mutation) => {
-                        mutation.addedNodes.forEach((node) => {
-                            if (node.tagName === 'VIDEO') {
-                                console.log('🎬 Video detected, connecting to audio');
-                                connectVideoToAudio(node);
-                            }
-                        });
-                    });
-                });
-
-                observer.observe(document.body, { childList: true, subtree: true });
-
-            } catch (error) {
-                console.error('❌ ChocoDrop initialization failed:', error);
+        const chocoDrop = ChocoDrop.createChocoDrop(scene, {
+            camera: camera,
+            renderer: renderer,
+            // GitHub Pagesなので生成機能なし、インポートのみ
+            enableGeneration: false,
+            enableVideoGeneration: false,
+            onVideoAdded: (videoElement) => {
+                console.log('🎬 Video detected, connecting to audio');
+                connectVideoToAudio(videoElement);
             }
-        })();
+        });
+
+        // 音声コンテキストを初期化
+        initAudioContext();
+
+        console.log('🍫 ChocoDrop Music Garden initialized');
+        console.log('Press @ key to activate command interface');
+        console.log('使用例: 🍫アイコンクリックでUI起動、動画を配置して音楽反応!');
 
         // 🎬 アニメーションループ
         function animate() {
