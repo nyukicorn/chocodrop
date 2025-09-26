@@ -709,37 +709,52 @@
         // 泡パーティクル
         const bubbles = createBubbleParticles();
         
-        // ✨ 水中の光粒子（キラキラエフェクト）
+        // ✨ 銀河風の光粒子（美しいスパイラル）
         function createLightParticles() {
-            const particleCount = 200;
+            const particleCount = 5000;  // もっと多くの星で銀河を作る
             const geometry = new THREE.BufferGeometry();
             const positions = new Float32Array(particleCount * 3);
             const colors = new Float32Array(particleCount * 3);
             const sizes = new Float32Array(particleCount);
-            
-            const lightColors = [
-                new THREE.Color(0xFFFFFF), // 純白
-                new THREE.Color(0xE0FFFF), // 水色
-                new THREE.Color(0xF0F8FF), // アリスブルー
-                new THREE.Color(0xFFF8DC)  // コーンシルク（暖かい白）
-            ];
-            
+
+            // 銀河の色（内側から外側へのグラデーション）
+            const colorInside = new THREE.Color(0xffa575);  // 温かいオレンジ
+            const colorOutside = new THREE.Color(0x311599); // 深い紫
+
+            const branches = 3;  // 銀河の腕の数
+
             for (let i = 0; i < particleCount; i++) {
                 const i3 = i * 3;
-                
-                // ランダムな位置
-                positions[i3] = (Math.random() - 0.5) * 60;
-                positions[i3 + 1] = Math.random() * 30 - 10;
-                positions[i3 + 2] = (Math.random() - 0.5) * 60;
-                
-                // ランダムな色
-                const color = lightColors[Math.floor(Math.random() * lightColors.length)];
+
+                // 銀河の螺旋形状を作成
+                const radius = Math.random() * 30;  // 中心からの距離
+                const branchAngle = (i % branches) * ((Math.PI * 2) / branches);
+                const spinAngle = radius * 0.3;  // 螺旋の回転量
+                const angle = branchAngle + spinAngle;
+
+                // 基本位置（螺旋状）
+                const x = Math.cos(angle) * radius;
+                const z = Math.sin(angle) * radius;
+                const y = 0;
+
+                // ランダムな揺らぎを追加（自然な散らばり）
+                const randomX = Math.pow(Math.random(), 3) * (Math.random() < 0.5 ? 1 : -1) * radius * 0.3;
+                const randomY = Math.pow(Math.random(), 3) * (Math.random() < 0.5 ? 1 : -1) * radius * 0.3;
+                const randomZ = Math.pow(Math.random(), 3) * (Math.random() < 0.5 ? 1 : -1) * radius * 0.3;
+
+                positions[i3] = x + randomX;
+                positions[i3 + 1] = y + randomY;
+                positions[i3 + 2] = z + randomZ;
+
+                // 距離に応じた色のグラデーション
+                const mixValue = radius / 30;  // 0から1の値
+                const color = colorInside.clone().lerp(colorOutside, mixValue);
                 colors[i3] = color.r;
                 colors[i3 + 1] = color.g;
                 colors[i3 + 2] = color.b;
-                
-                // サイズ（もっと小さく控えめに）
-                sizes[i] = Math.random() * 0.3 + 0.1;
+
+                // サイズ（中心部は大きく、外側は小さく）
+                sizes[i] = Math.random() * 0.8 * (1 - mixValue * 0.5) + 0.1;
             }
             
             geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
@@ -747,24 +762,29 @@
             geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
             
             const material = new THREE.PointsMaterial({
-                size: 1,  // 3から1に縮小
+                size: 2,  // 適度なサイズ
                 sizeAttenuation: true,
                 vertexColors: true,
                 transparent: true,
-                opacity: 0.3,  // 0.9から0.3に減少
-                blending: THREE.AdditiveBlending
+                opacity: 0.8,  // より明るく
+                blending: THREE.AdditiveBlending,
+                map: createStarTexture()  // 星のテクスチャ追加
             });
             
             const lightParticles = new THREE.Points(geometry, material);
             lightParticles.userData = {
-                twinkleSpeed: new Float32Array(particleCount).map(() => Math.random() * 0.05 + 0.01)
+                twinkleSpeed: new Float32Array(particleCount).map(() => Math.random() * 0.05 + 0.01),
+                rotationSpeed: 0.1  // 銀河全体の回転速度
             };
             
             scene.add(lightParticles);
             return lightParticles;
         }
-        
+
         const lightParticles = createLightParticles();
+
+        // 銀河の初期位置を保存（アニメーション用）
+        const initialPositions = lightParticles ? lightParticles.geometry.attributes.position.array.slice() : null;
 
         // 📷 カメラ位置（水中感を演出）
         camera.position.set(0, 0, 15);
