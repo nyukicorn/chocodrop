@@ -738,8 +738,8 @@
                 colors[i3 + 1] = color.g;
                 colors[i3 + 2] = color.b;
                 
-                // サイズ（小さめでキラキラ感）
-                sizes[i] = Math.random() * 1.5 + 0.5;
+                // サイズ（もっと小さく控えめに）
+                sizes[i] = Math.random() * 0.3 + 0.1;
             }
             
             geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
@@ -747,11 +747,11 @@
             geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
             
             const material = new THREE.PointsMaterial({
-                size: 3,
+                size: 1,  // 3から1に縮小
                 sizeAttenuation: true,
                 vertexColors: true,
                 transparent: true,
-                opacity: 0.9,
+                opacity: 0.3,  // 0.9から0.3に減少
                 blending: THREE.AdditiveBlending
             });
             
@@ -851,8 +851,8 @@
                 const twinkleSpeed = lightParticles.userData.twinkleSpeed;
                 
                 for (let i = 0; i < sizes.length; i++) {
-                    // サイズを変化させてキラキラ感を演出
-                    sizes[i] = (Math.sin(time2 * twinkleSpeed[i]) * 0.5 + 0.5) * 2 + 0.5;
+                    // サイズを変化させてキラキラ感を演出（控えめに）
+                    sizes[i] = (Math.sin(time2 * twinkleSpeed[i]) * 0.5 + 0.5) * 0.4 + 0.1;
                 }
                 lightParticles.geometry.attributes.size.needsUpdate = true;
                 
