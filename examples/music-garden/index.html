@@ -513,26 +513,53 @@
             onControlsToggle: (disabled) => {
                 controls.enabled = !disabled;
             },
-            onVideoAdded: (videoElement) => {
-                console.log('🎬 Video detected, connecting to audio');
+            onVideoAdded: (videoObject) => {
+                console.log('🎬 Video object added to scene:', videoObject);
 
-                // 動画を前面に配置するために z-index を調整
-                videoElement.style.zIndex = '10';
-                videoElement.style.position = 'relative';
+                // ChocoDrop は Three.js オブジェクトを返すので、実際のvideo要素を探す
+                setTimeout(() => {
+                    const videoElements = document.querySelectorAll('video');
+                    console.log(`📹 Found ${videoElements.length} video elements`);
 
-                // 動画の準備ができてから音声接続
-                videoElement.addEventListener('loadedmetadata', () => {
-                    console.log('📹 Video metadata loaded, connecting audio...');
-                    connectVideoToAudio(videoElement);
-                });
+                    videoElements.forEach((videoElement, index) => {
+                        console.log(`🎥 Video ${index}: src=${videoElement.src}, readyState=${videoElement.readyState}`);
 
-                // 再生開始時にも確実に接続
-                videoElement.addEventListener('play', () => {
-                    if (!isAudioActive) {
-                        console.log('▶️ Video playing, ensuring audio connection...');
-                        connectVideoToAudio(videoElement);
-                    }
-                });
+                        // まだ接続されていない動画要素を処理
+                        if (!videoElement.audioSource) {
+                            // 動画を前面に配置
+                            videoElement.style.zIndex = '10';
+                            videoElement.style.position = 'relative';
+
+                            // すぐに接続を試みる
+                            connectVideoToAudio(videoElement);
+
+                            // 動画の準備ができてから再接続
+                            videoElement.addEventListener('loadedmetadata', () => {
+                                console.log('📹 Video metadata loaded, ensuring audio connection...');
+                                if (!videoElement.audioSource) {
+                                    connectVideoToAudio(videoElement);
+                                }
+                            });
+
+                            // 再生開始時にも確実に接続
+                            videoElement.addEventListener('play', () => {
+                                console.log('▶️ Video playing, checking audio connection...');
+                                if (!videoElement.audioSource) {
+                                    connectVideoToAudio(videoElement);
+                                }
+                            });
+
+                            // クリックで再生/一時停止（デバッグ用）
+                            videoElement.addEventListener('click', () => {
+                                if (videoElement.paused) {
+                                    videoElement.play();
+                                } else {
+                                    videoElement.pause();
+                                }
+                            });
+                        }
+                    });
+                }, 500);  // ChocoDrop が DOM に video 要素を追加するのを待つ
             }
         });
 
@@ -558,6 +585,12 @@
 
                 // 全体音量を計算
                 volume = dataArray.reduce((sum, freq) => sum + freq, 0) / dataArray.length / 255;
+
+                // デバッグ: 音量が検出されているか表示（初回のみ）
+                if (volume > 0.01 && !window.audioDetected) {
+                    console.log('🎵 Audio detected! Volume:', volume);
+                    window.audioDetected = true;
+                }
 
                 // 周波数帯域を分析（低音〜高音）
                 const bands = 8;
