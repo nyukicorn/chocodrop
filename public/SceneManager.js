@@ -641,6 +641,10 @@ export class SceneManager {
 
     // 選択したオブジェクトの角度調整キーボードコントロール
     document.addEventListener('keydown', (event) => {
+      const activeEl = document.activeElement;
+      if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.isContentEditable)) {
+        return;
+      }
       if (!this.selectedObject) return;
       
       const object = this.selectedObject;
