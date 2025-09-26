@@ -449,17 +449,28 @@
         }
 
         function connectVideoToAudio(videoElement) {
+            console.log('🔗 Attempting to connect video to audio...');
+            console.log('📺 Video element:', videoElement);
+
             if (!audioContext || !analyser) {
                 console.warn('🚫 Audio context not initialized, initializing now...');
                 initAudioContext();
-                if (!audioContext || !analyser) return;
+                if (!audioContext || !analyser) {
+                    console.error('❌ Failed to initialize audio context');
+                    return;
+                }
             }
 
             try {
+                console.log('🔊 AudioContext state before connection:', audioContext.state);
+
                 // AudioContextがsuspendedの場合、再開する
                 if (audioContext.state === 'suspended') {
+                    console.log('⏸️ AudioContext is suspended, resuming...');
                     audioContext.resume().then(() => {
-                        console.log('🎵 Audio context resumed');
+                        console.log('▶️ AudioContext resumed successfully');
+                    }).catch(err => {
+                        console.error('❌ Failed to resume AudioContext:', err);
                     });
                 }
 
@@ -469,8 +480,11 @@
                     return;
                 }
 
+                console.log('🎬 Creating MediaElementSource...');
                 const source = audioContext.createMediaElementSource(videoElement);
+                console.log('🎵 Connecting source to analyser...');
                 source.connect(analyser);
+                console.log('🔊 Connecting analyser to destination...');
                 analyser.connect(audioContext.destination);
 
                 // 接続済みマーク
@@ -478,11 +492,33 @@
 
                 isAudioActive = true;
                 updateAudioStatus('🎤 音声解析中...', 'audio-active');
-                console.log('🔗 Video connected to audio analyser');
+                console.log('✅ Video successfully connected to audio analyser');
+
+                // 音声データのテスト
+                setTimeout(() => {
+                    if (analyser && dataArray) {
+                        analyser.getByteFrequencyData(dataArray);
+                        const testVolume = dataArray.reduce((sum, freq) => sum + freq, 0) / dataArray.length / 255;
+                        console.log('🧪 Audio test - Volume level:', testVolume);
+                        if (testVolume > 0.01) {
+                            console.log('🎵 Audio is being detected!');
+                        } else {
+                            console.log('🔇 No audio detected. Video might be muted or have no audio track.');
+                        }
+                    }
+                }, 1000);
+
             } catch (error) {
-                console.warn('🚫 Failed to connect video:', error);
+                console.error('❌ Failed to connect video to audio:', error);
+                console.log('Error details:', {
+                    name: error.name,
+                    message: error.message,
+                    stack: error.stack
+                });
+
                 // 既に接続されている場合のエラーは無視
                 if (error.name === 'InvalidStateError') {
+                    console.log('ℹ️ InvalidStateError - assuming already connected');
                     isAudioActive = true;
                     updateAudioStatus('🎤 音声解析中...', 'audio-active');
                 }
@@ -557,12 +593,37 @@
                 console.log('🎬 Video object added to scene:', videoObject);
 
                 // ChocoDrop は Three.js オブジェクトを返すので、実際のvideo要素を探す
+                console.log('🔍 Searching for video elements in 500ms...');
                 setTimeout(() => {
                     const videoElements = document.querySelectorAll('video');
                     console.log(`📹 Found ${videoElements.length} video elements`);
+                    console.log('🔊 AudioContext state:', audioContext ? audioContext.state : 'not initialized');
+                    console.log('🎵 Analyser exists:', !!analyser);
+                    console.log('📊 Data array exists:', !!dataArray);
+
+                    if (videoElements.length === 0) {
+                        console.warn('❌ No video elements found! ChocoDrop might not have added the video to DOM yet.');
+                        // 再試行
+                        setTimeout(() => {
+                            console.log('🔄 Retrying video search...');
+                            const retryVideos = document.querySelectorAll('video');
+                            console.log(`📹 Retry found ${retryVideos.length} video elements`);
+                            if (retryVideos.length > 0) {
+                                retryVideos.forEach(v => connectVideoToAudio(v));
+                            }
+                        }, 2000);
+                    }
 
                     videoElements.forEach((videoElement, index) => {
-                        console.log(`🎥 Video ${index}: src=${videoElement.src}, readyState=${videoElement.readyState}, paused=${videoElement.paused}, volume=${videoElement.volume}`);
+                        console.log(`🎥 Video ${index}:`);
+                        console.log(`  - src: ${videoElement.src}`);
+                        console.log(`  - readyState: ${videoElement.readyState}`);
+                        console.log(`  - paused: ${videoElement.paused}`);
+                        console.log(`  - volume: ${videoElement.volume}`);
+                        console.log(`  - muted: ${videoElement.muted}`);
+                        console.log(`  - audioTracks: ${videoElement.audioTracks ? videoElement.audioTracks.length : 'not supported'}`);
+                        console.log(`  - duration: ${videoElement.duration}`);
+                        console.log(`  - currentTime: ${videoElement.currentTime}`);
 
                         // まだ接続されていない動画要素を処理
                         if (!videoElement.audioSource) {
