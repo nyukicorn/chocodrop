@@ -227,47 +227,29 @@
             const petalRings = [
                 // 外側のリング - 大きな花びら
                 {
-                    count: 18,
-                    size: 2.2 * scale,
+                    count: 12,
+                    size: 2.5 * scale,
                     opacity: 0.8,
-                    colors: [0x9b59b6, 0xb19cd9, 0x8e44ad, 0xdda0dd, 0x9370db],
-                    radius: 2.0 * scale,
+                    colors: [0xff6b9d, 0xff1493, 0xff69b4, 0xda70d6],
+                    radius: 2.2 * scale,
                     zOffset: 0
-                },
-                // 外中間のリング
-                {
-                    count: 16,
-                    size: 1.9 * scale,
-                    opacity: 0.85,
-                    colors: [0xff69b4, 0xff1493, 0xda70d6, 0xff6b9d, 0xf39c12],
-                    radius: 1.6 * scale,
-                    zOffset: 0.05
                 },
                 // 中間のリング
                 {
-                    count: 20,
-                    size: 1.5 * scale,
-                    opacity: 0.9,
-                    colors: [0x87ceeb, 0x00bfff, 0x87cefa, 0x6495ed, 0x4169e1],
-                    radius: 1.2 * scale,
+                    count: 16,
+                    size: 1.8 * scale,
+                    opacity: 0.85,
+                    colors: [0x9b59b6, 0x8e44ad, 0xba68c8, 0xab47bc],
+                    radius: 1.5 * scale,
                     zOffset: 0.1
                 },
                 // 内側のリング
                 {
-                    count: 16,
-                    size: 1.0 * scale,
-                    opacity: 0.95,
-                    colors: [0xffd700, 0xffa500, 0xff8c00, 0xffb347, 0xffc125],
-                    radius: 0.7 * scale,
-                    zOffset: 0.15
-                },
-                // 最内側 - 極小花びら
-                {
-                    count: 12,
-                    size: 0.5 * scale,
-                    opacity: 1.0,
-                    colors: [0xffffe0, 0xfffacd, 0xffefd5, 0xffe4b5, 0xffdead],
-                    radius: 0.25 * scale,
+                    count: 20,
+                    size: 1.2 * scale,
+                    opacity: 0.9,
+                    colors: [0x3498db, 0x2196f3, 0x03a9f4, 0x00bcd4],
+                    radius: 0.8 * scale,
                     zOffset: 0.2
                 }
             ];
@@ -329,17 +311,13 @@
                     }
                     geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
 
-                    // 洗練されたマテリアル（光沢を抑える）
-                    const material = new THREE.MeshPhongMaterial({
-                        vertexColors: true,
+                    // 明るく美しいマテリアル
+                    const material = new THREE.MeshBasicMaterial({
+                        color: baseColor,
                         transparent: true,
-                        opacity: ring.opacity * 0.7,
+                        opacity: ring.opacity * 0.9,
                         side: THREE.DoubleSide,
-                        blending: THREE.NormalBlending,
-                        shininess: 30,
-                        specular: new THREE.Color(0x333333),
-                        emissive: baseColor,
-                        emissiveIntensity: 0.1
+                        blending: THREE.AdditiveBlending
                     });
 
                     const petal = new THREE.Mesh(geometry, material);
@@ -716,6 +694,17 @@
                             videoElement.addEventListener('click', () => {
                                 if (videoElement.paused) {
                                     videoElement.play();
+                                    // 再生開始時に強制的に音声アクティブ化
+                                    setTimeout(() => {
+                                        if (!isAudioActive) {
+                                            console.log('🔧 Force activating audio monitoring...');
+                                            isAudioActive = true;
+                                            updateAudioStatus('🎵 強制音声監視中...', 'audio-active');
+
+                                            // 代替監視を開始
+                                            tryAlternativeAudioConnection(videoElement);
+                                        }
+                                    }, 100);
                                 } else {
                                     videoElement.pause();
                                 }
