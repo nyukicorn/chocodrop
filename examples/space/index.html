@@ -220,13 +220,13 @@
         // 🌌 渦巻き銀河作成（美しいグラデーション付き）
         function createGalaxy() {
             const parameters = {
-                count: 10000,
+                count: 8000,  // 10000→8000に減らして適度な密度に
                 size: 0.02,
-                radius: 50,
+                radius: 150,  // 50→150に拡大して広々と
                 branches: 3,
-                spin: 1,
-                randomness: 0.2,
-                randomnessPower: 3,
+                spin: 0.5,  // 1→0.5で緩やかな螺旋に
+                randomness: 0.3,  // 0.2→0.3でより自然な散らばり
+                randomnessPower: 2,  // 3→2で均等な分布に
                 insideColor: 0xffa575,
                 outsideColor: 0x311599
             };
@@ -267,8 +267,8 @@
                 colors[i3 + 1] = mixedColor.g;
                 colors[i3 + 2] = mixedColor.b;
                 
-                // サイズ（中心は大きく）
-                sizes[i] = Math.random() * 3 * (1 - radius / parameters.radius) + 0.5;
+                // サイズ（中心は大きく、より繊細に）
+                sizes[i] = Math.random() * 2 * (1 - radius / parameters.radius) + 0.3;
             }
             
             geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
@@ -276,11 +276,11 @@
             geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
             
             const material = new THREE.PointsMaterial({
-                size: 2,
+                size: 1.5,  // 2→1.5で繊細に
                 sizeAttenuation: true,
                 vertexColors: true,
                 transparent: true,
-                opacity: 0.9,
+                opacity: 0.85,  // 0.9→0.85で優雅に
                 blending: THREE.AdditiveBlending,
                 depthWrite: false
             });
@@ -290,7 +290,7 @@
             
             // ゆっくり回転
             galaxy.userData = {
-                rotationSpeed: 0.0002
+                rotationSpeed: 0.0001  // さらにゆっくりと優雅に
             };
             
             return galaxy;
