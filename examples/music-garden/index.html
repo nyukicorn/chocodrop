@@ -149,6 +149,17 @@
                 transform: scale(1.4) rotate(5deg);
             }
         }
+
+        /* ChocoDrop 動画要素が花に埋もれないようにする */
+        video {
+            z-index: 20 !important;
+            position: relative !important;
+        }
+
+        /* ChocoDrop UI要素のz-index */
+        .chocodrop-ui, .chocodrop-overlay {
+            z-index: 100 !important;
+        }
     </style>
 </head>
 <body>
@@ -199,6 +210,13 @@
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         renderer.setClearColor(0x000000, 0);
+
+        // Three.js キャンバスのz-indexを設定（動画より背景に配置）
+        renderer.domElement.style.position = 'fixed';
+        renderer.domElement.style.top = '0';
+        renderer.domElement.style.left = '0';
+        renderer.domElement.style.zIndex = '1';
+
         document.body.appendChild(renderer.domElement);
 
         // 🌸 音楽に反応する花を作成（ダリアのような多層花びら）
@@ -401,11 +419,20 @@
             camera: camera,
             renderer: renderer,
             // GitHub Pagesなので生成機能なし、インポートのみ
-            enableGeneration: false,
-            enableVideoGeneration: false,
+            serverUrl: null,
+            sceneOptions: {
+                enableMouseInteraction: true
+            },
+            onControlsToggle: (disabled) => {
+                controls.enabled = !disabled;
+            },
             onVideoAdded: (videoElement) => {
                 console.log('🎬 Video detected, connecting to audio');
                 connectVideoToAudio(videoElement);
+
+                // 動画を前面に配置するために z-index を調整
+                videoElement.style.zIndex = '10';
+                videoElement.style.position = 'relative';
             }
         });
 
