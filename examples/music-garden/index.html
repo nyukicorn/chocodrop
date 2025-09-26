@@ -243,12 +243,12 @@
                     radius: 1.5 * scale,
                     zOffset: 0.1
                 },
-                // 内側のリング
+                // 内側のリング - 優しいピンク系
                 {
                     count: 20,
                     size: 1.2 * scale,
                     opacity: 0.9,
-                    colors: [0x3498db, 0x2196f3, 0x03a9f4, 0x00bcd4],
+                    colors: [0xffb6c1, 0xffc0cb, 0xffe4e1, 0xffd1dc],
                     radius: 0.8 * scale,
                     zOffset: 0.2
                 }
@@ -341,11 +341,11 @@
                 }
             });
 
-            // 花の中心（グラデーションのある美しい中心）
+            // 花の中心（優しいピンクの中心）
             const centerGeometry = new THREE.CircleGeometry(0.4 * scale, 16);
             const centerMaterial = new THREE.MeshBasicMaterial({
-                color: 0xffd700,
-                emissive: new THREE.Color(0xffa500),
+                color: 0xffb6c1,
+                emissive: new THREE.Color(0xff69b4),
                 transparent: true,
                 opacity: 0.9
             });
