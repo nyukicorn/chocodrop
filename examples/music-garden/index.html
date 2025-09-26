@@ -251,6 +251,15 @@
                     colors: [0xffb6c1, 0xffa07a, 0xff8c69, 0xffd700],
                     radius: 0.8 * scale,
                     zOffset: 0.2
+                },
+                // 最内側のリング - 中心の花びら
+                {
+                    count: 24,
+                    size: 0.8 * scale,
+                    opacity: 0.95,
+                    colors: [0xff6347, 0xff4500, 0xffa500, 0xffff00],
+                    radius: 0.4 * scale,
+                    zOffset: 0.3
                 }
             ];
 
@@ -341,13 +350,13 @@
                 }
             });
 
-            // 花の中心（温かいオレンジ系）
-            const centerGeometry = new THREE.CircleGeometry(0.3 * scale, 16);
+            // 花の中心（小さな芯部分のみ）
+            const centerGeometry = new THREE.CircleGeometry(0.1 * scale, 8);
             const centerMaterial = new THREE.MeshBasicMaterial({
-                color: 0xff8c69,
-                emissive: new THREE.Color(0xff6347),
+                color: 0xff4500,
+                emissive: new THREE.Color(0xff6600),
                 transparent: true,
-                opacity: 0.95
+                opacity: 1.0
             });
             const center = new THREE.Mesh(centerGeometry, centerMaterial);
             center.position.z = 0.4;
