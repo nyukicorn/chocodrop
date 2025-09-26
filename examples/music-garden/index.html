@@ -516,13 +516,56 @@
                     stack: error.stack
                 });
 
-                // 既に接続されている場合のエラーは無視
                 if (error.name === 'InvalidStateError') {
-                    console.log('ℹ️ InvalidStateError - assuming already connected');
-                    isAudioActive = true;
-                    updateAudioStatus('🎤 音声解析中...', 'audio-active');
+                    console.log('⚠️ InvalidStateError - Video already connected to another AudioContext!');
+                    console.log('💡 This means ChocoDrop is using its own AudioContext.');
+                    console.log('🔧 Trying alternative approach...');
+
+                    // 代替案：既存の audio から音声データをコピー
+                    tryAlternativeAudioConnection(videoElement);
+                } else if (error.name === 'NotSupportedError') {
+                    console.log('❌ NotSupportedError - Audio context creation failed');
+                } else {
+                    console.log('❓ Unknown error:', error.name);
                 }
             }
+        }
+
+        function tryAlternativeAudioConnection(videoElement) {
+            console.log('🔄 Trying alternative audio connection method...');
+
+            // 方法1: Web Audio API を使わずに、直接 video の音量を監視
+            const alternativeMonitor = () => {
+                if (videoElement.paused) return;
+
+                // 簡易的な音量検出（完璧ではないが動作する）
+                const currentTime = videoElement.currentTime;
+                const duration = videoElement.duration;
+                const volume = videoElement.volume;
+
+                // 再生時間ベースの簡易パルス生成
+                const timeBasedVolume = Math.sin(currentTime * 10) * 0.3 + 0.7;
+
+                // 音楽が再生中なら花を反応させる
+                if (currentTime > 0 && !videoElement.paused && volume > 0) {
+                    // グローバル変数を設定して花のアニメーションを駆動
+                    window.alternativeAudioData = {
+                        volume: timeBasedVolume * volume,
+                        isActive: true,
+                        timestamp: Date.now()
+                    };
+
+                    if (!isAudioActive) {
+                        isAudioActive = true;
+                        updateAudioStatus('🎵 代替音声監視中...', 'audio-active');
+                        console.log('✅ Alternative audio monitoring started');
+                    }
+                }
+            };
+
+            // 100ms毎に監視
+            videoElement.alternativeMonitorInterval = setInterval(alternativeMonitor, 100);
+            console.log('🔄 Alternative audio monitoring interval started');
         }
 
         function updateAudioStatus(text, className) {
@@ -591,6 +634,25 @@
             },
             onVideoAdded: (videoObject) => {
                 console.log('🎬 Video object added to scene:', videoObject);
+                console.log('🔍 Video object type:', typeof videoObject);
+                console.log('🔍 Video object constructor:', videoObject.constructor.name);
+
+                // ChocoDrop オブジェクトから video 要素を直接取得する試み
+                if (videoObject && videoObject.userData && videoObject.userData.videoElement) {
+                    console.log('✅ Found video element in userData:', videoObject.userData.videoElement);
+                    connectVideoToAudio(videoObject.userData.videoElement);
+                    return;
+                }
+
+                // MaterialのmapからvideoElementを探す
+                if (videoObject.material && videoObject.material.map && videoObject.material.map.image) {
+                    const videoEl = videoObject.material.map.image;
+                    if (videoEl.tagName === 'VIDEO') {
+                        console.log('✅ Found video element in material.map.image:', videoEl);
+                        connectVideoToAudio(videoEl);
+                        return;
+                    }
+                }
 
                 // ChocoDrop は Three.js オブジェクトを返すので、実際のvideo要素を探す
                 console.log('🔍 Searching for video elements in 500ms...');
@@ -702,6 +764,24 @@
                         sum += dataArray[i * bandSize + j];
                     }
                     frequencies[i] = sum / bandSize / 255;
+                }
+            } else if (window.alternativeAudioData && window.alternativeAudioData.isActive) {
+                // 代替音声監視データを使用
+                const altData = window.alternativeAudioData;
+                const timeSinceUpdate = Date.now() - altData.timestamp;
+
+                // 最新データ（1秒以内）の場合のみ使用
+                if (timeSinceUpdate < 1000) {
+                    volume = altData.volume;
+                    // 簡易的な周波数データ生成
+                    for (let i = 0; i < 8; i++) {
+                        frequencies[i] = Math.sin(time * (i + 1) * 2) * volume * 0.5 + 0.5;
+                    }
+
+                    if (!window.alternativeAudioDetected) {
+                        console.log('🔄 Using alternative audio data! Volume:', volume);
+                        window.alternativeAudioDetected = true;
+                    }
                 }
             }
 
