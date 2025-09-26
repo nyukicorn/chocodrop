@@ -217,61 +217,83 @@
         scene.background = new THREE.Color(0x000510); // 深い宇宙の色
         scene.fog = new THREE.FogExp2(0x000510, 0.0008); // 遠くのオブジェクトをフェード
 
-        // ⭐ 効率的な星field作成
-        function createStarField() {
-            const starGeometry = new THREE.BufferGeometry();
-            const starCount = 8000; // 軽量化のため適度な数
-
-            const positions = new Float32Array(starCount * 3);
-            const colors = new Float32Array(starCount * 3);
-            const sizes = new Float32Array(starCount);
-
-            // 星の色バリエーション
-            const starColors = [
-                new THREE.Color(0xffffff), // 白
-                new THREE.Color(0xadd8e6), // ライトブルー
-                new THREE.Color(0xffd700), // 金
-                new THREE.Color(0xffa500), // オレンジ
-                new THREE.Color(0xff69b4)  // ピンク
-            ];
-
-            for (let i = 0; i < starCount; i++) {
+        // 🌌 渦巻き銀河作成（美しいグラデーション付き）
+        function createGalaxy() {
+            const parameters = {
+                count: 10000,
+                size: 0.02,
+                radius: 50,
+                branches: 3,
+                spin: 1,
+                randomness: 0.2,
+                randomnessPower: 3,
+                insideColor: 0xffa575,
+                outsideColor: 0x311599
+            };
+            
+            const geometry = new THREE.BufferGeometry();
+            const positions = new Float32Array(parameters.count * 3);
+            const colors = new Float32Array(parameters.count * 3);
+            const sizes = new Float32Array(parameters.count);
+            
+            const colorInside = new THREE.Color(parameters.insideColor);
+            const colorOutside = new THREE.Color(parameters.outsideColor);
+            
+            for (let i = 0; i < parameters.count; i++) {
                 const i3 = i * 3;
-
-                // 球面上にランダム配置
-                const radius = 800 + Math.random() * 400;
-                const theta = Math.random() * Math.PI * 2;
-                const phi = Math.acos(2 * Math.random() - 1);
-
-                positions[i3] = radius * Math.sin(phi) * Math.cos(theta);
-                positions[i3 + 1] = radius * Math.sin(phi) * Math.sin(theta);
-                positions[i3 + 2] = radius * Math.cos(phi);
-
-                // ランダムな色
-                const color = starColors[Math.floor(Math.random() * starColors.length)];
-                colors[i3] = color.r;
-                colors[i3 + 1] = color.g;
-                colors[i3 + 2] = color.b;
-
-                sizes[i] = Math.random() * 3 + 1;
+                
+                // 位置計算
+                const radius = Math.random() * parameters.radius;
+                const spinAngle = radius * parameters.spin;
+                const branchAngle = (i % parameters.branches) / parameters.branches * Math.PI * 2;
+                
+                // ランダム性（中心から離れるほど強く）
+                const randomX = Math.pow(Math.random(), parameters.randomnessPower) * 
+                               (Math.random() < 0.5 ? 1 : -1) * parameters.randomness * radius;
+                const randomY = Math.pow(Math.random(), parameters.randomnessPower) * 
+                               (Math.random() < 0.5 ? 1 : -1) * parameters.randomness * radius * 0.5;
+                const randomZ = Math.pow(Math.random(), parameters.randomnessPower) * 
+                               (Math.random() < 0.5 ? 1 : -1) * parameters.randomness * radius;
+                
+                positions[i3] = Math.cos(branchAngle + spinAngle) * radius + randomX;
+                positions[i3 + 1] = randomY;
+                positions[i3 + 2] = Math.sin(branchAngle + spinAngle) * radius + randomZ;
+                
+                // 色のグラデーション（中心は明るく、外側は暗く）
+                const mixedColor = colorInside.clone();
+                mixedColor.lerp(colorOutside, radius / parameters.radius);
+                
+                colors[i3] = mixedColor.r;
+                colors[i3 + 1] = mixedColor.g;
+                colors[i3 + 2] = mixedColor.b;
+                
+                // サイズ（中心は大きく）
+                sizes[i] = Math.random() * 3 * (1 - radius / parameters.radius) + 0.5;
             }
-
-            starGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-            starGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-            starGeometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
-
-            const starMaterial = new THREE.PointsMaterial({
+            
+            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+            geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+            
+            const material = new THREE.PointsMaterial({
                 size: 2,
                 sizeAttenuation: true,
                 vertexColors: true,
                 transparent: true,
-                opacity: 0.8,
-                blending: THREE.AdditiveBlending
+                opacity: 0.9,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false
             });
-
-            const stars = new THREE.Points(starGeometry, starMaterial);
-            scene.add(stars);
-            return stars;
+            
+            const galaxy = new THREE.Points(geometry, material);
+            scene.add(galaxy);
+            
+            // ゆっくり回転
+            galaxy.userData = {
+                rotationSpeed: 0.0002
+            };
+            
+            return galaxy;
         }
 
         // 🪐 軽量惑星作成
@@ -410,7 +432,8 @@
         }
 
         // 🌌 宇宙環境構築
-        const starField = createStarField();
+        // 美しい渦巻き銀河を作成
+        const galaxy = createGalaxy();
 
         // 惑星系
         const planets = [];
@@ -492,10 +515,9 @@
         function animate() {
             requestAnimationFrame(animate);
 
-            // 星fieldの回転
-            if (starField) {
-                starField.rotation.y += 0.0002;
-                starField.rotation.x += 0.0001;
+            // 銀河のゆっくり回転
+            if (galaxy && galaxy.userData.rotationSpeed) {
+                galaxy.rotation.y += galaxy.userData.rotationSpeed;
             }
 
             // 惑星の自転
