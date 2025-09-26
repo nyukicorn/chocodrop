@@ -150,7 +150,7 @@
 
       try {
         const safeDefaults = {
-          aspect_ratio: '16:9',
+          // aspect_ratio: サーバー側で各モデル最適な比率を自動選択
           resolution: '720p',
           enable_safety_checker: true,
           enable_prompt_expansion: true
@@ -159,11 +159,16 @@
         const payload = {
           prompt,
           duration: typeof options.duration === 'number' && options.duration > 0 ? options.duration : 3,
-          aspect_ratio: options.aspect_ratio || safeDefaults.aspect_ratio,
           resolution: options.resolution || safeDefaults.resolution,
           enable_safety_checker: options.enable_safety_checker ?? safeDefaults.enable_safety_checker,
           enable_prompt_expansion: options.enable_prompt_expansion ?? safeDefaults.enable_prompt_expansion
         };
+
+        // ユーザーが明示的にアスペクト比を指定した場合のみ追加
+        if (options.aspect_ratio) {
+          payload.aspect_ratio = options.aspect_ratio;
+        }
+        // それ以外はサーバー側で各モデルに最適な比率を自動選択
 
         if (options.model) {
           payload.model = options.model;
@@ -273,6 +278,261 @@
   const ChocoDroClient = ChocoDropClient;
 
   /**
+   * ChocoDrop 共通翻訳辞書
+   * サーバー・クライアント共通で使用する日本語→英語翻訳辞書
+   */
+
+  const TRANSLATION_DICTIONARY = {
+    // ファンタジー・魔法系
+    'ユニコーン': 'unicorn',
+    'ドラゴン': 'dragon',
+    '龍': 'dragon',
+    '怪獣': 'monster',
+    'モンスター': 'monster',
+    '魔法使い': 'wizard',
+    '魔術師': 'sorcerer',
+    '魔女': 'witch',
+    '妖精': 'fairy',
+    '🧚': 'fairy',
+    '🧙': 'wizard',
+    '魔法杖': 'magic wand',
+    '杖': 'wand',
+    'スタッフ': 'staff',
+    '魔法': 'magic',
+    '呪文': 'spell',
+    '魔法陣': 'magic circle',
+    '水晶玉': 'crystal ball',
+    '薬瓶': 'potion bottle',
+    '魔導書': 'grimoire',
+    'フェニックス': 'phoenix',
+    'グリフィン': 'griffin',
+    'ペガサス': 'pegasus',
+    'ケルベロス': 'cerberus',
+
+    // 動物
+    '画像': 'image',
+    '写真': 'photo',
+    'イメージ': 'image',
+    '絵': 'picture',
+    'ファイル': 'file',
+    'メディア': 'media',
+    '素材': 'asset',
+    '動画': 'video',
+    'ビデオ': 'video',
+    'ムービー': 'movie',
+    '映像': 'video',
+    'クリップ': 'clip',
+    '猫': 'cat',
+    'ネコ': 'cat',
+    'ねこ': 'cat',
+    '犬': 'dog',
+    'イヌ': 'dog',
+    'いぬ': 'dog',
+    '狼': 'wolf',
+    '熊': 'bear',
+    'ライオン': 'lion',
+    'トラ': 'tiger',
+    '象': 'elephant',
+    'キリン': 'giraffe',
+    'シマウマ': 'zebra',
+    'パンダ': 'panda',
+    'ウサギ': 'rabbit',
+    'リス': 'squirrel',
+    'ハムスター': 'hamster',
+    'フクロウ': 'owl',
+    'ワシ': 'eagle',
+    'カラス': 'crow',
+    'ハト': 'dove',
+    'ペンギン': 'penguin',
+    'イルカ': 'dolphin',
+    'クジラ': 'whale',
+    'サメ': 'shark',
+    'タコ': 'octopus',
+    'カニ': 'crab',
+    'エビ': 'shrimp',
+
+    // 自然・風景
+    '花': 'flower',
+    'はな': 'flower',
+    'ハナ': 'flower',
+    '桜': 'cherry blossom',
+    'バラ': 'rose',
+    'ひまわり': 'sunflower',
+    'チューリップ': 'tulip',
+    '雲': 'cloud',
+    '空': 'sky',
+    '海': 'ocean',
+    '湖': 'lake',
+    '川': 'river',
+    '山': 'mountain',
+    'やま': 'mountain',
+    'ヤマ': 'mountain',
+    '森': 'forest',
+    '木': 'tree',
+    'き': 'tree',
+    'キ': 'tree',
+    '草原': 'meadow',
+    '砂漠': 'desert',
+    '滝': 'waterfall',
+    '洞窟': 'cave',
+    '島': 'island',
+    '星座': 'constellation',
+    '銀河': 'galaxy',
+    '惑星': 'planet',
+
+    // 建物・場所
+    '城': 'castle',
+    'しろ': 'castle',
+    'シロ': 'castle',
+    '宮殿': 'palace',
+    '家': 'house',
+    '塔': 'tower',
+    '教会': 'church',
+    '神殿': 'temple',
+    '図書館': 'library',
+    '学校': 'school',
+    '病院': 'hospital',
+    '駅': 'station',
+    '空港': 'airport',
+    '港': 'port',
+    '橋': 'bridge',
+    '灯台': 'lighthouse',
+    '風車': 'windmill',
+    '庭': 'garden',
+    '公園': 'park',
+    '遊園地': 'amusement park',
+
+    // 乗り物
+    '車': 'car',
+    '電車': 'train',
+    'バス': 'bus',
+    '飛行機': 'airplane',
+    'ヘリコプター': 'helicopter',
+    '船': 'ship',
+    'ヨット': 'yacht',
+    '自転車': 'bicycle',
+    'バイク': 'motorcycle',
+    'ロケット': 'rocket',
+
+    // 天体・時間
+    '月': 'moon',
+    '太陽': 'sun',
+    '星': 'star',
+    '彗星': 'comet',
+    '流れ星': 'shooting star',
+    '虹': 'rainbow',
+    '雷': 'lightning',
+    '雪': 'snow',
+    '雨': 'rain',
+    '嵐': 'storm',
+    '霧': 'fog',
+    '氷': 'ice',
+    '火': 'fire',
+    '水': 'water',
+    '風': 'wind',
+    '光': 'light',
+    '影': 'shadow',
+    '夜': 'night',
+    '朝': 'morning',
+    '夕方': 'evening',
+
+    // 色・素材
+    '赤': 'red',
+    '青': 'blue',
+    '緑': 'green',
+    '黄色': 'yellow',
+    '白': 'white',
+    '黒': 'black',
+    '紫': 'purple',
+    'ピンク': 'pink',
+    'オレンジ': 'orange',
+    '茶色': 'brown',
+    'グレー': 'gray',
+    '金': 'gold',
+    '銀': 'silver',
+    'プラチナ': 'platinum',
+    '銅': 'copper',
+    '鉄': 'iron',
+    '石': 'stone',
+    '木材': 'wood',
+    'ガラス': 'glass',
+    '水晶': 'crystal',
+    'ダイヤモンド': 'diamond',
+
+    // 鳥類
+    '鳥': 'bird',
+    'とり': 'bird',
+    'トリ': 'bird'
+  };
+
+  /**
+   * オブジェクト識別用のエイリアス辞書（拡張版）
+   * 翻訳辞書から逆マッピングを生成し、エイリアスも含める
+   */
+  function createObjectKeywords() {
+    const keywords = {};
+
+    // 翻訳辞書から逆マッピングを作成
+    for (const [japanese, english] of Object.entries(TRANSLATION_DICTIONARY)) {
+      // 英語をキーとして日本語とエイリアスを格納
+      if (!keywords[japanese]) {
+        keywords[japanese] = [];
+      }
+
+      // 英語の翻訳を追加
+      if (!keywords[japanese].includes(english)) {
+        keywords[japanese].push(english);
+      }
+    }
+
+    return keywords;
+  }
+
+  /**
+   * 日本語キーワードを英語に翻訳
+   */
+  function translateKeyword(japanese) {
+    return TRANSLATION_DICTIONARY[japanese] || japanese;
+  }
+
+  /**
+   * ファイル名と日本語キーワードをマッチング
+   */
+  function matchKeywordWithFilename(keyword, filename, keywords) {
+    const lowerFilename = filename.toLowerCase();
+
+    // 直接マッチ
+    if (lowerFilename.includes(keyword.toLowerCase())) {
+      return true;
+    }
+
+    // キーワード辞書での相互マッチ
+    for (const [jp, aliases] of Object.entries(keywords)) {
+      // キーワードが日本語の場合、対応する英語エイリアスをファイル名で探す
+      if (keyword.includes(jp)) {
+        for (const alias of aliases) {
+          if (lowerFilename.includes(alias.toLowerCase())) {
+            return true;
+          }
+        }
+      }
+    }
+
+    // 翻訳辞書での直接マッチ
+    const englishKeyword = translateKeyword(keyword);
+    if (englishKeyword !== keyword && lowerFilename.includes(englishKeyword.toLowerCase())) {
+      return true;
+    }
+
+    return false;
+  }
+
+  // CommonJS (サーバー用)
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = { TRANSLATION_DICTIONARY, createObjectKeywords, translateKeyword, matchKeywordWithFilename };
+  }
+
+  /**
    * Scene Manager - 3D scene integration for ChocoDrop System
    * Handles natural language parsing and 3D object management
    */
@@ -305,6 +565,9 @@
       this.selectedObject = null;
       this.selectedImageService = options.selectedImageService || null;
       this.selectedVideoService = options.selectedVideoService || null;
+      this.audioControls = new Map();
+      this.audioControlUpdateInterval = null;
+      this.audioControlUpdateListener = null;
 
       // Animation管理（UI要素用）
       this.clock = new THREE__namespace.Clock();
@@ -1084,10 +1347,18 @@
         return naturalLanguagePattern;
       }
       
-      // 動画関連キーワードをチェック
-      const videoKeywords = ['動画', 'ビデオ', 'ムービー', '映像', 'アニメーション', '動く', 
-                            'video', 'movie', 'animation', 'animate', 'motion', 'moving', 'clip'];
-      const isVideoRequest = videoKeywords.some(keyword => cmd.includes(keyword));
+      // 動画関連キーワードをチェック（文脈を考慮）
+      const videoKeywords = ['動画', 'ビデオ', 'ムービー', '映像', '動く',
+                            'video', 'movie', 'motion', 'moving', 'clip'];
+
+      // アニメーションは文脈で判定
+      const isAnimationForVideo = cmd.includes('アニメーション') &&
+        (cmd.includes('作って') || cmd.includes('生成') || cmd.includes('を') ||
+         cmd.includes('create') || cmd.includes('make') || cmd.includes('generate'));
+
+      const isVideoRequest = videoKeywords.some(keyword => cmd.includes(keyword)) ||
+        (cmd.includes('animate') && !cmd.includes('を')) || // "animate a cat"は動画、"猫をanimate"は操作
+        isAnimationForVideo;
       
       if (isVideoRequest) {
         return {
@@ -1140,70 +1411,315 @@
     /**
      * コマンドから対象オブジェクトを特定
      */
-    findObjectByKeyword(command) {
-      // オブジェクトを識別するキーワード
-      const objectKeywords = {
-        '猫': ['cat', 'ネコ', 'ねこ'],
-        '犬': ['dog', 'イヌ', 'いぬ'],
-        'ドラゴン': ['dragon', '龍', 'りゅう'],
-        'ユニコーン': ['unicorn'],
-        'ペガサス': ['pegasus'],
-        '鳥': ['bird', 'とり', 'トリ'],
-        '花': ['flower', 'はな', 'ハナ'],
-        '城': ['castle', 'しろ', 'シロ'],
-        '山': ['mountain', 'やま', 'ヤマ'],
-        '木': ['tree', 'き', 'キ']
-      };
+    /**
+     * オブジェクト識別用キーワード辞書を取得
+     */
+    getObjectKeywords() {
+      return createObjectKeywords();
+    }
 
-      // シーン内のオブジェクトを検索
-      for (const child of this.scene.children) {
-        if (!child.name || !child.name.startsWith('generated_')) continue;
-        
-        // オブジェクト名からタイプを推測（例: generated_image_1 → image）
-        child.name.split('_');
-        
-        // コマンド内のキーワードと照合
-        for (const [keyword, aliases] of Object.entries(objectKeywords)) {
-          // メインキーワードをチェック
-          if (command.includes(keyword)) {
-            console.log(`🎯 Found object by keyword "${keyword}": ${child.name}`);
-            return child;
-          }
-          
-          // エイリアスもチェック
-          for (const alias of aliases) {
-            if (command.toLowerCase().includes(alias.toLowerCase())) {
-              console.log(`🎯 Found object by alias "${alias}": ${child.name}`);
-              return child;
-            }
-          }
+    normalizeTargetPhrase(phrase) {
+      if (!phrase) {
+        return '';
+      }
+
+      let result = `${phrase}`.trim();
+
+      result = result.replace(/[。、，,.!?！？]/g, ' ').trim();
+
+      const referentialPattern = /^(さっき|先ほど|直前|最近|この前|その|あの|この|前回|前の|最新|最後|last|latest)\s*(の)?/i;
+      while (referentialPattern.test(result)) {
+        result = result.replace(referentialPattern, '').trim();
+      }
+
+      const politePattern = /(してください|して下さい|してね|してよ|してくれ|してくれませんか|してくださいね|してくださいよ|お願いします?|お願い|頼む)$/i;
+      result = result.replace(politePattern, '').trim();
+
+      const trailingPatterns = [
+        /(を)?(左右反転|反転|削除|消して|消す|変更|変えて|塗り替えて|塗って|回転|回して|移動|動かして|拡大|縮小|大きく|小さく|並べ|寄せて|整列|選択|選んで|指定|生成|作って|描いて|アップロード|アップして|読み込んで|読み込んだ|開いて|閉じて|置いて|配置して|貼り付けて|flip|delete|remove|change|make|turn|rotate|move|scale|resize|generate|create).*$/i,
+        /(を|に|へ|で|から|まで|と|や|って)$/i
+      ];
+
+      for (const pattern of trailingPatterns) {
+        result = result.replace(pattern, '').trim();
+      }
+
+      result = result.replace(/(を|に|へ|で|から|まで|と|や|って)$/i, '').trim();
+
+      if (!result) {
+        const englishLeadingPattern = /^(flip|delete|remove|change|make|turn|rotate|move|scale|resize|generate|create)\s+/i;
+        if (englishLeadingPattern.test(phrase.trim())) {
+          result = phrase.trim().replace(englishLeadingPattern, '').trim();
         }
-        
-        // プロンプトメタデータがある場合は、それも確認
-        if (child.userData && child.userData.prompt) {
-          const prompt = child.userData.prompt.toLowerCase();
-          for (const [keyword, aliases] of Object.entries(objectKeywords)) {
-            if (prompt.includes(keyword.toLowerCase())) {
-              console.log(`🎯 Found object by prompt "${keyword}": ${child.name}`);
-              return child;
-            }
+      }
+
+      result = result.replace(/(を|に|へ|で|から|まで|と|や|って)$/i, '').trim();
+
+      return result;
+    }
+
+    isReferentialCommand(command) {
+      if (!command) {
+        return false;
+      }
+      return /(さっき|先ほど|直前|最近|前回|前の|最後|最新|last|previous|before)/i.test(command);
+    }
+
+    getObjectSourceType(object) {
+      if (!object || !object.userData) {
+        return null;
+      }
+      return object.userData.source || object.userData.type || null;
+    }
+
+    getRecentObjects(command) {
+      const objects = Array.from(this.spawnedObjects.values());
+      if (objects.length === 0) {
+        return [];
+      }
+
+      const importContext = /(インポート|取り込|アップロード|読み込)/.test(command);
+      const generatedContext = /(生成|作っ|描い|create|generate)/.test(command);
+
+      let candidates = objects;
+      if (importContext) {
+        candidates = candidates.filter(obj => this.getObjectSourceType(obj) === 'imported_file');
+      } else if (generatedContext) {
+        candidates = candidates.filter(obj => {
+          const source = this.getObjectSourceType(obj);
+          return source === 'generated_image' || source === 'generated_video';
+        });
+      }
+
+      if (candidates.length === 0) {
+        candidates = objects;
+      }
+
+      return candidates.sort((a, b) => {
+        const aTime = a.userData?.lastModified || a.userData?.createdAt || 0;
+        const bTime = b.userData?.lastModified || b.userData?.createdAt || 0;
+        return bTime - aTime;
+      });
+    }
+
+    findRecentObjectByContext(command, normalizedTarget, objectKeywords) {
+      const candidates = this.getRecentObjects(command);
+      if (candidates.length === 0) {
+        return null;
+      }
+
+      if (normalizedTarget) {
+        for (const candidate of candidates) {
+          if (this.matchesObjectName(candidate, normalizedTarget, objectKeywords)) {
+            return candidate;
           }
         }
       }
-      
-      // 最後に作成されたオブジェクトを返すオプション
-      if (command.includes('最後') || command.includes('最新') || command.includes('last')) {
-        const generatedObjects = this.scene.children.filter(
-          child => child.name && child.name.startsWith('generated_')
-        );
-        if (generatedObjects.length > 0) {
-          const lastObject = generatedObjects[generatedObjects.length - 1];
-          console.log(`🎯 Found last created object: ${lastObject.name}`);
-          return lastObject;
+
+      return candidates[0];
+    }
+
+    extractTextTokens(text) {
+      if (!text) {
+        return [];
+      }
+
+      return text
+        .replace(/[。、，,.!?！？]/g, ' ')
+        .split(/[\s_/\-]+/)
+        .map(token => token.trim())
+        .filter(token => token.length > 1);
+    }
+
+    buildObjectKeywordHints({ prompt = '', fileName = '', baseType = null } = {}) {
+      const keywords = new Set();
+
+      if (prompt) {
+        keywords.add(prompt.toLowerCase());
+        for (const token of this.extractTextTokens(prompt)) {
+          keywords.add(token.toLowerCase());
         }
       }
-      
+
+      if (fileName) {
+        const baseName = fileName.replace(/\.[^/.]+$/, '');
+        keywords.add(baseName.toLowerCase());
+        for (const token of this.extractTextTokens(baseName)) {
+          keywords.add(token.toLowerCase());
+        }
+      }
+
+      if (baseType === 'image') {
+        ['image', 'photo', 'picture', '画像', '写真', 'イメージ'].forEach(keyword => keywords.add(keyword));
+      } else if (baseType === 'video') {
+        ['video', 'movie', 'clip', '動画', 'ビデオ', 'ムービー', '映像'].forEach(keyword => keywords.add(keyword));
+      }
+
+      return Array.from(keywords).filter(Boolean);
+    }
+
+    findObjectByKeyword(command) {
+      // 共通翻訳辞書から拡張されたキーワード辞書を使用
+      const objectKeywords = this.getObjectKeywords();
+      const normalizedCommand = this.normalizeTargetPhrase(command);
+
+      // インポート順序での指定を解析（例: "2番目にインポートした猫", "最初にインポートしたユニコーン"）
+      const importOrderMatch = command.match(/((\d+)番目|最初|初回|1番目)に(インポート|取り込)した(.+)/);
+      if (importOrderMatch) {
+        let orderNumber = 1; // デフォルトは1番目
+        if (importOrderMatch[2]) {
+          // 数字が指定されている場合
+          orderNumber = parseInt(importOrderMatch[2]);
+        } else if (importOrderMatch[1] === '最初' || importOrderMatch[1] === '初回') {
+          orderNumber = 1;
+        } else if (importOrderMatch[1] === '1番目') {
+          orderNumber = 1;
+        }
+        const objectName = this.normalizeTargetPhrase(importOrderMatch[4]) || importOrderMatch[4].trim();
+        return this.findImportedObjectByOrder(objectName, orderNumber, objectKeywords);
+      }
+
+      // インポート vs 生成の区別（例: "インポートした猫", "生成した犬", "作った画像"）
+      const sourceMatch = command.match(/(インポート|取り込|アップロード|読み込|生成|作った)した?(.+)/);
+      if (sourceMatch) {
+        const sourceType = sourceMatch[1];
+        const objectName = this.normalizeTargetPhrase(sourceMatch[2]) || sourceMatch[2].trim();
+        const isImported = sourceType === 'インポート' || sourceType === '取り込';
+        return this.findObjectBySourceAndName(objectName, isImported, objectKeywords);
+      }
+
+      if (this.isReferentialCommand(command)) {
+        const recentObject = this.findRecentObjectByContext(command, normalizedCommand, objectKeywords);
+        if (recentObject) {
+          return recentObject;
+        }
+      }
+
+      // 従来のキーワード検索（すべてのオブジェクト対象）
+      return this.findObjectByName(normalizedCommand || command, objectKeywords);
+    }
+
+    /**
+     * インポート順序でオブジェクトを検索
+     */
+    findImportedObjectByOrder(objectName, orderNumber, objectKeywords) {
+      // インポートされたオブジェクトのみを取得してimportOrder順でソート
+      const importedObjects = [];
+      for (const child of this.spawnedObjects.values()) {
+        if (!child.userData || this.getObjectSourceType(child) !== 'imported_file') continue;
+        importedObjects.push(child);
+      }
+
+      // importOrderでソート
+      importedObjects.sort((a, b) => (a.userData.importOrder || 0) - (b.userData.importOrder || 0));
+
+      // オブジェクト名でフィルタリング
+      const matchingObjects = objectName
+        ? importedObjects.filter(child => this.matchesObjectName(child, objectName, objectKeywords))
+        : importedObjects;
+
+      if (matchingObjects.length >= orderNumber) {
+        const foundObject = matchingObjects[orderNumber - 1]; // 1-based index
+        console.log(`🎯 Found ${orderNumber}番目 imported object "${objectName}": ${foundObject.name}`);
+        return foundObject;
+      }
+
+      console.warn(`⚠️ ${orderNumber}番目にインポートした"${objectName}"が見つかりません`);
       return null;
+    }
+
+    /**
+     * ソース（インポート/生成）と名前でオブジェクトを検索
+     */
+    findObjectBySourceAndName(objectName, isImported, objectKeywords) {
+      for (const child of this.spawnedObjects.values()) {
+        if (!child.userData) continue;
+
+        const childSource = this.getObjectSourceType(child);
+        const isChildImported = childSource === 'imported_file';
+        const isChildGenerated = childSource === 'generated_image' || childSource === 'generated_video';
+
+        if (isImported && !isChildImported) continue;
+        if (!isImported && !isChildGenerated) continue;
+
+        if (this.matchesObjectName(child, objectName, objectKeywords)) {
+          const sourceLabel = isImported ? 'インポートした' : '生成した';
+          console.log(`🎯 Found ${sourceLabel} object "${objectName}": ${child.name}`);
+          return child;
+        }
+      }
+
+      const sourceLabel = isImported ? 'インポートした' : '生成した';
+      console.warn(`⚠️ ${sourceLabel}"${objectName}"が見つかりません`);
+      return null;
+    }
+
+    /**
+     * 名前でオブジェクトを検索（従来の方式）
+     */
+    findObjectByName(command, objectKeywords) {
+      const target = command && command.trim();
+      if (!target) {
+        return null;
+      }
+
+      for (const child of this.spawnedObjects.values()) {
+        if (!child) continue;
+        if (this.matchesObjectName(child, target, objectKeywords)) {
+          return child;
+        }
+      }
+      return null;
+    }
+
+    /**
+     * オブジェクトが指定された名前にマッチするかチェック
+     */
+    matchesObjectName(child, objectName, objectKeywords) {
+      if (!child || !objectName) {
+        return false;
+      }
+
+      const targetLower = objectName.toLowerCase();
+
+      if (child.userData && Array.isArray(child.userData.keywords)) {
+        for (const keyword of child.userData.keywords) {
+          if (!keyword) continue;
+          const keywordLower = keyword.toLowerCase();
+          if (targetLower.includes(keywordLower) || keywordLower.includes(targetLower)) {
+            return true;
+          }
+        }
+      }
+
+      for (const [keyword, aliases] of Object.entries(objectKeywords)) {
+        const keywordLower = keyword.toLowerCase();
+        if (targetLower.includes(keywordLower)) {
+          return true;
+        }
+
+        for (const alias of aliases) {
+          const aliasLower = alias.toLowerCase();
+          if (targetLower.includes(aliasLower)) {
+            return true;
+          }
+        }
+      }
+
+      if (child.userData && child.userData.prompt) {
+        const promptLower = child.userData.prompt.toLowerCase();
+        if (promptLower.includes(targetLower) || targetLower.includes(promptLower)) {
+          return true;
+        }
+      }
+
+      if (child.userData && child.userData.fileName) {
+        if (matchKeywordWithFilename(objectName, child.userData.fileName, objectKeywords)) {
+          return true;
+        }
+      }
+
+      return false;
     }
 
     /**
@@ -1246,10 +1762,19 @@
       // 色変更の解析
       let color = null;
       const colorMap = {
-        '赤': 0xff0000, '青': 0x0000ff, '緑': 0x00ff00, '黄': 0xffff00,
-        '紫': 0xff00ff, '橙': 0xff8800, 'オレンジ': 0xff8800,
-        '白': 0xffffff, '黒': 0x000000, '灰': 0x808080, 'グレー': 0x808080,
-        'ピンク': 0xffc0cb, '茶': 0x8b4513, '銀': 0xc0c0c0, '金': 0xffd700
+        '赤': 0xff0000, '赤色': 0xff0000,
+        '青': 0x0000ff, '青色': 0x0000ff,
+        '緑': 0x00ff00, '緑色': 0x00ff00,
+        '黄': 0xffff00, '黄色': 0xffff00, '黄色い': 0xffff00,
+        '紫': 0xff00ff, '紫色': 0xff00ff,
+        '橙': 0xff8800, '橙色': 0xff8800, 'オレンジ': 0xff8800, 'オレンジ色': 0xff8800,
+        '白': 0xffffff, '白色': 0xffffff,
+        '黒': 0x000000, '黒色': 0x000000,
+        '灰': 0x808080, '灰色': 0x808080, 'グレー': 0x808080, 'グレー色': 0x808080,
+        'ピンク': 0xffc0cb, 'ピンク色': 0xffc0cb,
+        '茶': 0x8b4513, '茶色': 0x8b4513,
+        '銀': 0xc0c0c0, '銀色': 0xc0c0c0,
+        '金': 0xffd700, '金色': 0xffd700
       };
       
       for (const [colorName, colorValue] of Object.entries(colorMap)) {
@@ -1258,6 +1783,9 @@
           break;
         }
       }
+
+      // エフェクト解析の追加
+      const effects = this.parseEffects(cmd);
       
       // サイズ変更の解析
       let scale = null;
@@ -1277,15 +1805,888 @@
       if (cmd.includes('移動') || cmd.includes('動か') || cmd.includes('へ')) {
         movement = this.parsePositionFromPrompt(cmd);
       }
-      
+
+      // 回転コマンドの解析
+      let rotation = null;
+      if (cmd.includes('回転') || cmd.includes('回す') || cmd.includes('回して') || cmd.includes('rotate')) {
+        // 角度指定があるかチェック
+        const degreeMatch = cmd.match(/(\d+)\s*度/);
+        if (degreeMatch) {
+          rotation = parseFloat(degreeMatch[1]) * Math.PI / 180; // 度をラジアンに変換
+        } else {
+          rotation = Math.PI / 4; // デフォルトは45度
+        }
+      }
+
+      // 透明度コマンドの解析
+      let opacity = null;
+      if (cmd.includes('透明') || cmd.includes('transparent')) {
+        if (cmd.includes('半透明')) {
+          opacity = 0.5;
+        } else {
+          opacity = 0.3; // デフォルトの透明度
+        }
+      } else if (cmd.includes('不透明') || cmd.includes('opaque')) {
+        opacity = 1.0;
+      }
+
+      // 反転コマンドの解析
+      let flip = null;
+      if (cmd.includes('左右反転') || cmd.includes('反転') || cmd.includes('ひっくり返') || cmd.includes('flip')) {
+        flip = true;
+      }
+
       return {
         type: 'object_modification',
         command: command,
         color: color,
         scale: scale,
         movement: movement,
+        rotation: rotation,
+        opacity: opacity,
+        flip: flip,
+        effects: effects,
         requiresSelection: true
       };
+    }
+
+    /**
+     * エフェクト解析 - Phase 2 総合エフェクトシステム
+     */
+    parseEffects(cmd) {
+      const effects = [];
+
+      // エフェクトキーワード辞書
+      const effectKeywords = {
+        // 透明度系
+        '透明': { type: 'opacity', value: 0.0, name: 'transparent' },
+        '半透明': { type: 'opacity', value: 0.5, name: 'semi_transparent' },
+        '不透明': { type: 'opacity', value: 1.0, name: 'opaque' },
+        '濃く': { type: 'opacity', value: 1.0, name: 'solid' },
+
+        // 発光系
+        '光らせ': { type: 'glow', color: 0xffffff, intensity: 0.5, name: 'glow_white' },
+        '光る': { type: 'glow', color: 0xffffff, intensity: 0.5, name: 'glow_white' },
+        'ネオン': { type: 'glow', color: 0x00ffff, intensity: 0.8, name: 'neon_cyan' },
+        'ホログラム': { type: 'glow', color: 0x00ffff, intensity: 0.6, name: 'hologram' },
+
+        // 材質系
+        'メタリック': { type: 'material', metalness: 0.8, roughness: 0.2, name: 'metallic' },
+        '金属質': { type: 'material', metalness: 0.9, roughness: 0.1, name: 'metallic_shiny' },
+        'ガラス': { type: 'material', metalness: 0.0, roughness: 0.0, name: 'glass' },
+        'マット': { type: 'material', metalness: 0.0, roughness: 1.0, name: 'matte' },
+
+        // アニメーション系
+        'ふわふわ': { type: 'animation', animation: 'float', speed: 0.002, amplitude: 0.5, name: 'float_gentle' },
+        '浮く': { type: 'animation', animation: 'float', speed: 0.003, amplitude: 0.8, name: 'float_strong' },
+        '漂う': { type: 'animation', animation: 'float', speed: 0.001, amplitude: 0.3, name: 'float_slow' },
+
+        'ドクドク': { type: 'animation', animation: 'pulse', speed: 0.003, amplitude: 0.15, name: 'pulse_heartbeat' },
+        '鼓動': { type: 'animation', animation: 'pulse', speed: 0.0025, amplitude: 0.1, name: 'pulse_heart' },
+        '脈動': { type: 'animation', animation: 'pulse', speed: 0.004, amplitude: 0.2, name: 'pulse_throb' },
+
+        'くるくる': { type: 'animation', animation: 'spin', speed: 0.02, axis: 'y', name: 'spin_y' },
+        'スピン': { type: 'animation', animation: 'spin', speed: 0.03, axis: 'y', name: 'spin_fast' },
+        '回る': { type: 'animation', animation: 'spin', speed: 0.015, axis: 'y', name: 'spin_slow' },
+
+        'きらめ': { type: 'animation', animation: 'sparkle', intensity: 0.8, name: 'sparkle' },
+        '輝': { type: 'animation', animation: 'sparkle', intensity: 1.0, name: 'shine' },
+        'キラキラ': { type: 'animation', animation: 'sparkle', intensity: 0.9, name: 'twinkle' },
+
+        // 宇宙的エフェクト
+        '宇宙': { type: 'cosmic', colors: [0x4444ff, 0xff4488, 0x44ffaa], intensity: 0.9, name: 'cosmic' },
+        'オーロラ': { type: 'aurora', colors: [0x00ffaa, 0x4488ff, 0xff88aa], intensity: 0.8, name: 'aurora' },
+        '星雲': { type: 'nebula', colors: [0x8844ff, 0xff8844, 0x44aaff], intensity: 1.0, name: 'nebula' },
+        'エネルギー': { type: 'energy', colors: [0xffaa00, 0x00aaff, 0xaa00ff], intensity: 0.7, name: 'energy' },
+        '神秘的': { type: 'mystic', colors: [0xaa44ff, 0xff44aa, 0x44ffff], intensity: 0.6, name: 'mystic' },
+
+        // アート系エフェクト
+        '水彩': { type: 'watercolor_art', colors: [0xff6b9d, 0x4ecdc4, 0xffe66d, 0x95e1d3], opacity: 0.6, name: 'watercolor' },
+        '水彩画': { type: 'watercolor_art', colors: [0xff6b9d, 0x4ecdc4, 0xffe66d, 0x95e1d3], opacity: 0.6, name: 'watercolor' },
+        'パステル': { type: 'pastel_art', colors: [0xffb3ba, 0xffdfba, 0xffffba, 0xbaffc9, 0xbae1ff], opacity: 0.7, name: 'pastel' },
+        '虹色': { type: 'rainbow_glow', colors: [0xff0000, 0xff8800, 0xffff00, 0x00ff00, 0x0088ff, 0x0000ff, 0x8800ff], intensity: 0.5, name: 'rainbow_glow' }
+      };
+
+      // プリセット効果
+      const presetEffects = {
+        '魔法っぽく': [
+          { type: 'glow', color: 0xcc44ff, intensity: 0.7, name: 'magic_glow' },
+          { type: 'animation', animation: 'pulse', speed: 0.003, amplitude: 0.1, name: 'magic_pulse' },
+          { type: 'animation', animation: 'sparkle', intensity: 0.6, name: 'magic_sparkle' }
+        ],
+        '幽霊': [
+          { type: 'opacity', value: 0.6, name: 'ghost_transparent' },
+          { type: 'animation', animation: 'float', speed: 0.002, amplitude: 0.4, name: 'ghost_float' },
+          { type: 'glow', color: 0xffffff, intensity: 0.3, name: 'ghost_aura' }
+        ],
+        'サイバー': [
+          { type: 'glow', color: 0x00ffaa, intensity: 0.8, name: 'cyber_glow' },
+          { type: 'material', metalness: 0.8, roughness: 0.1, name: 'cyber_metal' },
+          { type: 'animation', animation: 'glitch', intensity: 0.1, name: 'cyber_glitch' }
+        ],
+        '夢みたい': [
+          { type: 'opacity', value: 0.7, name: 'dream_soft' },
+          { type: 'animation', animation: 'float', speed: 0.0015, amplitude: 0.3, name: 'dream_float' },
+          { type: 'animation', animation: 'rainbow', speed: 0.001, name: 'dream_rainbow' }
+        ]
+      };
+
+      // プリセット効果をチェック
+      for (const [presetName, presetEffectList] of Object.entries(presetEffects)) {
+        if (cmd.includes(presetName)) {
+          effects.push(...presetEffectList);
+          console.log(`✨ Preset effect applied: ${presetName}`);
+          continue;
+        }
+      }
+
+      const chromaRequested = this.requiresChromaKey(cmd);
+
+      // 個別効果をチェック
+      for (const [keyword, effect] of Object.entries(effectKeywords)) {
+        if (chromaRequested && keyword === '透明') {
+          continue;
+        }
+        if (cmd.includes(keyword)) {
+          effects.push(effect);
+          console.log(`🎭 Effect detected: ${keyword} -> ${effect.name}`);
+        }
+      }
+
+      if (chromaRequested) {
+        const chromaConfig = this.detectChromaKeyConfig(cmd);
+        effects.push({
+          type: 'chroma_key',
+          color: chromaConfig.color,
+          threshold: chromaConfig.threshold,
+          smoothing: chromaConfig.smoothing,
+          name: 'chroma_key'
+        });
+        console.log(`🪄 Chroma key requested (color: #${chromaConfig.color.toString(16)}, threshold: ${chromaConfig.threshold})`);
+      }
+
+      return effects;
+    }
+
+    requiresChromaKey(cmd) {
+      if (!cmd) return false;
+      const chromaKeywords = ['クロマキー', 'グリーンバック', '背景を透過', '背景透過', '背景を透明', '背景透明', '背景を消', '背景消', '背景抜', 'remove background', 'transparent background'];
+      if (chromaKeywords.some(keyword => cmd.includes(keyword))) {
+        return true;
+      }
+      if (cmd.includes('背景') && (cmd.includes('透過') || cmd.includes('透明') || cmd.includes('消') || cmd.includes('なくして'))) {
+        return true;
+      }
+      return false;
+    }
+
+    detectChromaKeyConfig(cmd) {
+      const color = this.detectChromaKeyColor(cmd);
+      let threshold;
+      switch (color) {
+        case 0xffffff:
+          threshold = 0.22;
+          break;
+        case 0x000000:
+          threshold = 0.24;
+          break;
+        case 0x00ff00:
+          threshold = 0.32;
+          break;
+        case 0x0000ff:
+          threshold = 0.3;
+          break;
+        default:
+          threshold = 0.28;
+      }
+      return {
+        color,
+        threshold,
+        smoothing: 0.1
+      };
+    }
+
+    detectChromaKeyColor(cmd) {
+      const hexMatch = cmd.match(/#([0-9a-fA-F]{6})/);
+      if (hexMatch) {
+        return parseInt(hexMatch[1], 16);
+      }
+
+      const colorKeywords = [
+        { tokens: ['白', 'ホワイト', 'しろ'], value: 0xffffff },
+        { tokens: ['黒', 'ブラック', 'くろ'], value: 0x000000 },
+        { tokens: ['緑', 'グリーン', 'みどり'], value: 0x00ff00 },
+        { tokens: ['青', 'ブルー', 'あお'], value: 0x0000ff },
+        { tokens: ['赤', 'レッド', 'あか'], value: 0xff0000 },
+        { tokens: ['黄', 'イエロー', 'きいろ'], value: 0xffff00 },
+        { tokens: ['ピンク'], value: 0xffc0cb },
+        { tokens: ['オレンジ'], value: 0xff8800 }
+      ];
+
+      for (const entry of colorKeywords) {
+        if (entry.tokens.some(token => cmd.includes(token))) {
+          return entry.value;
+        }
+      }
+
+      return 0xffffff; // デフォルトはホワイト背景
+    }
+
+    /**
+     * エフェクト適用システム - Phase 2
+     */
+    applyEffects(targetObject, effects) {
+      let applied = false;
+
+      for (const effect of effects) {
+        console.log(`✨ Applying effect: ${effect.name} (${effect.type})`);
+
+        switch (effect.type) {
+          case 'opacity':
+            applied = this.applyOpacityEffect(targetObject, effect) || applied;
+            break;
+          case 'glow':
+            applied = this.applyGlowEffect(targetObject, effect) || applied;
+            break;
+          case 'material':
+            applied = this.applyMaterialEffect(targetObject, effect) || applied;
+            break;
+          case 'animation':
+            applied = this.applyAnimationEffect(targetObject, effect) || applied;
+            break;
+          case 'cosmic':
+          case 'aurora':
+          case 'nebula':
+          case 'energy':
+          case 'mystic':
+          case 'rainbow_glow':
+            applied = this.applyCosmicEffect(targetObject, effect) || applied;
+            break;
+          case 'watercolor_art':
+          case 'pastel_art':
+            applied = this.applyWatercolorEffect(targetObject, effect) || applied;
+            break;
+          case 'chroma_key':
+            applied = this.applyChromaKeyEffect(targetObject, effect) || applied;
+            break;
+          default:
+            console.warn(`🚫 Unknown effect type: ${effect.type}`);
+        }
+      }
+
+      return applied;
+    }
+
+    /**
+     * 透明度エフェクト適用
+     */
+    applyOpacityEffect(targetObject, effect) {
+      if (!targetObject.material) return false;
+
+      targetObject.material.transparent = true;
+      targetObject.material.opacity = effect.value;
+      targetObject.material.needsUpdate = true;
+
+      console.log(`👻 Opacity set to: ${effect.value} (${effect.name})`);
+      return true;
+    }
+
+    /**
+     * 発光エフェクト適用
+     */
+    applyGlowEffect(targetObject, effect) {
+      if (!targetObject.material) return false;
+
+      if (this.ensureEmissiveSupport(targetObject)) {
+        targetObject.material.emissive = new THREE__namespace.Color(effect.color);
+        targetObject.material.emissiveIntensity = effect.intensity;
+        targetObject.material.needsUpdate = true;
+        console.log(`💡 Glow applied: color=0x${effect.color.toString(16)}, intensity=${effect.intensity}`);
+        return true;
+      }
+
+      // Fallback: 調色による簡易発光表現
+      const fallbackColor = new THREE__namespace.Color(effect.color);
+      if (!targetObject.userData.originalColor) {
+        targetObject.userData.originalColor = targetObject.material.color ? targetObject.material.color.clone() : null;
+      }
+      if (targetObject.material.color) {
+        targetObject.material.color.lerp(fallbackColor, 0.4);
+        targetObject.material.needsUpdate = true;
+        console.log('💡 Glow fallback applied via color tint');
+        return true;
+      }
+
+      console.warn('🚫 Glow effect could not be applied');
+      return false;
+    }
+
+    ensureEmissiveSupport(targetObject) {
+      const material = targetObject.material;
+      if (!material) return false;
+      return 'emissive' in material && material.emissive !== undefined;
+    }
+
+    /**
+     * 材質エフェクト適用
+     */
+    applyMaterialEffect(targetObject, effect) {
+      if (!targetObject.material) return false;
+
+      // StandardMaterial の場合のみ適用
+      if (targetObject.material.type === 'MeshStandardMaterial') {
+        if (effect.metalness !== undefined) {
+          targetObject.material.metalness = effect.metalness;
+        }
+        if (effect.roughness !== undefined) {
+          targetObject.material.roughness = effect.roughness;
+        }
+        targetObject.material.needsUpdate = true;
+
+        console.log(`🔩 Material updated: metalness=${effect.metalness}, roughness=${effect.roughness}`);
+        return true;
+      } else {
+        console.warn(`🚫 Material effect requires StandardMaterial, got: ${targetObject.material.type}`);
+        return false;
+      }
+    }
+
+    /**
+     * アニメーションエフェクト適用
+     */
+    applyAnimationEffect(targetObject, effect) {
+      // アニメーション管理オブジェクトを初期化
+      if (!this.animations) {
+        this.animations = new Map();
+        this.startAnimationLoop();
+      }
+
+      const animationId = `${targetObject.uuid}_${effect.animation}`;
+
+      // 既存のアニメーションがあれば停止
+      if (this.animations.has(animationId)) {
+        this.animations.delete(animationId);
+      }
+
+      // 新しいアニメーションを追加
+      const animationData = {
+        object: targetObject,
+        type: effect.animation,
+        speed: effect.speed,
+        amplitude: effect.amplitude || 1.0,
+        axis: effect.axis || 'y',
+        intensity: effect.intensity || 1.0,
+        startTime: Date.now(),
+        originalPosition: { ...targetObject.position },
+        originalScale: { ...targetObject.scale },
+        originalRotation: { ...targetObject.rotation }
+      };
+
+      this.animations.set(animationId, animationData);
+      console.log(`🎬 Animation started: ${effect.animation} for ${targetObject.name}`);
+      return true;
+    }
+
+    /**
+     * 宇宙的エフェクト適用（オーロラ、星雲、エネルギー）
+     */
+    applyCosmicEffect(targetObject, effect) {
+      if (!targetObject.material) return false;
+
+      const useColorFallback = !this.ensureEmissiveSupport(targetObject);
+
+      // アニメーション管理オブジェクトを初期化
+      if (!this.animations) {
+        this.animations = new Map();
+        this.startAnimationLoop();
+      }
+
+      // 複数色の発光と色変化アニメーションを組み合わせ
+      const cosmicAnimationId = `${targetObject.uuid}_${effect.type}`;
+
+      // 既存のコスミックエフェクトがあれば削除
+      if (this.animations.has(cosmicAnimationId)) {
+        this.animations.delete(cosmicAnimationId);
+      }
+
+      if (useColorFallback) {
+        if (targetObject.material.color) {
+          if (!targetObject.userData.originalColor) {
+            targetObject.userData.originalColor = targetObject.material.color.clone();
+          }
+          targetObject.material.color.set(effect.colors[0]);
+          targetObject.material.needsUpdate = true;
+        } else {
+          console.warn('🚫 Cosmic fallback could not adjust color');
+        }
+      } else {
+        targetObject.material.emissive = new THREE__namespace.Color(effect.colors[0]);
+        targetObject.material.emissiveIntensity = effect.intensity;
+        targetObject.material.needsUpdate = true;
+      }
+
+      // コスミックアニメーションデータを作成
+      const cosmicData = {
+        object: targetObject,
+        type: 'cosmic',
+        cosmicType: effect.type,
+        colors: effect.colors,
+        intensity: effect.intensity,
+        speed: this.getCosmicSpeed(effect.type),
+        startTime: Date.now(),
+        colorIndex: 0,
+        originalEmissive: !useColorFallback && targetObject.material.emissive ? targetObject.material.emissive.clone() : null,
+        originalEmissiveIntensity: !useColorFallback ? (targetObject.material.emissiveIntensity || 0) : 0,
+        useColorFallback
+      };
+
+      this.animations.set(cosmicAnimationId, cosmicData);
+      console.log(`🌌 Cosmic effect started: ${effect.type} with ${effect.colors.length} colors`);
+      return true;
+    }
+
+    applyChromaKeyEffect(targetObject, effect) {
+      if (!targetObject.material) return false;
+      const material = targetObject.material;
+      const texture = material.map;
+
+      if (!texture) {
+        console.warn('🚫 Chroma key requires texture map');
+        return false;
+      }
+
+      if (material.userData && material.userData.isChromaKeyMaterial && material.uniforms) {
+        material.uniforms.keyColor.value.setHex(effect.color);
+        material.uniforms.threshold.value = effect.threshold;
+        material.uniforms.smoothing.value = effect.smoothing;
+        material.needsUpdate = true;
+        console.log('🎯 Updated existing chroma key material');
+        return true;
+      }
+
+      const shaderMaterial = new THREE__namespace.ShaderMaterial({
+        uniforms: {
+          map: { value: texture },
+          keyColor: { value: new THREE__namespace.Color(effect.color) },
+          threshold: { value: effect.threshold },
+          smoothing: { value: effect.smoothing }
+        },
+        vertexShader: `varying vec2 vUv;\nvoid main() {\n  vUv = uv;\n  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);\n}`,
+        fragmentShader: `uniform sampler2D map;\nuniform vec3 keyColor;\nuniform float threshold;\nuniform float smoothing;\nvarying vec2 vUv;\nvoid main() {\n  vec4 color = texture2D(map, vUv);\n  float dist = distance(color.rgb, keyColor);\n  float alpha = smoothstep(threshold, threshold + smoothing, dist) * color.a;\n  if (alpha <= 0.0) discard;\n  gl_FragColor = vec4(color.rgb, alpha);\n}`,
+        transparent: true,
+        side: THREE__namespace.DoubleSide,
+        depthTest: material.depthTest,
+        depthWrite: material.depthWrite,
+        toneMapped: material.toneMapped === true
+      });
+
+      shaderMaterial.userData.isChromaKeyMaterial = true;
+      targetObject.material = shaderMaterial;
+
+      if (typeof material.dispose === 'function') {
+        material.dispose();
+      }
+
+      console.log('🪄 Applied chroma key shader material');
+      return true;
+    }
+
+    /**
+     * 宇宙的エフェクトのスピード設定
+     */
+    getCosmicSpeed(cosmicType) {
+      switch (cosmicType) {
+        case 'cosmic': return 0.0005;      // ゆっくりと神秘的に
+        case 'aurora': return 0.0008;      // オーロラのような流れ
+        case 'nebula': return 0.0003;      // 星雲のようにゆったり
+        case 'energy': return 0.0015;      // エネルギッシュに
+        case 'mystic': return 0.0006;      // 神秘的にゆらゆら
+        case 'rainbow_glow': return 0.001; // 虹色は適度なスピード
+        default: return 0.0008;
+      }
+    }
+
+    /**
+     * 水彩画・パステル系エフェクト適用
+     */
+    applyWatercolorEffect(targetObject, effect) {
+      if (!targetObject.material) return false;
+
+      // 透明度を設定
+      targetObject.material.transparent = true;
+      targetObject.material.opacity = effect.opacity;
+
+      // アニメーション管理オブジェクトを初期化
+      if (!this.animations) {
+        this.animations = new Map();
+        this.startAnimationLoop();
+      }
+
+      // 水彩画アニメーションID
+      const watercolorAnimationId = `${targetObject.uuid}_${effect.type}`;
+
+      // 既存の水彩画エフェクトがあれば削除
+      if (this.animations.has(watercolorAnimationId)) {
+        this.animations.delete(watercolorAnimationId);
+      }
+
+      // 初期色を設定（発光ではなく拡散色）
+      targetObject.material.color = new THREE__namespace.Color(effect.colors[0]);
+      targetObject.material.needsUpdate = true;
+
+      // 水彩画アニメーションデータを作成
+      const watercolorData = {
+        object: targetObject,
+        type: 'watercolor',
+        artType: effect.type,
+        colors: effect.colors,
+        opacity: effect.opacity,
+        speed: this.getWatercolorSpeed(effect.type),
+        startTime: Date.now(),
+        colorIndex: 0,
+        originalColor: new THREE__namespace.Color(targetObject.material.color),
+        originalOpacity: targetObject.material.opacity
+      };
+
+      this.animations.set(watercolorAnimationId, watercolorData);
+      console.log(`🎨 Watercolor effect started: ${effect.type} with ${effect.colors.length} colors`);
+      return true;
+    }
+
+    /**
+     * 水彩画系エフェクトのスピード設定
+     */
+    getWatercolorSpeed(artType) {
+      switch (artType) {
+        case 'watercolor_art': return 0.0003;  // 水彩画は非常にゆっくり
+        case 'pastel_art': return 0.0002;      // パステルはより穏やか
+        default: return 0.0003;
+      }
+    }
+
+    /**
+     * アニメーションループ開始
+     */
+    startAnimationLoop() {
+      if (this.animationLoopRunning) return;
+
+      this.animationLoopRunning = true;
+
+      const animate = () => {
+        if (this.animations && this.animations.size > 0) {
+          this.updateAnimations();
+        }
+
+        if (this.animationLoopRunning) {
+          requestAnimationFrame(animate);
+        }
+      };
+
+      animate();
+      console.log(`🎭 Animation loop started`);
+    }
+
+    /**
+     * アニメーション更新
+     */
+    updateAnimations() {
+      const currentTime = Date.now();
+
+      for (const [id, animation] of this.animations.entries()) {
+        const elapsed = (currentTime - animation.startTime) * 0.001; // 秒に変換
+
+        switch (animation.type) {
+          case 'float':
+            this.updateFloatAnimation(animation, elapsed);
+            break;
+          case 'pulse':
+            this.updatePulseAnimation(animation, elapsed);
+            break;
+          case 'spin':
+            this.updateSpinAnimation(animation, elapsed);
+            break;
+          case 'sparkle':
+            this.updateSparkleAnimation(animation, elapsed);
+            break;
+          case 'rainbow':
+            this.updateRainbowAnimation(animation, elapsed);
+            break;
+          case 'glitch':
+            this.updateGlitchAnimation(animation, elapsed);
+            break;
+          case 'cosmic':
+            this.updateCosmicAnimation(animation, elapsed);
+            break;
+          case 'watercolor':
+            this.updateWatercolorAnimation(animation, elapsed);
+            break;
+        }
+      }
+    }
+
+    /**
+     * 浮遊アニメーション
+     */
+    updateFloatAnimation(animation, elapsed) {
+      const yOffset = Math.sin(elapsed * animation.speed * 2 * Math.PI) * animation.amplitude;
+      animation.object.position.y = animation.originalPosition.y + yOffset;
+    }
+
+    /**
+     * パルスアニメーション
+     */
+    updatePulseAnimation(animation, elapsed) {
+      const scaleOffset = Math.sin(elapsed * animation.speed * 2 * Math.PI) * animation.amplitude;
+      const newScale = 1 + scaleOffset;
+      animation.object.scale.setScalar(animation.originalScale.x * newScale);
+    }
+
+    /**
+     * 回転アニメーション
+     */
+    updateSpinAnimation(animation, elapsed) {
+      const rotationAmount = elapsed * animation.speed * 2 * Math.PI;
+      if (animation.axis === 'x') {
+        animation.object.rotation.x = animation.originalRotation.x + rotationAmount;
+      } else if (animation.axis === 'y') {
+        animation.object.rotation.y = animation.originalRotation.y + rotationAmount;
+      } else if (animation.axis === 'z') {
+        animation.object.rotation.z = animation.originalRotation.z + rotationAmount;
+      }
+    }
+
+    /**
+     * キラキラアニメーション（発光の明滅）
+     */
+    updateSparkleAnimation(animation, elapsed) {
+      if (animation.object.material) {
+        const intensity = (Math.sin(elapsed * 3 * 2 * Math.PI) * 0.5 + 0.5) * animation.intensity;
+        animation.object.material.emissiveIntensity = intensity;
+        animation.object.material.needsUpdate = true;
+      }
+    }
+
+    /**
+     * 虹色アニメーション
+     */
+    updateRainbowAnimation(animation, elapsed) {
+      if (animation.object.material) {
+        const hue = (elapsed * animation.speed) % 1;
+        const color = new THREE__namespace.Color().setHSL(hue, 1, 0.5);
+        animation.object.material.color = color;
+        animation.object.material.needsUpdate = true;
+      }
+    }
+
+    /**
+     * グリッチアニメーション
+     */
+    updateGlitchAnimation(animation, elapsed) {
+      if (Math.random() < 0.1) { // 10%の確率でグリッチ
+        const offset = (Math.random() - 0.5) * animation.intensity;
+        animation.object.position.x = animation.originalPosition.x + offset;
+        animation.object.position.z = animation.originalPosition.z + offset;
+      } else {
+        animation.object.position.x = animation.originalPosition.x;
+        animation.object.position.z = animation.originalPosition.z;
+      }
+    }
+
+    /**
+     * 宇宙的アニメーション（オーロラ、星雲、エネルギーエフェクト）
+     */
+    updateCosmicAnimation(animation, elapsed) {
+      if (!animation.object.material) return;
+
+      // 色の循環スピードを調整
+      const colorCycleSpeed = elapsed * animation.speed;
+      const numColors = animation.colors.length;
+
+      // 滑らかな色の遷移を実現
+      const colorProgress = (colorCycleSpeed % numColors);
+      const currentColorIndex = Math.floor(colorProgress);
+      const nextColorIndex = (currentColorIndex + 1) % numColors;
+      const lerpFactor = colorProgress - currentColorIndex;
+
+      // 現在の色と次の色をブレンド
+      const currentColor = new THREE__namespace.Color(animation.colors[currentColorIndex]);
+      const nextColor = new THREE__namespace.Color(animation.colors[nextColorIndex]);
+      const blendedColor = currentColor.lerp(nextColor, lerpFactor);
+
+      // 宇宙的エフェクトタイプごとの特別な処理
+      let intensityMultiplier = 1.0;
+      switch (animation.cosmicType) {
+        case 'aurora':
+          // オーロラは波のような強弱変化
+          intensityMultiplier = 0.7 + 0.3 * Math.sin(elapsed * 2.5);
+          break;
+        case 'nebula':
+          // 星雲はゆっくりとした脈動
+          intensityMultiplier = 0.8 + 0.2 * Math.sin(elapsed * 1.2);
+          break;
+        case 'energy':
+          // エネルギーは激しく変動
+          intensityMultiplier = 0.6 + 0.4 * (Math.sin(elapsed * 4) * Math.cos(elapsed * 3));
+          break;
+        case 'cosmic':
+          // 宇宙は神秘的にゆらゆら
+          intensityMultiplier = 0.8 + 0.2 * Math.sin(elapsed * 1.8);
+          break;
+        case 'mystic':
+          // 神秘的は複雑な変化
+          intensityMultiplier = 0.7 + 0.3 * Math.sin(elapsed * 1.5) * Math.cos(elapsed * 0.8);
+          break;
+        case 'rainbow_glow':
+          // 虹色は鮮やかに輝く
+          intensityMultiplier = 0.6 + 0.3 * Math.sin(elapsed * 2.0);
+          break;
+      }
+
+      if (animation.useColorFallback) {
+        if (animation.object.material.color) {
+          animation.object.material.color.copy(blendedColor);
+          animation.object.material.needsUpdate = true;
+        }
+      } else {
+        animation.object.material.emissive = blendedColor;
+        animation.object.material.emissiveIntensity = animation.intensity * intensityMultiplier;
+        animation.object.material.needsUpdate = true;
+      }
+    }
+
+    /**
+     * 水彩画アニメーション（拡散色の柔らかな変化）
+     */
+    updateWatercolorAnimation(animation, elapsed) {
+      if (!animation.object.material) return;
+
+      // 色の循環スピードを調整（宇宙エフェクトより遅い）
+      const colorCycleSpeed = elapsed * animation.speed;
+      const numColors = animation.colors.length;
+
+      // 滑らかな色の遷移
+      const colorProgress = (colorCycleSpeed % numColors);
+      const currentColorIndex = Math.floor(colorProgress);
+      const nextColorIndex = (currentColorIndex + 1) % numColors;
+      const lerpFactor = colorProgress - currentColorIndex;
+
+      // 現在の色と次の色をブレンド
+      const currentColor = new THREE__namespace.Color(animation.colors[currentColorIndex]);
+      const nextColor = new THREE__namespace.Color(animation.colors[nextColorIndex]);
+      const blendedColor = currentColor.lerp(nextColor, lerpFactor);
+
+      // 透明度の柔らかな変化
+      let opacityMultiplier = 1.0;
+      switch (animation.artType) {
+        case 'watercolor_art':
+          // 水彩画は透明度もゆっくり変化
+          opacityMultiplier = 0.9 + 0.1 * Math.sin(elapsed * 0.5);
+          break;
+        case 'pastel_art':
+          // パステルは透明度をより安定
+          opacityMultiplier = 0.95 + 0.05 * Math.sin(elapsed * 0.3);
+          break;
+      }
+
+      // 拡散色を設定（emissiveではなくcolor）
+      animation.object.material.color = blendedColor;
+      animation.object.material.opacity = animation.opacity * opacityMultiplier;
+      animation.object.material.needsUpdate = true;
+    }
+
+    /**
+     * プロンプトに基づいて自動エフェクトを決定
+     */
+    getAutoEffectsFromPrompt(prompt) {
+      if (!prompt) return null;
+
+      const lowerPrompt = prompt.toLowerCase();
+
+      // 魔法・ファンタジー系
+      if (lowerPrompt.includes('ユニコーン') || lowerPrompt.includes('unicorn') ||
+          lowerPrompt.includes('魔法') || lowerPrompt.includes('magic') ||
+          lowerPrompt.includes('魔女') || lowerPrompt.includes('wizard') ||
+          lowerPrompt.includes('fairy') || lowerPrompt.includes('妖精')) {
+        return ['魔法っぽく'];
+      }
+
+      // 宇宙・神秘系
+      if (lowerPrompt.includes('ドラゴン') || lowerPrompt.includes('dragon') ||
+          lowerPrompt.includes('宇宙') || lowerPrompt.includes('space') ||
+          lowerPrompt.includes('星') || lowerPrompt.includes('star')) {
+        return ['宇宙'];
+      }
+
+      // 幽霊・透明系
+      if (lowerPrompt.includes('幽霊') || lowerPrompt.includes('ghost') ||
+          lowerPrompt.includes('精霊') || lowerPrompt.includes('spirit')) {
+        return ['幽霊'];
+      }
+
+      // サイバー・未来系
+      if (lowerPrompt.includes('ロボット') || lowerPrompt.includes('robot') ||
+          lowerPrompt.includes('サイバー') || lowerPrompt.includes('cyber') ||
+          lowerPrompt.includes('未来') || lowerPrompt.includes('future')) {
+        return ['サイバー'];
+      }
+
+      // 動物系 - 軽いキラキラエフェクト
+      if (lowerPrompt.includes('猫') || lowerPrompt.includes('cat') ||
+          lowerPrompt.includes('犬') || lowerPrompt.includes('dog') ||
+          lowerPrompt.includes('鳥') || lowerPrompt.includes('bird')) {
+        return ['きらめ'];
+      }
+
+      // 花・自然系 - パステルエフェクト
+      if (lowerPrompt.includes('花') || lowerPrompt.includes('flower') ||
+          lowerPrompt.includes('桜') || lowerPrompt.includes('cherry') ||
+          lowerPrompt.includes('自然') || lowerPrompt.includes('nature')) {
+        return ['パステル'];
+      }
+
+      return null; // 該当なしの場合はエフェクトなし
+    }
+
+    /**
+     * オブジェクト認識成功時のフィードバックエフェクト
+     */
+    applyRecognitionFeedback(targetObject) {
+      console.log(`🎯 Object recognition successful: ${targetObject.name}`);
+
+      // 短時間のキラキラエフェクトで認識成功を視覚的に伝える
+      const feedbackEffect = [{
+        type: 'animation',
+        animation: 'sparkle',
+        intensity: 0.8,
+        name: 'recognition_feedback'
+      }];
+
+      this.applyEffects(targetObject, feedbackEffect);
+
+      // 3秒後にフィードバックエフェクトを停止
+      setTimeout(() => {
+        this.stopRecognitionFeedback(targetObject);
+      }, 3000);
+    }
+
+    /**
+     * 認識フィードバックエフェクトを停止
+     */
+    stopRecognitionFeedback(targetObject) {
+      if (!this.animations) return;
+
+      const feedbackAnimationId = `${targetObject.uuid}_sparkle`;
+      if (this.animations.has(feedbackAnimationId)) {
+        this.animations.delete(feedbackAnimationId);
+
+        // 発光を元に戻す
+        if (targetObject.material) {
+          targetObject.material.emissiveIntensity = 0;
+          targetObject.material.needsUpdate = true;
+        }
+
+        console.log(`✨ Recognition feedback stopped for: ${targetObject.name}`);
+      }
     }
 
     /**
@@ -1356,7 +2757,9 @@
       ];
       
       // 色変更は基本的な色のみ対応
-      const colorKeywords = ['赤', '青', '緑', '黄', '紫', '橙', 'オレンジ', '白', '黒', '灰', 'グレー', 'ピンク', '茶', '銀', '金'];
+      const colorKeywords = ['赤', '赤色', '青', '青色', '緑', '緑色', '黄', '黄色', '黄色い', '紫', '紫色',
+                            '橙', '橙色', 'オレンジ', 'オレンジ色', '白', '白色', '黒', '黒色',
+                            '灰', '灰色', 'グレー', 'グレー色', 'ピンク', 'ピンク色', '茶', '茶色', '銀', '銀色', '金', '金色'];
       
       for (const pattern of colorPatterns) {
         const regex = new RegExp(pattern);
@@ -1369,10 +2772,19 @@
           
           // 色変更の解析（既存のロジックを流用）
           const colorMap = {
-            '赤': 0xff0000, '青': 0x0000ff, '緑': 0x00ff00, '黄': 0xffff00,
-            '紫': 0xff00ff, '橙': 0xff8800, 'オレンジ': 0xff8800,
-            '白': 0xffffff, '黒': 0x000000, '灰': 0x808080, 'グレー': 0x808080,
-            'ピンク': 0xffc0cb, '茶': 0x8b4513, '銀': 0xc0c0c0, '金': 0xffd700
+            '赤': 0xff0000, '赤色': 0xff0000,
+            '青': 0x0000ff, '青色': 0x0000ff,
+            '緑': 0x00ff00, '緑色': 0x00ff00,
+            '黄': 0xffff00, '黄色': 0xffff00, '黄色い': 0xffff00,
+            '紫': 0xff00ff, '紫色': 0xff00ff,
+            '橙': 0xff8800, '橙色': 0xff8800, 'オレンジ': 0xff8800, 'オレンジ色': 0xff8800,
+            '白': 0xffffff, '白色': 0xffffff,
+            '黒': 0x000000, '黒色': 0x000000,
+            '灰': 0x808080, '灰色': 0x808080, 'グレー': 0x808080, 'グレー色': 0x808080,
+            'ピンク': 0xffc0cb, 'ピンク色': 0xffc0cb,
+            '茶': 0x8b4513, '茶色': 0x8b4513,
+            '銀': 0xc0c0c0, '銀色': 0xc0c0c0,
+            '金': 0xffd700, '金色': 0xffd700
           };
           
           let colorValue = null;
@@ -1391,7 +2803,95 @@
           };
         }
       }
-      
+
+      // 回転パターンをチェック
+      const rotationPatterns = [
+        '(\S+?)を回転',
+        '(\S+?)を回す',
+        '(\S+?)を回して',
+        '(\S+?)回転',
+        '回転.*?(\S+)'
+      ];
+
+      for (const pattern of rotationPatterns) {
+        const regex = new RegExp(pattern);
+        const match = command.match(regex);
+        if (match) {
+          const objectName = match[1];
+
+          console.log(`🔄 Natural language rotation detected: "${objectName}"`);
+
+          // 角度指定があるかチェック
+          const degreeMatch = command.match(/(\d+)\s*度/);
+          const rotation = degreeMatch ?
+            parseFloat(degreeMatch[1]) * Math.PI / 180 :
+            Math.PI / 4; // デフォルト45度
+
+          return {
+            type: 'natural_object_modification',
+            targetObjectName: objectName,
+            rotation: rotation,
+            requiresObjectSearch: true
+          };
+        }
+      }
+
+      // 反転パターンをチェック
+      const flipPatterns = [
+        '(\S+?)を左右反転',
+        '(\S+?)を反転',
+        '(\S+?)反転',
+        '(\S+?)をひっくり返',
+        '(\S+?)をflip'
+      ];
+
+      for (const pattern of flipPatterns) {
+        const regex = new RegExp(pattern);
+        const match = command.match(regex);
+        if (match) {
+          const objectName = match[1];
+
+          console.log(`🔄 Natural language flip detected: "${objectName}"`);
+
+          return {
+            type: 'natural_object_modification',
+            targetObjectName: objectName,
+            flip: true, // 反転フラグを追加
+            requiresObjectSearch: true
+          };
+        }
+      }
+
+      // エフェクトパターンをチェック（水彩、宇宙エフェクトなど）
+      const effectPatterns = [
+        '(\S+?)を(\S+?)っぽく',
+        '(\S+?)を(\S+?)に',
+        '(\S+?)を(\S+?)風に',
+        '(\S+?)を(\S+?)みたい'
+      ];
+
+      const effectKeywords = ['水彩', '水彩画', '宇宙', 'オーロラ', '星雲', 'エネルギー', '神秘的',
+                              'パステル', '魔法', '幽霊', 'サイバー', '夢', '光', 'ネオン',
+                              'メタリック', '金属', 'ガラス', 'マット'];
+
+      for (const pattern of effectPatterns) {
+        const regex = new RegExp(pattern);
+        const match = command.match(regex);
+        if (match && effectKeywords.some(effect => match[2].includes(effect))) {
+          const objectName = match[1];
+          const effectName = match[2];
+
+          console.log(`✨ Natural language effect detected: "${objectName}" with "${effectName}"`);
+
+          return {
+            type: 'natural_object_modification',
+            targetObjectName: objectName,
+            command: effectName, // エフェクトはコマンドとして渡す
+            requiresObjectSearch: true
+          };
+        }
+      }
+
       return null; // 自然言語パターンに一致しない場合
     }
 
@@ -1662,7 +3162,7 @@
         const geometry = new THREE__namespace.PlaneGeometry(planeWidth, planeHeight);
         const material = new THREE__namespace.MeshBasicMaterial({
           map: texture,
-          transparent: false,  // 不透明で鮮明表示
+          transparent: true,
           side: THREE__namespace.DoubleSide, // 両面表示
           toneMapped: false    // トーンマッピングを無効化（より鮮やかな色彩）
         });
@@ -1673,7 +3173,9 @@
         plane.renderOrder = 1000;  // 高い値で前面に表示
         material.depthTest = true;  // 深度テストは有効に
         material.depthWrite = true; // 深度書き込みも有効に
-        
+        material.alphaTest = 0.01;
+        material.needsUpdate = true;
+
         // カメラ相対位置で配置（カメラの向きも考慮）
         if (this.camera) {
           const finalPosition = this.calculateCameraRelativePosition(parsed.position);
@@ -1695,14 +3197,16 @@
           prompt: parsed.prompt,
           createdAt: Date.now(),
           type: 'generated_image',
-          modelName: imageResult?.modelName || this.selectedImageService || null
+          source: 'generated_image',
+          modelName: imageResult?.modelName || this.selectedImageService || null,
+          keywords: this.buildObjectKeywordHints({ prompt: parsed.prompt, baseType: 'image' })
         };
         
         this.experimentGroup.add(plane);
         this.spawnedObjects.set(objectId, plane);
-        
+
         console.log(`✅ Created object: ${objectId} at (${parsed.position.x}, ${parsed.position.y}, ${parsed.position.z})`);
-        
+
         // 生成位置にパーティクルエフェクトを追加（視覚的フィードバック）
         if (this.config.showLocationIndicator) {
           this.createLocationIndicator(parsed.position);
@@ -1731,11 +3235,11 @@
         console.log('🔍 Video generation - selectedVideoService:', this.selectedVideoService);
         
         // ChocoDro Client経由で動画生成
+        // アスペクト比は各モデルのサポート状況に応じてサーバー側で最適化
         const videoResult = await this.client.generateVideo(parsed.prompt, {
-          width: 512,
-          height: 512,
           duration: 3,
           model: this.selectedVideoService || undefined
+          // width, height指定を削除してサーバー側デフォルト(16:9)を使用
         });
         
         // 結果にモデル情報を含める
@@ -1825,11 +3329,13 @@
           prompt: parsed.prompt,
           createdAt: Date.now(),
           type: 'generated_video',
+          source: 'generated_video',
           videoUrl: videoResult.videoUrl,
           modelName: videoResult.modelName || this.selectedVideoService || null,
           width: requestedWidth,
           height: requestedHeight,
-          videoElement: video // video要素の参照を保存
+          videoElement: video,
+          keywords: this.buildObjectKeywordHints({ prompt: parsed.prompt, baseType: 'video' })
         };
 
         // 音声制御UIを作成
@@ -1893,12 +3399,14 @@
           prompt: parsed.prompt,
           createdAt: Date.now(),
           type: 'generated_video',
+          source: 'generated_video',
           videoUrl: null, // エラー時はnull
           modelName: 'Error Fallback',
           width: 512,
           height: 512,
           videoElement: null,
-          error: error.message
+          error: error.message,
+          keywords: this.buildObjectKeywordHints({ prompt: parsed.prompt, baseType: 'video' })
         };
 
         // シーンに追加
@@ -1916,7 +3424,7 @@
 
     async loadImageFile(fileUrl, options = {}) {
       try {
-        const { position = { x: 0, y: 5, z: -10 } } = options;
+        const { position = { x: 0, y: 5, z: -10 }, fileName = null } = options;
         
         console.log(`📁 Loading image file: ${fileUrl}`);
         
@@ -1947,10 +3455,12 @@
         const geometry = new THREE__namespace.PlaneGeometry(width, height);
         const material = new THREE__namespace.MeshBasicMaterial({
           map: texture,
-          transparent: false,
+          transparent: true,
           side: THREE__namespace.DoubleSide,
           toneMapped: false
         });
+        material.alphaTest = 0.01;
+        material.needsUpdate = true;
         
         const plane = new THREE__namespace.Mesh(geometry, material);
 
@@ -1970,6 +3480,9 @@
         
         plane.scale.setScalar(1.0);
         
+        // ファイル名からpromptを作成（拡張子を除去）
+        const prompt = fileName ? fileName.replace(/\.[^/.]+$/, '') : 'imported_image';
+
         // 識別用の名前とメタデータ
         const objectId = `imported_image_${++this.objectCounter}`;
         plane.name = objectId;
@@ -1977,14 +3490,18 @@
           id: objectId,
           source: 'imported_file',
           createdAt: Date.now(),
-          type: 'generated_image'
+          type: 'generated_image',
+          prompt: prompt, // ファイル名をpromptとして設定
+          fileName: fileName, // 元のファイル名も保存
+          importOrder: this.objectCounter, // インポート順序を記録
+          keywords: this.buildObjectKeywordHints({ prompt, fileName, baseType: 'image' })
         };
         
         this.experimentGroup.add(plane);
         this.spawnedObjects.set(objectId, plane);
-        
+
         console.log(`✅ Created imported image: ${objectId} at (${position.x}, ${position.y}, ${position.z})`);
-        
+
         // 生成位置にパーティクルエフェクトを追加
         if (this.config.showLocationIndicator) {
           this.createLocationIndicator(position);
@@ -2004,7 +3521,7 @@
 
     async loadVideoFile(fileUrl, options = {}) {
       try {
-        const { position = { x: 0, y: 5, z: -10 } } = options;
+        const { position = { x: 0, y: 5, z: -10 }, fileName = null } = options;
         
         console.log(`🎬 Loading video file: ${fileUrl}`);
         
@@ -2058,10 +3575,12 @@
         const geometry = new THREE__namespace.PlaneGeometry(width, height);
         const material = new THREE__namespace.MeshBasicMaterial({
           map: videoTexture,
-          transparent: false,
+          transparent: true,
           side: THREE__namespace.DoubleSide,
           toneMapped: false
         });
+        material.alphaTest = 0.01;
+        material.needsUpdate = true;
         
         const plane = new THREE__namespace.Mesh(geometry, material);
         
@@ -2081,6 +3600,9 @@
         
         plane.scale.setScalar(1.0);
         
+        // ファイル名からpromptを作成（拡張子を除去）
+        const prompt = fileName ? fileName.replace(/\.[^/.]+$/, '') : 'imported_video';
+
         // 識別用の名前とメタデータ
         const objectId = `imported_video_${++this.objectCounter}`;
         plane.name = objectId;
@@ -2090,7 +3612,11 @@
           createdAt: Date.now(),
           type: 'generated_video',
           videoElement: video,
-          objectUrl: fileUrl
+          objectUrl: fileUrl,
+          prompt: prompt, // ファイル名をpromptとして設定
+          fileName: fileName, // 元のファイル名も保存
+          importOrder: this.objectCounter, // インポート順序を記録
+          keywords: this.buildObjectKeywordHints({ prompt, fileName, baseType: 'video' })
         };
 
         // 音声制御UIを作成
@@ -2144,12 +3670,22 @@
       if (parsed.color !== null && targetObject.material) {
         if (targetObject.material.map) {
           targetObject.material.color.setHex(parsed.color);
-          console.log(`🎨 Color changed to: ${parsed.color.toString(16)}`);
+          targetObject.material.needsUpdate = true;
+          console.log(`🎨 Texture color tint changed to: #${parsed.color.toString(16)}`);
         } else {
           targetObject.material.color.setHex(parsed.color);
-          console.log(`🎨 Color changed to: ${parsed.color.toString(16)}`);
+          targetObject.material.needsUpdate = true;
+          console.log(`🎨 Material color changed to: #${parsed.color.toString(16)}`);
         }
         modified = true;
+      }
+
+      // Phase 2: エフェクト適用
+      if (parsed.effects && parsed.effects.length > 0) {
+        const effectsApplied = this.applyEffects(targetObject, parsed.effects);
+        if (effectsApplied) {
+          modified = true;
+        }
       }
       
       // 位置移動
@@ -2293,6 +3829,9 @@
       } else {
         // キーワードで見つけたオブジェクトを選択状態にする
         this.selectObject(targetObject);
+
+        // オブジェクト認識成功のフィードバックエフェクト
+        this.applyRecognitionFeedback(targetObject);
       }
       console.log(`🔧 Modifying object: ${targetObject.name}`);
       console.log(`🔍 Debug - parsed.movement:`, parsed.movement);
@@ -2304,13 +3843,23 @@
         if (targetObject.material.map) {
           // テクスチャがある場合は色調変更
           targetObject.material.color.setHex(parsed.color);
-          console.log(`🎨 Color changed to: ${parsed.color.toString(16)}`);
+          targetObject.material.needsUpdate = true;
+          console.log(`🎨 Texture color tint changed to: #${parsed.color.toString(16)}`);
         } else {
           // テクスチャがない場合は直接色変更
           targetObject.material.color.setHex(parsed.color);
-          console.log(`🎨 Color changed to: ${parsed.color.toString(16)}`);
+          targetObject.material.needsUpdate = true;
+          console.log(`🎨 Material color changed to: #${parsed.color.toString(16)}`);
         }
         modified = true;
+      }
+
+      // Phase 2: エフェクト適用
+      if (parsed.effects && parsed.effects.length > 0) {
+        const effectsApplied = this.applyEffects(targetObject, parsed.effects);
+        if (effectsApplied) {
+          modified = true;
+        }
       }
       
       // サイズ変更
@@ -2328,12 +3877,39 @@
         const currentPos = targetObject.position;
         const newPos = {
           x: currentPos.x + parsed.movement.x,
-          y: currentPos.y + parsed.movement.y, 
+          y: currentPos.y + parsed.movement.y,
           z: currentPos.z + parsed.movement.z
         };
-        
+
         targetObject.position.set(newPos.x, newPos.y, newPos.z);
         console.log(`📍 Position moved from (${currentPos.x.toFixed(1)}, ${currentPos.y.toFixed(1)}, ${currentPos.z.toFixed(1)}) to (${newPos.x.toFixed(1)}, ${newPos.y.toFixed(1)}, ${newPos.z.toFixed(1)})`);
+        modified = true;
+      }
+
+      // 回転
+      if (parsed.rotation !== null) {
+        const currentRotation = targetObject.rotation.y;
+        const newRotation = currentRotation + parsed.rotation;
+        targetObject.rotation.y = newRotation;
+        const degrees = (parsed.rotation * 180 / Math.PI).toFixed(1);
+        console.log(`🔄 Rotation changed by ${degrees}° (new Y rotation: ${(newRotation * 180 / Math.PI).toFixed(1)}°)`);
+        modified = true;
+      }
+
+      // 透明度
+      if (parsed.opacity !== null && targetObject.material) {
+        const currentOpacity = targetObject.material.opacity || 1.0;
+        targetObject.material.opacity = parsed.opacity;
+        targetObject.material.transparent = parsed.opacity < 1.0;
+        console.log(`🔍 Opacity changed from ${currentOpacity.toFixed(2)} to ${parsed.opacity.toFixed(2)}`);
+        modified = true;
+      }
+
+      // 左右反転
+      if (parsed.flip) {
+        const currentScaleX = targetObject.scale.x;
+        targetObject.scale.x = -currentScaleX; // X軸を反転
+        console.log(`↔️ Object flipped horizontally (scale.x: ${currentScaleX} → ${targetObject.scale.x})`);
         modified = true;
       }
       
@@ -2346,6 +3922,8 @@
           color: parsed.color,
           scale: parsed.scale,
           movement: parsed.movement,
+          rotation: parsed.rotation,
+          opacity: parsed.opacity,
           command: parsed.command
         });
         
@@ -2356,7 +3934,9 @@
           modifications: {
             color: parsed.color,
             scale: parsed.scale,
-            movement: parsed.movement
+            movement: parsed.movement,
+            rotation: parsed.rotation,
+            opacity: parsed.opacity
           }
         };
       } else {
@@ -2767,6 +4347,16 @@
             URL.revokeObjectURL(object.userData.objectUrl);
           } catch (error) {
             console.warn('🎬 Failed to revoke object URL:', error);
+          }
+        }
+
+        if (object.userData?.cleanupCallbacks) {
+          try {
+            object.userData.cleanupCallbacks.forEach(cb => {
+              if (typeof cb === 'function') cb();
+            });
+          } catch (error) {
+            console.warn('🧹 Cleanup callbacks failed:', error);
           }
         }
 
@@ -3232,8 +4822,6 @@
       // ページに追加
       document.body.appendChild(audioButton);
 
-      // 音量ボタンは常時表示（非表示機能を削除）
-
       // 動画オブジェクトに音声制御ボタンを関連付け
       videoObject.userData.audioControlElement = audioButton;
 
@@ -3245,24 +4833,66 @@
       // 初期位置設定
       this.updateAudioControlPosition(videoObject, audioButton);
 
-      // アニメーションループで位置を更新
-      if (!this.audioControlUpdateInterval) {
-        this.audioControlUpdateInterval = setInterval(() => {
-          this.spawnedObjects.forEach(obj => {
-            if (obj.userData.updateAudioControlPosition) {
-              obj.userData.updateAudioControlPosition();
-            }
-          });
-        }, 100); // 100msごとに更新
-      }
-
-      // 動画が削除されたときにボタンも削除
-      videoObject.userData.cleanupCallbacks = videoObject.userData.cleanupCallbacks || [];
-      videoObject.userData.cleanupCallbacks.push(() => {
-        if (audioButton.parentNode) {
-          audioButton.parentNode.removeChild(audioButton);
+      // 管理マップに登録
+      this.audioControls.set(videoObject.uuid, {
+        audioButton,
+        tooltip,
+        volumeSlider,
+        isSliderVisible: () => isSliderVisible,
+        hideSlider: () => {
+          isSliderVisible = false;
+          volumeSlider.style.opacity = '0';
+          volumeSlider.style.pointerEvents = 'none';
         }
       });
+
+      // スクロール・リサイズで追随
+      if (!this.audioControlUpdateListener) {
+        this.audioControlUpdateListener = () => {
+          this.updateAllAudioControlPositions();
+        };
+        window.addEventListener('scroll', this.audioControlUpdateListener, { passive: true });
+        window.addEventListener('resize', this.audioControlUpdateListener, { passive: true });
+      }
+
+      if (!this.audioControlUpdateInterval) {
+        this.audioControlUpdateInterval = setInterval(() => {
+          this.updateAllAudioControlPositions();
+        }, 100);
+      }
+
+      const cleanup = () => {
+        document.removeEventListener('click', onDocumentClick, true);
+        if (audioButton.parentNode) audioButton.parentNode.removeChild(audioButton);
+        if (tooltip.parentNode) tooltip.parentNode.removeChild(tooltip);
+        if (volumeSlider.parentNode) volumeSlider.parentNode.removeChild(volumeSlider);
+        this.audioControls.delete(videoObject.uuid);
+
+        if (this.audioControls.size === 0) {
+          if (this.audioControlUpdateInterval) {
+            clearInterval(this.audioControlUpdateInterval);
+            this.audioControlUpdateInterval = null;
+          }
+          if (this.audioControlUpdateListener) {
+            window.removeEventListener('scroll', this.audioControlUpdateListener);
+            window.removeEventListener('resize', this.audioControlUpdateListener);
+            this.audioControlUpdateListener = null;
+          }
+        }
+      };
+
+      const onDocumentClick = (e) => {
+        if (isSliderVisible && !audioButton.contains(e.target) && !volumeSlider.contains(e.target)) {
+          isSliderVisible = false;
+          volumeSlider.style.opacity = '0';
+          volumeSlider.style.pointerEvents = 'none';
+        }
+      };
+
+      document.addEventListener('click', onDocumentClick, true);
+
+      videoObject.userData.cleanupCallbacks = videoObject.userData.cleanupCallbacks || [];
+      videoObject.userData.cleanupCallbacks.push(cleanup);
 
       console.log('🔊 Audio control created for video:', videoObject.userData.id);
     }
@@ -3299,6 +4929,19 @@
         audioButton.style.left = `${x + 50}px`;
         audioButton.style.top = `${y - 20}px`;
       }
+    }
+
+    updateAllAudioControlPositions() {
+      if (!this.audioControls || this.audioControls.size === 0) {
+        return;
+      }
+
+      this.audioControls.forEach((_, uuid) => {
+        const obj = this.spawnedObjects.get(uuid);
+        if (obj && obj.userData && obj.userData.updateAudioControlPosition) {
+          obj.userData.updateAudioControlPosition();
+        }
+      });
     }
 
     /**
@@ -3583,6 +5226,8 @@
       this.overlayTextarea = null;
       this.pendingImageService = null;
       this.pendingVideoService = null;
+      this.feedbackAutoClearTimer = null;
+      this.currentFeedback = null;
 
       try {
         const storedImage = localStorage.getItem(IMAGE_SERVICE_STORAGE_KEY);
@@ -3880,6 +5525,11 @@
         // IME入力中はコマンド検出を停止
         if (this.isComposing) {
           return;
+        }
+        
+        // フィードバック自動クリア（ユーザーが入力を修正している）
+        if (this.currentFeedback) {
+          this.clearInputFeedback();
         }
         
         // 自動リサイズ処理
@@ -4822,8 +6472,10 @@
       }
 
       // パルス効果を追加
-      if (!isManual) {
+      if (!isManual && mode !== 'import') {
         this.addPulseEffect(button);
+        this.addContainerGlow(mode);
+      } else if (mode === 'import') {
         this.addContainerGlow(mode);
       }
 
@@ -4901,15 +6553,26 @@
       const container = this.radioModeContainer;
       if (!container) return;
 
-      const glowColors = {
-        generate: 'rgba(79, 70, 229, 0.4)',   // 紫のグロー
-        modify: 'rgba(236, 72, 153, 0.4)',    // ピンクのグロー  
-        delete: 'rgba(107, 114, 128, 0.3)'    // グレーのグロー
+      // モードに応じてグロー色を設定
+      const glowColors = this.isWabiSabiMode ? {
+        generate: 'rgba(139, 195, 74, 0.4)',
+        modify: 'rgba(139, 195, 74, 0.4)',
+        delete: 'rgba(139, 195, 74, 0.4)',
+        import: 'rgba(139, 195, 74, 0.4)'
+      } : {
+        generate: 'rgba(79, 70, 229, 0.4)',
+        modify: 'rgba(236, 72, 153, 0.4)',
+        delete: 'rgba(107, 114, 128, 0.3)',
+        import: 'rgba(59, 130, 246, 0.35)'
       };
 
+      const glowColor = glowColors[mode] || glowColors.generate;
+
       // 一時的にグロー効果を適用
-      container.style.boxShadow = `0 0 20px ${glowColors[mode]}, 0 0 40px ${glowColors[mode]}`;
-      container.style.borderColor = glowColors[mode].replace('0.4', '0.6').replace('0.3', '0.5');
+      container.style.boxShadow = `0 0 20px ${glowColor}, 0 0 40px ${glowColor}`;
+
+      const intensified = glowColor.replace('0.4', '0.6').replace('0.3', '0.5');
+      container.style.borderColor = intensified !== glowColor ? intensified : glowColor;
       
       // 1秒後にグロー効果を除去
       setTimeout(() => {
@@ -5071,13 +6734,21 @@
     /**
      * ルールベースコマンド分析
      */
-    analyzeCommandType(text) {
+    analyzeCommandType(text, hasSelectedObject) {
+      const trimmedText = text.trim();
+      
       this.logDebug(`🔍 Analyzing command: "${text}"`);
+      this.logDebug(`📋 Selected object: ${hasSelectedObject ? 'Yes' : 'No'}`);
+      
+      // 空コマンド
+      if (!trimmedText) {
+        return { type: 'empty', reason: '空のコマンド' };
+      }
 
       // メディアタイプの検出
       const mediaInfo = this.detectMediaType(text);
       
-      // 削除コマンドの検出
+      // 1. 削除コマンドの検出（最優先）
       const deletePatterns = [
         { pattern: /削除/, keyword: '削除' },
         { pattern: /消去/, keyword: '消去' },
@@ -5092,42 +6763,6 @@
         { pattern: /erase/i, keyword: 'erase' }
       ];
       
-      // 変更・移動コマンドの検出
-      const modifyPatterns = [
-        { pattern: /移動/, keyword: '移動' },
-        { pattern: /動かして/, keyword: '動かして' },
-        { pattern: /変更/, keyword: '変更' },
-        { pattern: /変えて/, keyword: '変えて' },
-        { pattern: /修正/, keyword: '修正' },
-        { pattern: /調整/, keyword: '調整' },
-        { pattern: /回転/, keyword: '回転' },
-        { pattern: /反転/, keyword: '反転' },
-        { pattern: /ミラー/, keyword: 'ミラー' },
-        { pattern: /傾け/, keyword: '傾け' },
-        { pattern: /向きを変え/, keyword: '向きを変え' },
-        { pattern: /.*を.*色/, keyword: '色変更' },
-        { pattern: /.*を.*サイズ/, keyword: 'サイズ変更' },
-        { pattern: /を.*に.*して/, keyword: '変更' },
-        { pattern: /move/i, keyword: 'move' },
-        { pattern: /change/i, keyword: 'change' },
-        { pattern: /modify/i, keyword: 'modify' },
-        { pattern: /edit/i, keyword: 'edit' }
-      ];
-      
-      // 生成コマンドの検出（デフォルト）
-      const generatePatterns = [
-        { pattern: /作って/, keyword: '作って' },
-        { pattern: /生成/, keyword: '生成' },
-        { pattern: /作成/, keyword: '作成' },
-        { pattern: /描いて/, keyword: '描いて' },
-        { pattern: /書いて/, keyword: '書いて' },
-        { pattern: /create/i, keyword: 'create' },
-        { pattern: /generate/i, keyword: 'generate' },
-        { pattern: /make/i, keyword: 'make' },
-        { pattern: /draw/i, keyword: 'draw' }
-      ];
-
-      // 削除パターンチェック
       for (const { pattern, keyword } of deletePatterns) {
         if (pattern.test(text)) {
           this.logDebug(`✅ Delete pattern matched: ${keyword}`);
@@ -5137,49 +6772,115 @@
             reason: '削除キーワードを検出',
             mediaType: mediaInfo.type,
             requiresConfirmation: true,
-            detectedKeyword: keyword
+            detectedKeyword: keyword,
+            needsTarget: true
           };
         }
       }
       
-      // 変更パターンチェック
-      for (const { pattern, keyword } of modifyPatterns) {
-        if (pattern.test(text)) {
-          this.logDebug(`✅ Modify pattern matched: ${keyword}`);
-          return {
-            type: 'modify',
-            confidence: 0.8,
-            reason: '変更キーワードを検出',
-            mediaType: mediaInfo.type,
-            requiresConfirmation: false,
-            detectedKeyword: keyword
-          };
-        }
-      }
+      // 2. 明確な生成コマンドの検出（選択状態に関係なく）
+      const generatePatterns = [
+        { pattern: /作って/, keyword: '作って' },
+        { pattern: /つくって/, keyword: 'つくって' },
+        { pattern: /生成/, keyword: '生成' },
+        { pattern: /作成/, keyword: '作成' },
+        { pattern: /描いて/, keyword: '描いて' },
+        { pattern: /書いて/, keyword: '書いて' },
+        { pattern: /create/i, keyword: 'create' },
+        { pattern: /generate/i, keyword: 'generate' },
+        { pattern: /make/i, keyword: 'make' },
+        { pattern: /draw/i, keyword: 'draw' }
+      ];
       
-      // 生成パターンチェック
       for (const { pattern, keyword } of generatePatterns) {
         if (pattern.test(text)) {
+          this.logDebug(`✅ Generate pattern matched: ${keyword}`);
           return {
             type: 'generate',
             confidence: mediaInfo.confidence,
-            reason: mediaInfo.reason,
+            reason: '生成キーワードを検出',
             mediaType: mediaInfo.type,
             requiresConfirmation: false,
-            detectedKeyword: keyword
+            detectedKeyword: keyword,
+            needsTarget: false
           };
         }
       }
       
-      // デフォルト（生成モード）
-      this.logDebug(`ℹ️ No specific pattern matched, defaulting to generate mode`);
+      // 3. 自然言語での対象指定（確実にmodify）
+      const targetPatterns = [
+        /インポートした.*を/,
+        /選択した.*を/,
+        /この.*を/,
+        /その.*を/,
+        /あの.*を/,
+        /[0-9]+番目.*を/,
+        /最初.*を/,
+        /初回.*を/,
+        /生成した.*を/,
+        /作った.*を/,
+        /.+の(画像|写真|イメージ|絵|イラスト|ピクチャー)(を|に)/,
+        /.+の(動画|ビデオ|ムービー|映像|クリップ)(を|に)/,
+        /(.+?)(画像|写真|イメージ|絵|イラスト|ピクチャー)を.*(変えて|変更|にして|加工|編集|調整|塗り|並べ|移動|回転|反転|整列)/,
+        /(.+?)(動画|ビデオ|ムービー|映像|クリップ)を.*(変えて|変更|にして|加工|編集|調整|塗り|並べ|移動|回転|反転|整列)/
+      ];
+
+      const explicitTargetMatched = targetPatterns.some(pattern => pattern.test(text));
+      if (explicitTargetMatched) {
+        this.logDebug('✅ Target reference pattern matched');
+        return {
+          type: 'modify',
+          confidence: 0.9,
+          reason: '対象を明示的に指定',
+          mediaType: mediaInfo.type,
+          requiresConfirmation: false,
+          needsTarget: true,
+          hasExplicitTarget: true
+        };
+      }
+
+      // 4. 選択オブジェクトがある場合の処理
+      if (hasSelectedObject && trimmedText) {
+        // 新規作成意図でなければmodify
+        if (!/の画像|の動画|画像を|動画を|画像$|動画$/.test(text)) {
+          this.logDebug(`✅ Selected object + command = modify`);
+          return {
+            type: 'modify',
+            confidence: 0.8,
+            reason: '選択オブジェクトに対する変更',
+            mediaType: mediaInfo.type,
+            requiresConfirmation: false,
+            needsTarget: false  // 既に選択済み
+          };
+        }
+      }
+
+      // 5. 変更系のキーワードが含まれる場合（対象未選択でもmodify判定）
+      const modificationIndicators = /(にして|に変えて|へ変えて|へ変更|変えて|変更|調整|加工|編集|塗(って|り)|染め|彩色|彩度|明るく|暗く|薄く|濃く|ぼかし|シャープ|左右反転|上下反転|反転|回転|移動|並べ|整列|揃え|寄せて|拡大|縮小|大きく|小さく|伸ばして|縮めて|高く|低く|近づけ|遠ざけ|透明|半透明|不透明|輝かせて|光らせて|暗くして|焼き込み|焼き付け|flip|rotate|move|align|scale|resize|tint|color|brighten|darken|adjust|edit|modify)/i;
+      const mediaReferenceIndicators = /(画像|写真|イメージ|絵|イラスト|ピクチャー|メディア|素材|動画|ビデオ|ムービー|映像|クリップ|オブジェクト|モデル)/i;
+
+      if (modificationIndicators.test(text)) {
+        this.logDebug('✅ Modification indicators detected');
+        return {
+          type: 'modify',
+          confidence: 0.7,
+          reason: '変更キーワードを検出',
+          mediaType: mediaInfo.type,
+          requiresConfirmation: false,
+          needsTarget: !hasSelectedObject,
+          hasExplicitTarget: explicitTargetMatched || mediaReferenceIndicators.test(text)
+        };
+      }
+
+      // 6. デフォルト（安全な生成）
+      this.logDebug(`ℹ️ Defaulting to generate mode`);
       return {
         type: 'generate',
         confidence: mediaInfo.confidence,
-        reason: mediaInfo.reason,
+        reason: 'デフォルト動作（新規生成）',
         mediaType: mediaInfo.type,
         requiresConfirmation: false,
-        detectedKeyword: null
+        needsTarget: false
       };
     }
 
@@ -5234,44 +6935,8 @@
      * Apply keyword highlighting to the input text
      */
     applyKeywordHighlighting() {
-      if (!this.input || this.isComposing) {
-        return;
-      }
-
-      const text = this.input.value;
-      if (!text.trim()) {
-        this.clearKeywordHighlighting();
-        return;
-      }
-
-      // Get all keyword patterns
-      const allKeywords = this.getAllCommandKeywords();
-      
-      // Find matches in the text
-      const matches = [];
-      for (const { pattern, keyword, type } of allKeywords) {
-        const match = text.match(pattern);
-        if (match) {
-          const startIndex = match.index;
-          const endIndex = startIndex + match[0].length;
-          matches.push({
-            start: startIndex,
-            end: endIndex,
-            keyword: match[0], // Use actual matched text
-            type: type
-          });
-        }
-      }
-
-      // Sort matches by position to avoid overlaps
-      matches.sort((a, b) => a.start - b.start);
-
-      // Apply highlighting if we have matches
-      if (matches.length > 0) {
-        this.createHighlightOverlay(text, matches);
-      } else {
-        this.clearKeywordHighlighting();
-      }
+      // TODO: 一時的にキーワードハイライト機能を無効化（リリース後に再検討）
+      return;
     }
 
     /**
@@ -5891,9 +7556,9 @@
     getModeButtonStyles(isActive, mode) {
       // モードカラー設定
       const modeColors = {
-        generate: 'linear-gradient(135deg, #4f46e5, #4338ca)', // Deep purple - 創造性
-        modify: 'linear-gradient(135deg, #ec4899, #be185d)',    // Vibrant pink - 変更・調整
-        delete: 'rgba(107, 114, 128, 0.15)'                    // 半透明グレー - セカンダリボタンスタイル
+        generate: 'linear-gradient(135deg, #22c55e, #16a34a)',  // Green - チャット欄と同じ緑色
+        modify: 'linear-gradient(135deg, #22c55e, #16a34a)',    // Green - チャット欄と同じ緑色
+        delete: 'linear-gradient(135deg, #22c55e, #16a34a)'     // Green - チャット欄と同じ緑色
       };
       
       return `
@@ -6085,175 +7750,14 @@
       const command = this.input.value.trim();
       if (!command) return;
 
-      // 最終的なコマンドタイプ判定
-      const commandType = this.analyzeCommandType(command);
-
-      if (this.selectedFile) {
-        if (this.currentMode !== 'import') {
-          this.selectMode('import', false);
-        }
-        this.currentMode = 'import';
-      } else {
-        this.currentMode = commandType.type;
+      // 事前バリデーション（2025年UX改善）
+      const preValidation = await this.preValidateCommand(command);
+      if (!preValidation.canExecute) {
+        // バリデーション失敗時はフィードバック表示して終了
+        return;
       }
 
-      // 削除の場合は確認ダイアログ
-      if (commandType.requiresConfirmation) {
-        const confirmed = await this.showDeleteConfirmation(command);
-        if (!confirmed) {
-          this.addOutput('❌ 削除をキャンセルしました', 'system');
-          return;
-        }
-      }
-
-      // 入力をクリア
-      this.input.value = '';
-      // 旧コマンドタイプインジケーターは削除（ラジオボタンUIに統合済み）
-      // this.commandTypeIndicator.style.display = 'none';
-      this.hideProactiveSuggestion();
-
-      // コマンド表示（メディアタイプ付き）
-      commandType.mediaType === 'video' ? '🎬' : '🖼️';
-      // タスクカード作成
-      const taskId = this.addTaskCard(command, { status: 'processing' });
-
-      // コマンド実行前の状態を履歴に保存
-      this.saveCommandToHistory({
-        command: command,
-        mode: this.currentMode,
-        mediaType: commandType.mediaType,
-        timestamp: Date.now()
-      });
-
-      try {
-        // 処理メッセージ表示
-        // タスクカードは既に1183行目で作成済み（taskId変数）
-        // 重複を避けるため、ここでは作成しない
-
-        let result;
-        
-        // モードに応じたコマンド処理
-        const modePrefix = this.getModePrefix(this.currentMode);
-        const fullCommand = `${modePrefix}${command}`;
-
-        // モード別の実行処理
-        this.logDebug('🔍 Current mode check:', this.currentMode);
-        if (this.currentMode === 'import') {
-          this.logDebug('📁 Import mode detected - bypassing SceneManager');
-          // Importモード: 直接処理（SceneManagerを迂回）
-          if (!this.selectedFile) {
-            throw new Error('ファイルが選択されていません。まずファイルを選択してください。');
-          }
-          result = await this.handleImportCommand(command);
-        } else if (this.sceneManager) {
-          // 他のモード: SceneManager経由
-          result = await this.sceneManager.executeCommand(fullCommand);
-        } else if (this.client) {
-          // モードに応じてAPIエンドポイントを選択
-          if (this.currentMode === 'generate') {
-            // 生成モード: 新しいオブジェクトを作成
-            if (commandType.mediaType === 'video') {
-              result = await this.client.generateVideo(command, {
-                model: this.selectedVideoService || undefined
-              });
-            } else {
-              result = await this.client.generateImage(command, {
-                service: this.selectedImageService || undefined
-              });
-            }
-          } else if (this.currentMode === 'modify') {
-            // 変更モード: 既存オブジェクトを変更（選択が必要）
-            if (!this.selectedObject) {
-              throw new Error('変更するオブジェクトが選択されていません。まず対象オブジェクトを選択してください。');
-            }
-            result = await this.client.modifySelectedObject(this.selectedObject, command);
-          } else if (this.currentMode === 'delete') {
-            // 削除モード: オブジェクト選択チェック
-            if (!this.selectedObject && !this.sceneManager?.getSelectedObjects()?.length) {
-              this.addOutput('⚠️ 削除するオブジェクトが選択されていません。まず3Dシーン内のオブジェクトをクリックで選択してから、再度Deleteボタンを押してください。', 'system');
-              return;
-            }
-            // 削除モード: 確認ダイアログを表示してから削除
-            const confirmMessage = `本当に「${command}」を実行しますか？
-
-この操作は取り消せません。`;
-            if (!confirm(confirmMessage)) {
-              this.addOutput('❌ 削除がキャンセルされました', 'system');
-              return;
-            }
-            result = await this.client.deleteObjects(command);
-          } else {
-            // その他のモード
-            result = await this.client.executeCommand(fullCommand);
-          }
-        } else {
-          throw new Error('SceneManager または Client が設定されていません');
-        }
-
-        // taskId取得とSSE接続開始
-        if (result && result.taskId) {
-          this.connectToProgress(result.taskId, taskId);
-          this.currentTaskId = result.taskId;
-        }
-
-        // 成功メッセージ
-        const successMessages = {
-          generate: ``, // 成功メッセージ削除 - 結果で十分
-          modify: '✅ 変更を適用しました',
-          delete: '🗑️ 削除しました'
-        };
-        
-        // タスクカード完了
-        if (taskId) {
-          this.updateTaskCard(taskId, 'completed');
-        }
-        
-        // 詳細情報表示
-        if (result.modelName) {
-          // デバッグ情報削除 - モーダル表示用に保存
-        }
-        
-        if (result.objectId) {
-          // オブジェクトID削除
-        }
-        
-        if (result.position) {
-          // 位置情報削除
-        }
-
-        if (commandType.mediaType) {
-          // メディアタイプ削除
-        }
-
-      } catch (error) {
-        const errorMessages = {
-          generate: `❌ ${commandType.mediaType === 'video' ? '動画' : '画像'}生成エラー`,
-          modify: '❌ 変更エラー', 
-          delete: '❌ 削除エラー'
-        };
-        // タスクカードエラー
-        if (taskId) {
-          this.updateTaskCard(taskId, 'error');
-        }
-
-        this.addOutput(`${errorMessages[this.currentMode]}: ${error.message}`, 'error');
-        console.error('Command execution error:', error);
-      }
-
-      // 2025年UXトレンド: コマンド実行後の自動選択解除
-      if (this.sceneManager && this.sceneManager.selectedObject) {
-        // Modify/Deleteコマンド後は選択を自動解除してストレス軽減
-        if (this.currentMode === 'modify' || this.currentMode === 'delete') {
-          setTimeout(() => {
-            this.sceneManager.deselectObject();
-          }, 500); // 少し遅延させて操作完了を視覚的に確認
-        }
-      }
-
-      // 出力エリアを最下部にスクロール
-      if (this.config.autoScroll) {
-        this.scrollToBottom();
-      }
+      await this.proceedWithExecution(command, preValidation.commandType);
     }
 
     /**
@@ -6473,7 +7977,7 @@
       };
 
       // 温かみのあるメッセージ表示
-      const friendlyMessage = this.getFriendlyMessage(status, prompt);
+      const friendlyMessage = this.getFriendlyMessage(status, prompt, options.errorMessage);
       card.innerHTML = `
       <span style="font-size: 14px;">${iconMap[status]}</span>
       <span style="font-size: 13px; margin-left: 6px;">${friendlyMessage}</span>
@@ -6583,6 +8087,11 @@
       // ステータス更新
       taskData.status = status;
 
+      // エラー情報を保存
+      if (status === 'error' && options.errorMessage) {
+        taskData.error = options.errorMessage;
+      }
+
       // 2025年トレンド: アニメーション状態管理
       if (status === 'pending' || status === 'processing' || status === 'progress') {
         // 待機中・処理中: シマーエフェクト追加
@@ -6600,8 +8109,8 @@
         error: '❌'
       };
 
-      // 温かみのあるメッセージ更新
-      const friendlyMessage = this.getFriendlyMessage(status, taskData.prompt);
+      // 温かみのあるメッセージ更新（エラー時は理由も含める）
+      const friendlyMessage = this.getFriendlyMessage(status, taskData.prompt, taskData.error);
       card.innerHTML = `
       <span style="font-size: 14px;">${iconMap[status]}</span>
       <span style="font-size: 13px; margin-left: 6px;">${friendlyMessage}</span>
@@ -6638,6 +8147,462 @@
       entry.textContent = message;
       this.outputDiv.appendChild(entry);
       this.scrollToBottom();
+    }
+
+    /**
+     * 入力フィールド直下のフィードバック表示（2025年トレンド準拠）
+     */
+    showInputFeedback(message, type = 'error', options = {}) {
+      if (type === 'success') {
+        return;
+      }
+
+      if (type === 'error') {
+        this.addOutput(`⚠️ ${message}`, 'error');
+      } else {
+        this.addOutput(`💡 ${message}`, 'system');
+      }
+
+      if (!this.feedbackOverlay) {
+        const overlay = document.createElement('div');
+        overlay.className = 'input-feedback-overlay';
+        overlay.style.cssText = `
+        position: absolute;
+        left: 16px;
+        right: 16px;
+        bottom: 12px;
+        z-index: 1200;
+        pointer-events: auto;
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        padding: 12px 16px;
+        border-radius: 12px;
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        transition: opacity 180ms ease, transform 180ms ease;
+        opacity: 0;
+        transform: translateY(8px);
+      `;
+        this.container.appendChild(overlay);
+        this.feedbackOverlay = overlay;
+      }
+
+      const overlay = this.feedbackOverlay;
+      overlay.innerHTML = '';
+
+      const isError = type === 'error';
+      const background = isError
+        ? (this.isDarkMode ? 'rgba(239, 68, 68, 0.28)' : 'rgba(239, 68, 68, 0.18)')
+        : (this.isDarkMode ? 'rgba(59, 130, 246, 0.25)' : 'rgba(59, 130, 246, 0.18)');
+      const border = isError
+        ? '1px solid rgba(239, 68, 68, 0.45)'
+        : '1px solid rgba(59, 130, 246, 0.35)';
+      const color = isError
+        ? (this.isDarkMode ? '#fca5a5' : '#b91c1c')
+        : (this.isDarkMode ? '#bfdbfe' : '#1d4ed8');
+
+      overlay.style.background = background;
+      overlay.style.border = border;
+      overlay.style.color = color;
+
+      const messageSpan = document.createElement('span');
+      messageSpan.textContent = message;
+      messageSpan.style.flex = '1';
+      overlay.appendChild(messageSpan);
+
+      if (options.actions && Array.isArray(options.actions) && options.actions.length > 0) {
+        const actionsContainer = document.createElement('div');
+        actionsContainer.style.cssText = `
+        display: flex;
+        gap: 8px;
+      `;
+
+        options.actions.forEach(action => {
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.textContent = action.label;
+          button.style.cssText = `
+          padding: 6px 12px;
+          border-radius: 999px;
+          border: none;
+          cursor: pointer;
+          background: ${isError ? 'rgba(239, 68, 68, 0.28)' : 'rgba(59, 130, 246, 0.25)'};
+          color: inherit;
+          font-size: 11px;
+          transition: background 0.2s ease;
+        `;
+          button.addEventListener('mouseenter', () => {
+            button.style.background = isError ? 'rgba(239, 68, 68, 0.38)' : 'rgba(59, 130, 246, 0.35)';
+          });
+          button.addEventListener('mouseleave', () => {
+            button.style.background = isError ? 'rgba(239, 68, 68, 0.28)' : 'rgba(59, 130, 246, 0.25)';
+          });
+          button.addEventListener('click', () => {
+            if (typeof action.onClick === 'function') {
+              action.onClick();
+            }
+          });
+          actionsContainer.appendChild(button);
+        });
+
+        overlay.appendChild(actionsContainer);
+      }
+
+      if (this.feedbackAutoClearTimer) {
+        clearTimeout(this.feedbackAutoClearTimer);
+        this.feedbackAutoClearTimer = null;
+      }
+
+      overlay.style.pointerEvents = 'auto';
+      overlay.style.opacity = '1';
+      overlay.style.transform = 'translateY(0)';
+
+      this.currentFeedback = overlay;
+
+      if (type === 'info') {
+        this.feedbackAutoClearTimer = setTimeout(() => this.clearInputFeedback(), options.duration || 3000);
+      }
+    }
+
+    /**
+     * 入力フィードバックをクリア
+     */
+    clearInputFeedback() {
+      if (this.feedbackAutoClearTimer) {
+        clearTimeout(this.feedbackAutoClearTimer);
+        this.feedbackAutoClearTimer = null;
+      }
+
+      if (this.currentFeedback) {
+        const element = this.currentFeedback;
+        element.style.pointerEvents = 'none';
+        element.style.opacity = '0';
+        element.style.transform = 'translateY(8px)';
+        this.currentFeedback = null;
+        setTimeout(() => {
+          element.innerHTML = '';
+        }, 180);
+      }
+    }
+
+    /**
+     * フィードバック用CSSスタイルを確保
+     */
+    ensureFeedbackStyles() {
+      if (document.getElementById('feedback-styles')) return;
+      
+      const style = document.createElement('style');
+      style.id = 'feedback-styles';
+      style.textContent = `
+      @keyframes feedbackSlideIn {
+        from {
+          opacity: 0;
+          transform: translateY(-10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      
+      @keyframes feedbackSlideOut {
+        from {
+          opacity: 1;
+          transform: translateY(0);
+        }
+        to {
+          opacity: 0;
+          transform: translateY(-10px);
+        }
+      }
+    `;
+      document.head.appendChild(style);
+    }
+
+    /**
+     * コマンド事前バリデーション（送信前チェック）
+     */
+    async preValidateCommand(command) {
+      // 1. コマンドタイプ判定
+      const hasSelectedObject = this.sceneManager?.selectedObject || this.selectedFile;
+      const commandType = this.analyzeCommandType(command, hasSelectedObject);
+
+      if (this.selectedFile) {
+        commandType.type = 'import';
+        commandType.mediaType = this.selectedFile.type === 'video' ? 'video' : 'image';
+        commandType.needsTarget = false;
+        commandType.requiresConfirmation = false;
+        commandType.hasExplicitTarget = true;
+        commandType.detectedKeyword = commandType.detectedKeyword || 'import';
+      }
+
+      // 最新の解析結果をUIモードへ反映（ユーザー入力優先）
+      if (commandType.type && this.selectMode && commandType.type !== this.currentMode) {
+        this.selectMode(commandType.type, false, commandType.detectedKeyword || null);
+      }
+
+      // 2. 空コマンドの場合
+      if (commandType.type === 'empty') {
+        this.showInputFeedback('💡 何をしましょうか？コマンドを入力してください', 'info');
+        return { canExecute: false, reason: 'empty_command' };
+      }
+      
+      // 3. 対象が必要なコマンドの事前チェック
+      if (commandType.needsTarget && !hasSelectedObject) {
+        const canAttemptSearch = !!this.sceneManager && (commandType.hasExplicitTarget || commandType.type === 'modify');
+        
+        // まず自然言語で対象を探してみる
+        if (canAttemptSearch) {
+          this.logDebug('🔍 Searching for explicitly mentioned target...');
+          try {
+            const foundTarget = await this.sceneManager?.findObjectByKeyword(command);
+            if (foundTarget) {
+              // 対象を発見！選択してアニメーション表示
+              this.sceneManager.selectObject(foundTarget);
+              this.showInputFeedback(`✨ 「${foundTarget.name || foundTarget.userData?.originalPrompt || 'オブジェクト'}」を見つけました！`, 'success');
+              // 1秒待ってから実行継続
+              setTimeout(() => this.executeCommandAfterValidation(command, commandType), 1000);
+              return { canExecute: false, reason: 'target_found_waiting' };
+            } else {
+              // 対象が見つからない場合
+              this.showInputFeedback(
+                '🔍 指定されたオブジェクトが見つかりません',
+                'error',
+                {
+                  actions: [
+                    {
+                      label: '選択する',
+                      onClick: () => {
+                        this.clearInputFeedback();
+                        this.showInputFeedback('👆 3Dシーン内のオブジェクトをクリックで選択してください', 'info');
+                      }
+                    },
+                    {
+                      label: '新規作成に変更',
+                      onClick: () => {
+                        // コマンドを生成モード向けに変換
+                        const newCommand = this.convertToGenerateCommand(command);
+                        this.input.value = newCommand;
+                        this.clearInputFeedback();
+                        this.showInputFeedback('✏️ コマンドを新規作成用に変更しました', 'success');
+                      }
+                    }
+                  ]
+                }
+              );
+              return { canExecute: false, reason: 'target_not_found' };
+            }
+          } catch (error) {
+            this.logDebug('❌ Error searching for target:', error);
+            this.showInputFeedback('⚠️ 対象の検索中にエラーが発生しました', 'error');
+            return { canExecute: false, reason: 'search_error' };
+          }
+        } else {
+          // 一般的な「対象が必要」エラー
+          this.showInputFeedback(
+            '🎯 操作対象が選択されていません',
+            'error',
+            {
+              actions: [
+                {
+                  label: '選択する',
+                  onClick: () => {
+                    this.clearInputFeedback();
+                    this.showInputFeedback('👆 3Dシーン内のオブジェクトをクリックで選択してください', 'info');
+                  }
+                },
+                {
+                  label: 'ヒント',
+                  onClick: () => {
+                    this.clearInputFeedback();
+                    this.showInputFeedback('💡 「インポートした猫を」「選択した画像を」のように対象を明示してみてください', 'info');
+                  }
+                }
+              ]
+            }
+          );
+          return { canExecute: false, reason: 'no_target_selected' };
+        }
+      }
+      
+      // 4. バリデーション成功
+      return { canExecute: true, commandType };
+    }
+
+    /**
+     * バリデーション後のコマンド実行
+     */
+    async executeCommandAfterValidation(command, commandType) {
+      // 既存のexecuteCommandロジックを継続
+      // フィードバックをクリアしてから実行
+      this.clearInputFeedback();
+      
+      // 元のexecuteCommandの続きを実行
+      await this.proceedWithExecution(command, commandType);
+    }
+
+    async proceedWithExecution(command, commandType) {
+      const hasSelectedObject = this.sceneManager?.selectedObject || this.selectedFile;
+      if (!commandType) {
+        commandType = this.analyzeCommandType(command, hasSelectedObject);
+      }
+
+      if (this.selectedFile) {
+        if (this.currentMode !== 'import') {
+          this.selectMode('import', false);
+        }
+        this.currentMode = 'import';
+      } else {
+        this.currentMode = commandType.type;
+      }
+
+      if (commandType.requiresConfirmation) {
+        const confirmed = await this.showDeleteConfirmation(command);
+        if (!confirmed) {
+          this.addOutput('❌ 削除をキャンセルしました', 'system');
+          return;
+        }
+      }
+
+      this.input.value = '';
+      this.clearInputFeedback();
+      this.hideProactiveSuggestion();
+
+      const taskId = this.addTaskCard(command, { status: 'processing' });
+
+      this.saveCommandToHistory({
+        command: command,
+        mode: this.currentMode,
+        mediaType: commandType.mediaType,
+        timestamp: Date.now()
+      });
+
+      let result;
+
+      try {
+        const modePrefix = this.getModePrefix(this.currentMode);
+        const fullCommand = `${modePrefix}${command}`;
+
+        this.logDebug('🔍 Current mode check:', this.currentMode);
+        if (this.currentMode === 'import') {
+          this.logDebug('📁 Import mode detected - bypassing SceneManager');
+          if (!this.selectedFile) {
+            throw new Error('ファイルが選択されていません。まずファイルを選択してください。');
+          }
+          result = await this.handleImportCommand(command);
+        } else if (this.sceneManager) {
+          result = await this.sceneManager.executeCommand(fullCommand);
+        } else if (this.client) {
+          if (this.currentMode === 'generate') {
+            if (commandType.mediaType === 'video') {
+              result = await this.client.generateVideo(command, {
+                model: this.selectedVideoService || undefined
+              });
+            } else {
+              result = await this.client.generateImage(command, {
+                service: this.selectedImageService || undefined
+              });
+            }
+          } else if (this.currentMode === 'modify') {
+            const selectedObject = this.sceneManager?.selectedObject;
+            if (!selectedObject) {
+              throw new Error('変更するオブジェクトが選択されていません。まず対象オブジェクトを選択してください。');
+            }
+            result = await this.client.modifySelectedObject(selectedObject, command);
+          } else if (this.currentMode === 'delete') {
+            const selectedObject = this.sceneManager?.selectedObject;
+            if (!selectedObject && !this.sceneManager?.getSelectedObjects()?.length) {
+              this.addOutput('⚠️ 削除するオブジェクトが選択されていません。まず3Dシーン内のオブジェクトをクリックで選択してから、再度Deleteボタンを押してください。', 'system');
+              return;
+            }
+            const confirmMessage = `本当に「${command}」を実行しますか？
+
+この操作は取り消せません。`;
+            if (!confirm(confirmMessage)) {
+              this.addOutput('❌ 削除がキャンセルされました', 'system');
+              return;
+            }
+            result = await this.client.deleteObjects(command);
+          } else {
+            result = await this.client.executeCommand(fullCommand);
+          }
+        } else {
+          throw new Error('SceneManager または Client が設定されていません');
+        }
+
+        if (result && result.taskId) {
+          this.connectToProgress(result.taskId, taskId);
+          this.currentTaskId = result.taskId;
+        }
+
+        if (taskId) {
+          this.updateTaskCard(taskId, 'completed');
+        }
+
+        if (result.modelName) {
+          // モデル情報がある場合はモーダル表示用に保持（必要に応じて拡張）
+        }
+
+        if (result.objectId) {
+          // オブジェクト ID の提示は将来のUI更新で対応
+        }
+
+        if (result.position) {
+          // 位置情報はデバッグ表示のみ（現状は未使用）
+        }
+
+        if (commandType.mediaType) {
+          // メディアタイプ別の追加処理が必要になった場合に備えたフック
+        }
+      } catch (error) {
+        const errorMessages = {
+          generate: `❌ ${commandType.mediaType === 'video' ? '動画' : '画像'}生成エラー`,
+          modify: '❌ 変更エラー',
+          delete: '❌ 削除エラー'
+        };
+
+        if (taskId) {
+          this.updateTaskCard(taskId, 'error', { errorMessage: error.message });
+        }
+
+        this.addOutput(`${errorMessages[this.currentMode]}: ${error.message}`, 'error');
+        console.error('Command execution error:', error);
+      }
+
+      if (this.sceneManager && this.sceneManager.selectedObject) {
+        if (this.currentMode === 'modify' || this.currentMode === 'delete') {
+          setTimeout(() => {
+            this.sceneManager.deselectObject();
+          }, 500);
+        }
+      }
+
+      if (this.config.autoScroll) {
+        this.scrollToBottom();
+      }
+    }
+
+    /**
+     * コマンドを生成モード向けに変換
+     */
+    convertToGenerateCommand(command) {
+      // 「猫を大きく」→「大きな猫の画像を作って」のような変換
+      const patterns = [
+        { from: /(.+)を大きく/, to: '大きな$1の画像を作って' },
+        { from: /(.+)を小さく/, to: '小さな$1の画像を作って' },
+        { from: /(.+)を(.+)に/, to: '$2の$1の画像を作って' },
+        { from: /(.+)を(.+)く/, to: '$2い$1の画像を作って' }
+      ];
+      
+      for (const { from, to } of patterns) {
+        if (from.test(command)) {
+          return command.replace(from, to);
+        }
+      }
+      
+      // パターンマッチしない場合はデフォルト
+      return `${command}の画像を作って`;
     }
 
     /**
@@ -7189,7 +9154,7 @@
     /**
      * 温かみのあるメッセージを生成（マーケ提案ベース）
      */
-    getFriendlyMessage(status, prompt) {
+    getFriendlyMessage(status, prompt, errorMessage = null) {
       const shortPrompt = prompt.length > 15 ? prompt.substring(0, 15) + '...' : prompt;
 
       // 自然な応答システム適用
@@ -7203,6 +9168,12 @@
         case 'processing':
         case 'in-progress':
         case 'progress':
+          // Modify mode specific messages for processing
+          if (this.currentMode === 'modify') {
+            return responseType === 'casual' ? 'ちょこっと調整中です...' :
+                   responseType === 'magical' ? 'イメージを変化させています...' :
+                   'ちょこんと編集中です...';
+          }
           return responseType === 'casual' ? 'ちょこんと配置中です...' :
                  responseType === 'magical' ? 'あなたの想いを形にしています...' :
                  'ちょこっと魔法をかけています...';
@@ -7213,13 +9184,25 @@
                    responseType === 'magical' ? 'すっきりと片付きました！' :
                    'ちょこんと削除完了！すっきりですね！';
           }
+          // Modify mode specific messages
+          if (this.currentMode === 'modify') {
+            return responseType === 'casual' ? 'ちょこっと調整しました！' :
+                   responseType === 'magical' ? '素敵に変身しました！' :
+                   'ちょこんと編集完了！いい感じですね！';
+          }
           // Default completion messages for other modes
           return responseType === 'casual' ? 'ちょこっとドロップしました！' :
                  responseType === 'magical' ? '素敵な世界が完成しました！' :
                  'ちょこんと配置完了！素敵ですね！';
         case 'error':
-          return responseType === 'casual' ? 'ちょこっと失敗... もう一度どうぞ' :
-                 'うまくいかなかったようです... もう一度試してみませんか？';
+          // エラー理由があれば含める
+          if (errorMessage) {
+            const shortError = errorMessage.length > 30 ? errorMessage.substring(0, 30) + '...' : errorMessage;
+            return `❌ ${shortError}`;
+          }
+          return responseType === 'casual' ? 'おっと、エラーが発生しました' :
+                 responseType === 'magical' ? '申し訳ございません、処理に失敗しました' :
+                 'エラーが発生しました。もう一度お試しください';
         default:
           return shortPrompt;
       }
@@ -7512,7 +9495,7 @@
 
         case 'error':
           if (data.uiTaskId) {
-            this.updateTaskCard(data.uiTaskId, 'error');
+            this.updateTaskCard(data.uiTaskId, 'error', { errorMessage: data.message });
           }
           this.addOutput(`❌ ${data.message}`, 'error');
           this.disconnectProgress(data.taskId);
@@ -8293,7 +10276,8 @@
             // 画像をテクスチャプレーンとして配置
             if (this.sceneManager) {
               result = await this.sceneManager.loadImageFile(this.selectedFile.url, {
-                position: position
+                position: position,
+                fileName: this.selectedFile.name
               });
             } else {
               throw new Error('SceneManager が利用できません');
@@ -8304,7 +10288,8 @@
             // 動画をビデオテクスチャとして配置
             if (this.sceneManager) {
               result = await this.sceneManager.loadVideoFile(this.selectedFile.url, {
-                position: position
+                position: position,
+                fileName: this.selectedFile.name
               });
             } else {
               throw new Error('SceneManager が利用できません');

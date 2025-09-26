@@ -1,5 +1,6 @@
 const IMAGE_SERVICE_STORAGE_KEY = 'chocodrop-service-image';
 const VIDEO_SERVICE_STORAGE_KEY = 'chocodrop-service-video';
+const KEYWORD_HIGHLIGHT_COLOR = '#ff6ad5';
 
 /**
  * Command UI - Web interface for ChocoDrop System
@@ -38,6 +39,8 @@ export class CommandUI {
     this.availableVideoServices = [];
     this.selectedImageService = null;
     this.selectedVideoService = null;
+    this.highlightOverlay = null;
+    this.inputDefaultStyles = null;
     this.imageServiceSelect = null;
     this.videoServiceSelect = null;
     this.serviceSelectorContainer = null;
@@ -53,16 +56,22 @@ export class CommandUI {
     this.overlayTextarea = null;
     this.pendingImageService = null;
     this.pendingVideoService = null;
+    this.feedbackAutoClearTimer = null;
+    this.currentFeedback = null;
 
     try {
       const storedImage = localStorage.getItem(IMAGE_SERVICE_STORAGE_KEY);
       const storedVideo = localStorage.getItem(VIDEO_SERVICE_STORAGE_KEY);
+      console.log('🔍 Debug localStorage read:', { storedImage, storedVideo, IMAGE_SERVICE_STORAGE_KEY, VIDEO_SERVICE_STORAGE_KEY });
       if (storedImage) {
         this.selectedImageService = storedImage;
+        console.log('✅ Set selectedImageService:', this.selectedImageService);
       }
       if (storedVideo) {
         this.selectedVideoService = storedVideo;
+        console.log('✅ Set selectedVideoService:', this.selectedVideoService);
       }
+      console.log('🔍 Final values:', { selectedImageService: this.selectedImageService, selectedVideoService: this.selectedVideoService });
     } catch (error) {
       console.warn('⚠️ Failed to load stored service selections:', error);
     }
@@ -71,10 +80,13 @@ export class CommandUI {
     this.pendingVideoService = this.selectedVideoService;
 
     this.applyServiceSelectionToSceneManager();
+    console.log('🔍 After applyServiceSelectionToSceneManager - UI:', { selectedImageService: this.selectedImageService, selectedVideoService: this.selectedVideoService });
+    console.log('🔍 After applyServiceSelectionToSceneManager - SceneManager:', { selectedImageService: this.sceneManager?.selectedImageService, selectedVideoService: this.sceneManager?.selectedVideoService });
 
-    // ダークモード状態管理
-    this.isDarkMode = localStorage.getItem('live-command-theme') === 'dark' ||
-                     localStorage.getItem('live-command-theme') === null; // デフォルトはダーク
+    // テーマモード状態管理 (light, dark, wabisabi)
+    this.currentTheme = localStorage.getItem('live-command-theme') || 'light';
+    this.isDarkMode = this.currentTheme === 'dark';
+    this.isWabiSabiMode = this.currentTheme === 'wabisabi';
     
     // Undo/Redo システム
     this.commandHistory = [];
@@ -89,6 +101,7 @@ export class CommandUI {
     }
 
     this.createServiceModal();
+    this.createFloatingChocolateIcon();
 
     // DOM読み込み完了後にスタイルを確実に適用
     document.addEventListener('DOMContentLoaded', () => {
@@ -118,80 +131,68 @@ export class CommandUI {
     this.container.id = 'live-command-ui';
     this.container.style.cssText = this.getContainerStyles();
 
-    // Ultra-Simple ヘッダー
-    const header = document.createElement('div');
-    header.style.cssText = `
-      margin-bottom: 20px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      border-bottom: 1px solid rgba(79, 70, 229, 0.2);
-      padding-bottom: 12px;
-      position: relative;
-      min-height: 32px;
-    `;
-    
-    // ヘッダーテキスト
-    const headerText = document.createElement('span');
-    headerText.style.cssText = `
-      background: linear-gradient(135deg, #4f46e5, #7c3aed);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-      font-weight: 800;
-      font-size: 18px;
-    `;
-    headerText.textContent = '🌉 ChocoDrop';
-    header.appendChild(headerText);
-    
-    const controlButtonStyles = `
-      background: transparent;
-      border: none;
-      font-size: 18px;
+    // 2025年トレンド：Progressive Disclosure（ホバー時のみブランド表示）
+    const brandIndicator = document.createElement('div');
+    brandIndicator.className = 'progressive-brand-indicator';
+    brandIndicator.style.cssText = `
+      position: absolute;
+      top: -8px;
+      right: 8px;
+      width: 8px;
+      height: 8px;
+      background: linear-gradient(135deg, ${this.isWabiSabiMode ? '#8BC34A, #689F38' : '#6366f1, #8b5cf6'});
+      border-radius: 50%;
+      opacity: 0.7;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      z-index: 10;
       cursor: pointer;
-      padding: 4px 8px;
-      border-radius: 8px;
-      transition: all 0.2s;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin-left: 4px;
     `;
-
-    const settingsButton = document.createElement('button');
-    settingsButton.style.cssText = controlButtonStyles;
-    settingsButton.innerHTML = '⚙️';
-    settingsButton.title = 'サービス設定を開く';
-    settingsButton.addEventListener('mouseenter', () => {
-      settingsButton.style.background = this.isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(99, 102, 241, 0.15)';
-    });
-    settingsButton.addEventListener('mouseleave', () => {
-      settingsButton.style.background = 'transparent';
-    });
-    settingsButton.addEventListener('click', () => this.openServiceModal());
-    this.settingsButton = settingsButton;
-
-    const themeToggle = document.createElement('button');
-    themeToggle.style.cssText = controlButtonStyles;
-    themeToggle.innerHTML = this.isDarkMode ? '☀️' : '🌙';
-    themeToggle.title = this.isDarkMode ? 'ライトモードに切り替え' : 'ダークモードに切り替え';
     
-    themeToggle.addEventListener('mouseenter', () => {
-      themeToggle.style.background = this.isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(99, 102, 241, 0.15)';
-    });
-    themeToggle.addEventListener('mouseleave', () => {
-      themeToggle.style.background = 'transparent';
+    // Progressive Disclosure: ホバー/クリックでブランド名表示
+    const brandText = document.createElement('div');
+    brandText.className = 'progressive-brand-text';
+    brandText.style.cssText = `
+      position: absolute;
+      top: -35px;
+      right: -5px;
+      padding: 6px 12px;
+      background: rgba(255, 255, 255, 0.15);
+      border: 1px solid ${this.isDarkMode ? 'rgba(129, 140, 248, 0.3)' : 'rgba(99, 102, 241, 0.25)'};
+      border-radius: 12px;
+      box-shadow: 0 8px 24px rgba(99, 102, 241, 0.2), 0 4px 12px rgba(0, 0, 0, 0.1);
+      color: ${this.isDarkMode ? '#ffffff' : '#1f2937'};
+      font-size: 11px;
+      font-weight: 700;
+      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+      letter-spacing: 0.02em;
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      opacity: 0;
+      transform: translateY(5px) scale(0.9);
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      pointer-events: none;
+      z-index: 11;
+      white-space: nowrap;
+    `;
+    brandText.innerHTML = '<span style="filter: hue-rotate(240deg) saturate(0.8) brightness(1.1);">🍫</span> <span style="color: #6366f1;">ChocoDrop</span>';
+    
+    // Progressive Disclosure イベント
+    brandIndicator.addEventListener('mouseenter', () => {
+      brandText.style.opacity = '1';
+      brandText.style.transform = 'translateY(0) scale(1)';
+      brandIndicator.style.transform = 'scale(1.2)';
+      brandIndicator.style.opacity = '1';
     });
     
-    themeToggle.addEventListener('click', () => this.toggleTheme());
-    this.themeToggle = themeToggle;
-
-    const headerControls = document.createElement('div');
-    headerControls.style.cssText = 'display: flex; align-items: center; gap: 4px;';
-    headerControls.appendChild(settingsButton);
-    headerControls.appendChild(themeToggle);
-
-    header.appendChild(headerControls);
+    brandIndicator.addEventListener('mouseleave', () => {
+      brandText.style.opacity = '0';
+      brandText.style.transform = 'translateY(5px) scale(0.9)';
+      brandIndicator.style.transform = 'scale(1)';
+      brandIndicator.style.opacity = '0.7';
+    });
+    
+    brandIndicator.appendChild(brandText);
+    this.container.appendChild(brandIndicator);
 
     // 出力エリア（タスクカードコンテナ）- 非表示に変更
     this.output = document.createElement('div');
@@ -204,29 +205,84 @@ export class CommandUI {
     this.floatingContainer.id = 'floating-cards-container';
     this.floatingContainer.style.cssText = `
       position: fixed;
-      top: var(--floating-top, 20px);
+      bottom: var(--floating-bottom, 120px);
       left: 50%;
       transform: translateX(-50%);
       z-index: 99999;
       pointer-events: none;
       display: none;
-      flex-direction: column-reverse;
+      flex-direction: column;
       gap: 8px;
       width: 400px;
       max-width: 90vw;
       align-items: center;
-      justify-content: flex-end;
+      justify-content: flex-start;
     `;
 
     // タスクカード管理用
     this.taskCards = new Map();
 
-    // Ultra-Simple 単一入力フィールド
-    this.input = document.createElement('input');
-    this.input.type = 'text';
+    // 入力フィールドラッパー（展開ボタン用）
+    this.inputWrapper = document.createElement('div');
+    this.inputWrapper.style.cssText = `
+      position: relative;
+      width: 100%;
+      margin-bottom: 0;
+    `;
+
+    // Ultra-Simple 単一入力フィールド（自動リサイズ対応）
+    this.input = document.createElement('textarea');
+    this.input.rows = 1;
     this.input.id = 'command-input';
-    this.input.placeholder = '自然言語でコマンドを入力... (Enter: 送信)';
+    this.input.placeholder = '「右上にドラゴンを」「美しい桜の森を中央に」など... ✨';
     this.input.style.cssText = this.getInputStyles();
+
+    // 展開ボタン（初期状態は非表示）
+    this.expandButton = document.createElement('div');
+    this.expandButton.innerHTML = '⤢';
+    this.expandButton.title = 'テキスト全体を表示';
+    this.expandButton.style.cssText = `
+      position: absolute;
+      bottom: 8px;
+      right: 8px;
+      width: 24px;
+      height: 24px;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: ${this.isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'};
+      border: 1px solid ${this.isDarkMode ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.2)'};
+      border-radius: 6px;
+      color: ${this.isDarkMode ? '#ffffff' : '#1f2937'};
+      font-size: 16px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      z-index: 1;
+    `;
+
+    // 展開ボタンのホバー効果
+    this.expandButton.addEventListener('mouseenter', () => {
+      this.expandButton.style.background = this.isDarkMode ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.2)';
+      this.expandButton.style.transform = 'scale(1.1)';
+    });
+
+    this.expandButton.addEventListener('mouseleave', () => {
+      this.expandButton.style.background = this.isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
+      this.expandButton.style.transform = 'scale(1)';
+    });
+
+    // 展開ボタンのクリック処理
+    this.expandButton.addEventListener('click', () => {
+      if (this.isExpanded) {
+        this.hideOverlayTextarea();
+      } else {
+        this.showOverlayTextarea();
+      }
+    });
+
+    // ラッパーに要素を追加
+    this.inputWrapper.appendChild(this.input);
+    this.inputWrapper.appendChild(this.expandButton);
 
     // 旧コマンドタイプインジケーターは削除（ラジオボタンUIに統合）
 
@@ -236,11 +292,49 @@ export class CommandUI {
     // ミニマルアクションボタン
     const actionContainer = this.createMinimalActions();
 
-    // 組み立て
-    this.container.appendChild(header);
+    // ×クローズボタンをフォーム右上に追加
+    const closeButton = document.createElement('div');
+    closeButton.innerHTML = '×';
+    closeButton.style.cssText = `
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: ${this.isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'};
+      color: ${this.isDarkMode ? '#ffffff' : '#1f2937'};
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: normal;
+      transition: all 0.2s ease;
+      backdrop-filter: blur(8px);
+      z-index: 10;
+    `;
+
+    closeButton.addEventListener('mouseover', () => {
+      closeButton.style.background = this.isDarkMode ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.2)';
+      closeButton.style.transform = 'scale(1.1)';
+    });
+
+    closeButton.addEventListener('mouseout', () => {
+      closeButton.style.background = this.isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
+      closeButton.style.color = this.isDarkMode ? '#ffffff' : '#1f2937';
+      closeButton.style.transform = 'scale(1)';
+    });
+
+    closeButton.addEventListener('click', () => {
+      this.hide();
+    });
+
+    // 組み立て（ヘッダー削除、ブランドバッジは既に追加済み）
     // this.container.appendChild(this.output); // 大きなタスク表示エリアをDOMに追加しない
+    this.container.appendChild(closeButton);
     this.container.appendChild(modeSelector);
-    this.container.appendChild(this.input);
+    this.container.appendChild(this.inputWrapper);
     this.container.appendChild(actionContainer);
 
     // フローティングカードコンテナをbodyに直接追加
@@ -250,7 +344,6 @@ export class CommandUI {
     document.body.appendChild(this.container);
 
     // 初回テーマ適用
-    console.log('🚀 CommandUI initialization - applying initial theme');
     this.applyTheme();
 
     // 日本語IME対応のcomposition state管理
@@ -263,6 +356,18 @@ export class CommandUI {
       if (this.isComposing) {
         return;
       }
+      
+      // フィードバック自動クリア（ユーザーが入力を修正している）
+      if (this.currentFeedback) {
+        this.clearInputFeedback();
+      }
+      
+      // 自動リサイズ処理
+      this.autoResizeTextarea();
+      
+      // キーワードハイライト適用
+      this.applyKeywordHighlighting();
+      
       this.detectCommandType();
     });
     
@@ -282,6 +387,7 @@ export class CommandUI {
       
       // 確定後のコマンド検出を実行
       setTimeout(() => {
+        this.autoResizeTextarea();
         this.detectCommandType();
       }, 10);
     });
@@ -304,6 +410,7 @@ export class CommandUI {
         }
         
 
+
         e.preventDefault();
         this.executeCommand();
       }
@@ -324,37 +431,89 @@ export class CommandUI {
     container.style.cssText = `
       display: flex;
       margin-top: 8px;
+      margin-bottom: 0 !important;
       gap: 8px;
-      opacity: 0.8;
-      justify-content: flex-start;
+      justify-content: space-between;
+      align-items: center;
     `;
 
-    // Undoボタン
-    const undoBtn = document.createElement('button');
-    undoBtn.innerHTML = '↶ Undo';
-    undoBtn.style.cssText = this.getMinimalButtonStyles();
-    undoBtn.disabled = true;
-    undoBtn.addEventListener('click', () => this.undo());
-    this.undoBtn = undoBtn; // 参照保持
+    // 左側: Clear All ボタン（承認済みのLayout Bデザイン）
+    const leftSection = document.createElement('div');
+    leftSection.style.cssText = 'display: flex; gap: 8px; align-items: center;';
 
-    // Redoボタン
-    const redoBtn = document.createElement('button');
-    redoBtn.innerHTML = '↷ Redo';
-    redoBtn.style.cssText = this.getMinimalButtonStyles();
-    redoBtn.disabled = true;
-    redoBtn.addEventListener('click', () => this.redo());
-    this.redoBtn = redoBtn; // 参照保持
-
-    // クリアボタン
     const clearBtn = document.createElement('button');
-    clearBtn.innerHTML = 'Clear All';
-    clearBtn.style.cssText = this.getMinimalButtonStyles();
+    clearBtn.innerHTML = '<span style="filter: hue-rotate(240deg) saturate(0.7) brightness(0.9);">🧹</span> Clear All';
+    clearBtn.style.cssText = this.getActionButtonStyles('secondary');
     clearBtn.addEventListener('click', () => this.clearAllWithConfirmation());
 
-    // Undo/Redoボタンは一時的に非表示
-    // container.appendChild(undoBtn);
-    // container.appendChild(redoBtn);
-    container.appendChild(clearBtn);
+    // 履歴ボタン（将来実装用スペース確保）- 海外UI標準対応：同一幅
+    const historyBtn = document.createElement('button');
+    historyBtn.innerHTML = '<span style="filter: hue-rotate(240deg) saturate(0.7) brightness(0.9);">📚</span> History';
+    historyBtn.style.cssText = this.getActionButtonStyles('secondary');
+    historyBtn.style.opacity = '0.5';
+    historyBtn.disabled = true;
+    historyBtn.title = '履歴機能（開発中）';
+
+    leftSection.appendChild(clearBtn);
+    leftSection.appendChild(historyBtn);
+
+    // 右側: テーマトグルと設定（ヘッダーから移動）
+    const rightSection = document.createElement('div');
+    rightSection.style.cssText = 'display: flex; gap: 6px; align-items: center;';
+
+    const themeToggle = document.createElement('button');
+    const getThemeIcon = () => {
+      const themeConfig = {
+        light: '🌙',
+        dark: '🍵',
+        wabisabi: '☀️'
+      };
+      return themeConfig[this.currentTheme] || '🌙';
+    };
+
+    const getThemeTitle = () => {
+      const titleConfig = {
+        light: 'ダークモードに切り替え',
+        dark: '侘び寂びモードに切り替え',
+        wabisabi: 'ライトモードに切り替え'
+      };
+      return titleConfig[this.currentTheme] || 'ダークモードに切り替え';
+    };
+
+    const getThemeIconWithFilter = () => {
+      const icon = getThemeIcon();
+      // 太陽は黄色く、お茶は緑系、月は紫系フィルター
+      if (icon === '☀️') {
+        return `<span style="filter: saturate(1.2) brightness(1.1);">${icon}</span>`;
+      } else if (icon === '🍵') {
+        return `<span style="filter: hue-rotate(80deg) saturate(1.1) brightness(1.0);">${icon}</span>`;
+      } else {
+        return `<span style="filter: hue-rotate(240deg) saturate(0.8) brightness(1.1);">${icon}</span>`;
+      }
+    };
+
+    themeToggle.innerHTML = getThemeIconWithFilter();
+    themeToggle.style.cssText = this.getActionButtonStyles('icon');
+    themeToggle.title = getThemeTitle();
+    themeToggle.addEventListener('click', () => this.toggleTheme());
+
+    const settingsButton = document.createElement('button');
+    settingsButton.innerHTML = '<span style="filter: hue-rotate(240deg) saturate(0.8) brightness(1.1);">⚙️</span>';
+    settingsButton.style.cssText = this.getActionButtonStyles('icon');
+    settingsButton.title = 'サービス設定を開く';
+    settingsButton.addEventListener('click', () => this.openServiceModal());
+
+    rightSection.appendChild(themeToggle);
+    rightSection.appendChild(settingsButton);
+
+    container.appendChild(leftSection);
+    container.appendChild(rightSection);
+
+    // 参照を保持
+    this.clearBtn = clearBtn;
+    this.historyBtn = historyBtn;
+    this.themeToggle = themeToggle;
+    this.settingsButton = settingsButton;
 
     return container;
   }
@@ -386,8 +545,9 @@ export class CommandUI {
 
   createServiceModal() {
     if (this.serviceModalOverlay) {
-      this.updateServiceSelectorTheme();
-      return;
+      this.serviceModalOverlay.remove();
+      this.serviceModalOverlay = null;
+      this.serviceModal = null;
     }
 
     this.serviceModalOverlay = document.createElement('div');
@@ -418,6 +578,8 @@ export class CommandUI {
       width: min(420px, 90vw);
       border-radius: 24px;
       padding: 26px 28px;
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
       border: 1px solid rgba(255, 255, 255, 0.2);
       box-shadow: 0 20px 40px rgba(15, 23, 42, 0.35);
       display: flex;
@@ -492,7 +654,7 @@ export class CommandUI {
       border-radius: 10px;
       border: none;
       cursor: pointer;
-      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      background: linear-gradient(135deg, ${this.isWabiSabiMode ? '#8BC34A, #689F38' : '#6366f1, #8b5cf6'});
       color: white;
       font-weight: 600;
       transition: all 0.2s ease;
@@ -854,8 +1016,8 @@ export class CommandUI {
 
     if (this.serviceModal) {
       this.serviceModal.style.background = this.isDarkMode
-        ? 'linear-gradient(135deg, rgba(17, 24, 39, 0.92), rgba(30, 41, 59, 0.85))'
-        : 'linear-gradient(135deg, rgba(255, 255, 255, 0.92), rgba(229, 231, 255, 0.85))';
+        ? 'rgba(17, 24, 39, 0.15)'
+        : 'rgba(255, 255, 255, 0.15)';
       this.serviceModal.style.border = this.isDarkMode
         ? '1px solid rgba(129, 140, 248, 0.4)'
         : '1px solid rgba(99, 102, 241, 0.25)';
@@ -873,56 +1035,84 @@ export class CommandUI {
     if (this.serviceSelectorContainer) {
       const labels = this.serviceSelectorContainer.querySelectorAll('label');
       labels.forEach(label => {
-        label.style.color = this.isDarkMode ? 'rgba(255, 255, 255, 0.9)' : 'rgba(31, 41, 55, 0.9)';
+        label.style.color = this.isWabiSabiMode
+          ? '#5D4037'
+          : (this.isDarkMode ? 'rgba(255, 255, 255, 0.9)' : 'rgba(31, 41, 55, 0.9)');
       });
 
       const selects = this.serviceSelectorContainer.querySelectorAll('select');
       selects.forEach(select => {
-        select.style.background = this.isDarkMode ? 'rgba(99, 102, 241, 0.18)' : 'rgba(99, 102, 241, 0.12)';
-        select.style.border = this.isDarkMode ? '1px solid rgba(129, 140, 248, 0.45)' : '1px solid rgba(99, 102, 241, 0.45)';
-        select.style.color = this.isDarkMode ? '#ffffff' : '#1f2937';
+        select.style.background = this.isWabiSabiMode
+          ? 'rgba(161, 136, 127, 0.15)'
+          : (this.isDarkMode ? 'rgba(99, 102, 241, 0.18)' : 'rgba(99, 102, 241, 0.12)');
+        select.style.border = this.isWabiSabiMode
+          ? '1px solid rgba(161, 136, 127, 0.4)'
+          : (this.isDarkMode ? '1px solid rgba(129, 140, 248, 0.45)' : '1px solid rgba(99, 102, 241, 0.45)');
+        select.style.color = this.isWabiSabiMode
+          ? '#5D4037'
+          : (this.isDarkMode ? '#ffffff' : '#1f2937');
         select.style.padding = '10px 12px';
         select.style.borderRadius = '10px';
         select.style.fontSize = '13px';
         select.style.outline = 'none';
-        select.style.boxShadow = this.isDarkMode
-          ? '0 12px 28px rgba(15, 23, 42, 0.5)'
-          : '0 12px 24px rgba(99, 102, 241, 0.2)';
+        select.style.boxShadow = this.isWabiSabiMode
+          ? '0 12px 24px rgba(93, 64, 55, 0.25)'
+          : (this.isDarkMode
+            ? '0 12px 28px rgba(15, 23, 42, 0.5)'
+            : '0 12px 24px rgba(99, 102, 241, 0.2)');
       });
 
       const descriptions = this.serviceSelectorContainer.querySelectorAll('.service-description');
       descriptions.forEach(desc => {
-        desc.style.color = this.isDarkMode ? 'rgba(209, 213, 219, 0.8)' : 'rgba(55, 65, 81, 0.7)';
+        desc.style.color = this.isWabiSabiMode
+          ? 'rgba(93, 64, 55, 0.7)'
+          : (this.isDarkMode ? 'rgba(209, 213, 219, 0.8)' : 'rgba(55, 65, 81, 0.7)');
       });
     }
 
     if (this.serviceSelectorRetryButton) {
-      this.serviceSelectorRetryButton.style.background = this.isDarkMode
-        ? 'rgba(129, 140, 248, 0.35)'
-        : 'rgba(99, 102, 241, 0.15)';
-      this.serviceSelectorRetryButton.style.border = this.isDarkMode
-        ? '1px solid rgba(129, 140, 248, 0.5)'
-        : '1px solid rgba(99, 102, 241, 0.45)';
-      this.serviceSelectorRetryButton.style.color = this.isDarkMode ? '#f9fafb' : '#1e1b4b';
-      this.serviceSelectorRetryButton.style.boxShadow = this.isDarkMode
-        ? '0 0 8px rgba(129, 140, 248, 0.45)'
-        : '0 0 8px rgba(99, 102, 241, 0.35)';
+      this.serviceSelectorRetryButton.style.background = this.isWabiSabiMode
+        ? 'rgba(161, 136, 127, 0.25)'
+        : (this.isDarkMode
+          ? 'rgba(129, 140, 248, 0.35)'
+          : 'rgba(99, 102, 241, 0.15)');
+      this.serviceSelectorRetryButton.style.border = this.isWabiSabiMode
+        ? '1px solid rgba(161, 136, 127, 0.5)'
+        : (this.isDarkMode
+          ? '1px solid rgba(129, 140, 248, 0.5)'
+          : '1px solid rgba(99, 102, 241, 0.45)');
+      this.serviceSelectorRetryButton.style.color = this.isWabiSabiMode
+        ? '#5D4037'
+        : (this.isDarkMode ? '#f9fafb' : '#1e1b4b');
+      this.serviceSelectorRetryButton.style.boxShadow = this.isWabiSabiMode
+        ? '0 0 8px rgba(161, 136, 127, 0.4)'
+        : (this.isDarkMode
+          ? '0 0 8px rgba(129, 140, 248, 0.45)'
+          : '0 0 8px rgba(99, 102, 241, 0.35)');
     }
 
     if (this.serviceSelectorCancelButton) {
-      this.serviceSelectorCancelButton.style.border = this.isDarkMode
-        ? '1px solid rgba(209, 213, 219, 0.3)'
-        : '1px solid rgba(148, 163, 184, 0.5)';
-      this.serviceSelectorCancelButton.style.color = this.isDarkMode ? 'rgba(226, 232, 240, 0.85)' : 'rgba(30, 41, 59, 0.85)';
+      this.serviceSelectorCancelButton.style.border = this.isWabiSabiMode
+        ? '1px solid rgba(161, 136, 127, 0.4)'
+        : (this.isDarkMode
+          ? '1px solid rgba(209, 213, 219, 0.3)'
+          : '1px solid rgba(148, 163, 184, 0.5)');
+      this.serviceSelectorCancelButton.style.color = this.isWabiSabiMode
+        ? 'rgba(93, 64, 55, 0.85)'
+        : (this.isDarkMode ? 'rgba(226, 232, 240, 0.85)' : 'rgba(30, 41, 59, 0.85)');
     }
 
     if (this.serviceSelectorSaveButton) {
-      this.serviceSelectorSaveButton.style.background = this.isDarkMode
-        ? 'linear-gradient(135deg, #6366f1, #8b5cf6)'
-        : 'linear-gradient(135deg, #818cf8, #a855f7)';
-      this.serviceSelectorSaveButton.style.boxShadow = this.isDarkMode
-        ? '0 16px 28px rgba(99, 102, 241, 0.4)'
-        : '0 16px 28px rgba(129, 140, 248, 0.35)';
+      this.serviceSelectorSaveButton.style.background = this.isWabiSabiMode
+        ? 'linear-gradient(135deg, #6D4C41, #5D4037)'
+        : (this.isDarkMode
+          ? 'linear-gradient(135deg, ' + (this.isWabiSabiMode ? '#8BC34A, #689F38' : '#6366f1, #8b5cf6') + ')'
+          : 'linear-gradient(135deg, #818cf8, #a855f7)');
+      this.serviceSelectorSaveButton.style.boxShadow = this.isWabiSabiMode
+        ? '0 16px 28px rgba(93, 64, 55, 0.35)'
+        : (this.isDarkMode
+          ? '0 16px 28px rgba(99, 102, 241, 0.4)'
+          : '0 16px 28px rgba(129, 140, 248, 0.35)');
     }
   }
 
@@ -933,22 +1123,29 @@ export class CommandUI {
     const container = document.createElement('div');
     container.className = 'radio-mode-selector';
     container.style.cssText = `
-      display: flex;
-      gap: 16px;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
       margin-bottom: 12px;
-      padding: 8px 12px;
-      background: ${this.isDarkMode ? 'rgba(255, 255, 255, 0.05)' : 'rgba(255, 255, 255, 0.1)'};
-      border: 1px solid ${this.isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(255, 255, 255, 0.15)'};
-      border-radius: 10px;
-      backdrop-filter: blur(8px);
+      padding: 12px;
+      background: ${this.isWabiSabiMode
+        ? 'linear-gradient(135deg, rgba(158, 158, 158, 0.25), rgba(189, 189, 189, 0.2))'
+        : (this.isDarkMode
+          ? 'linear-gradient(135deg, rgba(30, 27, 75, 0.3), rgba(15, 23, 42, 0.4))'
+          : 'linear-gradient(135deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.1))')};
+      border: 1px solid ${this.isWabiSabiMode
+        ? 'rgba(141, 110, 99, 0.4)'
+        : (this.isDarkMode ? 'rgba(99, 102, 241, 0.15)' : 'rgba(255, 255, 255, 0.25)')};
+      border-radius: 16px;
+      backdrop-filter: blur(12px);
       transition: all 0.3s ease;
       position: relative;
     `;
 
     const modes = [
       { value: 'generate', label: 'Generate', icon: '✨' },
-      { value: 'import', label: 'Import', icon: '📁' },
-      { value: 'modify', label: 'Modify', icon: '✏️' },
+      { value: 'import', label: 'Import', icon: '📥' },
+      { value: 'modify', label: 'Modify', icon: '🔧' },
       { value: 'delete', label: 'Delete', icon: '🗑️' }
     ];
 
@@ -959,61 +1156,75 @@ export class CommandUI {
       button.className = `mode-option ${mode.value}`;
       button.style.cssText = `
         display: flex;
+        flex-direction: column;
         align-items: center;
-        gap: 6px;
-        padding: 6px 12px;
-        border-radius: 8px;
+        gap: 4px;
+        padding: 10px 8px;
+        border-radius: 12px;
         cursor: pointer;
         transition: all 0.2s ease;
-        font-size: 12px;
-        font-weight: 500;
-        color: ${this.isDarkMode ? 'rgba(255, 255, 255, 0.7)' : 'rgba(0, 0, 0, 0.7)'};
+        font-size: 11px;
+        font-weight: 600;
+        text-align: center;
+        color: ${this.isWabiSabiMode
+          ? '#F5F5F5'
+          : (this.isDarkMode ? 'rgba(255, 255, 255, 0.7)' : 'rgba(55, 65, 81, 0.8)')};
         background: transparent;
+        border: 1px solid transparent;
+        position: relative;
       `;
 
-      const radio = document.createElement('div');
-      radio.className = 'radio-circle';
-      radio.style.cssText = `
-        width: 12px;
-        height: 12px;
-        border: 2px solid ${this.isDarkMode ? 'rgba(255, 255, 255, 0.3)' : 'rgba(0, 0, 0, 0.3)'};
-        border-radius: 50%;
-        transition: all 0.2s ease;
+      const icon = document.createElement('div');
+      icon.textContent = mode.icon;
+      icon.style.cssText = `
+        font-size: 16px;
+        margin-bottom: 2px;
+        filter: ${this.isDarkMode 
+          ? 'hue-rotate(220deg) saturate(0.8) brightness(1.2)' 
+          : 'hue-rotate(240deg) saturate(0.7) brightness(0.9)'};
+        transition: filter 0.2s ease;
       `;
 
       const label = document.createElement('span');
-      label.textContent = `${mode.icon} ${mode.label}`;
+      label.textContent = mode.label;
 
       // AUTOバッジを作成
       const autoBadge = document.createElement('div');
       autoBadge.className = 'auto-badge';
       autoBadge.textContent = 'AUTO';
       autoBadge.style.cssText = `
-        font-size: 8px;
+        position: absolute;
+        top: -4px;
+        right: -4px;
+        font-size: 7px;
         font-weight: 700;
         padding: 2px 4px;
         background: linear-gradient(135deg, #10b981, #059669);
         color: white;
-        border-radius: 4px;
-        margin-left: 4px;
+        border-radius: 6px;
         opacity: 0;
         transform: scale(0.8);
         transition: all 0.2s ease;
         display: none;
       `;
 
-      button.appendChild(radio);
+      button.appendChild(icon);
       button.appendChild(label);
       button.appendChild(autoBadge);
 
       // クリックイベント
       button.addEventListener('click', () => {
-        this.selectMode(mode.value, true); // trueは手動選択を示す
+        if (mode.value === 'import') {
+          this.triggerFileSelection();
+        } else {
+          this.selectMode(mode.value, true); // trueは手動選択を示す
+        }
       });
 
-      this.radioModeButtons[mode.value] = { button, radio, autoBadge };
+      this.radioModeButtons[mode.value] = { button, autoBadge };
       container.appendChild(button);
     });
+
 
     this.radioModeContainer = container;
     // デフォルトでGenerateを選択
@@ -1030,22 +1241,49 @@ export class CommandUI {
 
     // 全ボタンをリセット
     Object.keys(this.radioModeButtons).forEach(key => {
-      const { button, radio, autoBadge } = this.radioModeButtons[key];
-      button.style.color = this.isDarkMode ? 'rgba(255, 255, 255, 0.7)' : 'rgba(0, 0, 0, 0.7)';
+      const { button, autoBadge } = this.radioModeButtons[key];
+      button.style.color = this.isWabiSabiMode
+        ? '#F5F5F5'
+        : (this.isDarkMode ? 'rgba(255, 255, 255, 0.7)' : 'rgba(55, 65, 81, 0.8)');
       button.style.background = 'transparent';
-      radio.style.borderColor = this.isDarkMode ? 'rgba(255, 255, 255, 0.3)' : 'rgba(0, 0, 0, 0.3)';
-      radio.style.background = 'transparent';
+      button.style.border = '1px solid transparent';
+      button.style.transform = 'scale(1)';
+      button.style.boxShadow = 'none';
       // AUTOバッジを非表示
       autoBadge.style.display = 'none';
       autoBadge.style.opacity = '0';
     });
 
-    // 選択されたボタンをハイライト
-    const { button, radio, autoBadge } = this.radioModeButtons[mode];
-    button.style.color = '#ec4899'; // ピンク色
-    button.style.background = this.isDarkMode ? 'rgba(236, 72, 153, 0.15)' : 'rgba(236, 72, 153, 0.1)';
-    radio.style.borderColor = '#ec4899';
-    radio.style.background = '#ec4899';
+    // 選択されたボタンをハイライト（2025年仕様）
+    const { button, autoBadge } = this.radioModeButtons[mode];
+    
+    // 2025 Glassmorphism選択状態
+    const selectedGlass = this.isWabiSabiMode
+      ? {
+          background: 'linear-gradient(135deg, rgba(109, 76, 65, 0.2), rgba(141, 110, 99, 0.15))',
+          border: '1px solid rgba(109, 76, 65, 0.4)',
+          boxShadow: '0 4px 16px rgba(109, 76, 65, 0.25), inset 0 1px 0 rgba(245, 245, 220, 0.15)',
+          color: '#F5F5F5'
+        }
+      : (this.isDarkMode
+        ? {
+            background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(139, 92, 246, 0.15))',
+            border: '1px solid rgba(99, 102, 241, 0.4)',
+            boxShadow: '0 4px 16px rgba(99, 102, 241, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
+            color: '#a5b4fc'
+          }
+        : {
+            background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(139, 92, 246, 0.08))',
+            border: '1px solid rgba(99, 102, 241, 0.3)',
+            boxShadow: '0 4px 16px rgba(99, 102, 241, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.2)',
+            color: this.isWabiSabiMode ? '#8BC34A' : '#6366f1'
+          });
+
+    button.style.color = selectedGlass.color;
+    button.style.background = selectedGlass.background;
+    button.style.border = selectedGlass.border;
+    button.style.boxShadow = selectedGlass.boxShadow;
+    button.style.transform = 'scale(1.02)';
 
     // AUTOバッジの表示制御
     if (!isManual && detectedKeyword) {
@@ -1067,13 +1305,20 @@ export class CommandUI {
     }
 
     // パルス効果を追加
-    if (!isManual) {
+    if (!isManual && mode !== 'import') {
       this.addPulseEffect(button);
+      this.addContainerGlow(mode);
+    } else if (mode === 'import') {
       this.addContainerGlow(mode);
     }
 
     // プレースホルダー更新
     this.input.placeholder = this.getPlaceholderForMode(mode);
+
+    // モード切り替え時の入力欄メッセージ上書き機能
+    if (isManual) {
+      this.clearInputOnModeSwitch(mode);
+    }
 
     // Importモード専用処理
     if (mode === 'import' || this.selectedFile) {
@@ -1085,6 +1330,11 @@ export class CommandUI {
     // Deleteモード専用処理
     if (mode === 'delete' && isManual) {
       this.handleDeleteModeSelection();
+    }
+
+    // Modifyモード専用処理
+    if (mode === 'modify' && isManual) {
+      this.handleModifyModeSelection();
     }
 
     // モード切り替えメッセージは表示しない（UIで分かるため）
@@ -1136,15 +1386,26 @@ export class CommandUI {
     const container = this.radioModeContainer;
     if (!container) return;
 
-    const glowColors = {
-      generate: 'rgba(79, 70, 229, 0.4)',   // 紫のグロー
-      modify: 'rgba(236, 72, 153, 0.4)',    // ピンクのグロー  
-      delete: 'rgba(107, 114, 128, 0.3)'    // グレーのグロー
+    // モードに応じてグロー色を設定
+    const glowColors = this.isWabiSabiMode ? {
+      generate: 'rgba(139, 195, 74, 0.4)',
+      modify: 'rgba(139, 195, 74, 0.4)',
+      delete: 'rgba(139, 195, 74, 0.4)',
+      import: 'rgba(139, 195, 74, 0.4)'
+    } : {
+      generate: 'rgba(79, 70, 229, 0.4)',
+      modify: 'rgba(236, 72, 153, 0.4)',
+      delete: 'rgba(107, 114, 128, 0.3)',
+      import: 'rgba(59, 130, 246, 0.35)'
     };
 
+    const glowColor = glowColors[mode] || glowColors.generate;
+
     // 一時的にグロー効果を適用
-    container.style.boxShadow = `0 0 20px ${glowColors[mode]}, 0 0 40px ${glowColors[mode]}`;
-    container.style.borderColor = glowColors[mode].replace('0.4', '0.6').replace('0.3', '0.5');
+    container.style.boxShadow = `0 0 20px ${glowColor}, 0 0 40px ${glowColor}`;
+
+    const intensified = glowColor.replace('0.4', '0.6').replace('0.3', '0.5');
+    container.style.borderColor = intensified !== glowColor ? intensified : glowColor;
     
     // 1秒後にグロー効果を除去
     setTimeout(() => {
@@ -1153,22 +1414,62 @@ export class CommandUI {
     }, 1000);
   }
 
-  getMinimalButtonStyles() {
-    return `
-      min-width: 50px;
-      height: 32px;
-      border: 1px solid ${this.isDarkMode ? 'rgba(255, 255, 255, 0.2)' : 'rgba(255, 255, 255, 0.25)'};
-      border-radius: 6px;
-      background: ${this.isDarkMode ? 'rgba(255, 255, 255, 0.15)' : 'rgba(255, 255, 255, 0.2)'};
-      color: ${this.isDarkMode ? '#ffffff' : '#1f2937'};
+  getActionButtonStyles(variant = 'secondary') {
+    const baseStyles = `
+      border: none;
+      border-radius: 10px;
       cursor: pointer;
       transition: all 0.2s ease;
       font-family: inherit;
       outline: none;
-      font-size: 11px;
       font-weight: 500;
-      padding: 0 8px;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
     `;
+
+    if (variant === 'secondary') {
+      // Clear All, History ボタン用 - 美しい配置と統一感
+      return baseStyles + `
+        width: 90px;
+        height: 36px;
+        padding: 8px 12px;
+        font-size: 12px;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        background: ${this.isWabiSabiMode
+          ? 'linear-gradient(135deg, rgba(141, 110, 99, 0.3), rgba(109, 76, 65, 0.2))'
+          : (this.isDarkMode
+            ? 'linear-gradient(135deg, rgba(55, 65, 81, 0.3), rgba(75, 85, 99, 0.2))'
+            : 'linear-gradient(135deg, rgba(255, 255, 255, 0.25), rgba(255, 255, 255, 0.15))')};
+        border: 1px solid ${this.isWabiSabiMode
+          ? 'rgba(93, 64, 55, 0.6)'
+          : (this.isDarkMode ? 'rgba(156, 163, 175, 0.2)' : 'rgba(255, 255, 255, 0.3)')};
+        color: ${this.isWabiSabiMode
+          ? '#F5F5F5'
+          : (this.isDarkMode ? '#d1d5db' : '#374151')};
+        text-align: center;
+        white-space: nowrap;
+      `;
+    } else if (variant === 'icon') {
+      // テーマトグル、設定ボタン用
+      return baseStyles + `
+        width: 32px;
+        height: 32px;
+        padding: 0;
+        font-size: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: ${this.isDarkMode 
+          ? 'linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(139, 92, 246, 0.1))'
+          : 'linear-gradient(135deg, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.2))'};
+        border: 1px solid ${this.isDarkMode ? 'rgba(99, 102, 241, 0.2)' : 'rgba(255, 255, 255, 0.4)'};
+        color: ${this.isDarkMode ? '#a5b4fc' : '#6366f1'};
+      `;
+    }
   }
 
   /**
@@ -1209,6 +1510,41 @@ export class CommandUI {
   }
 
   /**
+   * テキストエリアの自動リサイズ処理（最大2行）
+   */
+  autoResizeTextarea() {
+    // 高さをリセットして正確な scrollHeight を取得
+    this.input.style.height = 'auto';
+    
+    // 現在のコンテンツに基づいて高さを計算
+    const lineHeight = 22; // CSS で設定した line-height
+    const padding = 28; // 上下のパディング合計 (14px * 2)
+    const maxLines = 2;
+    const maxHeight = (lineHeight * maxLines) + padding;
+    
+    // スクロール高さに基づいて新しい高さを決定
+    const newHeight = Math.min(this.input.scrollHeight, maxHeight);
+    
+    // 高さを適用
+    this.input.style.height = newHeight + 'px';
+    
+    // 2行を超える場合はスクロールを有効化と展開ボタン表示
+    if (this.input.scrollHeight > maxHeight) {
+      this.input.style.overflowY = 'auto';
+      // 展開ボタンを表示
+      if (this.expandButton) {
+        this.expandButton.style.display = 'flex';
+      }
+    } else {
+      this.input.style.overflowY = 'hidden';
+      // 展開ボタンを非表示
+      if (this.expandButton) {
+        this.expandButton.style.display = 'none';
+      }
+    }
+  }
+
+  /**
    * リアルタイムコマンドタイプ検出
    */
   detectCommandType() {
@@ -1220,20 +1556,32 @@ export class CommandUI {
 
     const commandType = this.analyzeCommandType(input);
 
-    // ラジオボタンUIを自動更新（手動選択ではない）
+    // Delete/Modifyは手動選択を優先、自動切り替えしない
+    if (this.currentMode === 'delete' || this.currentMode === 'modify') {
+      return; // 現在のモードを維持
+    }
+    // Generate/Importのみ自動切り替え
     this.selectMode(commandType.type, false, commandType.detectedKeyword);
   }
 
   /**
    * ルールベースコマンド分析
    */
-  analyzeCommandType(text) {
+  analyzeCommandType(text, hasSelectedObject) {
+    const trimmedText = text.trim();
+    
     this.logDebug(`🔍 Analyzing command: "${text}"`);
+    this.logDebug(`📋 Selected object: ${hasSelectedObject ? 'Yes' : 'No'}`);
+    
+    // 空コマンド
+    if (!trimmedText) {
+      return { type: 'empty', reason: '空のコマンド' };
+    }
 
     // メディアタイプの検出
     const mediaInfo = this.detectMediaType(text);
     
-    // 削除コマンドの検出
+    // 1. 削除コマンドの検出（最優先）
     const deletePatterns = [
       { pattern: /削除/, keyword: '削除' },
       { pattern: /消去/, keyword: '消去' },
@@ -1248,35 +1596,6 @@ export class CommandUI {
       { pattern: /erase/i, keyword: 'erase' }
     ];
     
-    // 変更・移動コマンドの検出
-    const modifyPatterns = [
-      { pattern: /移動/, keyword: '移動' },
-      { pattern: /動かして/, keyword: '動かして' },
-      { pattern: /変更/, keyword: '変更' },
-      { pattern: /変えて/, keyword: '変えて' },
-      { pattern: /修正/, keyword: '修正' },
-      { pattern: /調整/, keyword: '調整' },
-      { pattern: /を.*に.*して/, keyword: '変更' },
-      { pattern: /move/i, keyword: 'move' },
-      { pattern: /change/i, keyword: 'change' },
-      { pattern: /modify/i, keyword: 'modify' },
-      { pattern: /edit/i, keyword: 'edit' }
-    ];
-    
-    // 生成コマンドの検出（デフォルト）
-    const generatePatterns = [
-      { pattern: /作って/, keyword: '作って' },
-      { pattern: /生成/, keyword: '生成' },
-      { pattern: /作成/, keyword: '作成' },
-      { pattern: /描いて/, keyword: '描いて' },
-      { pattern: /書いて/, keyword: '書いて' },
-      { pattern: /create/i, keyword: 'create' },
-      { pattern: /generate/i, keyword: 'generate' },
-      { pattern: /make/i, keyword: 'make' },
-      { pattern: /draw/i, keyword: 'draw' }
-    ];
-
-    // 削除パターンチェック
     for (const { pattern, keyword } of deletePatterns) {
       if (pattern.test(text)) {
         this.logDebug(`✅ Delete pattern matched: ${keyword}`);
@@ -1286,50 +1605,341 @@ export class CommandUI {
           reason: '削除キーワードを検出',
           mediaType: mediaInfo.type,
           requiresConfirmation: true,
-          detectedKeyword: keyword
+          detectedKeyword: keyword,
+          needsTarget: true
         };
       }
     }
     
-    // 変更パターンチェック
-    for (const { pattern, keyword } of modifyPatterns) {
-      if (pattern.test(text)) {
-        this.logDebug(`✅ Modify pattern matched: ${keyword}`);
-        return {
-          type: 'modify',
-          confidence: 0.8,
-          reason: '変更キーワードを検出',
-          mediaType: mediaInfo.type,
-          requiresConfirmation: false,
-          detectedKeyword: keyword
-        };
-      }
-    }
+    // 2. 明確な生成コマンドの検出（選択状態に関係なく）
+    const generatePatterns = [
+      { pattern: /作って/, keyword: '作って' },
+      { pattern: /つくって/, keyword: 'つくって' },
+      { pattern: /生成/, keyword: '生成' },
+      { pattern: /作成/, keyword: '作成' },
+      { pattern: /描いて/, keyword: '描いて' },
+      { pattern: /書いて/, keyword: '書いて' },
+      { pattern: /create/i, keyword: 'create' },
+      { pattern: /generate/i, keyword: 'generate' },
+      { pattern: /make/i, keyword: 'make' },
+      { pattern: /draw/i, keyword: 'draw' }
+    ];
     
-    // 生成パターンチェック
     for (const { pattern, keyword } of generatePatterns) {
       if (pattern.test(text)) {
+        this.logDebug(`✅ Generate pattern matched: ${keyword}`);
         return {
           type: 'generate',
           confidence: mediaInfo.confidence,
-          reason: mediaInfo.reason,
+          reason: '生成キーワードを検出',
           mediaType: mediaInfo.type,
           requiresConfirmation: false,
-          detectedKeyword: keyword
+          detectedKeyword: keyword,
+          needsTarget: false
         };
       }
     }
     
-    // デフォルト（生成モード）
-    this.logDebug(`ℹ️ No specific pattern matched, defaulting to generate mode`);
+    // 3. 自然言語での対象指定（確実にmodify）
+    const targetPatterns = [
+      /インポートした.*を/,
+      /選択した.*を/,
+      /この.*を/,
+      /その.*を/,
+      /あの.*を/,
+      /[0-9]+番目.*を/,
+      /最初.*を/,
+      /初回.*を/,
+      /生成した.*を/,
+      /作った.*を/,
+      /.+の(画像|写真|イメージ|絵|イラスト|ピクチャー)(を|に)/,
+      /.+の(動画|ビデオ|ムービー|映像|クリップ)(を|に)/,
+      /(.+?)(画像|写真|イメージ|絵|イラスト|ピクチャー)を.*(変えて|変更|にして|加工|編集|調整|塗り|並べ|移動|回転|反転|整列)/,
+      /(.+?)(動画|ビデオ|ムービー|映像|クリップ)を.*(変えて|変更|にして|加工|編集|調整|塗り|並べ|移動|回転|反転|整列)/
+    ];
+
+    const explicitTargetMatched = targetPatterns.some(pattern => pattern.test(text));
+    if (explicitTargetMatched) {
+      this.logDebug('✅ Target reference pattern matched');
+      return {
+        type: 'modify',
+        confidence: 0.9,
+        reason: '対象を明示的に指定',
+        mediaType: mediaInfo.type,
+        requiresConfirmation: false,
+        needsTarget: true,
+        hasExplicitTarget: true
+      };
+    }
+
+    // 4. 選択オブジェクトがある場合の処理
+    if (hasSelectedObject && trimmedText) {
+      // 新規作成意図でなければmodify
+      if (!/の画像|の動画|画像を|動画を|画像$|動画$/.test(text)) {
+        this.logDebug(`✅ Selected object + command = modify`);
+        return {
+          type: 'modify',
+          confidence: 0.8,
+          reason: '選択オブジェクトに対する変更',
+          mediaType: mediaInfo.type,
+          requiresConfirmation: false,
+          needsTarget: false  // 既に選択済み
+        };
+      }
+    }
+
+    // 5. 変更系のキーワードが含まれる場合（対象未選択でもmodify判定）
+    const modificationIndicators = /(にして|に変えて|へ変えて|へ変更|変えて|変更|調整|加工|編集|塗(って|り)|染め|彩色|彩度|明るく|暗く|薄く|濃く|ぼかし|シャープ|左右反転|上下反転|反転|回転|移動|並べ|整列|揃え|寄せて|拡大|縮小|大きく|小さく|伸ばして|縮めて|高く|低く|近づけ|遠ざけ|透明|半透明|不透明|輝かせて|光らせて|暗くして|焼き込み|焼き付け|flip|rotate|move|align|scale|resize|tint|color|brighten|darken|adjust|edit|modify)/i;
+    const mediaReferenceIndicators = /(画像|写真|イメージ|絵|イラスト|ピクチャー|メディア|素材|動画|ビデオ|ムービー|映像|クリップ|オブジェクト|モデル)/i;
+
+    if (modificationIndicators.test(text)) {
+      this.logDebug('✅ Modification indicators detected');
+      return {
+        type: 'modify',
+        confidence: 0.7,
+        reason: '変更キーワードを検出',
+        mediaType: mediaInfo.type,
+        requiresConfirmation: false,
+        needsTarget: !hasSelectedObject,
+        hasExplicitTarget: explicitTargetMatched || mediaReferenceIndicators.test(text)
+      };
+    }
+
+    // 6. デフォルト（安全な生成）
+    this.logDebug(`ℹ️ Defaulting to generate mode`);
     return {
       type: 'generate',
       confidence: mediaInfo.confidence,
-      reason: mediaInfo.reason,
+      reason: 'デフォルト動作（新規生成）',
       mediaType: mediaInfo.type,
       requiresConfirmation: false,
-      detectedKeyword: null
+      needsTarget: false
     };
+  }
+
+  /**
+   * Extract all command keywords from the analyzeCommandType patterns
+   * Returns an array of {pattern, keyword, type} objects
+   */
+  getAllCommandKeywords() {
+    const deletePatterns = [
+      { pattern: /削除/, keyword: '削除', type: 'delete' },
+      { pattern: /消去/, keyword: '消去', type: 'delete' },
+      { pattern: /消して/, keyword: '消して', type: 'delete' },
+      { pattern: /消す/, keyword: '消す', type: 'delete' },
+      { pattern: /取り除/, keyword: '取り除', type: 'delete' },
+      { pattern: /除去/, keyword: '除去', type: 'delete' },
+      { pattern: /削除して/, keyword: '削除して', type: 'delete' },
+      { pattern: /delete/i, keyword: 'delete', type: 'delete' },
+      { pattern: /remove/i, keyword: 'remove', type: 'delete' },
+      { pattern: /clear/i, keyword: 'clear', type: 'delete' },
+      { pattern: /erase/i, keyword: 'erase', type: 'delete' }
+    ];
+    
+    const modifyPatterns = [
+      { pattern: /移動/, keyword: '移動', type: 'modify' },
+      { pattern: /動かして/, keyword: '動かして', type: 'modify' },
+      { pattern: /変更/, keyword: '変更', type: 'modify' },
+      { pattern: /変えて/, keyword: '変えて', type: 'modify' },
+      { pattern: /修正/, keyword: '修正', type: 'modify' },
+      { pattern: /調整/, keyword: '調整', type: 'modify' },
+      { pattern: /move/i, keyword: 'move', type: 'modify' },
+      { pattern: /change/i, keyword: 'change', type: 'modify' },
+      { pattern: /modify/i, keyword: 'modify', type: 'modify' },
+      { pattern: /edit/i, keyword: 'edit', type: 'modify' }
+    ];
+    
+    const generatePatterns = [
+      { pattern: /作って/, keyword: '作って', type: 'generate' },
+      { pattern: /生成/, keyword: '生成', type: 'generate' },
+      { pattern: /作成/, keyword: '作成', type: 'generate' },
+      { pattern: /描いて/, keyword: '描いて', type: 'generate' },
+      { pattern: /書いて/, keyword: '書いて', type: 'generate' },
+      { pattern: /create/i, keyword: 'create', type: 'generate' },
+      { pattern: /generate/i, keyword: 'generate', type: 'generate' },
+      { pattern: /make/i, keyword: 'make', type: 'generate' },
+      { pattern: /draw/i, keyword: 'draw', type: 'generate' }
+    ];
+
+    return [...deletePatterns, ...modifyPatterns, ...generatePatterns];
+  }
+
+  /**
+   * Apply keyword highlighting to the input text
+   */
+  applyKeywordHighlighting() {
+    // TODO: 一時的にキーワードハイライト機能を無効化（リリース後に再検討）
+    return;
+
+    if (!this.input || this.isComposing) {
+      return;
+    }
+
+    const text = this.input.value;
+    if (!text.trim()) {
+      this.clearKeywordHighlighting();
+      return;
+    }
+
+    // Get all keyword patterns
+    const allKeywords = this.getAllCommandKeywords();
+    
+    // Find matches in the text
+    const matches = [];
+    for (const { pattern, keyword, type } of allKeywords) {
+      const match = text.match(pattern);
+      if (match) {
+        const startIndex = match.index;
+        const endIndex = startIndex + match[0].length;
+        matches.push({
+          start: startIndex,
+          end: endIndex,
+          keyword: match[0], // Use actual matched text
+          type: type
+        });
+      }
+    }
+
+    // Sort matches by position to avoid overlaps
+    matches.sort((a, b) => a.start - b.start);
+
+    // Apply highlighting if we have matches
+    if (matches.length > 0) {
+      this.createHighlightOverlay(text, matches);
+    } else {
+      this.clearKeywordHighlighting();
+    }
+  }
+
+  /**
+   * Create a highlighting overlay div that sits behind the textarea
+   */
+  createHighlightOverlay(text, matches) {
+    // Remove existing overlay
+    this.clearKeywordHighlighting();
+
+    // Create highlight overlay div
+    this.highlightOverlay = document.createElement('div');
+    this.highlightOverlay.className = 'keyword-highlight-overlay';
+    
+    // Copy textarea styles to overlay
+    const computedStyle = window.getComputedStyle(this.input);
+
+    if (!this.inputDefaultStyles) {
+      this.captureInputDefaultStyles();
+    }
+    this.highlightOverlay.style.cssText = `
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      overflow: hidden;
+      font-family: ${computedStyle.fontFamily};
+      font-size: ${computedStyle.fontSize};
+      font-weight: ${computedStyle.fontWeight};
+      line-height: ${computedStyle.lineHeight};
+      letter-spacing: ${computedStyle.letterSpacing};
+      padding: ${computedStyle.padding};
+      border: ${computedStyle.borderWidth} solid transparent;
+      margin: 0;
+      z-index: 1;
+      color: transparent;
+      background: transparent;
+    `;
+
+    // Build highlighted HTML
+    let highlightedHTML = '';
+    let lastIndex = 0;
+
+    for (const match of matches) {
+      // Add text before this match
+      highlightedHTML += this.escapeHtml(text.substring(lastIndex, match.start));
+      
+      // Add highlighted keyword
+      const color = this.getKeywordColor(match.type);
+      highlightedHTML += `<span style="color: ${color}; font-weight: 600; background: linear-gradient(135deg, ${color}22 0%, ${color}11 100%); border-radius: 3px; padding: 1px 2px;">${this.escapeHtml(match.keyword)}</span>`;
+      
+      lastIndex = match.end;
+    }
+
+    // Add remaining text
+    highlightedHTML += this.escapeHtml(text.substring(lastIndex));
+
+    this.highlightOverlay.innerHTML = highlightedHTML;
+
+    // Make textarea background transparent so overlay shows through
+    this.input.style.background = 'transparent';
+    this.input.style.backgroundColor = 'transparent';
+    this.input.style.backgroundImage = 'none';
+    this.input.style.color = this.getInputTextColor();
+
+    // Insert overlay before textarea
+    this.inputWrapper.insertBefore(this.highlightOverlay, this.input);
+  }
+
+  /**
+   * Get the appropriate color for each keyword type
+   */
+  getKeywordColor(type) {
+    return KEYWORD_HIGHLIGHT_COLOR;
+  }
+
+  getInputTextColor() {
+    if (this.isWabiSabiMode) {
+      return '#F5F5F5';
+    }
+    return this.isDarkMode ? '#ffffff' : '#1f2937';
+  }
+
+  captureInputDefaultStyles() {
+    if (!this.input) {
+      return;
+    }
+    const computedStyle = window.getComputedStyle(this.input);
+    this.inputDefaultStyles = {
+      background: computedStyle.background,
+      backgroundImage: computedStyle.backgroundImage,
+      backgroundColor: computedStyle.backgroundColor,
+      color: computedStyle.color
+    };
+  }
+
+  /**
+   * Clear keyword highlighting
+   */
+  clearKeywordHighlighting() {
+    if (this.highlightOverlay) {
+      this.highlightOverlay.remove();
+      this.highlightOverlay = null;
+    }
+    
+    // Restore textarea background
+    if (this.input) {
+      if (this.inputDefaultStyles) {
+        this.input.style.background = this.inputDefaultStyles.background;
+        this.input.style.backgroundImage = this.inputDefaultStyles.backgroundImage;
+        this.input.style.backgroundColor = this.inputDefaultStyles.backgroundColor;
+        this.input.style.color = this.inputDefaultStyles.color;
+      } else {
+        this.input.style.background = '';
+        this.input.style.backgroundImage = '';
+        this.input.style.backgroundColor = '';
+        this.input.style.color = '';
+      }
+    }
+  }
+
+  /**
+   * Escape HTML characters
+   */
+  escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
   }
 
   /**
@@ -1383,7 +1993,7 @@ export class CommandUI {
     };
     
     const typeColors = {
-      generate: 'linear-gradient(135deg, #6b21f0, #5b11d0)',
+      generate: 'linear-gradient(135deg, #4f46e5, #4338ca)',
       modify: 'linear-gradient(135deg, #ec4899, #be185d)',
       delete: 'rgba(107, 114, 128, 0.15)'
     };
@@ -1474,7 +2084,7 @@ export class CommandUI {
     };
     
     const typeColors = {
-      generate: 'linear-gradient(135deg, #6b21f0, #5b11d0)',
+      generate: 'linear-gradient(135deg, #4f46e5, #4338ca)',
       modify: 'linear-gradient(135deg, #ec4899, #be185d)',
       delete: 'rgba(107, 114, 128, 0.15)'
     };
@@ -1529,26 +2139,49 @@ export class CommandUI {
       'center': 'top: 50%; left: 50%; transform: translate(-50%, -50%);'
     };
 
+    // 2025 Glassmorphism仕様：ダーク・ライト両対応
+    const glassmorphismDark = {
+      background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.7), rgba(30, 27, 75, 0.65))',
+      backdropFilter: 'blur(24px) saturate(180%)',
+      border: '1px solid rgba(99, 102, 241, 0.2)',
+      boxShadow: '0 8px 32px rgba(15, 23, 42, 0.4), 0 0 0 1px rgba(99, 102, 241, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1)'
+    };
+
+    const glassmorphismLight = {
+      background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.25), rgba(255, 255, 255, 0.15))',
+      backdropFilter: 'blur(24px) saturate(180%)',
+      border: '1px solid rgba(255, 255, 255, 0.4)',
+      boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(255, 255, 255, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.3)'
+    };
+
+    // 侘び寂びモード - 枯山水の静寂：独自のアイデンティティ
+    const glassmorphismWabiSabi = {
+      background: 'linear-gradient(135deg, rgba(97, 97, 97, 0.7), rgba(66, 66, 66, 0.6))',
+      backdropFilter: 'blur(20px) saturate(120%)',
+      border: '1px solid rgba(93, 64, 55, 0.5)',
+      boxShadow: '0 8px 32px rgba(33, 33, 33, 0.4), 0 0 0 1px rgba(93, 64, 55, 0.4), inset 0 1px 0 rgba(189, 189, 189, 0.15)'
+    };
+
+    const theme = this.isWabiSabiMode ? glassmorphismWabiSabi : (this.isDarkMode ? glassmorphismDark : glassmorphismLight);
+
     return `
       position: fixed;
       ${positions[this.config.position] || positions['bottom-right']}
       width: 320px;
       max-height: ${this.config.maxHeight}px;
-      background: ${this.isDarkMode
-        ? 'linear-gradient(135deg, rgba(20, 20, 30, 0.7), rgba(10, 10, 20, 0.8))'
-        : 'linear-gradient(135deg, rgba(255, 255, 255, 0.25), rgba(240, 240, 255, 0.3))'};
-      border: 1px solid ${this.isDarkMode
-        ? 'rgba(255, 255, 255, 0.2)'
-        : 'rgba(255, 255, 255, 0.3)'};
+      background: ${theme.background};
+      border: ${theme.border};
       border-radius: 20px;
       color: ${this.isDarkMode ? '#ffffff' : '#1f2937'};
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Inter', sans-serif;
       font-size: 14px;
       z-index: 1000;
       padding: 16px !important;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(255, 255, 255, 0.1);
-      backdrop-filter: blur(20px);
+      box-shadow: ${theme.boxShadow};
+      backdrop-filter: ${theme.backdropFilter};
+      -webkit-backdrop-filter: ${theme.backdropFilter};
       display: none;
+      flex-direction: column;
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     `;
   }
@@ -1621,10 +2254,51 @@ export class CommandUI {
         background: ${this.isDarkMode ? 'rgba(255, 255, 255, 0.5)' : 'rgba(0, 0, 0, 0.5)'};
       }
 
+      /* ダークモード用 */
+      .dark-mode .command-output::-webkit-scrollbar-track {
+        background: rgba(255, 255, 255, 0.1);
+      }
+
+      .dark-mode .command-output::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.3);
+      }
+
+      .dark-mode .command-output::-webkit-scrollbar-thumb:hover {
+        background: rgba(255, 255, 255, 0.5);
+      }
+
+      /* ライトモード用 */
+      .light-mode .command-output::-webkit-scrollbar-track {
+        background: rgba(0, 0, 0, 0.1);
+      }
+
+      .light-mode .command-output::-webkit-scrollbar-thumb {
+        background: rgba(0, 0, 0, 0.3);
+      }
+
+      .light-mode .command-output::-webkit-scrollbar-thumb:hover {
+        background: rgba(0, 0, 0, 0.5);
+      }
 
       @keyframes shimmer {
         0% { background-position: -200% 0; }
         100% { background-position: 200% 0; }
+      }
+
+      /* 2025年トレンド: 微細な浮遊感アニメーション */
+      @keyframes gentleFloat {
+        0%, 100% { 
+          transform: translateY(0px) scale(1);
+        }
+        25% { 
+          transform: translateY(-2px) scale(1.005);
+        }
+        50% { 
+          transform: translateY(-1px) scale(1.002);
+        }
+        75% { 
+          transform: translateY(-3px) scale(1.008);
+        }
       }
 
       /* タスクステータスコンテナのホバー効果 */
@@ -1662,33 +2336,77 @@ export class CommandUI {
   }
 
   getInputStyles() {
+    // 2025 Glassmorphism仕様：入力フィールド
+    const glassmorphismDark = {
+      background: 'linear-gradient(135deg, rgba(30, 27, 75, 0.4), rgba(15, 23, 42, 0.5))',
+      border: '1px solid rgba(99, 102, 241, 0.25)',
+      boxShadow: '0 4px 16px rgba(15, 23, 42, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.08)'
+    };
+
+    const glassmorphismLight = {
+      background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.2))',
+      border: '1px solid rgba(255, 255, 255, 0.5)',
+      boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.4)'
+    };
+
+    const glassmorphismWabiSabi = {
+      background: 'linear-gradient(135deg, rgba(97, 97, 97, 0.4), rgba(66, 66, 66, 0.3))',
+      border: '1px solid rgba(97, 97, 97, 0.5)',
+      boxShadow: '0 4px 16px rgba(66, 66, 66, 0.3), inset 0 1px 0 rgba(189, 189, 189, 0.2)'
+    };
+
+    const theme = this.isWabiSabiMode ? glassmorphismWabiSabi : (this.isDarkMode ? glassmorphismDark : glassmorphismLight);
+
     return `
       width: 100%;
-      padding: 16px;
-      background: ${this.isDarkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.15)'};
-      border: 1px solid ${this.isDarkMode ? 'rgba(255, 255, 255, 0.3)' : 'rgba(255, 255, 255, 0.35)'};
-      border-radius: 16px;
-      color: ${this.isDarkMode ? '#ffffff' : '#1f2937'};
+      padding: 14px 16px;
+      background: ${theme.background};
+      border: ${theme.border};
+      border-radius: 14px;
+      color: ${this.isWabiSabiMode ? '#F5F5F5' : (this.isDarkMode ? '#ffffff' : '#1f2937')};
       font-size: 14px;
       outline: none;
-      margin-bottom: 16px;
       box-sizing: border-box;
-      transition: all 0.3s ease;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       font-family: inherit;
-      backdrop-filter: blur(10px);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      box-shadow: ${theme.boxShadow};
+      placeholder-color: ${this.isDarkMode ? 'rgba(255, 255, 255, 0.5)' : 'rgba(55, 65, 81, 0.6)'};
+      resize: none;
+      overflow-y: hidden;
+      min-height: 22px;
+      max-height: 66px;
+      line-height: 22px;
     `;
   }
 
   getModernButtonStyles(type) {
     const styles = {
-      primary: `
-        background: linear-gradient(135deg, #6b21f0, #5b11d0);
+      primary: this.isWabiSabiMode ? `
+        background: linear-gradient(135deg, #8D6E63, #6D4C41);
+        box-shadow: 0 4px 12px rgba(85, 139, 47, 0.4), inset 0 1px 0 rgba(184, 158, 135, 0.15);
+        width: 100%;
+        padding: 16px;
+        font-size: 14px;
+        font-weight: 600;
+      ` : `
+        background: linear-gradient(135deg, #4f46e5, #4338ca);
         width: 100%;
         padding: 16px;
         font-size: 14px;
         font-weight: 600;
       `,
-      secondary: `
+      secondary: this.isWabiSabiMode ? `
+        background: rgba(158, 158, 158, 0.2);
+        border: 1px solid rgba(141, 110, 99, 0.4);
+        flex: 1;
+        padding: 12px;
+        font-size: 13px;
+        font-weight: 500;
+        backdrop-filter: blur(8px);
+        color: #F5F5F5;
+      ` : `
         background: rgba(255, 255, 255, 0.08);
         border: 1px solid rgba(255, 255, 255, 0.2);
         flex: 1;
@@ -1697,7 +2415,16 @@ export class CommandUI {
         font-weight: 500;
         backdrop-filter: blur(8px);
       `,
-      danger: `
+      danger: this.isWabiSabiMode ? `
+        background: rgba(141, 110, 99, 0.3);
+        border: 1px solid rgba(93, 64, 55, 0.5);
+        flex: 1;
+        padding: 12px;
+        font-size: 13px;
+        font-weight: 500;
+        backdrop-filter: blur(8px);
+        color: #F5F5F5;
+      ` : `
         background: rgba(255, 59, 48, 0.15);
         border: 1px solid rgba(255, 59, 48, 0.3);
         flex: 1;
@@ -1724,9 +2451,9 @@ export class CommandUI {
   getModeButtonStyles(isActive, mode) {
     // モードカラー設定
     const modeColors = {
-      generate: 'linear-gradient(135deg, #6b21f0, #5b11d0)', // Deep purple - 創造性
-      modify: 'linear-gradient(135deg, #ec4899, #be185d)',    // Vibrant pink - 変更・調整
-      delete: 'rgba(107, 114, 128, 0.15)'                    // 半透明グレー - セカンダリボタンスタイル
+      generate: 'linear-gradient(135deg, #22c55e, #16a34a)',  // Green - チャット欄と同じ緑色
+      modify: 'linear-gradient(135deg, #22c55e, #16a34a)',    // Green - チャット欄と同じ緑色
+      delete: 'linear-gradient(135deg, #22c55e, #16a34a)'     // Green - チャット欄と同じ緑色
     };
     
     return `
@@ -1780,13 +2507,23 @@ export class CommandUI {
 
     // 入力フィールドのスタイル調整
     this.input.addEventListener('focus', () => {
-      this.input.style.borderColor = '#74b9ff';
-      this.input.style.boxShadow = '0 0 5px rgba(116, 185, 255, 0.5)';
+      if (this.isWabiSabiMode) {
+        this.input.style.borderColor = '#8BC34A';
+        this.input.style.boxShadow = '0 0 5px rgba(139, 195, 74, 0.5)';
+      } else {
+        this.input.style.borderColor = '#74b9ff';
+        this.input.style.boxShadow = '0 0 5px rgba(116, 185, 255, 0.5)';
+      }
     });
 
     this.input.addEventListener('blur', () => {
-      this.input.style.borderColor = '#4a90e2';
-      this.input.style.boxShadow = 'none';
+      if (this.isWabiSabiMode) {
+        this.input.style.borderColor = '#8D6E63';
+        this.input.style.boxShadow = 'none';
+      } else {
+        this.input.style.borderColor = '#4a90e2';
+        this.input.style.boxShadow = 'none';
+      }
     });
   }
 
@@ -1820,7 +2557,13 @@ export class CommandUI {
 
     this.isVisible = true;
     this.input.focus();
-    
+
+    // フォーム表示中はチョコアイコンを隠す
+    if (this.floatingChocolateIcon) {
+      this.floatingChocolateIcon.style.opacity = '0';
+      this.floatingChocolateIcon.style.pointerEvents = 'none';
+    }
+
     // コントロールを無効化
     this.onControlsToggle(true);
     // コントロール停止時も静かに
@@ -1833,7 +2576,13 @@ export class CommandUI {
     this.container.style.display = 'none';
     this.floatingContainer.style.display = 'none';
     this.isVisible = false;
-    
+
+    // フォーム非表示時はチョコアイコンを再表示
+    if (this.floatingChocolateIcon) {
+      this.floatingChocolateIcon.style.opacity = '0.8';
+      this.floatingChocolateIcon.style.pointerEvents = 'auto';
+    }
+
     // コントロールを再有効化
     this.onControlsToggle(false);
     this.logDebug('🎮 コントロールを再開');
@@ -1865,7 +2614,7 @@ export class CommandUI {
     };
     
     const buttonColors = {
-      generate: 'linear-gradient(135deg, #6b21f0, #5b11d0)',
+      generate: 'linear-gradient(135deg, #5b21b6, #4c1d95)',
       modify: 'linear-gradient(135deg, #ec4899, #be185d)', 
       delete: 'rgba(107, 114, 128, 0.15)'
     };
@@ -1881,10 +2630,10 @@ export class CommandUI {
    */
   getPlaceholderForMode(mode) {
     const placeholders = {
-      generate: '例: 右上にドラゴンを作って, 中央に大きなユニコーン, 空に飛ぶドラゴンの動画 (Enter: 送信)',
-      import: 'ファイル選択ボタンを押すか、ファイル(.glb, .jpg, .png, .mp4)をドラッグ&ドロップ',
-      modify: '例: ドラゴンを青色に変更, ユニコーンを大きくして (Enter: 送信)',
-      delete: '例: ドラゴンを削除, 選択したオブジェクトを削除 (Enter: 送信)'
+      generate: '「猫の画像を作って」と話しかけて ⏎ ✨',
+      import: 'ファイルを選択して ⏎ 📁',
+      modify: '選択後「ピンクに変更」と伝えて ⏎ ✏️',
+      delete: '選択後、コマンドをそのまま送って ⏎ 🗑️'
     };
     return placeholders[mode] || placeholders.generate;
   }
@@ -1896,160 +2645,14 @@ export class CommandUI {
     const command = this.input.value.trim();
     if (!command) return;
 
-    // 最終的なコマンドタイプ判定
-    const commandType = this.analyzeCommandType(command);
-
-    if (this.selectedFile) {
-      if (this.currentMode !== 'import') {
-        this.selectMode('import', false);
-      }
-      this.currentMode = 'import';
-    } else {
-      this.currentMode = commandType.type;
+    // 事前バリデーション（2025年UX改善）
+    const preValidation = await this.preValidateCommand(command);
+    if (!preValidation.canExecute) {
+      // バリデーション失敗時はフィードバック表示して終了
+      return;
     }
 
-    // 削除の場合は確認ダイアログ
-    if (commandType.requiresConfirmation) {
-      const confirmed = await this.showDeleteConfirmation(command);
-      if (!confirmed) {
-        this.addOutput('❌ 削除をキャンセルしました', 'system');
-        return;
-      }
-    }
-
-    // 入力をクリア
-    this.input.value = '';
-    // 旧コマンドタイプインジケーターは削除（ラジオボタンUIに統合済み）
-    // this.commandTypeIndicator.style.display = 'none';
-    this.hideProactiveSuggestion();
-
-    // コマンド表示（メディアタイプ付き）
-    const mediaIcon = commandType.mediaType === 'video' ? '🎬' : '🖼️';
-    // タスクカード作成
-    const taskId = this.addTaskCard(command, { status: 'processing' });
-
-    // コマンド実行前の状態を履歴に保存
-    this.saveCommandToHistory({
-      command: command,
-      mode: this.currentMode,
-      mediaType: commandType.mediaType,
-      timestamp: Date.now()
-    });
-
-    try {
-      // 処理メッセージ表示
-      // タスクカードは既に1183行目で作成済み（taskId変数）
-      // 重複を避けるため、ここでは作成しない
-
-      let result;
-      
-      // モードに応じたコマンド処理
-      const modePrefix = this.getModePrefix(this.currentMode);
-      const fullCommand = `${modePrefix}${command}`;
-
-      // モード別の実行処理
-      this.logDebug('🔍 Current mode check:', this.currentMode);
-      if (this.currentMode === 'import') {
-        this.logDebug('📁 Import mode detected - bypassing SceneManager');
-        // Importモード: 直接処理（SceneManagerを迂回）
-        if (!this.selectedFile) {
-          throw new Error('ファイルが選択されていません。まずファイルを選択してください。');
-        }
-        result = await this.handleImportCommand(command);
-      } else if (this.sceneManager) {
-        // 他のモード: SceneManager経由
-        result = await this.sceneManager.executeCommand(fullCommand);
-      } else if (this.client) {
-        // モードに応じてAPIエンドポイントを選択
-        if (this.currentMode === 'generate') {
-          // 生成モード: 新しいオブジェクトを作成
-          if (commandType.mediaType === 'video') {
-            result = await this.client.generateVideo(command, {
-              model: this.selectedVideoService || undefined
-            });
-          } else {
-            result = await this.client.generateImage(command, {
-              service: this.selectedImageService || undefined
-            });
-          }
-        } else if (this.currentMode === 'modify') {
-          // 変更モード: 既存オブジェクトを変更（選択が必要）
-          if (!this.selectedObject) {
-            throw new Error('変更するオブジェクトが選択されていません。まず対象オブジェクトを選択してください。');
-          }
-          result = await this.client.modifySelectedObject(this.selectedObject, command);
-        } else if (this.currentMode === 'delete') {
-          // 削除モード: 確認ダイアログを表示してから削除
-          const confirmMessage = `本当に「${command}」を実行しますか？
-
-この操作は取り消せません。`;
-          if (!confirm(confirmMessage)) {
-            this.addOutput('❌ 削除がキャンセルされました', 'system');
-            return;
-          }
-          result = await this.client.deleteObjects(command);
-        } else {
-          // その他のモード
-          result = await this.client.executeCommand(fullCommand);
-        }
-      } else {
-        throw new Error('SceneManager または Client が設定されていません');
-      }
-
-      // taskId取得とSSE接続開始
-      if (result && result.taskId) {
-        this.connectToProgress(result.taskId, taskId);
-        this.currentTaskId = result.taskId;
-      }
-
-      // 成功メッセージ
-      const successMessages = {
-        generate: ``, // 成功メッセージ削除 - 結果で十分
-        modify: '✅ 変更を適用しました',
-        delete: '🗑️ 削除しました'
-      };
-      
-      // タスクカード完了
-      if (taskId) {
-        this.updateTaskCard(taskId, 'completed');
-      }
-      
-      // 詳細情報表示
-      if (result.modelName) {
-        // デバッグ情報削除 - モーダル表示用に保存
-      }
-      
-      if (result.objectId) {
-        // オブジェクトID削除
-      }
-      
-      if (result.position) {
-        // 位置情報削除
-      }
-
-      if (commandType.mediaType) {
-        // メディアタイプ削除
-      }
-
-    } catch (error) {
-      const errorMessages = {
-        generate: `❌ ${commandType.mediaType === 'video' ? '動画' : '画像'}生成エラー`,
-        modify: '❌ 変更エラー', 
-        delete: '❌ 削除エラー'
-      };
-      // タスクカードエラー
-      if (taskId) {
-        this.updateTaskCard(taskId, 'error');
-      }
-
-      this.addOutput(`${errorMessages[this.currentMode]}: ${error.message}`, 'error');
-      console.error('Command execution error:', error);
-    }
-
-    // 出力エリアを最下部にスクロール
-    if (this.config.autoScroll) {
-      this.scrollToBottom();
-    }
+    await this.proceedWithExecution(command, preValidation.commandType);
   }
 
   /**
@@ -2073,28 +2676,40 @@ export class CommandUI {
         left: 0;
         width: 100%;
         height: 100%;
-        background: rgba(0, 0, 0, 0.75);
+        background: rgba(15, 23, 42, 0.6);
         display: flex;
         justify-content: center;
         align-items: center;
         z-index: 2000;
-        backdrop-filter: blur(8px);
+        backdrop-filter: blur(24px) saturate(180%);
+        -webkit-backdrop-filter: blur(24px) saturate(180%);
       `;
 
       const dialog = document.createElement('div');
       dialog.style.cssText = `
-        background: ${this.isDarkMode 
-          ? 'linear-gradient(135deg, rgba(30, 30, 40, 0.95), rgba(20, 20, 30, 0.98))'
-          : 'linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(240, 240, 255, 0.98))'};
-        border: 1px solid ${this.isDarkMode ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.1)'};
+        background: ${this.isWabiSabiMode
+          ? 'linear-gradient(135deg, rgba(239, 235, 233, 0.4), rgba(215, 204, 200, 0.3))'
+          : (this.isDarkMode
+            ? 'linear-gradient(135deg, rgba(15, 23, 42, 0.85), rgba(30, 27, 75, 0.8))'
+            : 'linear-gradient(135deg, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0.3))')};
+        border: 1px solid ${this.isWabiSabiMode
+          ? 'rgba(161, 136, 127, 0.4)'
+          : (this.isDarkMode ? 'rgba(99, 102, 241, 0.3)' : 'rgba(255, 255, 255, 0.5)')};
         border-radius: 20px;
         padding: 32px;
         max-width: 420px;
         text-align: center;
-        color: ${this.isDarkMode ? '#ffffff' : '#1f2937'};
+        color: ${this.isWabiSabiMode
+          ? '#5D4037'
+          : (this.isDarkMode ? '#ffffff' : '#1f2937')};
         font-family: inherit;
-        backdrop-filter: blur(16px);
-        box-shadow: 0 16px 40px rgba(0, 0, 0, 0.3);
+        backdrop-filter: blur(24px) saturate(180%);
+        -webkit-backdrop-filter: blur(24px) saturate(180%);
+        box-shadow: ${this.isWabiSabiMode
+          ? '0 8px 32px rgba(93, 64, 55, 0.2), 0 0 0 1px rgba(161, 136, 127, 0.2)'
+          : (this.isDarkMode
+            ? '0 8px 32px rgba(15, 23, 42, 0.4), 0 0 0 1px rgba(99, 102, 241, 0.1)'
+            : '0 8px 32px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(255, 255, 255, 0.2)')};
         transform: scale(0.9);
         opacity: 0;
         transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
@@ -2102,7 +2717,7 @@ export class CommandUI {
 
       dialog.innerHTML = `
         <div style="font-size: 56px; margin-bottom: 20px;">${icon}</div>
-        <h3 style="margin: 0 0 16px 0; color: ${confirmColor}; font-size: 20px; font-weight: 700;">
+        <h3 style="margin: 0 0 16px 0; color: ${this.isDarkMode ? '#a5b4fc' : '#6366f1'}; font-size: 20px; font-weight: 700; letter-spacing: 0.02em;">
           ${title}
         </h3>
         <p style="margin: 0 0 28px 0; color: ${this.isDarkMode ? '#d1d5db' : '#6b7280'}; line-height: 1.6; font-size: 16px;">
@@ -2111,29 +2726,42 @@ export class CommandUI {
         <div style="display: flex; gap: 8px; justify-content: center;">
           <button id="cancel-btn" style="
             padding: 14px 24px;
-            background: ${this.isDarkMode ? 'rgba(107, 114, 128, 0.3)' : 'rgba(156, 163, 175, 0.2)'};
-            border: 1px solid ${this.isDarkMode ? 'rgba(107, 114, 128, 0.4)' : 'rgba(156, 163, 175, 0.3)'};
+            background: ${this.isDarkMode 
+              ? 'linear-gradient(135deg, rgba(55, 65, 81, 0.3), rgba(75, 85, 99, 0.2))'
+              : 'linear-gradient(135deg, rgba(255, 255, 255, 0.25), rgba(255, 255, 255, 0.15))'};
+            border: 1px solid ${this.isDarkMode ? 'rgba(156, 163, 175, 0.2)' : 'rgba(255, 255, 255, 0.3)'};
             border-radius: 12px;
-            color: ${this.isDarkMode ? '#ffffff' : '#374151'};
+            color: ${this.isDarkMode ? '#d1d5db' : '#374151'};
             cursor: pointer;
             font-family: inherit;
             font-size: 14px;
             font-weight: 600;
             transition: all 0.2s ease;
-            backdrop-filter: blur(8px);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
           ">${cancelText}</button>
           <button id="confirm-btn" style="
             padding: 14px 24px;
-            background: linear-gradient(135deg, ${confirmColor}, ${confirmColor}dd);
+            background: ${confirmColor === (this.isWabiSabiMode ? '#8BC34A' : '#6366f1') 
+              ? 'linear-gradient(135deg, ' + (this.isWabiSabiMode ? '#8BC34A, #689F38' : '#6366f1, #8b5cf6') + ')' 
+              : confirmColor === '#ef4444'
+              ? 'linear-gradient(135deg, #ef4444, #dc2626)'
+              : 'linear-gradient(135deg, #ff7b47, #f97316)'};
             border: none;
             border-radius: 12px;
-            color: ${confirmColor === '#fbbf24' ? '#1f2937' : 'white'};
+            color: white;
             cursor: pointer;
             font-family: inherit;
             font-size: 14px;
             font-weight: 700;
             transition: all 0.2s ease;
-            box-shadow: 0 4px 12px ${confirmColor}44;
+            box-shadow: 0 4px 16px ${confirmColor === (this.isWabiSabiMode ? '#8BC34A' : '#6366f1') 
+              ? 'rgba(99, 102, 241, 0.3)' 
+              : confirmColor === '#ef4444' 
+              ? 'rgba(239, 68, 68, 0.3)' 
+              : 'rgba(255, 123, 71, 0.3)'};
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
           ">${confirmText}</button>
         </div>
       `;
@@ -2223,6 +2851,11 @@ export class CommandUI {
     card.className = 'floating-task-card';
     card.setAttribute('data-task-id', taskId);
 
+    // 2025年トレンド: 待機中のアニメーション効果
+    if (status === 'pending' || status === 'processing' || status === 'progress') {
+      card.classList.add('chocodrop-shimmer', 'chocodrop-float');
+    }
+
     // iOS 26 Liquid Glass + 2026年トレンドスタイル
     card.style.cssText = this.getFloatingCardStyles(status);
     // アニメーション用初期状態（非表示）- 強制設定
@@ -2247,16 +2880,16 @@ export class CommandUI {
     };
 
     // 温かみのあるメッセージ表示
-    const friendlyMessage = this.getFriendlyMessage(status, prompt);
+    const friendlyMessage = this.getFriendlyMessage(status, prompt, options.errorMessage);
     card.innerHTML = `
       <span style="font-size: 14px;">${iconMap[status]}</span>
       <span style="font-size: 13px; margin-left: 6px;">${friendlyMessage}</span>
     `;
 
-    // フローティングコンテナに追加（最新が下に来るように）
-    this.floatingContainer.appendChild(card);
+    // フローティングコンテナに追加（最新が上に来るように）
+    this.floatingContainer.insertBefore(card, this.floatingContainer.firstChild);
     
-    // カード表示制限を適用（最大3個まで表示）
+    // カード表示制限を適用（最新3個まで表示）
     this.updateCardDisplayLimit();
 
     this.taskCards.set(taskId, {
@@ -2277,7 +2910,72 @@ export class CommandUI {
     
     // 入場アニメーション
     this.animateCardEntrance(card);
+    
+    // 2025年トレンド: シマーエフェクトCSS確保
+    this.ensureShimmerStyles();
+    
     return taskId;
+  }
+
+  /**
+   * 2025年トレンド: シマーエフェクトスタイルを確保
+   */
+  ensureShimmerStyles() {
+    if (document.querySelector('#chocodrop-shimmer-styles')) return;
+    
+    const styleSheet = document.createElement('style');
+    styleSheet.id = 'chocodrop-shimmer-styles';
+    styleSheet.textContent = `
+      /* 2025年トレンド: シマーエフェクト（強化版） */
+      .chocodrop-shimmer {
+        position: relative;
+        overflow: hidden;
+      }
+      
+      .chocodrop-shimmer::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(
+          90deg,
+          transparent,
+          ${this.isDarkMode ? 'rgba(255, 255, 255, 0.5)' : 'rgba(255, 255, 255, 0.7)'},
+          transparent
+        );
+        animation: shimmer 1.5s infinite;
+        pointer-events: none;
+        z-index: 1;
+      }
+      
+      .chocodrop-shimmer > * {
+        position: relative;
+        z-index: 2;
+      }
+      
+      /* 2025年トレンド: 微細な浮遊感 */
+      .chocodrop-float {
+        animation: gentleFloat 4s ease-in-out infinite;
+      }
+      
+      /* 待機中の特別なパルス効果（強化版） */
+      .chocodrop-shimmer.floating-task-card {
+        animation: gentleFloat 4s ease-in-out infinite, subtlePulse 3s ease-in-out infinite;
+      }
+      
+      @keyframes subtlePulse {
+        0%, 100% { 
+          box-shadow: 0 8px 32px rgba(15, 23, 42, 0.3), 0 0 0 1px rgba(99, 102, 241, 0.1);
+        }
+        50% { 
+          box-shadow: 0 12px 40px rgba(15, 23, 42, 0.5), 0 0 0 1px rgba(99, 102, 241, 0.3);
+        }
+      }
+    `;
+    
+    document.head.appendChild(styleSheet);
   }
 
   /**
@@ -2292,6 +2990,20 @@ export class CommandUI {
     // ステータス更新
     taskData.status = status;
 
+    // エラー情報を保存
+    if (status === 'error' && options.errorMessage) {
+      taskData.error = options.errorMessage;
+    }
+
+    // 2025年トレンド: アニメーション状態管理
+    if (status === 'pending' || status === 'processing' || status === 'progress') {
+      // 待機中・処理中: シマーエフェクト追加
+      card.classList.add('chocodrop-shimmer', 'chocodrop-float');
+    } else {
+      // 完了・エラー: シマーエフェクト削除
+      card.classList.remove('chocodrop-shimmer', 'chocodrop-float');
+    }
+
     const iconMap = {
       pending: '⏳',
       processing: '🎨',
@@ -2300,12 +3012,15 @@ export class CommandUI {
       error: '❌'
     };
 
-    // 温かみのあるメッセージ更新
-    const friendlyMessage = this.getFriendlyMessage(status, taskData.prompt);
+    // 温かみのあるメッセージ更新（エラー時は理由も含める）
+    const friendlyMessage = this.getFriendlyMessage(status, taskData.prompt, taskData.error);
     card.innerHTML = `
       <span style="font-size: 14px;">${iconMap[status]}</span>
       <span style="font-size: 13px; margin-left: 6px;">${friendlyMessage}</span>
     `;
+
+    // スタイル更新（完了状態に応じて）
+    card.style.cssText = this.getFloatingCardStyles(status);
 
     // 完了時の自動消去アニメーション
     if (status === 'completed') {
@@ -2338,6 +3053,462 @@ export class CommandUI {
   }
 
   /**
+   * 入力フィールド直下のフィードバック表示（2025年トレンド準拠）
+   */
+  showInputFeedback(message, type = 'error', options = {}) {
+    if (type === 'success') {
+      return;
+    }
+
+    if (type === 'error') {
+      this.addOutput(`⚠️ ${message}`, 'error');
+    } else {
+      this.addOutput(`💡 ${message}`, 'system');
+    }
+
+    if (!this.feedbackOverlay) {
+      const overlay = document.createElement('div');
+      overlay.className = 'input-feedback-overlay';
+      overlay.style.cssText = `
+        position: absolute;
+        left: 16px;
+        right: 16px;
+        bottom: 12px;
+        z-index: 1200;
+        pointer-events: auto;
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        padding: 12px 16px;
+        border-radius: 12px;
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        transition: opacity 180ms ease, transform 180ms ease;
+        opacity: 0;
+        transform: translateY(8px);
+      `;
+      this.container.appendChild(overlay);
+      this.feedbackOverlay = overlay;
+    }
+
+    const overlay = this.feedbackOverlay;
+    overlay.innerHTML = '';
+
+    const isError = type === 'error';
+    const background = isError
+      ? (this.isDarkMode ? 'rgba(239, 68, 68, 0.28)' : 'rgba(239, 68, 68, 0.18)')
+      : (this.isDarkMode ? 'rgba(59, 130, 246, 0.25)' : 'rgba(59, 130, 246, 0.18)');
+    const border = isError
+      ? '1px solid rgba(239, 68, 68, 0.45)'
+      : '1px solid rgba(59, 130, 246, 0.35)';
+    const color = isError
+      ? (this.isDarkMode ? '#fca5a5' : '#b91c1c')
+      : (this.isDarkMode ? '#bfdbfe' : '#1d4ed8');
+
+    overlay.style.background = background;
+    overlay.style.border = border;
+    overlay.style.color = color;
+
+    const messageSpan = document.createElement('span');
+    messageSpan.textContent = message;
+    messageSpan.style.flex = '1';
+    overlay.appendChild(messageSpan);
+
+    if (options.actions && Array.isArray(options.actions) && options.actions.length > 0) {
+      const actionsContainer = document.createElement('div');
+      actionsContainer.style.cssText = `
+        display: flex;
+        gap: 8px;
+      `;
+
+      options.actions.forEach(action => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.textContent = action.label;
+        button.style.cssText = `
+          padding: 6px 12px;
+          border-radius: 999px;
+          border: none;
+          cursor: pointer;
+          background: ${isError ? 'rgba(239, 68, 68, 0.28)' : 'rgba(59, 130, 246, 0.25)'};
+          color: inherit;
+          font-size: 11px;
+          transition: background 0.2s ease;
+        `;
+        button.addEventListener('mouseenter', () => {
+          button.style.background = isError ? 'rgba(239, 68, 68, 0.38)' : 'rgba(59, 130, 246, 0.35)';
+        });
+        button.addEventListener('mouseleave', () => {
+          button.style.background = isError ? 'rgba(239, 68, 68, 0.28)' : 'rgba(59, 130, 246, 0.25)';
+        });
+        button.addEventListener('click', () => {
+          if (typeof action.onClick === 'function') {
+            action.onClick();
+          }
+        });
+        actionsContainer.appendChild(button);
+      });
+
+      overlay.appendChild(actionsContainer);
+    }
+
+    if (this.feedbackAutoClearTimer) {
+      clearTimeout(this.feedbackAutoClearTimer);
+      this.feedbackAutoClearTimer = null;
+    }
+
+    overlay.style.pointerEvents = 'auto';
+    overlay.style.opacity = '1';
+    overlay.style.transform = 'translateY(0)';
+
+    this.currentFeedback = overlay;
+
+    if (type === 'info') {
+      this.feedbackAutoClearTimer = setTimeout(() => this.clearInputFeedback(), options.duration || 3000);
+    }
+  }
+
+  /**
+   * 入力フィードバックをクリア
+   */
+  clearInputFeedback() {
+    if (this.feedbackAutoClearTimer) {
+      clearTimeout(this.feedbackAutoClearTimer);
+      this.feedbackAutoClearTimer = null;
+    }
+
+    if (this.currentFeedback) {
+      const element = this.currentFeedback;
+      element.style.pointerEvents = 'none';
+      element.style.opacity = '0';
+      element.style.transform = 'translateY(8px)';
+      this.currentFeedback = null;
+      setTimeout(() => {
+        element.innerHTML = '';
+      }, 180);
+    }
+  }
+
+  /**
+   * フィードバック用CSSスタイルを確保
+   */
+  ensureFeedbackStyles() {
+    if (document.getElementById('feedback-styles')) return;
+    
+    const style = document.createElement('style');
+    style.id = 'feedback-styles';
+    style.textContent = `
+      @keyframes feedbackSlideIn {
+        from {
+          opacity: 0;
+          transform: translateY(-10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      
+      @keyframes feedbackSlideOut {
+        from {
+          opacity: 1;
+          transform: translateY(0);
+        }
+        to {
+          opacity: 0;
+          transform: translateY(-10px);
+        }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  /**
+   * コマンド事前バリデーション（送信前チェック）
+   */
+  async preValidateCommand(command) {
+    // 1. コマンドタイプ判定
+    const hasSelectedObject = this.sceneManager?.selectedObject || this.selectedFile;
+    const commandType = this.analyzeCommandType(command, hasSelectedObject);
+
+    if (this.selectedFile) {
+      commandType.type = 'import';
+      commandType.mediaType = this.selectedFile.type === 'video' ? 'video' : 'image';
+      commandType.needsTarget = false;
+      commandType.requiresConfirmation = false;
+      commandType.hasExplicitTarget = true;
+      commandType.detectedKeyword = commandType.detectedKeyword || 'import';
+    }
+
+    // 最新の解析結果をUIモードへ反映（ユーザー入力優先）
+    if (commandType.type && this.selectMode && commandType.type !== this.currentMode) {
+      this.selectMode(commandType.type, false, commandType.detectedKeyword || null);
+    }
+
+    // 2. 空コマンドの場合
+    if (commandType.type === 'empty') {
+      this.showInputFeedback('💡 何をしましょうか？コマンドを入力してください', 'info');
+      return { canExecute: false, reason: 'empty_command' };
+    }
+    
+    // 3. 対象が必要なコマンドの事前チェック
+    if (commandType.needsTarget && !hasSelectedObject) {
+      const canAttemptSearch = !!this.sceneManager && (commandType.hasExplicitTarget || commandType.type === 'modify');
+      
+      // まず自然言語で対象を探してみる
+      if (canAttemptSearch) {
+        this.logDebug('🔍 Searching for explicitly mentioned target...');
+        try {
+          const foundTarget = await this.sceneManager?.findObjectByKeyword(command);
+          if (foundTarget) {
+            // 対象を発見！選択してアニメーション表示
+            this.sceneManager.selectObject(foundTarget);
+            this.showInputFeedback(`✨ 「${foundTarget.name || foundTarget.userData?.originalPrompt || 'オブジェクト'}」を見つけました！`, 'success');
+            // 1秒待ってから実行継続
+            setTimeout(() => this.executeCommandAfterValidation(command, commandType), 1000);
+            return { canExecute: false, reason: 'target_found_waiting' };
+          } else {
+            // 対象が見つからない場合
+            this.showInputFeedback(
+              '🔍 指定されたオブジェクトが見つかりません',
+              'error',
+              {
+                actions: [
+                  {
+                    label: '選択する',
+                    onClick: () => {
+                      this.clearInputFeedback();
+                      this.showInputFeedback('👆 3Dシーン内のオブジェクトをクリックで選択してください', 'info');
+                    }
+                  },
+                  {
+                    label: '新規作成に変更',
+                    onClick: () => {
+                      // コマンドを生成モード向けに変換
+                      const newCommand = this.convertToGenerateCommand(command);
+                      this.input.value = newCommand;
+                      this.clearInputFeedback();
+                      this.showInputFeedback('✏️ コマンドを新規作成用に変更しました', 'success');
+                    }
+                  }
+                ]
+              }
+            );
+            return { canExecute: false, reason: 'target_not_found' };
+          }
+        } catch (error) {
+          this.logDebug('❌ Error searching for target:', error);
+          this.showInputFeedback('⚠️ 対象の検索中にエラーが発生しました', 'error');
+          return { canExecute: false, reason: 'search_error' };
+        }
+      } else {
+        // 一般的な「対象が必要」エラー
+        this.showInputFeedback(
+          '🎯 操作対象が選択されていません',
+          'error',
+          {
+            actions: [
+              {
+                label: '選択する',
+                onClick: () => {
+                  this.clearInputFeedback();
+                  this.showInputFeedback('👆 3Dシーン内のオブジェクトをクリックで選択してください', 'info');
+                }
+              },
+              {
+                label: 'ヒント',
+                onClick: () => {
+                  this.clearInputFeedback();
+                  this.showInputFeedback('💡 「インポートした猫を」「選択した画像を」のように対象を明示してみてください', 'info');
+                }
+              }
+            ]
+          }
+        );
+        return { canExecute: false, reason: 'no_target_selected' };
+      }
+    }
+    
+    // 4. バリデーション成功
+    return { canExecute: true, commandType };
+  }
+
+  /**
+   * バリデーション後のコマンド実行
+   */
+  async executeCommandAfterValidation(command, commandType) {
+    // 既存のexecuteCommandロジックを継続
+    // フィードバックをクリアしてから実行
+    this.clearInputFeedback();
+    
+    // 元のexecuteCommandの続きを実行
+    await this.proceedWithExecution(command, commandType);
+  }
+
+  async proceedWithExecution(command, commandType) {
+    const hasSelectedObject = this.sceneManager?.selectedObject || this.selectedFile;
+    if (!commandType) {
+      commandType = this.analyzeCommandType(command, hasSelectedObject);
+    }
+
+    if (this.selectedFile) {
+      if (this.currentMode !== 'import') {
+        this.selectMode('import', false);
+      }
+      this.currentMode = 'import';
+    } else {
+      this.currentMode = commandType.type;
+    }
+
+    if (commandType.requiresConfirmation) {
+      const confirmed = await this.showDeleteConfirmation(command);
+      if (!confirmed) {
+        this.addOutput('❌ 削除をキャンセルしました', 'system');
+        return;
+      }
+    }
+
+    this.input.value = '';
+    this.clearInputFeedback();
+    this.hideProactiveSuggestion();
+
+    const taskId = this.addTaskCard(command, { status: 'processing' });
+
+    this.saveCommandToHistory({
+      command: command,
+      mode: this.currentMode,
+      mediaType: commandType.mediaType,
+      timestamp: Date.now()
+    });
+
+    let result;
+
+    try {
+      const modePrefix = this.getModePrefix(this.currentMode);
+      const fullCommand = `${modePrefix}${command}`;
+
+      this.logDebug('🔍 Current mode check:', this.currentMode);
+      if (this.currentMode === 'import') {
+        this.logDebug('📁 Import mode detected - bypassing SceneManager');
+        if (!this.selectedFile) {
+          throw new Error('ファイルが選択されていません。まずファイルを選択してください。');
+        }
+        result = await this.handleImportCommand(command);
+      } else if (this.sceneManager) {
+        result = await this.sceneManager.executeCommand(fullCommand);
+      } else if (this.client) {
+        if (this.currentMode === 'generate') {
+          if (commandType.mediaType === 'video') {
+            result = await this.client.generateVideo(command, {
+              model: this.selectedVideoService || undefined
+            });
+          } else {
+            result = await this.client.generateImage(command, {
+              service: this.selectedImageService || undefined
+            });
+          }
+        } else if (this.currentMode === 'modify') {
+          const selectedObject = this.sceneManager?.selectedObject;
+          if (!selectedObject) {
+            throw new Error('変更するオブジェクトが選択されていません。まず対象オブジェクトを選択してください。');
+          }
+          result = await this.client.modifySelectedObject(selectedObject, command);
+        } else if (this.currentMode === 'delete') {
+          const selectedObject = this.sceneManager?.selectedObject;
+          if (!selectedObject && !this.sceneManager?.getSelectedObjects()?.length) {
+            this.addOutput('⚠️ 削除するオブジェクトが選択されていません。まず3Dシーン内のオブジェクトをクリックで選択してから、再度Deleteボタンを押してください。', 'system');
+            return;
+          }
+          const confirmMessage = `本当に「${command}」を実行しますか？
+
+この操作は取り消せません。`;
+          if (!confirm(confirmMessage)) {
+            this.addOutput('❌ 削除がキャンセルされました', 'system');
+            return;
+          }
+          result = await this.client.deleteObjects(command);
+        } else {
+          result = await this.client.executeCommand(fullCommand);
+        }
+      } else {
+        throw new Error('SceneManager または Client が設定されていません');
+      }
+
+      if (result && result.taskId) {
+        this.connectToProgress(result.taskId, taskId);
+        this.currentTaskId = result.taskId;
+      }
+
+      if (taskId) {
+        this.updateTaskCard(taskId, 'completed');
+      }
+
+      if (result.modelName) {
+        // モデル情報がある場合はモーダル表示用に保持（必要に応じて拡張）
+      }
+
+      if (result.objectId) {
+        // オブジェクト ID の提示は将来のUI更新で対応
+      }
+
+      if (result.position) {
+        // 位置情報はデバッグ表示のみ（現状は未使用）
+      }
+
+      if (commandType.mediaType) {
+        // メディアタイプ別の追加処理が必要になった場合に備えたフック
+      }
+    } catch (error) {
+      const errorMessages = {
+        generate: `❌ ${commandType.mediaType === 'video' ? '動画' : '画像'}生成エラー`,
+        modify: '❌ 変更エラー',
+        delete: '❌ 削除エラー'
+      };
+
+      if (taskId) {
+        this.updateTaskCard(taskId, 'error', { errorMessage: error.message });
+      }
+
+      this.addOutput(`${errorMessages[this.currentMode]}: ${error.message}`, 'error');
+      console.error('Command execution error:', error);
+    }
+
+    if (this.sceneManager && this.sceneManager.selectedObject) {
+      if (this.currentMode === 'modify' || this.currentMode === 'delete') {
+        setTimeout(() => {
+          this.sceneManager.deselectObject();
+        }, 500);
+      }
+    }
+
+    if (this.config.autoScroll) {
+      this.scrollToBottom();
+    }
+  }
+
+  /**
+   * コマンドを生成モード向けに変換
+   */
+  convertToGenerateCommand(command) {
+    // 「猫を大きく」→「大きな猫の画像を作って」のような変換
+    const patterns = [
+      { from: /(.+)を大きく/, to: '大きな$1の画像を作って' },
+      { from: /(.+)を小さく/, to: '小さな$1の画像を作って' },
+      { from: /(.+)を(.+)に/, to: '$2の$1の画像を作って' },
+      { from: /(.+)を(.+)く/, to: '$2い$1の画像を作って' }
+    ];
+    
+    for (const { from, to } of patterns) {
+      if (from.test(command)) {
+        return command.replace(from, to);
+      }
+    }
+    
+    // パターンマッチしない場合はデフォルト
+    return `${command}の画像を作って`;
+  }
+
+  /**
    * タスクカードスタイル取得
    */
   getTaskCardStyles(status) {
@@ -2367,29 +3538,74 @@ export class CommandUI {
    * フローティングカードスタイル（iOS 26 Liquid Glass + 2026年トレンド）
    */
   getFloatingCardStyles(status) {
-    const baseColor = this.isDarkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.12)';
-    const borderColor = this.isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.15)';
-    const textColor = this.isDarkMode ? 'rgba(255, 255, 255, 0.9)' : 'rgba(0, 0, 0, 0.85)';
+    // 2025年Glassmorphism仕様：フローティングタスクカード
+    const glassmorphismDark = {
+      background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.75), rgba(30, 27, 75, 0.7))',
+      border: '1px solid rgba(99, 102, 241, 0.25)',
+      boxShadow: '0 8px 32px rgba(15, 23, 42, 0.3), 0 0 0 1px rgba(99, 102, 241, 0.1)',
+      color: '#ffffff'
+    };
+
+    const glassmorphismLight = {
+      background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0.25))',
+      border: '1px solid rgba(255, 255, 255, 0.4)',
+      boxShadow: '0 8px 32px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(255, 255, 255, 0.2)',
+      color: '#1f2937'
+    };
+
+    const theme = this.isDarkMode ? glassmorphismDark : glassmorphismLight;
+    
+    // 2025年トレンド: 待機中のシマーエフェクト
+    const shimmerEffect = (status === 'pending' || status === 'processing' || status === 'progress') ? `
+      position: relative;
+      overflow: hidden;
+      &::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(
+          90deg,
+          transparent,
+          ${this.isDarkMode ? 'rgba(255, 255, 255, 0.2)' : 'rgba(255, 255, 255, 0.4)'},
+          transparent
+        );
+        animation: shimmer 2s infinite;
+      }
+    ` : '';
+
+    // 2025年トレンド: 微細な浮遊感
+    const floatingAnimation = (status === 'pending' || status === 'processing' || status === 'progress') ? `
+      animation: gentleFloat 4s ease-in-out infinite, shimmer 2s infinite;
+    ` : '';
 
     return `
-      height: 32px;
-      padding: 0 16px;
+      height: 36px;
+      padding: 0 18px;
       display: inline-flex;
       align-items: center;
       gap: 8px;
-      background: ${baseColor};
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
-      border: 1px solid ${borderColor};
-      border-radius: 16px;
-      color: ${textColor};
+      background: ${theme.background};
+      backdrop-filter: blur(24px) saturate(180%);
+      -webkit-backdrop-filter: blur(24px) saturate(180%);
+      border: ${theme.border};
+      border-radius: 18px;
+      color: ${theme.color};
       pointer-events: auto;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      font-weight: 500;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Inter', sans-serif;
+      font-weight: 600;
+      font-size: 13px;
+      letter-spacing: 0.01em;
+      box-shadow: ${theme.boxShadow};
       transform: translateY(10px);
       opacity: 0;
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      ${shimmerEffect}
+      ${floatingAnimation}
+      position: relative;
+      overflow: hidden;
     `;
   }
 
@@ -2415,15 +3631,15 @@ export class CommandUI {
       });
     } else {
       // カードが4個以上の場合、最新3個のみ表示し、残りはカウンター表示
-      const visibleCards = allCards.slice(-maxVisibleCards); // 最新3個
+      const visibleCards = allCards.slice(0, maxVisibleCards); // 最初の3個（最新）
       const hiddenCount = allCards.length - maxVisibleCards;
       
       // 古いカードを非表示
       allCards.forEach((card, index) => {
-        if (index < allCards.length - maxVisibleCards) {
-          card.style.display = 'none';
-        } else {
+        if (index < maxVisibleCards) {
           card.style.display = 'flex';
+        } else {
+          card.style.display = 'none';
         }
       });
       
@@ -2454,8 +3670,8 @@ export class CommandUI {
       `;
       counter.innerHTML = `+ ${hiddenCount}`;
       
-      // カウンターを最初に挿入（最上部に配置）
-      this.floatingContainer.insertBefore(counter, this.floatingContainer.firstChild);
+      // カウンターを最後に挿入（最下部に配置）
+      this.floatingContainer.appendChild(counter);
       
       // カウンターのホバー効果（テーマ対応）
       const counterHoverColor = this.isDarkMode ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.18)';
@@ -2825,22 +4041,71 @@ export class CommandUI {
   }
 
   /**
+   * ユーザーの表現スタイルを自然に感知
+   */
+  getResponseType(prompt) {
+    // ユーザーの表現スタイルを自然に感知
+    if (/ちょこっと|ちょこん|少し|軽く/.test(prompt) || prompt.length < 15) {
+      return 'casual';
+    }
+    if (/美しい|幻想|素敵|魔法|世界|綺麗/.test(prompt)) {
+      return 'magical';
+    }
+    return 'balanced'; // 80%がここに該当
+  }
+
+  /**
    * 温かみのあるメッセージを生成（マーケ提案ベース）
    */
-  getFriendlyMessage(status, prompt) {
+  getFriendlyMessage(status, prompt, errorMessage = null) {
     const shortPrompt = prompt.length > 15 ? prompt.substring(0, 15) + '...' : prompt;
+
+    // 自然な応答システム適用
+    const responseType = this.getResponseType(prompt);
 
     switch (status) {
       case 'pending':
-        return '魔法をかけようとしています...';
+        return responseType === 'casual' ? 'ちょこっと準備中です...' :
+               responseType === 'magical' ? '魔法をかけようとしています...' :
+               'ちょこっと魔法の準備中...';
       case 'processing':
       case 'in-progress':
       case 'progress':
-        return 'あなただけの世界を創作中...';
+        // Modify mode specific messages for processing
+        if (this.currentMode === 'modify') {
+          return responseType === 'casual' ? 'ちょこっと調整中です...' :
+                 responseType === 'magical' ? 'イメージを変化させています...' :
+                 'ちょこんと編集中です...';
+        }
+        return responseType === 'casual' ? 'ちょこんと配置中です...' :
+               responseType === 'magical' ? 'あなたの想いを形にしています...' :
+               'ちょこっと魔法をかけています...';
       case 'completed':
-        return '素敵な世界が完成しました！';
+        // Delete mode specific messages
+        if (this.currentMode === 'delete') {
+          return responseType === 'casual' ? 'ちょこっと削除しました！' :
+                 responseType === 'magical' ? 'すっきりと片付きました！' :
+                 'ちょこんと削除完了！すっきりですね！';
+        }
+        // Modify mode specific messages
+        if (this.currentMode === 'modify') {
+          return responseType === 'casual' ? 'ちょこっと調整しました！' :
+                 responseType === 'magical' ? '素敵に変身しました！' :
+                 'ちょこんと編集完了！いい感じですね！';
+        }
+        // Default completion messages for other modes
+        return responseType === 'casual' ? 'ちょこっとドロップしました！' :
+               responseType === 'magical' ? '素敵な世界が完成しました！' :
+               'ちょこんと配置完了！素敵ですね！';
       case 'error':
-        return `${shortPrompt} - もう一度試してみませんか？`;
+        // エラー理由があれば含める
+        if (errorMessage) {
+          const shortError = errorMessage.length > 30 ? errorMessage.substring(0, 30) + '...' : errorMessage;
+          return `❌ ${shortError}`;
+        }
+        return responseType === 'casual' ? 'おっと、エラーが発生しました' :
+               responseType === 'magical' ? '申し訳ございません、処理に失敗しました' :
+               'エラーが発生しました。もう一度お試しください';
       default:
         return shortPrompt;
     }
@@ -2876,7 +4141,7 @@ export class CommandUI {
           position: relative;
         ">
           <div class="status-pulse" style="
-            background: linear-gradient(90deg, transparent, #ec4899, #f472b6, transparent);
+            background: linear-gradient(90deg, transparent, ${this.isWabiSabiMode ? '#8BC34A, #689F38' : '#6366f1, #8b5cf6'}, transparent);
             height: 100%;
             width: 30%;
             border-radius: 8px;
@@ -3133,7 +4398,7 @@ export class CommandUI {
 
       case 'error':
         if (data.uiTaskId) {
-          this.updateTaskCard(data.uiTaskId, 'error');
+          this.updateTaskCard(data.uiTaskId, 'error', { errorMessage: data.message });
         }
         this.addOutput(`❌ ${data.message}`, 'error');
         this.disconnectProgress(data.taskId);
@@ -3305,7 +4570,7 @@ export class CommandUI {
       message: 'すべてのオブジェクトが削除されます。<br>この操作は取り消すことができません。',
       confirmText: 'Clear All 実行',
       cancelText: 'キャンセル',
-      confirmColor: '#ef4444'
+      confirmColor: this.isWabiSabiMode ? '#8BC34A' : '#6366f1'
     });
   }
 
@@ -3397,27 +4662,89 @@ export class CommandUI {
     if (generateBtn) {
       generateBtn.style.cssText = this.getModeButtonStyles(true, 'generate');
     }
-    
+
     // Executeボタンのスタイルを再適用
     const executeBtn = this.container?.querySelector('#execute-btn');
     if (executeBtn) {
       executeBtn.style.cssText = this.getModernButtonStyles('primary');
     }
+
+    // サービスモーダルの背景とスタイルを更新
+    if (this.serviceModal) {
+      this.updateServiceModalStyles();
+    }
+
+    // サービスセレクターテーマ更新
+    this.updateServiceSelectorTheme();
+  }
+
+  updateServiceModalStyles() {
+    if (!this.serviceModal) return;
+
+    // モーダルの背景とボーダーを更新（枯山水の静寂）
+    this.serviceModal.style.background = this.isWabiSabiMode
+      ? 'linear-gradient(135deg, rgba(158, 158, 158, 0.4), rgba(189, 189, 189, 0.35))'
+      : (this.isDarkMode
+        ? 'linear-gradient(135deg, rgba(15, 23, 42, 0.85), rgba(30, 27, 75, 0.8))'
+        : 'linear-gradient(135deg, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0.3))');
+
+    this.serviceModal.style.border = this.isWabiSabiMode
+      ? '1px solid rgba(141, 110, 99, 0.4)'
+      : (this.isDarkMode
+        ? '1px solid rgba(99, 102, 241, 0.3)'
+        : '1px solid rgba(255, 255, 255, 0.5)');
+
+    this.serviceModal.style.color = this.isWabiSabiMode
+      ? '#424242'
+      : (this.isDarkMode ? '#ffffff' : '#1f2937');
+
+    this.serviceModal.style.boxShadow = this.isWabiSabiMode
+      ? '0 20px 40px rgba(93, 64, 55, 0.35)'
+      : '0 20px 40px rgba(15, 23, 42, 0.35)';
   }
 
   /**
    * テーマ切り替え
    */
   toggleTheme() {
-    console.log('🎨 CommandUI toggleTheme called - before:', this.isDarkMode);
-    this.isDarkMode = !this.isDarkMode;
-    console.log('🎨 CommandUI toggleTheme - after:', this.isDarkMode);
-    localStorage.setItem('live-command-theme', this.isDarkMode ? 'dark' : 'light');
+    // 3段階サイクル: light → dark → wabisabi → light
+    switch (this.currentTheme) {
+      case 'light':
+        this.currentTheme = 'dark';
+        break;
+      case 'dark':
+        this.currentTheme = 'wabisabi';
+        break;
+      case 'wabisabi':
+        this.currentTheme = 'light';
+        break;
+      default:
+        this.currentTheme = 'light';
+    }
+
+    // 状態更新
+    this.isDarkMode = this.currentTheme === 'dark';
+    this.isWabiSabiMode = this.currentTheme === 'wabisabi';
+    localStorage.setItem('live-command-theme', this.currentTheme);
 
     // アイコンボタン更新
     if (this.themeToggle) {
-      this.themeToggle.innerHTML = this.isDarkMode ? '☀️' : '🌙';
-      this.themeToggle.title = this.isDarkMode ? 'ライトモードに切り替え' : 'ダークモードに切り替え';
+      const themeConfig = {
+        light: { icon: '🌙', title: 'ダークモードに切り替え' },
+        dark: { icon: '🍵', title: '侘び寂びモードに切り替え' },
+        wabisabi: { icon: '☀️', title: 'ライトモードに切り替え' }
+      };
+
+      const config = themeConfig[this.currentTheme];
+      // 太陽は黄色く、お茶は緑系、月は紫系フィルター
+      if (config.icon === '☀️') {
+        this.themeToggle.innerHTML = `<span style="filter: saturate(1.2) brightness(1.1);">${config.icon}</span>`;
+      } else if (config.icon === '🍵') {
+        this.themeToggle.innerHTML = `<span style="filter: hue-rotate(80deg) saturate(1.1) brightness(1.0);">${config.icon}</span>`;
+      } else {
+        this.themeToggle.innerHTML = `<span style="filter: hue-rotate(240deg) saturate(0.8) brightness(1.1);">${config.icon}</span>`;
+      }
+      this.themeToggle.title = config.title;
     }
 
     // 全スタイル再適用
@@ -3430,57 +4757,61 @@ export class CommandUI {
    * テーマ適用
    */
   applyTheme() {
-    console.log('🔧 CommandUI applyTheme called - isDarkMode:', this.isDarkMode);
-    console.log('🔧 Before: document.body.className =', document.body.className);
-    
-    // ボディにテーマクラスを設定しない（メインページのスタイルを壊さないため）
-    // document.body.className = this.isDarkMode ? 'dark-mode' : 'light-mode';
-    
-    console.log('🔧 After: document.body.className =', document.body.className, '(unchanged)');
+    // ボディにテーマクラスを設定
+    document.body.className = this.isWabiSabiMode ? 'wabisabi-mode' : (this.isDarkMode ? 'dark-mode' : 'light-mode');
 
     // メインコンテナ（display状態を保持）
     const currentDisplay = this.container.style.display;
+    const currentFlexDirection = this.container.style.flexDirection;
     this.container.style.cssText = this.getContainerStyles();
     this.container.style.display = currentDisplay || 'flex';
+    this.container.style.flexDirection = currentFlexDirection || 'column';
 
-    // ヘッダー（タイトル）の再適用
-    const header = this.container.querySelector('div:first-child');
-    if (header) {
-      header.style.cssText = this.getHeaderStyles();
+    // フローティングブランドバッジのテーマ再適用
+    const brandBadge = this.container.querySelector('.floating-brand-badge');
+    if (brandBadge) {
+      brandBadge.style.background = this.isDarkMode 
+        ? 'linear-gradient(135deg, rgba(99, 102, 241, 0.8), rgba(139, 92, 246, 0.7))'
+        : 'linear-gradient(135deg, rgba(99, 102, 241, 0.9), rgba(139, 92, 246, 0.8))';
+      brandBadge.style.border = `1px solid ${this.isDarkMode ? 'rgba(255, 255, 255, 0.2)' : 'rgba(255, 255, 255, 0.4)'}`;
     }
 
     // 入力フィールド
+    const hadHighlight = !!this.highlightOverlay;
+    this.inputDefaultStyles = null;
+    this.clearKeywordHighlighting();
     this.input.style.cssText = this.getInputStyles();
+    this.captureInputDefaultStyles();
+    if (hadHighlight || (this.input && this.input.value.trim())) {
+      this.applyKeywordHighlighting();
+    }
 
     // スタイル適用
     this.output.style.cssText = this.getOutputStyles();
 
-    // 旧モード表示は削除（ラジオボタンUIに統合済み）
-    // this.commandTypeIndicator.style.cssText = this.getCommandTypeIndicatorStyles();
-
-    // ボタン類の再適用
-    this.container.querySelectorAll('button').forEach(btn => {
-      if (btn.innerHTML.includes('Undo') || btn.innerHTML.includes('Redo') || 
-          btn.innerHTML === 'Clear All' || btn.innerHTML === 'Light' || btn.innerHTML === 'Dark') {
-        btn.style.cssText = this.getMinimalButtonStyles();
-        // Undo/Redoボタンの状態を再適用
-        if (btn === this.undoBtn || btn === this.redoBtn) {
-          this.updateUndoRedoButtons();
-        }
-      }
-    });
-
-    // ラジオボタンモードセレクターのスタイル再適用
+    // ラジオボタンモードセレクターの2025年仕様テーマ再適用
     if (this.radioModeContainer) {
-      this.radioModeContainer.style.background = this.isDarkMode ? 'rgba(255, 255, 255, 0.05)' : 'rgba(255, 255, 255, 0.1)';
-      this.radioModeContainer.style.borderColor = this.isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(255, 255, 255, 0.15)';
+      this.radioModeContainer.style.background = this.isWabiSabiMode
+        ? 'linear-gradient(135deg, rgba(97, 97, 97, 0.7), rgba(66, 66, 66, 0.6))'
+        : (this.isDarkMode
+          ? 'linear-gradient(135deg, rgba(30, 27, 75, 0.3), rgba(15, 23, 42, 0.4))'
+          : 'linear-gradient(135deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.1))');
+      this.radioModeContainer.style.borderColor = this.isWabiSabiMode
+        ? 'rgba(93, 64, 55, 0.4)'
+        : (this.isDarkMode
+          ? 'rgba(99, 102, 241, 0.15)'
+          : 'rgba(255, 255, 255, 0.25)');
 
       // 各ラジオボタンのスタイル更新
       Object.keys(this.radioModeButtons).forEach(key => {
-        const { button, radio } = this.radioModeButtons[key];
+        const { button } = this.radioModeButtons[key];
         if (this.currentMode !== key) {
-          button.style.color = this.isDarkMode ? 'rgba(255, 255, 255, 0.7)' : 'rgba(0, 0, 0, 0.7)';
-          radio.style.borderColor = this.isDarkMode ? 'rgba(255, 255, 255, 0.3)' : 'rgba(0, 0, 0, 0.3)';
+          button.style.color = this.isWabiSabiMode
+            ? 'rgba(245, 245, 245, 0.8)'
+            : (this.isDarkMode ? 'rgba(255, 255, 255, 0.7)' : 'rgba(55, 65, 81, 0.8)');
+          button.style.background = 'transparent';
+          button.style.border = '1px solid transparent';
+          button.style.boxShadow = 'none';
         }
       });
 
@@ -3488,7 +4819,46 @@ export class CommandUI {
       this.selectMode(this.currentMode, false);
     }
 
+    // アクションボタンのテーマ再適用
+    if (this.clearBtn) {
+      this.clearBtn.style.cssText = this.getActionButtonStyles('secondary');
+    }
+    if (this.historyBtn) {
+      this.historyBtn.style.cssText = this.getActionButtonStyles('secondary');
+      this.historyBtn.style.opacity = '0.5';
+    }
+    if (this.themeToggle) {
+      const themeConfig = {
+        light: { icon: '🌙', title: 'ダークモードに切り替え' },
+        dark: { icon: '🍵', title: '侘び寂びモードに切り替え' },
+        wabisabi: { icon: '☀️', title: 'ライトモードに切り替え' }
+      };
+      const config = themeConfig[this.currentTheme] || themeConfig.light;
+      // 太陽は黄色く、お茶は緑系、月は紫系フィルター
+      if (config.icon === '☀️') {
+        this.themeToggle.innerHTML = `<span style="filter: saturate(1.2) brightness(1.1);">${config.icon}</span>`;
+      } else if (config.icon === '🍵') {
+        this.themeToggle.innerHTML = `<span style="filter: hue-rotate(80deg) saturate(1.1) brightness(1.0);">${config.icon}</span>`;
+      } else {
+        this.themeToggle.innerHTML = `<span style="filter: hue-rotate(240deg) saturate(0.8) brightness(1.1);">${config.icon}</span>`;
+      }
+      this.themeToggle.title = config.title;
+      this.themeToggle.style.cssText = this.getActionButtonStyles('icon');
+    }
+    if (this.settingsButton) {
+      this.settingsButton.style.cssText = this.getActionButtonStyles('icon');
+    }
+
     this.updateServiceSelectorTheme();
+
+    // 閉じるボタンのテーマ更新
+    const closeButton = this.container.querySelector('.close-button');
+    if (closeButton) {
+      closeButton.style.color = this.isDarkMode ? '#ffffff' : '#1f2937';
+      closeButton.style.background = this.isDarkMode 
+        ? 'rgba(255, 255, 255, 0.1)' 
+        : 'rgba(0, 0, 0, 0.1)';
+    }
 
     // フローティングコンテナとタスクカードのテーマ更新
     this.updateFloatingContainerTheme();
@@ -3512,13 +4882,25 @@ export class CommandUI {
         const card = taskData.element;
         if (card) {
           // テーマ関連の色のみ更新（位置やアニメーション状態は保持）
-          const baseColor = this.isDarkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.12)';
-          const borderColor = this.isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.15)';
-          const textColor = this.isDarkMode ? 'rgba(255, 255, 255, 0.9)' : 'rgba(0, 0, 0, 0.85)';
+          // 2025年Glassmorphism仕様適用
+          const glassmorphismDark = {
+            background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.75), rgba(30, 27, 75, 0.7))',
+            border: '1px solid rgba(99, 102, 241, 0.25)',
+            color: '#ffffff'
+          };
 
-          card.style.setProperty('background', baseColor, 'important');
-          card.style.setProperty('border-color', borderColor, 'important');
-          card.style.setProperty('color', textColor, 'important');
+          const glassmorphismLight = {
+            background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0.25))',
+            border: '1px solid rgba(255, 255, 255, 0.4)',
+            color: '#1f2937'
+          };
+
+          const theme = this.isDarkMode ? glassmorphismDark : glassmorphismLight;
+
+
+          card.style.setProperty('background', theme.background, 'important');
+          card.style.setProperty('border', theme.border, 'important');
+          card.style.setProperty('color', theme.color, 'important');
         }
       });
     }
@@ -3581,51 +4963,14 @@ export class CommandUI {
    * Importインターフェース表示
    */
   showImportInterface() {
-    // ファイル選択ボタンを作成（既存のものがなければ）
-    if (!this.fileSelectButton) {
-      this.fileSelectButton = document.createElement('button');
-      this.fileSelectButton.innerHTML = '📁 ファイルを選択';
-      this.fileSelectButton.style.cssText = `
-        margin: 10px 0;
-        padding: 10px 20px;
-        background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%);
-        color: white;
-        border: none;
-        border-radius: 8px;
-        cursor: pointer;
-        font-size: 14px;
-        font-weight: 500;
-        transition: all 0.2s ease;
-        width: 100%;
-      `;
-
-      // ホバー効果
-      this.fileSelectButton.onmouseover = () => {
-        this.fileSelectButton.style.transform = 'translateY(-1px)';
-        this.fileSelectButton.style.boxShadow = '0 4px 12px rgba(236, 72, 153, 0.3)';
-      };
-      this.fileSelectButton.onmouseout = () => {
-        this.fileSelectButton.style.transform = 'translateY(0)';
-        this.fileSelectButton.style.boxShadow = 'none';
-      };
-
-      // ファイル選択処理
-      this.fileSelectButton.onclick = () => this.openFileSelector();
-
-      // 隠しファイル入力を作成
-      if (!this.fileInput) {
-        this.fileInput = document.createElement('input');
-        this.fileInput.type = 'file';
-        this.fileInput.accept = '.glb,.gltf,.jpg,.jpeg,.png,.mp4,.mov';
-        this.fileInput.style.display = 'none';
-        this.fileInput.onchange = (e) => this.handleFileSelection(e);
-        document.body.appendChild(this.fileInput);
-      }
-    }
-
-    // 入力エリアの前にボタンを挿入
-    if (this.input && this.input.parentNode && !this.input.parentNode.contains(this.fileSelectButton)) {
-      this.input.parentNode.insertBefore(this.fileSelectButton, this.input);
+    // 隠しファイル入力を作成（Importボタンから直接選択できるので、ボタンは不要）
+    if (!this.fileInput) {
+      this.fileInput = document.createElement('input');
+      this.fileInput.type = 'file';
+      this.fileInput.accept = '.glb,.gltf,.jpg,.jpeg,.png,.mp4,.mov';
+      this.fileInput.style.display = 'none';
+      this.fileInput.onchange = (e) => this.handleFileSelection(e);
+      document.body.appendChild(this.fileInput);
     }
 
     // ドラッグ&ドロップ機能を有効化
@@ -3652,6 +4997,22 @@ export class CommandUI {
   }
 
   /**
+   * Importボタンから直接ファイル選択を実行
+   */
+  triggerFileSelection() {
+    // ファイル入力要素が存在しない場合は作成
+    if (!this.fileInput) {
+      this.showImportInterface(); // 既存のファイル入力作成処理を呼び出し
+    }
+
+    // 直接ファイル選択ダイアログを開く
+    this.openFileSelector();
+
+    // Import モードに切り替え（UI反映）
+    this.selectMode('import', true);
+  }
+
+  /**
    * ファイル選択処理
    */
   async handleFileSelection(event) {
@@ -3659,15 +5020,16 @@ export class CommandUI {
     if (!file) return;
 
     try {
+      // 前回のObjectURLをクリーンアップ（メモリリーク防止）
+      if (this.selectedFile && this.selectedFile.url) {
+        URL.revokeObjectURL(this.selectedFile.url);
+      }
+
       // ファイルタイプを判定
       const fileType = this.detectFileType(file.name);
 
       // ファイルをローカルURLとして処理
       const fileUrl = URL.createObjectURL(file);
-
-      // プロンプト入力を促す
-      this.input.value = `中央に設置 (${file.name})`;
-      this.input.focus();
 
       // ファイル情報を保存
       this.selectedFile = {
@@ -3679,11 +5041,26 @@ export class CommandUI {
 
       this.selectMode('import', true);
 
+      // 自動的にデフォルトプロンプトで実行
+      const defaultPrompt = `中央に設置 (${file.name})`;
+      this.input.value = defaultPrompt;
+
       this.addOutput(`📁 ファイル選択: ${file.name} (${fileType})`, 'system');
+      this.addOutput(`🚀 自動アップロード開始: ${defaultPrompt}`, 'system');
+
+      // 自動実行（少し遅延を入れてUX向上）
+      setTimeout(() => {
+        this.executeCommand();
+      }, 500);
 
     } catch (error) {
       console.error('File selection error:', error);
       this.addOutput(`❌ ファイル選択エラー: ${error.message}`, 'error');
+    } finally {
+      // IMPORTANT: ファイル入力をリセットして同じファイルの再選択を可能にする
+      if (event.target) {
+        event.target.value = '';
+      }
     }
   }
 
@@ -3802,7 +5179,8 @@ export class CommandUI {
           // 画像をテクスチャプレーンとして配置
           if (this.sceneManager) {
             result = await this.sceneManager.loadImageFile(this.selectedFile.url, {
-              position: position
+              position: position,
+              fileName: this.selectedFile.name
             });
           } else {
             throw new Error('SceneManager が利用できません');
@@ -3813,7 +5191,8 @@ export class CommandUI {
           // 動画をビデオテクスチャとして配置
           if (this.sceneManager) {
             result = await this.sceneManager.loadVideoFile(this.selectedFile.url, {
-              position: position
+              position: position,
+              fileName: this.selectedFile.name
             });
           } else {
             throw new Error('SceneManager が利用できません');
@@ -3863,7 +5242,7 @@ export class CommandUI {
     if (selectedObject) {
       // 選択されたオブジェクトがある場合：削除コマンドをチャット欄に入力
       const objectName = selectedObject.userData?.originalPrompt || selectedObject.name || '選択したオブジェクト';
-      this.input.value = `${objectName}を削除`;
+      this.input.value = `${objectName}を削除 ⏎`;
       this.input.focus();
       
       // カーソルを文末に移動（選択状態を解除）
@@ -3871,22 +5250,515 @@ export class CommandUI {
       
       this.addOutput(`🎯 削除対象: ${objectName}`, 'system');
     } else {
-      // 選択されたオブジェクトがない場合：選択を促すメッセージをチャット欄に表示
+      // 選択されたオブジェクトがない場合：2025年トレンドアニメーションで注意喚起
       this.input.value = '';
       this.addOutput('❗ 削除するオブジェクトを選択後、削除ボタンを押してください', 'system');
       
-      // generateモードに戻す（選択を促すため）
-      this.selectMode('generate', false);
+      // 2025年トレンド：Context-Aware Attention Animation
+      this.triggerAttentionAnimation('delete');
+      
+      // DELETEモードを維持（generateモードに戻さない）
+    }
+  }
+
+  /**
+   * 修正モードが選択された時の処理
+   */
+  handleModifyModeSelection() {
+    // SceneManagerから選択されたオブジェクトを取得
+    const selectedObject = this.sceneManager?.selectedObject;
+    
+    if (selectedObject) {
+      // 選択されたオブジェクトがある場合：修正コマンドをチャット欄に入力
+      const objectName = selectedObject.userData?.originalPrompt || selectedObject.name || '選択したオブジェクト';
+      this.input.value = `${objectName}を`;
+      this.input.focus();
+      
+      // カーソルを文末に移動（選択状態を解除）
+      this.input.setSelectionRange(this.input.value.length, this.input.value.length);
+      
+      this.addOutput(`🎯 修正対象: ${objectName}`, 'system');
+    } else {
+      // 選択されたオブジェクトがない場合：2025年トレンドアニメーションで注意喚起
+      this.input.value = '';
+      this.addOutput('❗ 修正するオブジェクトを選択後、修正ボタンを押してください', 'system');
+      
+      // 2025年トレンド：Context-Aware Attention Animation
+      this.triggerAttentionAnimation('modify');
+      
+      // Modifyモードを維持（generateモードに戻さない）
+    }
+  }
+
+  /**
+   * 2025年トレンド：Context-Aware Attention Animation
+   * オブジェクト未選択時の注意喚起アニメーション
+   */
+  triggerAttentionAnimation(mode) {
+    const chatOutput = this.chatOutput;
+    const inputField = this.input;
+    
+    // 2025年トレンド1: Micro-Shake Effect（微細な震え）
+    this.addMicroShakeEffect(chatOutput);
+    
+    // 2025年トレンド2: Context-Aware Glow（状況認識グロー）
+    this.addContextGlow(inputField, mode);
+    
+    // 2025年トレンド3: Emotional Pulse（感情的パルス）
+    this.addEmotionalPulse(chatOutput, mode);
+    
+    // 2025年トレンド4: 3D Depth Shadow（立体的影効果）
+    this.add3DDepthEffect(chatOutput);
+  }
+
+  /**
+   * 2025年トレンド：Micro-Shake Effect
+   */
+  addMicroShakeEffect(element) {
+    element.style.animation = 'microShake2025 0.5s ease-in-out';
+    
+    // CSSアニメーションを動的追加
+    this.ensureMicroShakeAnimation();
+    
+    // アニメーション後クリーンアップ
+    setTimeout(() => {
+      element.style.animation = '';
+    }, 500);
+  }
+
+  /**
+   * 2025年トレンド：Context-Aware Glow
+   */
+  addContextGlow(element, mode) {
+    const glowColor = mode === 'delete' ? 'rgba(239, 68, 68, 0.4)' : 'rgba(99, 102, 241, 0.4)';
+    
+    element.style.transition = 'all 0.3s ease';
+    element.style.boxShadow = `0 0 20px ${glowColor}, 0 0 40px ${glowColor}`;
+    
+    // 3秒後にフェードアウト
+    setTimeout(() => {
+      element.style.boxShadow = '';
+    }, 3000);
+  }
+
+  /**
+   * 2025年トレンド：Emotional Pulse
+   */
+  addEmotionalPulse(element, mode) {
+    const pulseColor = mode === 'delete' ? '#ef4444' : (this.isWabiSabiMode ? '#8BC34A' : '#6366f1');
+    
+    element.style.borderLeft = `4px solid ${pulseColor}`;
+    element.style.animation = 'emotionalPulse2025 2s ease-in-out infinite';
+    
+    // CSSアニメーションを動的追加
+    this.ensureEmotionalPulseAnimation();
+    
+    // 6秒後にアニメーション停止
+    setTimeout(() => {
+      element.style.animation = '';
+      element.style.borderLeft = '';
+    }, 6000);
+  }
+
+  /**
+   * 2025年トレンド：3D Depth Effect
+   */
+  add3DDepthEffect(element) {
+    element.style.transform = 'translateZ(8px) rotateX(1deg)';
+    element.style.transition = 'transform 0.3s ease';
+    
+    // 2秒後に元に戻す
+    setTimeout(() => {
+      element.style.transform = '';
+    }, 2000);
+  }
+
+  /**
+   * Micro-Shake CSSアニメーション確保
+   */
+  ensureMicroShakeAnimation() {
+    if (document.getElementById('micro-shake-2025')) return;
+    
+    const style = document.createElement('style');
+    style.id = 'micro-shake-2025';
+    style.textContent = `
+      @keyframes microShake2025 {
+        0%, 100% { transform: translateX(0); }
+        10% { transform: translateX(-2px) rotateZ(-0.5deg); }
+        20% { transform: translateX(2px) rotateZ(0.5deg); }
+        30% { transform: translateX(-1px) rotateZ(-0.3deg); }
+        40% { transform: translateX(1px) rotateZ(0.3deg); }
+        50% { transform: translateX(-0.5px) rotateZ(-0.1deg); }
+        60% { transform: translateX(0.5px) rotateZ(0.1deg); }
+        70% { transform: translateX(0); }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  /**
+   * Emotional Pulse CSSアニメーション確保
+   */
+  ensureEmotionalPulseAnimation() {
+    if (document.getElementById('emotional-pulse-2025')) return;
+    
+    const style = document.createElement('style');
+    style.id = 'emotional-pulse-2025';
+    style.textContent = `
+      @keyframes emotionalPulse2025 {
+        0% { 
+          border-left-width: 4px;
+          filter: brightness(1);
+        }
+        50% { 
+          border-left-width: 8px;
+          filter: brightness(1.2) saturate(1.1);
+        }
+        100% { 
+          border-left-width: 4px;
+          filter: brightness(1);
+        }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  /**
+   * モード切り替え時の入力欄メッセージ上書き機能
+   * ユーザビリティ向上：他モードのメッセージを新モードの初期状態にクリア
+   */
+  clearInputOnModeSwitch(newMode) {
+    // 現在の入力欄に内容がある場合のみ処理
+    if (this.input.value.trim()) {
+      // 以前のモードのメッセージかどうかを判定
+      const isPreviousModeMessage = this.isPreviousModeMessage(this.input.value, newMode);
+      
+      if (isPreviousModeMessage) {
+        // 以前のモードのメッセージの場合、新モードの初期メッセージに置き換え
+        this.input.value = '';
+        this.addOutput(`💫 ${this.getModeDisplayName(newMode)}モードに切り替えました`, 'system');
+      }
+    }
+  }
+
+  /**
+   * 入力内容が以前のモードのメッセージかどうかを判定
+   */
+  isPreviousModeMessage(inputValue, currentMode) {
+    // Delete/Modifyモードの特徴的なメッセージパターンを検出
+    const deletePatterns = [
+      /.*を削除$/,
+      /削除$/
+    ];
+    
+    const modifyPatterns = [
+      /.*を$/,
+      /.*を変更/,
+      /.*をピンク/,
+      /.*を大きく/,
+      /.*を小さく/,
+      /.*を移動/,
+      /回転/,
+      /反転/,
+      /ミラー/,
+      /傾け/,
+      /向きを変え/,
+      /.*を.*色/,
+      /.*を.*サイズ/
+    ];
+    
+    const importPatterns = [
+      /ファイル/,
+      /画像/,
+      /インポート/
+    ];
+
+    // 現在のモードと異なるパターンにマッチする場合は上書き対象
+    switch (currentMode) {
+      case 'delete':
+        return modifyPatterns.some(pattern => pattern.test(inputValue)) ||
+               importPatterns.some(pattern => pattern.test(inputValue));
+               
+      case 'modify':
+        return deletePatterns.some(pattern => pattern.test(inputValue)) ||
+               importPatterns.some(pattern => pattern.test(inputValue));
+               
+      case 'import':
+        return deletePatterns.some(pattern => pattern.test(inputValue)) ||
+               modifyPatterns.some(pattern => pattern.test(inputValue));
+               
+      case 'generate':
+        return deletePatterns.some(pattern => pattern.test(inputValue)) ||
+               modifyPatterns.some(pattern => pattern.test(inputValue)) ||
+               importPatterns.some(pattern => pattern.test(inputValue));
+               
+      default:
+        return false;
+    }
+  }
+
+  /**
+   * モード表示名を取得
+   */
+  getModeDisplayName(mode) {
+    const modeNames = {
+      'generate': '生成',
+      'import': 'インポート',
+      'modify': '修正',
+      'delete': '削除'
+    };
+    return modeNames[mode] || mode;
+  }
+
+  /**
+   * 常時表示フローティングチョコアイコンを作成
+   */
+  createFloatingChocolateIcon() {
+    // 既存のアイコンがあれば削除
+    if (this.floatingChocolateIcon) {
+      this.floatingChocolateIcon.remove();
+    }
+
+    this.floatingChocolateIcon = document.createElement('div');
+    this.floatingChocolateIcon.innerHTML = '🍫';
+    this.floatingChocolateIcon.title = 'ChocoDrop を開く (@キーでも開けます)';
+    this.floatingChocolateIcon.style.cssText = `
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: rgba(99, 102, 241, 0.15);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2), 0 2px 6px rgba(0, 0, 0, 0.05);
+      opacity: 0.8;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      cursor: pointer;
+      z-index: 999;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      transform: scale(1);
+      filter: none;
+    `;
+
+    // ホバー効果
+    this.floatingChocolateIcon.addEventListener('mouseover', () => {
+      this.floatingChocolateIcon.style.transform = 'scale(1.1) translateY(-2px)';
+      this.floatingChocolateIcon.style.boxShadow = '0 6px 16px rgba(99, 102, 241, 0.3), 0 3px 8px rgba(0, 0, 0, 0.1)';
+      this.floatingChocolateIcon.style.opacity = '1';
+      this.floatingChocolateIcon.style.filter = 'none';
+    });
+
+    this.floatingChocolateIcon.addEventListener('mouseout', () => {
+      this.floatingChocolateIcon.style.transform = 'scale(1) translateY(0)';
+      this.floatingChocolateIcon.style.boxShadow = '0 4px 12px rgba(99, 102, 241, 0.2), 0 2px 6px rgba(0, 0, 0, 0.05)';
+      this.floatingChocolateIcon.style.opacity = '0.8';
+      this.floatingChocolateIcon.style.filter = 'none';
+    });
+
+    // クリックで ChocoDrop を開く
+    this.floatingChocolateIcon.addEventListener('click', () => {
+      if (this.isVisible) {
+        this.hide();
+      } else {
+        this.show();
+      }
+    });
+
+    // 右クリックメニュー
+    this.floatingChocolateIcon.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      this.showFloatingIconContextMenu(e);
+    });
+
+    // DOM に追加
+    document.body.appendChild(this.floatingChocolateIcon);
+  }
+
+  /**
+   * フローティングアイコンの右クリックメニューを表示
+   */
+  showFloatingIconContextMenu(event) {
+    // 既存のメニューがあれば削除
+    const existingMenu = document.querySelector('.floating-icon-context-menu');
+    if (existingMenu) {
+      existingMenu.remove();
+    }
+
+    // コンテキストメニュー作成
+    const menu = document.createElement('div');
+    menu.className = 'floating-icon-context-menu';
+    menu.style.cssText = `
+      position: fixed;
+      top: ${event.clientY}px;
+      left: ${event.clientX}px;
+      background: ${this.isWabiSabiMode
+        ? 'rgba(239, 235, 233, 0.9)'
+        : (this.isDarkMode ? 'rgba(17, 24, 39, 0.85)' : 'rgba(255, 255, 255, 0.85)')};
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid ${this.isWabiSabiMode
+        ? 'rgba(161, 136, 127, 0.4)'
+        : (this.isDarkMode ? 'rgba(129, 140, 248, 0.3)' : 'rgba(99, 102, 241, 0.2)')};
+      border-radius: 12px;
+      box-shadow: ${this.isWabiSabiMode
+        ? '0 8px 24px rgba(93, 64, 55, 0.2), 0 4px 12px rgba(0, 0, 0, 0.1)'
+        : '0 8px 24px rgba(99, 102, 241, 0.2), 0 4px 12px rgba(0, 0, 0, 0.1)'};
+      padding: 8px 0;
+      min-width: 160px;
+      z-index: 2000;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 14px;
+      color: ${this.isWabiSabiMode
+        ? '#5D4037'
+        : (this.isDarkMode ? '#ffffff' : '#1f2937')};
+    `;
+
+    // メニューアイテム1: フォームを開く
+    const openFormItem = document.createElement('div');
+    openFormItem.innerHTML = '📄 フォームを開く';
+    openFormItem.style.cssText = `
+      padding: 8px 16px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: ${this.isWabiSabiMode ? '#8D6E63' : '#6366f1'};
+      text-shadow: ${this.isWabiSabiMode
+        ? '0 2px 4px rgba(141, 110, 99, 0.3)'
+        : '0 2px 4px rgba(99, 102, 241, 0.3)'};
+    `;
+
+    openFormItem.addEventListener('mouseover', () => {
+      openFormItem.style.background = this.isWabiSabiMode
+        ? 'rgba(161, 136, 127, 0.15)'
+        : (this.isDarkMode ? 'rgba(99, 102, 241, 0.15)' : 'rgba(99, 102, 241, 0.1)');
+      openFormItem.style.textShadow = this.isWabiSabiMode
+        ? '0 2px 6px rgba(141, 110, 99, 0.5)'
+        : '0 2px 6px rgba(99, 102, 241, 0.5)';
+    });
+
+    openFormItem.addEventListener('mouseout', () => {
+      openFormItem.style.background = 'transparent';
+      openFormItem.style.textShadow = this.isWabiSabiMode
+        ? '0 2px 4px rgba(141, 110, 99, 0.3)'
+        : '0 2px 4px rgba(99, 102, 241, 0.3)';
+    });
+
+    openFormItem.addEventListener('click', () => {
+      menu.remove();
+      if (this.isVisible) {
+        this.hide();
+      } else {
+        this.show();
+      }
+    });
+
+    // メニューアイテム2: アイコンを非表示
+    const hideIconItem = document.createElement('div');
+    hideIconItem.innerHTML = '✕ アイコンを非表示';
+    hideIconItem.style.cssText = `
+      padding: 8px 16px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: ${this.isWabiSabiMode ? '#8D6E63' : '#6366f1'};
+      text-shadow: ${this.isWabiSabiMode
+        ? '0 2px 4px rgba(141, 110, 99, 0.3)'
+        : '0 2px 4px rgba(99, 102, 241, 0.3)'};
+    `;
+
+    hideIconItem.addEventListener('mouseover', () => {
+      hideIconItem.style.background = this.isWabiSabiMode
+        ? 'rgba(161, 136, 127, 0.15)'
+        : (this.isDarkMode ? 'rgba(99, 102, 241, 0.15)' : 'rgba(99, 102, 241, 0.1)');
+      hideIconItem.style.textShadow = this.isWabiSabiMode
+        ? '0 2px 6px rgba(141, 110, 99, 0.5)'
+        : '0 2px 6px rgba(99, 102, 241, 0.5)';
+    });
+
+    hideIconItem.addEventListener('mouseout', () => {
+      hideIconItem.style.background = 'transparent';
+      hideIconItem.style.textShadow = this.isWabiSabiMode
+        ? '0 2px 4px rgba(141, 110, 99, 0.3)'
+        : '0 2px 4px rgba(99, 102, 241, 0.3)';
+    });
+
+    hideIconItem.addEventListener('click', () => {
+      menu.remove();
+      this.hideFloatingIcon();
+    });
+
+    // メニューに追加
+    menu.appendChild(openFormItem);
+    menu.appendChild(hideIconItem);
+
+    // DOM に追加
+    document.body.appendChild(menu);
+
+    // 画面外に出ないように調整
+    const rect = menu.getBoundingClientRect();
+    if (rect.right > window.innerWidth) {
+      menu.style.left = `${event.clientX - rect.width}px`;
+    }
+    if (rect.bottom > window.innerHeight) {
+      menu.style.top = `${event.clientY - rect.height}px`;
+    }
+
+    // 外部クリックで閉じる
+    const closeMenu = (e) => {
+      if (!menu.contains(e.target)) {
+        menu.remove();
+        document.removeEventListener('click', closeMenu);
+      }
+    };
+
+    setTimeout(() => {
+      document.addEventListener('click', closeMenu);
+    }, 10);
+  }
+
+  /**
+   * フローティングアイコンを非表示にする
+   */
+  hideFloatingIcon() {
+    if (this.floatingChocolateIcon) {
+      this.floatingChocolateIcon.style.display = 'none';
+    }
+  }
+
+  /**
+   * フローティングアイコンを表示する
+   */
+  showFloatingIcon() {
+    if (this.floatingChocolateIcon) {
+      this.floatingChocolateIcon.style.display = 'flex';
     }
   }
 
   dispose() {
+    // キーワードハイライトのクリーンアップ
+    this.clearKeywordHighlighting();
+
     // ファイル選択関連のクリーンアップ
     if (this.fileInput && this.fileInput.parentNode) {
       this.fileInput.parentNode.removeChild(this.fileInput);
     }
     if (this.selectedFile && this.selectedFile.url) {
       URL.revokeObjectURL(this.selectedFile.url);
+    }
+
+    // フローティングチョコアイコンのクリーンアップ
+    if (this.floatingChocolateIcon && this.floatingChocolateIcon.parentNode) {
+      this.floatingChocolateIcon.parentNode.removeChild(this.floatingChocolateIcon);
     }
 
     if (this.container && this.container.parentElement) {
@@ -3930,7 +5802,27 @@ export class CommandUI {
     if (top + overlayHeight > window.innerHeight - padding) {
       top = Math.max(padding, window.innerHeight - overlayHeight - padding);
     }
-    
+
+    const overlayBackground = this.isWabiSabiMode
+      ? 'linear-gradient(135deg, rgba(97, 97, 97, 0.7), rgba(66, 66, 66, 0.6))'
+      : (this.isDarkMode
+        ? 'linear-gradient(135deg, rgba(30, 27, 75, 0.4), rgba(15, 23, 42, 0.5))'
+        : 'linear-gradient(135deg, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.2))');
+
+    const overlayBorder = this.isWabiSabiMode
+      ? '1px solid rgba(93, 64, 55, 0.5)'
+      : (this.isDarkMode
+        ? '1px solid rgba(99, 102, 241, 0.25)'
+        : '1px solid rgba(255, 255, 255, 0.5)');
+
+    const overlayInnerShadow = this.isWabiSabiMode
+      ? '0 4px 16px rgba(66, 66, 66, 0.3), inset 0 1px 0 rgba(189, 189, 189, 0.2)'
+      : (this.isDarkMode
+        ? '0 4px 16px rgba(15, 23, 42, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.08)'
+        : '0 4px 16px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.4)');
+
+    const overlayTextColor = this.getInputTextColor();
+
     // オーバーレイのスタイル設定
     this.overlayTextarea.style.cssText = `
       position: fixed;
@@ -3939,12 +5831,12 @@ export class CommandUI {
       width: ${width}px;
       height: ${overlayHeight}px;
       box-sizing: border-box;
-      background: ${this.isDarkMode ? 'linear-gradient(135deg, rgba(30, 27, 75, 0.4), rgba(15, 23, 42, 0.5))' : 'linear-gradient(135deg, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.2))'};
+      background: ${overlayBackground};
       backdrop-filter: blur(24px) saturate(180%);
-      border: ${this.isDarkMode ? '1px solid rgba(99, 102, 241, 0.25)' : '1px solid rgba(255, 255, 255, 0.5)'};
-      box-shadow: ${this.isDarkMode ? '0 4px 16px rgba(15, 23, 42, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.08)' : '0 4px 16px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.4)'};
+      border: ${overlayBorder};
+      box-shadow: ${overlayInnerShadow};
       border-radius: 16px;
-      color: white;
+      color: ${overlayTextColor};
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       font-size: 14px;
       line-height: 1.5;
