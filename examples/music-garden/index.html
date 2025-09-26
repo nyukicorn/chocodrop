@@ -113,6 +113,42 @@
         .audio-inactive {
             color: #ff6b9d !important;
         }
+
+        .music-icon {
+            display: inline-block;
+            animation: music-pulse 2.5s ease-in-out infinite;
+            cursor: pointer;
+            color: #ff6b9d;
+            text-shadow: 0 0 10px currentColor;
+        }
+
+        .music-icon:hover {
+            transform: scale(1.3);
+            animation: music-dance 0.8s ease-in-out infinite;
+        }
+
+        @keyframes music-pulse {
+            0%, 100% {
+                transform: scale(1);
+                filter: brightness(1);
+            }
+            50% {
+                transform: scale(1.1);
+                filter: brightness(1.3);
+            }
+        }
+
+        @keyframes music-dance {
+            0%, 100% {
+                transform: scale(1.3) rotate(0deg);
+            }
+            25% {
+                transform: scale(1.4) rotate(-5deg);
+            }
+            75% {
+                transform: scale(1.4) rotate(5deg);
+            }
+        }
     </style>
 </head>
 <body>
@@ -129,6 +165,7 @@
         </div>
 
         <div class="controls">
+            <div class="control-item"><code>@</code>キー または <span class="music-icon">🍫</span> で起動</div>
             <div class="control-item">✨ 試してみて：</div>
             <div class="control-item highlight">「動画を中央に」「音楽を開始」</div>
         </div>
