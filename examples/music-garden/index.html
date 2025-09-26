@@ -225,30 +225,30 @@
 
             // より自然な花びらの配置パターン
             const petalRings = [
-                // 外側のリング - 大きな花びら
+                // 外側のリング - 青紫グラデーション
                 {
                     count: 12,
                     size: 2.5 * scale,
                     opacity: 0.8,
-                    colors: [0xff6b9d, 0xff1493, 0xff69b4, 0xda70d6],
+                    colors: [0x4169e1, 0x6a5acd, 0x8a2be2, 0x9370db],
                     radius: 2.2 * scale,
                     zOffset: 0
                 },
-                // 中間のリング
+                // 中間のリング - 紫からピンク
                 {
                     count: 16,
                     size: 1.8 * scale,
                     opacity: 0.85,
-                    colors: [0x9b59b6, 0x8e44ad, 0xba68c8, 0xab47bc],
+                    colors: [0xba55d3, 0xda70d6, 0xff69b4, 0xffc0cb],
                     radius: 1.5 * scale,
                     zOffset: 0.1
                 },
-                // 内側のリング - 優しいピンク系
+                // 内側のリング - ピンクからオレンジ
                 {
                     count: 20,
                     size: 1.2 * scale,
                     opacity: 0.9,
-                    colors: [0xffb6c1, 0xffc0cb, 0xffe4e1, 0xffd1dc],
+                    colors: [0xffb6c1, 0xffa07a, 0xff8c69, 0xffd700],
                     radius: 0.8 * scale,
                     zOffset: 0.2
                 }
@@ -341,13 +341,13 @@
                 }
             });
 
-            // 花の中心（優しいピンクの中心）
-            const centerGeometry = new THREE.CircleGeometry(0.4 * scale, 16);
+            // 花の中心（温かいオレンジ系）
+            const centerGeometry = new THREE.CircleGeometry(0.3 * scale, 16);
             const centerMaterial = new THREE.MeshBasicMaterial({
-                color: 0xffb6c1,
-                emissive: new THREE.Color(0xff69b4),
+                color: 0xff8c69,
+                emissive: new THREE.Color(0xff6347),
                 transparent: true,
-                opacity: 0.9
+                opacity: 0.95
             });
             const center = new THREE.Mesh(centerGeometry, centerMaterial);
             center.position.z = 0.4;
