@@ -402,12 +402,16 @@
 
             flowerGroup.position.set(x, y, z);
 
+            // パーティクルの元位置を保存（音量連動効果用）
+            const originalPositions = new Float32Array(particlePositions);
+
             // アニメーション用データ
             flowerGroup.userData = {
                 originalScale: scale,
                 petals: allPetals,
                 center: center,
                 particles: particles,
+                originalPositions: originalPositions,
                 pulsePhase: Math.random() * Math.PI * 2,
                 baseColors: allBaseColors,
                 petalRings: petalRings
@@ -951,11 +955,30 @@
                 // パーティクルのアニメーション（音楽がある時のみ）
                 if (userData.particles) {
                     if (volume > 0.005) {
+                        // 基本回転
                         userData.particles.rotation.y += 0.01 + volume * 0.02;
                         userData.particles.rotation.z += 0.005;
 
+                        // 音量に合わせてふわっと舞い上がる効果
+                        const positions = userData.particles.geometry.attributes.position.array;
+                        const originalPositions = userData.originalPositions;
+                        
+                        for (let i = 0; i < positions.length; i += 3) {
+                            // 音量が大きいほどパーティクルが上に舞い上がる
+                            const lift = volume * 2.0 * Math.sin(time * 2 + i * 0.1);
+                            positions[i + 1] = originalPositions[i + 1] + lift; // Y座標
+                            
+                            // 音量に合わせて外側に広がる
+                            const spread = volume * 0.5;
+                            positions[i] = originalPositions[i] * (1 + spread); // X座標
+                            positions[i + 2] = originalPositions[i + 2] * (1 + spread); // Z座標
+                        }
+                        
+                        userData.particles.geometry.attributes.position.needsUpdate = true;
+                        
                         // 音楽に合わせてパーティクルの明度を変化
-                        userData.particles.material.opacity = 0.3 + volume * 0.5;
+                        userData.particles.material.opacity = 0.4 + volume * 0.6;
+                        userData.particles.material.size = 0.1 + volume * 0.3;
                     }
                 }
             });
