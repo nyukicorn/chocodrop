@@ -38,6 +38,9 @@ export class SceneManager {
     this.audioControls = new Map();
     this.audioControlUpdateInterval = null;
     this.audioControlUpdateListener = null;
+    this.audioControls = new Map();
+    this.audioControlUpdateInterval = null;
+    this.audioControlUpdateListener = null;
 
     // Animation管理（UI要素用）
     this.clock = new THREE.Clock();
@@ -3401,9 +3404,11 @@ export class SceneManager {
         opacity: parsed.opacity,
         command: parsed.command
       });
-      
-      return { 
-        success: true, 
+
+      this.updateAllAudioControlPositions();
+
+      return {
+        success: true,
         message: `オブジェクト「${targetObject.name}」を変更しました`,
         objectId: targetObject.name,
         modifications: {
@@ -4309,11 +4314,11 @@ export class SceneManager {
     this.updateAudioControlPosition(videoObject, audioButton);
 
     // 管理マップに登録
-    this.audioControls.set(videoObject.uuid, {
+    this.audioControls.set(videoObject.userData.id || videoObject.uuid, {
+      object: videoObject,
       audioButton,
       tooltip,
       volumeSlider,
-      isSliderVisible: () => isSliderVisible,
       hideSlider: () => {
         isSliderVisible = false;
         volumeSlider.style.opacity = '0';
@@ -4341,7 +4346,7 @@ export class SceneManager {
       if (audioButton.parentNode) audioButton.parentNode.removeChild(audioButton);
       if (tooltip.parentNode) tooltip.parentNode.removeChild(tooltip);
       if (volumeSlider.parentNode) volumeSlider.parentNode.removeChild(volumeSlider);
-      this.audioControls.delete(videoObject.uuid);
+      this.audioControls.delete(videoObject.userData.id || videoObject.uuid);
 
       if (this.audioControls.size === 0) {
         if (this.audioControlUpdateInterval) {
@@ -4411,8 +4416,8 @@ export class SceneManager {
       return;
     }
 
-    this.audioControls.forEach((_, uuid) => {
-      const obj = this.spawnedObjects.get(uuid);
+    this.audioControls.forEach((entry) => {
+      const obj = entry.object;
       if (obj && obj.userData && obj.userData.updateAudioControlPosition) {
         obj.userData.updateAudioControlPosition();
       }
