@@ -329,10 +329,12 @@ export class MCPClient {
   }
   /**
    * オフライン翻訳辞書
-   * セキュアな配布のために外部依存を排除
+   * 共通辞書を使用してクライアントと一貫性を保つ
    */
   translateOffline(text) {
-    const translationDict = {
+    // 共通辞書をインポート（動的インポートでNode.js互換）
+    const { TRANSLATION_DICTIONARY } = require('../common/translation-dictionary.js');
+    const translationDict = TRANSLATION_DICTIONARY;
       // ファンタジー・魔法系
       'ユニコーン': 'unicorn',
       'ドラゴン': 'dragon',

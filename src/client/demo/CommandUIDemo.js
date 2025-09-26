@@ -1417,11 +1417,17 @@ export class CommandUIDemo {
     const container = this.radioModeContainer;
     if (!container) return;
 
-    const glowColors = {
-      generate: 'rgba(79, 70, 229, 0.4)',   // 紫のグロー
-      import: 'rgba(34, 197, 94, 0.4)',     // 緑のグロー
-      modify: 'rgba(236, 72, 153, 0.4)',    // ピンクのグロー  
-      delete: 'rgba(107, 114, 128, 0.3)'    // グレーのグロー
+    // モードに応じてグロー色を設定
+    const glowColors = this.isWabiSabiMode ? {
+      generate: 'rgba(139, 195, 74, 0.4)',  // 侘び寂びモード：チャット欄と同じ緑
+      import: 'rgba(139, 195, 74, 0.4)',    // 侘び寂びモード：チャット欄と同じ緑
+      modify: 'rgba(139, 195, 74, 0.4)',    // 侘び寂びモード：チャット欄と同じ緑
+      delete: 'rgba(139, 195, 74, 0.4)'     // 侘び寂びモード：チャット欄と同じ緑
+    } : {
+      generate: 'rgba(79, 70, 229, 0.4)',   // ライト/ダークモード：元の紫
+      import: 'rgba(34, 197, 94, 0.4)',     // ライト/ダークモード：元の緑
+      modify: 'rgba(236, 72, 153, 0.4)',    // ライト/ダークモード：元のピンク
+      delete: 'rgba(107, 114, 128, 0.3)'    // ライト/ダークモード：元のグレー
     };
 
     // 一時的にグロー効果を適用
@@ -2215,10 +2221,10 @@ export class CommandUIDemo {
   getModeButtonStyles(isActive, mode) {
     // モードカラー設定
     const modeColors = {
-      generate: 'linear-gradient(135deg, #4f46e5, #4338ca)', // Deep purple - 創造性
-      import: 'linear-gradient(135deg, #22c55e, #16a34a)',   // Green - インポート
-      modify: 'linear-gradient(135deg, #ec4899, #be185d)',    // Vibrant pink - 変更・調整
-      delete: 'rgba(107, 114, 128, 0.15)'                    // 半透明グレー - セカンダリボタンスタイル
+      generate: 'linear-gradient(135deg, #22c55e, #16a34a)', // Green - チャット欄と同じ緑色
+      import: 'linear-gradient(135deg, #22c55e, #16a34a)',   // Green - チャット欄と同じ緑色
+      modify: 'linear-gradient(135deg, #22c55e, #16a34a)',    // Green - チャット欄と同じ緑色
+      delete: 'linear-gradient(135deg, #22c55e, #16a34a)'     // Green - チャット欄と同じ緑色
     };
     
     return `
@@ -3496,7 +3502,7 @@ export class CommandUIDemo {
   /**
    * 温かみのあるメッセージを生成（マーケ提案ベース）
    */
-  getFriendlyMessage(status, prompt) {
+  getFriendlyMessage(status, prompt, errorMessage = null) {
     const shortPrompt = prompt.length > 15 ? prompt.substring(0, 15) + '...' : prompt;
 
     // 自然な応答システム適用
@@ -3510,16 +3516,41 @@ export class CommandUIDemo {
       case 'processing':
       case 'in-progress':
       case 'progress':
+        // Modify mode specific messages for processing
+        if (this.currentMode === 'modify') {
+          return responseType === 'casual' ? 'ちょこっと調整中です...' :
+                 responseType === 'magical' ? 'イメージを変化させています...' :
+                 'ちょこんと編集中です...';
+        }
         return responseType === 'casual' ? 'ちょこんと配置中です...' :
                responseType === 'magical' ? 'あなたの想いを形にしています...' :
                'ちょこっと魔法をかけています...';
       case 'completed':
+        // Delete mode specific messages
+        if (this.currentMode === 'delete') {
+          return responseType === 'casual' ? 'ちょこっと削除しました！' :
+                 responseType === 'magical' ? 'すっきりと片付きました！' :
+                 'ちょこんと削除完了！すっきりですね！';
+        }
+        // Modify mode specific messages
+        if (this.currentMode === 'modify') {
+          return responseType === 'casual' ? 'ちょこっと調整しました！' :
+                 responseType === 'magical' ? '素敵に変身しました！' :
+                 'ちょこんと編集完了！いい感じですね！';
+        }
+        // Default completion messages for other modes
         return responseType === 'casual' ? 'ちょこっとドロップしました！' :
                responseType === 'magical' ? '素敵な世界が完成しました！' :
                'ちょこんと配置完了！素敵ですね！';
       case 'error':
-        return responseType === 'casual' ? 'ちょこっと失敗... もう一度どうぞ' :
-               'うまくいかなかったようです... もう一度試してみませんか？';
+        // エラー理由があれば含める
+        if (errorMessage) {
+          const shortError = errorMessage.length > 30 ? errorMessage.substring(0, 30) + '...' : errorMessage;
+          return `❌ ${shortError}`;
+        }
+        return responseType === 'casual' ? 'おっと、エラーが発生しました' :
+               responseType === 'magical' ? '申し訳ございません、処理に失敗しました' :
+               'エラーが発生しました。もう一度お試しください';
       default:
         return shortPrompt;
     }
@@ -4567,7 +4598,8 @@ export class CommandUIDemo {
           // 画像をテクスチャプレーンとして配置
           if (this.sceneManager) {
             result = await this.sceneManager.loadImageFile(this.selectedFile.url, {
-              position: position
+              position: position,
+              fileName: this.selectedFile.name
             });
           } else {
             throw new Error('SceneManager が利用できません');
@@ -4578,7 +4610,8 @@ export class CommandUIDemo {
           // 動画をビデオテクスチャとして配置
           if (this.sceneManager) {
             result = await this.sceneManager.loadVideoFile(this.selectedFile.url, {
-              position: position
+              position: position,
+              fileName: this.selectedFile.name
             });
           } else {
             throw new Error('SceneManager が利用できません');
@@ -5161,7 +5194,27 @@ export class CommandUIDemo {
     if (top + overlayHeight > window.innerHeight - padding) {
       top = Math.max(padding, window.innerHeight - overlayHeight - padding);
     }
-    
+
+    const overlayBackground = this.isWabiSabiMode
+      ? 'linear-gradient(135deg, rgba(97, 97, 97, 0.7), rgba(66, 66, 66, 0.6))'
+      : (this.isDarkMode
+        ? 'linear-gradient(135deg, rgba(30, 27, 75, 0.4), rgba(15, 23, 42, 0.5))'
+        : 'linear-gradient(135deg, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.2))');
+
+    const overlayBorder = this.isWabiSabiMode
+      ? '1px solid rgba(93, 64, 55, 0.5)'
+      : (this.isDarkMode
+        ? '1px solid rgba(99, 102, 241, 0.25)'
+        : '1px solid rgba(255, 255, 255, 0.5)');
+
+    const overlayInnerShadow = this.isWabiSabiMode
+      ? '0 4px 16px rgba(66, 66, 66, 0.3), inset 0 1px 0 rgba(189, 189, 189, 0.2)'
+      : (this.isDarkMode
+        ? '0 4px 16px rgba(15, 23, 42, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.08)'
+        : '0 4px 16px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.4)');
+
+    const overlayTextColor = this.isWabiSabiMode ? '#F5F5F5' : (this.isDarkMode ? '#ffffff' : '#1f2937');
+
     // オーバーレイのスタイル設定
     this.overlayTextarea.style.cssText = `
       position: fixed;
@@ -5170,12 +5223,12 @@ export class CommandUIDemo {
       width: ${width}px;
       height: ${overlayHeight}px;
       box-sizing: border-box;
-      background: ${this.isDarkMode ? 'linear-gradient(135deg, rgba(30, 27, 75, 0.4), rgba(15, 23, 42, 0.5))' : 'linear-gradient(135deg, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.2))'};
+      background: ${overlayBackground};
       backdrop-filter: blur(24px) saturate(180%);
-      border: ${this.isDarkMode ? '1px solid rgba(99, 102, 241, 0.25)' : '1px solid rgba(255, 255, 255, 0.5)'};
-      box-shadow: ${this.isDarkMode ? '0 4px 16px rgba(15, 23, 42, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.08)' : '0 4px 16px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.4)'};
+      border: ${overlayBorder};
+      box-shadow: ${overlayInnerShadow};
       border-radius: 16px;
-      color: white;
+      color: ${overlayTextColor};
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       font-size: 14px;
       line-height: 1.5;

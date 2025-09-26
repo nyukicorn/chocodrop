@@ -280,33 +280,28 @@
                     // 各花びらの角度（少しランダムさを加える）
                     const angle = (i / ring.count) * Math.PI * 2 + (Math.random() - 0.5) * 0.2;
 
-                    // ダリアの花びらのような涙滴型を作成
-                    const petalShape = new THREE.Shape();
-                    const width = ring.size * 0.35;
-                    const height = ring.size;
+                    // ダリアの花びらのような滑らかな形状
+                    const petalCurve = new THREE.CatmullRomCurve3([
+                        new THREE.Vector3(0, 0, 0),
+                        new THREE.Vector3(-ring.size * 0.15, ring.size * 0.3, 0),
+                        new THREE.Vector3(-ring.size * 0.25, ring.size * 0.6, 0),
+                        new THREE.Vector3(-ring.size * 0.15, ring.size * 0.9, 0),
+                        new THREE.Vector3(0, ring.size, 0),
+                        new THREE.Vector3(ring.size * 0.15, ring.size * 0.9, 0),
+                        new THREE.Vector3(ring.size * 0.25, ring.size * 0.6, 0),
+                        new THREE.Vector3(ring.size * 0.15, ring.size * 0.3, 0),
+                        new THREE.Vector3(0, 0, 0)
+                    ], true);
 
-                    // 花びらの輪郭（根元から先端へ）
-                    petalShape.moveTo(0, 0);
-                    // 左側のカーブ
-                    petalShape.bezierCurveTo(
-                        -width * 0.2, height * 0.2,
-                        -width * 0.8, height * 0.5,
-                        -width * 0.4, height * 0.85
-                    );
-                    // 先端の丸み
-                    petalShape.bezierCurveTo(
-                        -width * 0.2, height * 0.95,
-                        width * 0.2, height * 0.95,
-                        width * 0.4, height * 0.85
-                    );
-                    // 右側のカーブ
-                    petalShape.bezierCurveTo(
-                        width * 0.8, height * 0.5,
-                        width * 0.2, height * 0.2,
-                        0, 0
-                    );
+                    const points2D = [];
+                    const curvePoints = petalCurve.getPoints(50);
+                    curvePoints.forEach(p => {
+                        points2D.push(new THREE.Vector2(p.x, p.y));
+                    });
 
-                    const geometry = new THREE.ShapeGeometry(petalShape, 16);
+                    const petalShape = new THREE.Shape(points2D);
+
+                    const geometry = new THREE.ShapeGeometry(petalShape, 32);
 
                     // 色をリング内でバリエーション（美しいグラデーション）
                     const colorIndex = Math.floor(Math.random() * ring.colors.length);
