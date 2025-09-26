@@ -338,47 +338,113 @@
         }
 
         // 🌟 軽量ネビュラ（パーティクルクラウド）
-        function createNebula(x, y, z, color, count = 2000) {
-            const nebulaGeometry = new THREE.BufferGeometry();
-            const positions = new Float32Array(count * 3);
-            const colors = new Float32Array(count * 3);
-            const sizes = new Float32Array(count);
-
-            const nebulaColor = new THREE.Color(color);
-
-            for (let i = 0; i < count; i++) {
-                const i3 = i * 3;
-
-                // ガウス分布っぽい雲状配置
-                positions[i3] = x + (Math.random() - 0.5) * 80;
-                positions[i3 + 1] = y + (Math.random() - 0.5) * 40;
-                positions[i3 + 2] = z + (Math.random() - 0.5) * 60;
-
-                // グラデーション色
-                const brightness = Math.random() * 0.8 + 0.2;
-                colors[i3] = nebulaColor.r * brightness;
-                colors[i3 + 1] = nebulaColor.g * brightness;
-                colors[i3 + 2] = nebulaColor.b * brightness;
-
-                sizes[i] = Math.random() * 8 + 2;
+        function createRealNebula(x, y, z, color, intensity = 1.0) {
+            const nebulaGroup = new THREE.Group();
+            
+            // ☁️ 雲状スプライト用のキャンバステクスチャ作成
+            function createNebulaTexture(size = 512) {
+                const canvas = document.createElement('canvas');
+                canvas.width = size;
+                canvas.height = size;
+                const context = canvas.getContext('2d');
+                
+                // グラデーション背景
+                const gradient = context.createRadialGradient(
+                    size/2, size/2, 0,
+                    size/2, size/2, size/2
+                );
+                gradient.addColorStop(0, 'rgba(255,255,255,0.8)');
+                gradient.addColorStop(0.3, 'rgba(255,255,255,0.4)');
+                gradient.addColorStop(0.7, 'rgba(255,255,255,0.1)');
+                gradient.addColorStop(1, 'rgba(255,255,255,0)');
+                
+                context.fillStyle = gradient;
+                context.fillRect(0, 0, size, size);
+                
+                // ノイズで有機的な形状を作る
+                for (let i = 0; i < 50; i++) {
+                    const x = Math.random() * size;
+                    const y = Math.random() * size;
+                    const radius = Math.random() * size * 0.3;
+                    const opacity = Math.random() * 0.3;
+                    
+                    const grad = context.createRadialGradient(x, y, 0, x, y, radius);
+                    grad.addColorStop(0, `rgba(255,255,255,${opacity})`);
+                    grad.addColorStop(1, 'rgba(255,255,255,0)');
+                    
+                    context.fillStyle = grad;
+                    context.fillRect(0, 0, size, size);
+                }
+                
+                return new THREE.CanvasTexture(canvas);
             }
-
-            nebulaGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-            nebulaGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-            nebulaGeometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
-
-            const nebulaMaterial = new THREE.PointsMaterial({
-                size: 10,
-                sizeAttenuation: true,
-                vertexColors: true,
+            
+            const nebulaTexture = createNebulaTexture();
+            
+            // 🌫️ 複数レイヤーの雲状スプライト
+            for (let layer = 0; layer < 5; layer++) {
+                const layerGroup = new THREE.Group();
+                
+                for (let i = 0; i < 8; i++) {
+                    const spriteMaterial = new THREE.SpriteMaterial({
+                        map: nebulaTexture,
+                        color: new THREE.Color(color),
+                        transparent: true,
+                        opacity: (0.3 - layer * 0.05) * intensity,
+                        blending: THREE.AdditiveBlending,
+                        depthWrite: false
+                    });
+                    
+                    const sprite = new THREE.Sprite(spriteMaterial);
+                    
+                    // 有機的な配置
+                    const angle = (i / 8) * Math.PI * 2;
+                    const radius = (20 + Math.random() * 30) * (1 + layer * 0.3);
+                    const height = (Math.random() - 0.5) * 20;
+                    
+                    sprite.position.set(
+                        Math.cos(angle) * radius + (Math.random() - 0.5) * 15,
+                        height + (Math.random() - 0.5) * 10,
+                        Math.sin(angle) * radius + (Math.random() - 0.5) * 15
+                    );
+                    
+                    // サイズをランダムに
+                    const scale = (30 + Math.random() * 40) * (1 + layer * 0.2);
+                    sprite.scale.set(scale, scale, scale);
+                    
+                    // 回転
+                    sprite.material.rotation = Math.random() * Math.PI * 2;
+                    
+                    layerGroup.add(sprite);
+                }
+                
+                nebulaGroup.add(layerGroup);
+            }
+            
+            // ✨ 中心の明るい核
+            const coreMaterial = new THREE.SpriteMaterial({
+                map: nebulaTexture,
+                color: new THREE.Color(color).multiplyScalar(2),
                 transparent: true,
-                opacity: 0.6,
+                opacity: 0.6 * intensity,
                 blending: THREE.AdditiveBlending
             });
-
-            const nebula = new THREE.Points(nebulaGeometry, nebulaMaterial);
-            scene.add(nebula);
-            return nebula;
+            
+            const coreSprite = new THREE.Sprite(coreMaterial);
+            coreSprite.scale.set(40, 40, 40);
+            nebulaGroup.add(coreSprite);
+            
+            nebulaGroup.position.set(x, y, z);
+            
+            // アニメーション用データ
+            nebulaGroup.userData = {
+                rotationSpeed: 0.0001 + Math.random() * 0.0002,
+                pulseSpeed: 0.5 + Math.random() * 0.5,
+                originalIntensity: intensity
+            };
+            
+            scene.add(nebulaGroup);
+            return nebulaGroup;
         }
 
         // 🛰️ 軽量スペースステーション
@@ -556,9 +622,9 @@
 
         // ネビュラ
         const nebulas = [];
-        nebulas.push(createNebula(-200, 30, -100, 0x9932cc)); // パープル
-        nebulas.push(createNebula(180, -40, 80, 0x00ced1)); // シアン
-        nebulas.push(createNebula(-50, 60, 150, 0xff69b4)); // ピンク
+        nebulas.push(createRealNebula(-200, 30, -100, 0x9932cc, 1.2)); // パープル
+        nebulas.push(createRealNebula(180, -40, 80, 0x00ced1, 1.0)); // シアン
+        nebulas.push(createRealNebula(-50, 60, 150, 0xff69b4, 1.5)); // ピンク
 
         // スペースステーション
         const spaceStation = createSpaceStation(0, 0, -30);
@@ -690,8 +756,23 @@
 
             // ネビュラのゆっくりした動き
             nebulas.forEach((nebula, index) => {
-                nebula.rotation.y += 0.0001 * (index + 1);
-                nebula.rotation.z += 0.0002 * (index + 1);
+                if (nebula.userData && nebula.userData.rotationSpeed) {
+                    // 全体のゆっくりした回転
+                    nebula.rotation.y += nebula.userData.rotationSpeed;
+                    nebula.rotation.z += nebula.userData.rotationSpeed * 0.5;
+                    
+                    // 脈動効果（呼吸するような）
+                    const time = performance.now() * 0.001;
+                    const pulse = Math.sin(time * nebula.userData.pulseSpeed) * 0.1 + 1;
+                    nebula.scale.setScalar(pulse);
+                    
+                    // レイヤーごとに異なる回転速度
+                    nebula.children.forEach((layer, layerIndex) => {
+                        if (layer.children) {
+                            layer.rotation.y += nebula.userData.rotationSpeed * (layerIndex + 1) * 0.3;
+                        }
+                    });
+                }
             });
 
             controls.update();
