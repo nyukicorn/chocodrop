@@ -308,9 +308,58 @@
             
             // 惑星タイプ別のマテリアル
             if (planetType === 'earth') {
+                // 🌍 地球テクスチャを作成
+                const earthTexture = (function() {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = 256;
+                    canvas.height = 128;
+                    const ctx = canvas.getContext('2d');
+                    
+                    // 海のベース（青）
+                    ctx.fillStyle = '#1e6ba8';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    
+                    // 大陸を描画（緑と茶色）
+                    // ユーラシア大陸
+                    ctx.fillStyle = '#4a8c4a';
+                    ctx.beginPath();
+                    ctx.ellipse(180, 40, 40, 20, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    // アフリカ大陸
+                    ctx.fillStyle = '#6b8e23';
+                    ctx.beginPath();
+                    ctx.ellipse(150, 70, 20, 30, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    // アメリカ大陸
+                    ctx.fillStyle = '#5a7c5a';
+                    ctx.beginPath();
+                    ctx.ellipse(70, 60, 25, 35, -0.3, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    // 雲の渦（半透明の白）
+                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+                    ctx.lineWidth = 3;
+                    for (let i = 0; i < 5; i++) {
+                        ctx.beginPath();
+                        const x = Math.random() * canvas.width;
+                        const y = Math.random() * canvas.height;
+                        ctx.arc(x, y, 10 + Math.random() * 20, 0, Math.PI * 1.5);
+                        ctx.stroke();
+                    }
+                    
+                    // 極地の氷（白）
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+                    ctx.fillRect(0, 0, canvas.width, 8);
+                    ctx.fillRect(0, canvas.height - 8, canvas.width, 8);
+                    
+                    return new THREE.CanvasTexture(canvas);
+                })();
+                
                 material = new THREE.MeshPhongMaterial({
-                    color: color,
-                    emissive: new THREE.Color(color).multiplyScalar(0.1),
+                    map: earthTexture,
+                    emissive: 0x112244,
                     shininess: 100
                 });
             } else if (planetType === 'gas') {
