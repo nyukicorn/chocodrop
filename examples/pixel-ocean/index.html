@@ -394,6 +394,28 @@
             instancedMesh.instanceColor.needsUpdate = true;
             
             fishGroup.add(instancedMesh);
+            
+            // キラキラ用の発光メッシュを別途作成
+            for (let row = 0; row < pattern.length; row++) {
+                for (let col = 0; col < pattern[row].length; col++) {
+                    if (pattern[row][col] === 4) { // キラキラピクセル
+                        const sparkleGeometry = new THREE.BoxGeometry(pixelSize * 1.2, pixelSize * 1.2, pixelSize);
+                        const sparkleMaterial = new THREE.MeshBasicMaterial({
+                            color: 0xFFFFFF,
+                            emissive: 0xFFFFFF,
+                            transparent: true,
+                            opacity: 0.9
+                        });
+                        const sparkle = new THREE.Mesh(sparkleGeometry, sparkleMaterial);
+                        sparkle.position.set(
+                            (col - pattern[row].length / 2) * pixelSize,
+                            (pattern.length / 2 - row) * pixelSize,
+                            0.1 // 少し前に配置
+                        );
+                        fishGroup.add(sparkle);
+                    }
+                }
+            }
 
             fishGroup.position.set(x, y, z);
 
