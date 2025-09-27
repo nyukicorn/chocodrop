@@ -120,101 +120,96 @@
             ctx.lineJoin = 'round';
             
             if (type === 'mountain') {
-                // 🏔️ 山水画の山
-                ctx.strokeStyle = 'rgba(20, 20, 20, 0.8)';
-                ctx.fillStyle = 'rgba(20, 20, 20, 0.3)';
+                // 🖌️ 習字風の太い筆線
+                ctx.strokeStyle = 'rgba(10, 10, 10, 0.95)';
+                ctx.lineWidth = 25;
                 
-                // 山の輪郭を描く
+                // 流れるような太い線を描く
                 ctx.beginPath();
-                ctx.moveTo(50, 400);
-                ctx.bezierCurveTo(150, 100, 200, 120, 300, 80);
-                ctx.bezierCurveTo(350, 60, 400, 150, 450, 200);
-                ctx.lineTo(450, 400);
-                ctx.closePath();
+                ctx.moveTo(100, 100);
+                ctx.bezierCurveTo(200, 150, 300, 200, 400, 120);
+                ctx.bezierCurveTo(450, 100, 480, 180, 420, 250);
+                ctx.bezierCurveTo(380, 300, 300, 350, 200, 320);
+                ctx.bezierCurveTo(150, 310, 120, 280, 140, 240);
                 
-                // 筆のかすれ効果
-                for (let i = 0; i < 3; i++) {
-                    ctx.lineWidth = 8 - i * 2;
-                    ctx.globalAlpha = 0.3 + i * 0.2;
+                // 筆の強弱を表現
+                for (let i = 0; i < 2; i++) {
+                    ctx.lineWidth = 25 - i * 5;
+                    ctx.globalAlpha = 0.8 + i * 0.15;
                     ctx.stroke();
                 }
-                ctx.globalAlpha = 0.1;
-                ctx.fill();
                 
             } else if (type === 'bird') {
-                // 🦅 飛ぶ鳥のシルエット
-                ctx.strokeStyle = 'rgba(20, 20, 20, 0.9)';
-                ctx.lineWidth = 6;
+                // 🖌️ 習字風の太い曲線
+                ctx.strokeStyle = 'rgba(10, 10, 10, 0.95)';
+                ctx.lineWidth = 20;
                 
+                // 躍動感のある太い線
                 ctx.beginPath();
-                // 左の翼
-                ctx.moveTo(200, 250);
-                ctx.bezierCurveTo(120, 200, 80, 220, 100, 280);
-                // 右の翼
-                ctx.moveTo(300, 250);
-                ctx.bezierCurveTo(380, 200, 420, 220, 400, 280);
+                ctx.moveTo(120, 200);
+                ctx.bezierCurveTo(180, 120, 250, 180, 320, 140);
+                ctx.bezierCurveTo(380, 120, 420, 200, 400, 280);
+                ctx.bezierCurveTo(350, 350, 280, 320, 220, 380);
+                ctx.bezierCurveTo(180, 400, 140, 350, 120, 300);
                 
-                // かすれ効果
+                // 筆の強弱
                 for (let i = 0; i < 2; i++) {
-                    ctx.globalAlpha = 0.4 + i * 0.3;
+                    ctx.lineWidth = 20 - i * 4;
+                    ctx.globalAlpha = 0.85 + i * 0.1;
                     ctx.stroke();
                 }
                 
             } else if (type === 'bamboo') {
-                // 🎋 竹の線画
-                ctx.strokeStyle = 'rgba(20, 20, 20, 0.8)';
+                // 🖌️ 習字風の太い縦線
+                ctx.strokeStyle = 'rgba(10, 10, 10, 0.95)';
+                ctx.lineWidth = 18;
                 
-                // 竹の茎
-                for (let stem = 0; stem < 3; stem++) {
-                    const x = 200 + stem * 50;
-                    ctx.lineWidth = 8;
-                    ctx.beginPath();
-                    ctx.moveTo(x, 450);
-                    ctx.lineTo(x + (Math.random() - 0.5) * 10, 50);
-                    
-                    // 節を描く
-                    for (let joint = 1; joint < 5; joint++) {
-                        const y = 450 - joint * 80;
-                        ctx.moveTo(x - 15, y);
-                        ctx.lineTo(x + 15, y);
-                    }
-                    
-                    ctx.stroke();
-                }
+                // 太い縦の筆線
+                ctx.beginPath();
+                ctx.moveTo(180, 80);
+                ctx.bezierCurveTo(185, 150, 190, 250, 185, 350);
+                ctx.bezierCurveTo(180, 400, 175, 450, 170, 480);
                 
-                // 竹の葉
-                ctx.lineWidth = 3;
-                for (let leaf = 0; leaf < 8; leaf++) {
-                    const leafX = 180 + Math.random() * 120;
-                    const leafY = 100 + Math.random() * 200;
-                    
-                    ctx.beginPath();
-                    ctx.moveTo(leafX, leafY);
-                    ctx.bezierCurveTo(
-                        leafX + 30, leafY - 20,
-                        leafX + 40, leafY - 10,
-                        leafX + 50, leafY + 5
-                    );
+                // 2本目の線
+                ctx.moveTo(220, 70);
+                ctx.bezierCurveTo(225, 140, 230, 240, 225, 340);
+                ctx.bezierCurveTo(220, 390, 215, 440, 210, 470);
+                
+                // 3本目の線
+                ctx.moveTo(260, 90);
+                ctx.bezierCurveTo(265, 160, 270, 260, 265, 360);
+                ctx.bezierCurveTo(260, 410, 255, 460, 250, 490);
+                
+                // 筆の強弱
+                for (let i = 0; i < 2; i++) {
+                    ctx.lineWidth = 18 - i * 3;
+                    ctx.globalAlpha = 0.9 + i * 0.05;
                     ctx.stroke();
                 }
                 
             } else {
-                // 漢字（従来の処理）
-                ctx.font = 'bold 100px serif';
+                // 🖌️ 習字風の太い漢字
+                ctx.font = 'bold 140px serif';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
-                ctx.fillStyle = 'rgba(20, 20, 20, 0.9)';
+                ctx.fillStyle = 'rgba(5, 5, 5, 0.95)';
+                ctx.strokeStyle = 'rgba(5, 5, 5, 0.95)';
+                ctx.lineWidth = 3;
                 
+                // 太い文字を重ね描きで表現
                 for (let i = 0; i < 3; i++) {
                     ctx.save();
                     ctx.translate(
-                        (Math.random() - 0.5) * 2,
-                        (Math.random() - 0.5) * 2
+                        (Math.random() - 0.5) * 1,
+                        (Math.random() - 0.5) * 1
                     );
-                    ctx.globalAlpha = 0.3 + (i * 0.2);
-                    ctx.shadowBlur = 3 + i * 2;
-                    ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+                    ctx.globalAlpha = 0.7 + (i * 0.1);
+                    
+                    // 文字を塗りつぶしで太く
                     ctx.fillText(type, 256, 256);
+                    // 輪郭も描いて更に太く
+                    ctx.strokeText(type, 256, 256);
+                    
                     ctx.restore();
                 }
             }
@@ -223,7 +218,7 @@
             const spriteMaterial = new THREE.SpriteMaterial({
                 map: texture,
                 transparent: true,
-                opacity: 0.85,
+                opacity: 0.98, // より濃く
                 alphaTest: 0.1
             });
 
