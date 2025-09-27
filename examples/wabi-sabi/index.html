@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>侘び寂び - Wabi-Sabi Space | ChocoDrop Demo</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Yu Gothic', 'Hiragino Sans', sans-serif;
+            background: #f5f2e8; /* 和紙のような色 */
+        }
+        canvas {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="../../dist/chocodrop.umd.js"></script>
+
+    <script>
+        // 🍵 侘び寂びの世界 - Wabi-Sabi Space
+
+        // Three.js 基本設定
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({
+            antialias: true,
+            alpha: true,
+            powerPreference: "balanced"
+        });
+
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        document.body.appendChild(renderer.domElement);
+
+        // 🎨 和紙のような背景
+        function createWashiBackground() {
+            // 和紙テクスチャを生成
+            const canvas = document.createElement('canvas');
+            canvas.width = 512;
+            canvas.height = 512;
+            const ctx = canvas.getContext('2d');
+
+            // ベースの和紙色
+            ctx.fillStyle = '#f5f2e8';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // 繊維のような模様を追加
+            for (let i = 0; i < 100; i++) {
+                ctx.strokeStyle = `rgba(220, 210, 190, ${Math.random() * 0.1})`;
+                ctx.lineWidth = Math.random() * 2;
+                ctx.beginPath();
+                ctx.moveTo(Math.random() * canvas.width, Math.random() * canvas.height);
+                ctx.lineTo(
+                    Math.random() * canvas.width,
+                    Math.random() * canvas.height
+                );
+                ctx.stroke();
+            }
+
+            // 微妙な染みを追加
+            for (let i = 0; i < 20; i++) {
+                const x = Math.random() * canvas.width;
+                const y = Math.random() * canvas.height;
+                const radius = Math.random() * 30 + 10;
+                const gradient = ctx.createRadialGradient(x, y, 0, x, y, radius);
+                gradient.addColorStop(0, `rgba(200, 190, 170, ${Math.random() * 0.05})`);
+                gradient.addColorStop(1, 'rgba(200, 190, 170, 0)');
+                ctx.fillStyle = gradient;
+                ctx.fillRect(x - radius, y - radius, radius * 2, radius * 2);
+            }
+
+            const texture = new THREE.CanvasTexture(canvas);
+            const planeGeometry = new THREE.PlaneGeometry(50, 50);
+            const planeMaterial = new THREE.MeshBasicMaterial({
+                map: texture,
+                side: THREE.DoubleSide
+            });
+
+            const plane = new THREE.Mesh(planeGeometry, planeMaterial);
+            plane.position.z = -10;
+            scene.add(plane);
+        }
+
+        // 🖌️ 墨の漢字スプライト作成
+        function createKanjiSprite(kanji, x = 0, y = 0, z = 0) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 256;
+            canvas.height = 256;
+            const ctx = canvas.getContext('2d');
+
+            // 透明背景
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 墨のにじみ効果
+            ctx.shadowBlur = 8;
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+
+            // 筆文字風のフォント設定
+            ctx.font = 'bold 120px serif';
+            ctx.fillStyle = 'rgba(30, 30, 30, 0.8)';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            // 筆のかすれ効果を演出
+            ctx.globalAlpha = 0.7 + Math.random() * 0.3;
+
+            // 漢字を描画
+            ctx.fillText(kanji, 128, 128);
+
+            // テクスチャとスプライト作成
+            const texture = new THREE.CanvasTexture(canvas);
+            const spriteMaterial = new THREE.SpriteMaterial({
+                map: texture,
+                transparent: true,
+                opacity: 0.8
+            });
+
+            const sprite = new THREE.Sprite(spriteMaterial);
+            sprite.scale.set(5, 5, 1);
+            sprite.position.set(x, y, z);
+
+            // アニメーション用データ
+            sprite.userData = {
+                originalY: y,
+                floatSpeed: 0.001 + Math.random() * 0.002,
+                rotationSpeed: (Math.random() - 0.5) * 0.001,
+                floatAmplitude: 2 + Math.random() * 3,
+                phase: Math.random() * Math.PI * 2
+            };
+
+            return sprite;
+        }
+
+        // 🌿 光る苔エフェクト（下部）
+        function createMossGlow() {
+            const mossGroup = new THREE.Group();
+
+            // 苔のパーティクル
+            const mossGeometry = new THREE.BufferGeometry();
+            const mossCount = 200;
+            const positions = new Float32Array(mossCount * 3);
+            const colors = new Float32Array(mossCount * 3);
+            const sizes = new Float32Array(mossCount);
+
+            for (let i = 0; i < mossCount; i++) {
+                const i3 = i * 3;
+
+                // 下部に配置
+                positions[i3] = (Math.random() - 0.5) * 30;
+                positions[i3 + 1] = -10 + Math.random() * 2;
+                positions[i3 + 2] = (Math.random() - 0.5) * 10;
+
+                // 緑色のグラデーション
+                const brightness = 0.3 + Math.random() * 0.7;
+                colors[i3] = 0.2 * brightness;
+                colors[i3 + 1] = 0.8 * brightness;
+                colors[i3 + 2] = 0.3 * brightness;
+
+                sizes[i] = Math.random() * 3 + 1;
+            }
+
+            mossGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            mossGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+            mossGeometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+
+            const mossMaterial = new THREE.PointsMaterial({
+                size: 2,
+                sizeAttenuation: true,
+                vertexColors: true,
+                transparent: true,
+                opacity: 0.6,
+                blending: THREE.AdditiveBlending
+            });
+
+            const moss = new THREE.Points(mossGeometry, mossMaterial);
+            mossGroup.add(moss);
+
+            // 苔の光パルス用データ
+            mossGroup.userData = {
+                pulseSpeed: 0.002,
+                time: 0
+            };
+
+            return mossGroup;
+        }
+
+        // 🍂 紅葉パーティクル
+        function createMapleLeaf() {
+            const leafGeometry = new THREE.BufferGeometry();
+            const leafCount = 5; // 控えめに
+            const positions = new Float32Array(leafCount * 3);
+            const colors = new Float32Array(leafCount * 3);
+
+            for (let i = 0; i < leafCount; i++) {
+                const i3 = i * 3;
+
+                positions[i3] = (Math.random() - 0.5) * 20;
+                positions[i3 + 1] = 10 + Math.random() * 5;
+                positions[i3 + 2] = (Math.random() - 0.5) * 10;
+
+                // 紅葉の赤
+                colors[i3] = 0.8 + Math.random() * 0.2;
+                colors[i3 + 1] = 0.1 + Math.random() * 0.2;
+                colors[i3 + 2] = 0.1;
+            }
+
+            leafGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            leafGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+            const leafMaterial = new THREE.PointsMaterial({
+                size: 5,
+                sizeAttenuation: true,
+                vertexColors: true,
+                transparent: true,
+                opacity: 0.7
+            });
+
+            const leaves = new THREE.Points(leafGeometry, leafMaterial);
+
+            // 落下アニメーション用
+            leaves.userData = {
+                fallSpeed: 0.01,
+                swaySpeed: 0.002,
+                time: 0
+            };
+
+            return leaves;
+        }
+
+        // シーン構築
+        createWashiBackground();
+
+        // 墨の漢字を配置
+        const kanjiList = ['静', '風', '花', '月', '和', '夢', '雪'];
+        const kanjiSprites = [];
+
+        kanjiList.forEach((kanji, index) => {
+            const angle = (index / kanjiList.length) * Math.PI * 2;
+            const radius = 8;
+            const sprite = createKanjiSprite(
+                kanji,
+                Math.cos(angle) * radius,
+                (Math.random() - 0.5) * 5,
+                Math.sin(angle) * radius
+            );
+            kanjiSprites.push(sprite);
+            scene.add(sprite);
+        });
+
+        // 光る苔を追加
+        const moss = createMossGlow();
+        scene.add(moss);
+
+        // 紅葉を追加
+        const mapleLeaves = createMapleLeaf();
+        scene.add(mapleLeaves);
+
+        // ライティング
+        const ambientLight = new THREE.AmbientLight(0xf5f2e8, 0.8);
+        scene.add(ambientLight);
+
+        const spotLight = new THREE.SpotLight(0xffffff, 0.3);
+        spotLight.position.set(0, 20, 10);
+        scene.add(spotLight);
+
+        // カメラ位置
+        camera.position.set(0, 0, 25);
+        camera.lookAt(0, 0, 0);
+
+        // コントロール
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.minDistance = 10;
+        controls.maxDistance = 50;
+
+        // 🍫 ChocoDrop初期化
+        let chocoDrop;
+
+        function initChocoDrop() {
+            try {
+                chocoDrop = ChocoDrop.createChocoDrop(scene, {
+                    camera: camera,
+                    renderer: renderer,
+                    serverUrl: null, // GitHub Pagesなので
+                    sceneOptions: {
+                        enableMouseInteraction: true
+                    },
+                    onControlsToggle: (disabled) => {
+                        controls.enabled = !disabled;
+                    }
+                });
+
+                console.log('🍵 侘び寂びの世界へようこそ。@キーで始まります。');
+
+            } catch (error) {
+                console.error('ChocoDrop initialization failed:', error);
+            }
+        }
+
+        setTimeout(initChocoDrop, 1000);
+
+        // アニメーションループ
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const time = performance.now() * 0.001;
+
+            // 漢字の浮遊アニメーション
+            kanjiSprites.forEach(sprite => {
+                const userData = sprite.userData;
+                sprite.position.y = userData.originalY +
+                    Math.sin(time * userData.floatSpeed + userData.phase) * userData.floatAmplitude;
+                sprite.rotation.z += userData.rotationSpeed;
+            });
+
+            // 苔の光パルス
+            if (moss.userData) {
+                moss.userData.time = time;
+                const pulse = Math.sin(time * moss.userData.pulseSpeed) * 0.5 + 0.5;
+                moss.children[0].material.opacity = 0.4 + pulse * 0.4;
+            }
+
+            // 紅葉の落下
+            if (mapleLeaves.userData) {
+                mapleLeaves.userData.time = time;
+                const positions = mapleLeaves.geometry.attributes.position.array;
+
+                for (let i = 0; i < positions.length; i += 3) {
+                    // ゆっくり落下
+                    positions[i + 1] -= mapleLeaves.userData.fallSpeed;
+
+                    // 左右に揺れる
+                    positions[i] += Math.sin(time * mapleLeaves.userData.swaySpeed + i) * 0.01;
+
+                    // 下まで落ちたら上に戻す
+                    if (positions[i + 1] < -10) {
+                        positions[i + 1] = 15;
+                        positions[i] = (Math.random() - 0.5) * 20;
+                    }
+                }
+
+                mapleLeaves.geometry.attributes.position.needsUpdate = true;
+            }
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        animate();
+
+        // レスポンシブ対応
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+    </script>
+</body>
+</html>
