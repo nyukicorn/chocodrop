@@ -127,27 +127,44 @@
             ctx.fillStyle = 'white';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // シンプルな黒い図形（墨モードで効果的）
+            // 墨の流れと塊を描画
+            ctx.strokeStyle = 'black';
             ctx.fillStyle = 'black';
             
-            if (type === 'circle') {
-                ctx.beginPath();
-                ctx.arc(128, 128, 60, 0, Math.PI * 2);
-                ctx.fill();
-            } else if (type === 'line') {
-                ctx.fillRect(50, 120, 156, 16);
-            } else if (type === 'wave') {
-                ctx.beginPath();
-                ctx.moveTo(30, 128);
-                ctx.bezierCurveTo(80, 80, 150, 180, 220, 128);
-                ctx.lineWidth = 20;
-                ctx.stroke();
-            } else {
-                // 漢字
-                ctx.font = 'bold 80px serif';
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText(type, 128, 128);
+            if (type.includes('flow')) {
+                // 🌊 流れる線の集合（Image #1のような）
+                ctx.lineWidth = 2;
+                for (let i = 0; i < 15; i++) {
+                    ctx.beginPath();
+                    ctx.moveTo(Math.random() * 50, Math.random() * 256);
+                    ctx.bezierCurveTo(
+                        Math.random() * 256, Math.random() * 256,
+                        Math.random() * 256, Math.random() * 256,
+                        200 + Math.random() * 56, Math.random() * 256
+                    );
+                    ctx.stroke();
+                }
+            } else if (type.includes('blob')) {
+                // 🖤 濃い黒い塊（Image #2のような）
+                const numBlobs = 3;
+                for (let i = 0; i < numBlobs; i++) {
+                    ctx.beginPath();
+                    const centerX = 60 + Math.random() * 136;
+                    const centerY = 60 + Math.random() * 136;
+                    const size = 30 + Math.random() * 40;
+                    
+                    // 不規則な形の塊
+                    ctx.moveTo(centerX, centerY);
+                    for (let j = 0; j < 8; j++) {
+                        const angle = (j / 8) * Math.PI * 2;
+                        const radius = size * (0.7 + Math.random() * 0.6);
+                        const x = centerX + Math.cos(angle) * radius;
+                        const y = centerY + Math.sin(angle) * radius;
+                        ctx.lineTo(x, y);
+                    }
+                    ctx.closePath();
+                    ctx.fill();
+                }
             }
 
             const texture = new THREE.CanvasTexture(canvas);
@@ -271,8 +288,8 @@
         // シーン構築
         createMinimalBackground();
 
-        // シンプルな墨風要素を配置
-        const inkElements = ['circle', 'line', 'wave', '静', '風', '花', '月'];
+        // 墨の流れと塊を配置
+        const inkElements = ['flow1', 'flow2', 'blob1', 'blob2', 'flow3', 'blob3'];
         const inkSprites = [];
 
         inkElements.forEach((element, index) => {
