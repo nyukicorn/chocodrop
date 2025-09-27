@@ -14,6 +14,66 @@
         canvas {
             display: block;
         }
+
+        #info {
+            position: fixed;
+            top: 16px;
+            left: 16px;
+            color: #2d3748;
+            background: rgba(250, 250, 250, 0.85);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(30, 30, 30, 0.2);
+            padding: 14px 18px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 400;
+            z-index: 100;
+            max-width: 240px;
+            line-height: 1.5;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        #info strong {
+            font-size: 14px;
+            font-weight: 600;
+            color: #1a1a1a;
+            display: block;
+            margin-bottom: 10px;
+            text-align: center;
+            letter-spacing: 0.5px;
+        }
+
+        #info code {
+            background: rgba(30, 30, 30, 0.08);
+            color: #2d3748;
+            padding: 2px 5px;
+            border-radius: 3px;
+            font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+            font-size: 11px;
+        }
+
+        .controls {
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(30, 30, 30, 0.15);
+            font-size: 11px;
+        }
+
+        .control-item {
+            margin: 4px 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .key {
+            background: rgba(30, 30, 30, 0.1);
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-weight: 500;
+            min-width: fit-content;
+        }
         
         /* ChocoDrop 要素を墨絵風にカスタマイズ */
         .chocodrop-media {
@@ -86,9 +146,33 @@
     </style>
 </head>
 <body>
+    <div id="info">
+        <strong>🖤 侘び寂び - Wabi-Sabi</strong>
+        墨絵の世界へようこそ<br>
+        <code>@</code>キーで ChocoDrop を起動
+        <div class="controls">
+            <div class="control-item">
+                <span class="key">Alt + ドラッグ</span>
+                <span>墨で描く</span>
+            </div>
+            <div class="control-item">
+                <span class="key">Shift + クリック</span>
+                <span>石を配置</span>
+            </div>
+            <div class="control-item">
+                <span class="key">Ctrl/Cmd + クリック</span>
+                <span>竹を配置</span>
+            </div>
+            <div class="control-item">
+                <span class="key">マウスドラッグ</span>
+                <span>視点移動</span>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-    <script src="../../dist/chocodrop.umd.js"></script>
+    <script src="./chocodrop-demo.umd.min.js"></script>
 
     <script>
         // 🍵 侘び寂びの世界 - Wabi-Sabi Space
@@ -926,8 +1010,13 @@
         let chocoDrop;
 
         function initChocoDrop() {
+            if (typeof window.ChocoDrop === 'undefined') {
+                console.error('ChocoDrop not loaded. Please check the script path.');
+                return;
+            }
+
             try {
-                chocoDrop = ChocoDrop.createChocoDrop(scene, {
+                chocoDrop = window.ChocoDrop.createChocoDrop(scene, {
                     camera: camera,
                     renderer: renderer,
                     serverUrl: null, // GitHub Pagesなので
@@ -941,18 +1030,25 @@
                 });
 
                 console.log('🍵 侘び寂びの世界へようこそ');
-                console.log('操作方法:');
-                console.log('  @キー: ChocoDrop起動');
-                console.log('  Alt+ドラッグ: 墨で描く');
-                console.log('  Shift+クリック: 石を配置');
-                console.log('  Ctrl/Cmd+クリック: 竹を配置');
+                console.log('ChocoDrop loaded successfully!');
+                console.log('Press @ to activate ChocoDrop');
 
             } catch (error) {
                 console.error('ChocoDrop initialization failed:', error);
             }
         }
 
-        setTimeout(initChocoDrop, 1000);
+        // ChocoDrop読み込み待機
+        function waitForChocoDrop() {
+            if (typeof window.ChocoDrop !== 'undefined') {
+                initChocoDrop();
+            } else {
+                console.log('Waiting for ChocoDrop to load...');
+                setTimeout(waitForChocoDrop, 500);
+            }
+        }
+
+        setTimeout(waitForChocoDrop, 1000);
 
         // 🎨 ChocoDrop のオレンジ色を動的に墨色に変更
         function enforceInkStyle() {
