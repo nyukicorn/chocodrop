@@ -46,11 +46,29 @@
             border-color: rgba(30, 30, 30, 0.8) !important;
         }
         
-        /* 赤/オレンジ系の色を墨色に強制変更 */
-        [style*="rgb(255"]:not(img):not(video),
-        [style*="#ff"]:not(img):not(video),
-        [style*="orange"]:not(img):not(video) {
-            color: rgba(30, 30, 30, 0.9) !important;
+        /* 全ての赤/オレンジ系の色を強制的に墨色に変更 */
+        * {
+            --chocodrop-primary-color: rgba(30, 30, 30, 0.9) !important;
+            --chocodrop-accent-color: rgba(30, 30, 30, 0.8) !important;
+        }
+        
+        div[style*="background-color: rgb(255"],
+        div[style*="background-color: #ff"],
+        div[style*="background: rgb(255"],
+        div[style*="background: #ff"],
+        div[style*="border-color: rgb(255"],
+        div[style*="border-color: #ff"] {
+            background-color: rgba(30, 30, 30, 0.1) !important;
+            border-color: rgba(30, 30, 30, 0.8) !important;
+        }
+        
+        /* ChocoDrop で使われる可能性のある全ての要素 */
+        div, span, button {
+            filter: none !important;
+        }
+        
+        /* より限定的なスタイル上書き */
+        .chocodrop-container * {
             background-color: rgba(250, 250, 250, 0.9) !important;
             border-color: rgba(30, 30, 30, 0.8) !important;
         }
@@ -87,64 +105,138 @@
             scene.fog = new THREE.Fog(0xfafafa, 30, 100);
         }
 
-        // 🖌️ 墨の漢字スプライト作成
-        function createKanjiSprite(kanji, x = 0, y = 0, z = 0) {
+        // 🖌️ 墨絵風の線画・漢字スプライト作成
+        function createInkDrawing(type, x = 0, y = 0, z = 0) {
             const canvas = document.createElement('canvas');
-            canvas.width = 256;
-            canvas.height = 256;
+            canvas.width = 512;
+            canvas.height = 512;
             const ctx = canvas.getContext('2d');
 
             // 透明背景
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // 墨絵風の漢字描画
-            ctx.font = 'bold 100px serif';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-
-            // 濃い墨色
-            ctx.fillStyle = 'rgba(20, 20, 20, 0.9)';
+            // 墨の質感設定
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
             
-            // 筆のかすれ効果を複数回重ねて描画
-            for (let i = 0; i < 3; i++) {
-                ctx.save();
+            if (type === 'mountain') {
+                // 🏔️ 山水画の山
+                ctx.strokeStyle = 'rgba(20, 20, 20, 0.8)';
+                ctx.fillStyle = 'rgba(20, 20, 20, 0.3)';
                 
-                // わずかにずらして重ねる
-                ctx.translate(
-                    (Math.random() - 0.5) * 2,
-                    (Math.random() - 0.5) * 2
-                );
+                // 山の輪郭を描く
+                ctx.beginPath();
+                ctx.moveTo(50, 400);
+                ctx.bezierCurveTo(150, 100, 200, 120, 300, 80);
+                ctx.bezierCurveTo(350, 60, 400, 150, 450, 200);
+                ctx.lineTo(450, 400);
+                ctx.closePath();
                 
-                // 透明度を変えて重ねる
-                ctx.globalAlpha = 0.3 + (i * 0.2);
+                // 筆のかすれ効果
+                for (let i = 0; i < 3; i++) {
+                    ctx.lineWidth = 8 - i * 2;
+                    ctx.globalAlpha = 0.3 + i * 0.2;
+                    ctx.stroke();
+                }
+                ctx.globalAlpha = 0.1;
+                ctx.fill();
                 
-                // 滲み効果
-                ctx.shadowBlur = 3 + i * 2;
-                ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+            } else if (type === 'bird') {
+                // 🦅 飛ぶ鳥のシルエット
+                ctx.strokeStyle = 'rgba(20, 20, 20, 0.9)';
+                ctx.lineWidth = 6;
                 
-                ctx.fillText(kanji, 128, 128);
-                ctx.restore();
+                ctx.beginPath();
+                // 左の翼
+                ctx.moveTo(200, 250);
+                ctx.bezierCurveTo(120, 200, 80, 220, 100, 280);
+                // 右の翼
+                ctx.moveTo(300, 250);
+                ctx.bezierCurveTo(380, 200, 420, 220, 400, 280);
+                
+                // かすれ効果
+                for (let i = 0; i < 2; i++) {
+                    ctx.globalAlpha = 0.4 + i * 0.3;
+                    ctx.stroke();
+                }
+                
+            } else if (type === 'bamboo') {
+                // 🎋 竹の線画
+                ctx.strokeStyle = 'rgba(20, 20, 20, 0.8)';
+                
+                // 竹の茎
+                for (let stem = 0; stem < 3; stem++) {
+                    const x = 200 + stem * 50;
+                    ctx.lineWidth = 8;
+                    ctx.beginPath();
+                    ctx.moveTo(x, 450);
+                    ctx.lineTo(x + (Math.random() - 0.5) * 10, 50);
+                    
+                    // 節を描く
+                    for (let joint = 1; joint < 5; joint++) {
+                        const y = 450 - joint * 80;
+                        ctx.moveTo(x - 15, y);
+                        ctx.lineTo(x + 15, y);
+                    }
+                    
+                    ctx.stroke();
+                }
+                
+                // 竹の葉
+                ctx.lineWidth = 3;
+                for (let leaf = 0; leaf < 8; leaf++) {
+                    const leafX = 180 + Math.random() * 120;
+                    const leafY = 100 + Math.random() * 200;
+                    
+                    ctx.beginPath();
+                    ctx.moveTo(leafX, leafY);
+                    ctx.bezierCurveTo(
+                        leafX + 30, leafY - 20,
+                        leafX + 40, leafY - 10,
+                        leafX + 50, leafY + 5
+                    );
+                    ctx.stroke();
+                }
+                
+            } else {
+                // 漢字（従来の処理）
+                ctx.font = 'bold 100px serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillStyle = 'rgba(20, 20, 20, 0.9)';
+                
+                for (let i = 0; i < 3; i++) {
+                    ctx.save();
+                    ctx.translate(
+                        (Math.random() - 0.5) * 2,
+                        (Math.random() - 0.5) * 2
+                    );
+                    ctx.globalAlpha = 0.3 + (i * 0.2);
+                    ctx.shadowBlur = 3 + i * 2;
+                    ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+                    ctx.fillText(type, 256, 256);
+                    ctx.restore();
+                }
             }
 
-            // テクスチャとスプライト作成
             const texture = new THREE.CanvasTexture(canvas);
             const spriteMaterial = new THREE.SpriteMaterial({
                 map: texture,
                 transparent: true,
-                opacity: 0.95, // より濃く
-                alphaTest: 0.1 // 輪郭をクリアに
+                opacity: 0.85,
+                alphaTest: 0.1
             });
 
             const sprite = new THREE.Sprite(spriteMaterial);
-            sprite.scale.set(5, 5, 1);
+            sprite.scale.set(8, 8, 1);
             sprite.position.set(x, y, z);
 
             // アニメーション用データ
             sprite.userData = {
                 originalY: y,
-                floatSpeed: 0.001 + Math.random() * 0.002,
-                rotationSpeed: (Math.random() - 0.5) * 0.001,
-                floatAmplitude: 2 + Math.random() * 3,
+                floatSpeed: 0.0005 + Math.random() * 0.001,
+                rotationSpeed: (Math.random() - 0.5) * 0.0005,
+                floatAmplitude: 1 + Math.random() * 2,
                 phase: Math.random() * Math.PI * 2
             };
 
@@ -250,20 +342,20 @@
         // シーン構築
         createMinimalBackground();
 
-        // 墨の漢字を配置
-        const kanjiList = ['静', '風', '花', '月', '和', '夢', '雪'];
-        const kanjiSprites = [];
+        // 墨絵風の絵と漢字を配置
+        const inkElements = ['mountain', 'bird', 'bamboo', '静', '風', '花', '月'];
+        const inkSprites = [];
 
-        kanjiList.forEach((kanji, index) => {
-            const angle = (index / kanjiList.length) * Math.PI * 2;
-            const radius = 8;
-            const sprite = createKanjiSprite(
+        inkElements.forEach((kanji, index) => {
+            const angle = (index / inkElements.length) * Math.PI * 2;
+            const radius = 12;
+            const sprite = createInkDrawing(
                 kanji,
                 Math.cos(angle) * radius,
                 (Math.random() - 0.5) * 5,
                 Math.sin(angle) * radius
             );
-            kanjiSprites.push(sprite);
+            inkSprites.push(sprite);
             scene.add(sprite);
         });
 
@@ -321,14 +413,42 @@
 
         setTimeout(initChocoDrop, 1000);
 
+        // 🎨 ChocoDrop のオレンジ色を動的に墨色に変更
+        function enforceInkStyle() {
+            const elements = document.querySelectorAll('*');
+            elements.forEach(el => {
+                const style = el.style;
+                const computedStyle = window.getComputedStyle(el);
+                
+                // オレンジ/赤系の背景色を墨色に変更
+                if (style.backgroundColor && 
+                    (style.backgroundColor.includes('rgb(255') || 
+                     style.backgroundColor.includes('#ff') ||
+                     style.backgroundColor.includes('orange'))) {
+                    el.style.backgroundColor = 'rgba(30, 30, 30, 0.1)';
+                    el.style.borderColor = 'rgba(30, 30, 30, 0.8)';
+                }
+                
+                // 境界線の色も変更
+                if (style.borderColor && 
+                    (style.borderColor.includes('rgb(255') || 
+                     style.borderColor.includes('#ff'))) {
+                    el.style.borderColor = 'rgba(30, 30, 30, 0.8)';
+                }
+            });
+        }
+
+        // 定期的にスタイルをチェック・修正
+        setInterval(enforceInkStyle, 500);
+
         // アニメーションループ
         function animate() {
             requestAnimationFrame(animate);
 
             const time = performance.now() * 0.001;
 
-            // 漢字の浮遊アニメーション
-            kanjiSprites.forEach(sprite => {
+            // 墨絵の浮遊アニメーション
+            inkSprites.forEach(sprite => {
                 const userData = sprite.userData;
                 sprite.position.y = userData.originalY +
                     Math.sin(time * userData.floatSpeed + userData.phase) * userData.floatAmplitude;
