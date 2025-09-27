@@ -188,18 +188,18 @@
             return sprite;
         }
 
-        // 🌿 光る苔エフェクト（下部）
-        function createMossGlow() {
-            const mossGroup = new THREE.Group();
+        // 🌿 墨の塵エフェクト（下部）
+        function createInkDust() {
+            const dustGroup = new THREE.Group();
 
-            // 苔のパーティクル
-            const mossGeometry = new THREE.BufferGeometry();
-            const mossCount = 200;
-            const positions = new Float32Array(mossCount * 3);
-            const colors = new Float32Array(mossCount * 3);
-            const sizes = new Float32Array(mossCount);
+            // 墨の塵パーティクル
+            const dustGeometry = new THREE.BufferGeometry();
+            const dustCount = 200;
+            const positions = new Float32Array(dustCount * 3);
+            const colors = new Float32Array(dustCount * 3);
+            const sizes = new Float32Array(dustCount);
 
-            for (let i = 0; i < mossCount; i++) {
+            for (let i = 0; i < dustCount; i++) {
                 const i3 = i * 3;
 
                 // 下部に配置
@@ -207,81 +207,184 @@
                 positions[i3 + 1] = -10 + Math.random() * 2;
                 positions[i3 + 2] = (Math.random() - 0.5) * 10;
 
-                // 緑色のグラデーション
-                const brightness = 0.3 + Math.random() * 0.7;
-                colors[i3] = 0.2 * brightness;
-                colors[i3 + 1] = 0.8 * brightness;
-                colors[i3 + 2] = 0.3 * brightness;
+                // 墨の濃淡
+                const darkness = 0.1 + Math.random() * 0.4;
+                colors[i3] = darkness;
+                colors[i3 + 1] = darkness;
+                colors[i3 + 2] = darkness;
 
                 sizes[i] = Math.random() * 3 + 1;
             }
 
-            mossGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-            mossGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-            mossGeometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+            dustGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            dustGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+            dustGeometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
 
-            const mossMaterial = new THREE.PointsMaterial({
+            const dustMaterial = new THREE.PointsMaterial({
                 size: 2,
                 sizeAttenuation: true,
                 vertexColors: true,
                 transparent: true,
-                opacity: 0.6,
-                blending: THREE.AdditiveBlending
+                opacity: 0.5,
+                blending: THREE.MultiplyBlending
             });
 
-            const moss = new THREE.Points(mossGeometry, mossMaterial);
-            mossGroup.add(moss);
+            const dust = new THREE.Points(dustGeometry, dustMaterial);
+            dustGroup.add(dust);
 
-            // 苔の光パルス用データ
-            mossGroup.userData = {
+            // 墨の塵のパルス用データ
+            dustGroup.userData = {
                 pulseSpeed: 0.002,
                 time: 0
             };
 
-            return mossGroup;
+            return dustGroup;
         }
 
-        // 🍂 紅葉パーティクル
-        function createMapleLeaf() {
+        // 🍂 墨の葉パーティクル
+        function createInkLeaves() {
             const leafGeometry = new THREE.BufferGeometry();
-            const leafCount = 5; // 控えめに
+            const leafCount = 8; // 少し増やす
             const positions = new Float32Array(leafCount * 3);
             const colors = new Float32Array(leafCount * 3);
 
             for (let i = 0; i < leafCount; i++) {
                 const i3 = i * 3;
 
-                positions[i3] = (Math.random() - 0.5) * 20;
-                positions[i3 + 1] = 10 + Math.random() * 5;
-                positions[i3 + 2] = (Math.random() - 0.5) * 10;
+                positions[i3] = (Math.random() - 0.5) * 30;
+                positions[i3 + 1] = 10 + Math.random() * 10;
+                positions[i3 + 2] = (Math.random() - 0.5) * 20;
 
-                // 紅葉の赤
-                colors[i3] = 0.8 + Math.random() * 0.2;
-                colors[i3 + 1] = 0.1 + Math.random() * 0.2;
-                colors[i3 + 2] = 0.1;
+                // 墨の濃淡
+                const darkness = 0.1 + Math.random() * 0.3;
+                colors[i3] = darkness;
+                colors[i3 + 1] = darkness;
+                colors[i3 + 2] = darkness;
             }
 
             leafGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
             leafGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
 
             const leafMaterial = new THREE.PointsMaterial({
-                size: 5,
+                size: 6,
                 sizeAttenuation: true,
                 vertexColors: true,
                 transparent: true,
-                opacity: 0.7
+                opacity: 0.8,
+                blending: THREE.MultiplyBlending
             });
 
             const leaves = new THREE.Points(leafGeometry, leafMaterial);
 
             // 落下アニメーション用
             leaves.userData = {
-                fallSpeed: 0.01,
+                fallSpeed: 0.008,
                 swaySpeed: 0.002,
                 time: 0
             };
 
             return leaves;
+        }
+
+        // 削除 - 桜の花びらパーティクル
+        function createSakuraPetals_removed() {
+            const petalCount = 20;
+            const petalsGroup = new THREE.Group();
+
+            // 花びらのテクスチャを作成
+            const canvas = document.createElement('canvas');
+            canvas.width = 64;
+            canvas.height = 64;
+            const ctx = canvas.getContext('2d');
+
+            // 花びらの形を描画
+            ctx.fillStyle = '#ffb7c5';
+            ctx.beginPath();
+            ctx.moveTo(32, 10);
+            ctx.bezierCurveTo(20, 20, 20, 40, 32, 54);
+            ctx.bezierCurveTo(44, 40, 44, 20, 32, 10);
+            ctx.fill();
+
+            const texture = new THREE.CanvasTexture(canvas);
+
+            for (let i = 0; i < petalCount; i++) {
+                const spriteMaterial = new THREE.SpriteMaterial({
+                    map: texture,
+                    transparent: true,
+                    opacity: 0.8,
+                    rotation: Math.random() * Math.PI
+                });
+
+                const petal = new THREE.Sprite(spriteMaterial);
+                petal.scale.set(1, 1.2, 1);
+
+                // ランダムな開始位置
+                petal.position.set(
+                    (Math.random() - 0.5) * 60,
+                    15 + Math.random() * 20,
+                    (Math.random() - 0.5) * 40
+                );
+
+                // アニメーション用データ
+                petal.userData = {
+                    velocity: new THREE.Vector3(
+                        (Math.random() - 0.5) * 0.02,
+                        -0.01 - Math.random() * 0.01,
+                        (Math.random() - 0.5) * 0.02
+                    ),
+                    rotationSpeed: (Math.random() - 0.5) * 0.01,
+                    swayPhase: Math.random() * Math.PI * 2,
+                    swaySpeed: 0.002 + Math.random() * 0.002,
+                    swayAmplitude: 0.02 + Math.random() * 0.02
+                };
+
+                petalsGroup.add(petal);
+            }
+
+            return petalsGroup;
+        }
+
+        // 🌟 墨の光点エフェクト
+        function createInkSpirits() {
+            const spiritsGroup = new THREE.Group();
+            const spiritCount = 8;
+
+            for (let i = 0; i < spiritCount; i++) {
+                const geometry = new THREE.SphereGeometry(0.15, 4, 4);
+                const material = new THREE.MeshBasicMaterial({
+                    color: 0x333333,
+                    transparent: true,
+                    opacity: 0.6
+                });
+
+                const spirit = new THREE.Mesh(geometry, material);
+
+                // ランダムな位置
+                spirit.position.set(
+                    (Math.random() - 0.5) * 50,
+                    Math.random() * 10 - 5,
+                    (Math.random() - 0.5) * 40
+                );
+
+                // 薄い光（モノクロ）
+                const light = new THREE.PointLight(0xffffff, 0.2, 3);
+                light.position.copy(spirit.position);
+                spiritsGroup.add(light);
+
+                // アニメーション用データ
+                spirit.userData = {
+                    light: light,
+                    phase: Math.random() * Math.PI * 2,
+                    moveSpeed: 0.001 + Math.random() * 0.001,
+                    glowSpeed: 0.002 + Math.random() * 0.003,
+                    wanderRadius: 10 + Math.random() * 10,
+                    originalPos: spirit.position.clone()
+                };
+
+                spiritsGroup.add(spirit);
+            }
+
+            return spiritsGroup;
         }
 
         // シーン構築
@@ -409,10 +512,10 @@
                 transparent: true,
                 opacity: 0.7
             });
-            
+
             const cube = new THREE.Mesh(geometry, material);
             cube.position.set(x, y, z);
-            
+
             // アニメーション用データ
             cube.userData = {
                 floatSpeed: 0.002 + Math.random() * 0.002,
@@ -421,9 +524,148 @@
                 originalY: y,
                 phase: Math.random() * Math.PI * 2
             };
-            
+
             scene.add(cube);
             return cube;
+        }
+
+        // 🎋 竹の茎を生成
+        function createBamboo(x, z) {
+            const bambooGroup = new THREE.Group();
+
+            // 竹の節を複数作成
+            const segments = 5 + Math.floor(Math.random() * 3);
+            const height = 30 + Math.random() * 20;
+            const radius = 0.5 + Math.random() * 0.3;
+
+            for (let i = 0; i < segments; i++) {
+                const segmentHeight = height / segments;
+                const geometry = new THREE.CylinderGeometry(
+                    radius * (1 - i * 0.05), // 上に行くほど細く
+                    radius * (1 - (i-1) * 0.05),
+                    segmentHeight,
+                    8
+                );
+
+                const material = new THREE.MeshPhongMaterial({
+                    color: 0x1a1a1a, // 暗い灰色
+                    emissive: 0x0a0a0a,
+                    shininess: 20
+                });
+
+                const segment = new THREE.Mesh(geometry, material);
+                segment.position.y = i * segmentHeight - height/2 + segmentHeight/2;
+
+                // 節の部分に黒い線
+                if (i > 0) {
+                    const nodeGeometry = new THREE.TorusGeometry(radius * 1.1, 0.05, 4, 8);
+                    const nodeMaterial = new THREE.MeshBasicMaterial({ color: 0x000000 });
+                    const node = new THREE.Mesh(nodeGeometry, nodeMaterial);
+                    node.position.y = segment.position.y - segmentHeight/2;
+                    node.rotation.x = Math.PI / 2;
+                    bambooGroup.add(node);
+                }
+
+                bambooGroup.add(segment);
+            }
+
+            bambooGroup.position.set(x, 0, z);
+            bambooGroup.userData = {
+                swaySpeed: 0.001 + Math.random() * 0.001,
+                swayAmplitude: 0.02,
+                originalRotation: { x: 0, z: 0 }
+            };
+
+            return bambooGroup;
+        }
+
+        // 🪨 枯山水の石を生成
+        function createZenStone(x, y, z, scale = 1) {
+            const geometry = new THREE.DodecahedronGeometry(3 * scale, 0);
+
+            // 頂点をランダムに変形して自然な石の形に
+            const positions = geometry.attributes.position.array;
+            for (let i = 0; i < positions.length; i += 3) {
+                positions[i] *= (0.7 + Math.random() * 0.6);
+                positions[i + 1] *= (0.5 + Math.random() * 0.3);
+                positions[i + 2] *= (0.7 + Math.random() * 0.6);
+            }
+            geometry.computeVertexNormals();
+
+            const material = new THREE.MeshPhongMaterial({
+                color: 0x3a3a3a,
+                roughness: 0.8,
+                metalness: 0.1
+            });
+
+            const stone = new THREE.Mesh(geometry, material);
+            stone.position.set(x, y, z);
+            stone.rotation.set(
+                Math.random() * Math.PI,
+                Math.random() * Math.PI,
+                Math.random() * Math.PI
+            );
+
+            // 石の周りの砂紋
+            const ripples = createSandRipples(x, z, scale * 8);
+
+            return { stone, ripples };
+        }
+
+        // 🌊 砂紋パターン
+        function createSandRipples(centerX, centerZ, radius) {
+            const rippleGroup = new THREE.Group();
+            const rippleCount = 5;
+
+            for (let i = 0; i < rippleCount; i++) {
+                const geometry = new THREE.RingGeometry(
+                    radius * (0.5 + i * 0.2),
+                    radius * (0.5 + i * 0.2) + 0.1,
+                    32
+                );
+
+                const material = new THREE.MeshBasicMaterial({
+                    color: 0x1a1a1a,
+                    transparent: true,
+                    opacity: 0.3 - i * 0.05,
+                    side: THREE.DoubleSide
+                });
+
+                const ring = new THREE.Mesh(geometry, material);
+                ring.rotation.x = -Math.PI / 2;
+                ring.position.set(centerX, -9.9, centerZ);
+                rippleGroup.add(ring);
+            }
+
+            return rippleGroup;
+        }
+
+        // 💧 水滴エフェクト
+        function createWaterDrop(x, y, z) {
+            const geometry = new THREE.SphereGeometry(0.2, 8, 8);
+            const material = new THREE.MeshPhysicalMaterial({
+                color: 0x666666,
+                transparent: true,
+                opacity: 0.5,
+                roughness: 0,
+                metalness: 0,
+                clearcoat: 1.0,
+                clearcoatRoughness: 0,
+                reflectivity: 0.9,
+                refractionRatio: 0.98
+            });
+
+            const drop = new THREE.Mesh(geometry, material);
+            drop.position.set(x, y, z);
+
+            drop.userData = {
+                fallSpeed: 0.05 + Math.random() * 0.03,
+                originalY: y,
+                splashed: false,
+                lifeTime: 0
+            };
+
+            return drop;
         }
         
         // 墨雲と四角を配置
@@ -431,7 +673,7 @@
         inkNebulas.push(createInkNebula(-30, 10, -20, 1.2));
         inkNebulas.push(createInkNebula(25, -15, 15, 1.0));
         inkNebulas.push(createInkNebula(-10, 20, 30, 1.5));
-        
+
         const floatingSquares = [];
         for (let i = 0; i < 8; i++) {
             const angle = (i / 8) * Math.PI * 2;
@@ -444,13 +686,60 @@
             floatingSquares.push(square);
         }
 
-        // 光る苔を追加
-        const moss = createMossGlow();
-        scene.add(moss);
+        // 🎋 竹を配置
+        const bamboos = [];
+        for (let i = 0; i < 6; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const distance = 25 + Math.random() * 35;
+            const bamboo = createBamboo(
+                Math.cos(angle) * distance,
+                Math.sin(angle) * distance
+            );
+            scene.add(bamboo);
+            bamboos.push(bamboo);
+        }
 
-        // 紅葉を追加
-        const mapleLeaves = createMapleLeaf();
-        scene.add(mapleLeaves);
+        // 🪨 枯山水の石と砂紋を配置
+        const stones = [];
+        for (let i = 0; i < 3; i++) {
+            const x = (Math.random() - 0.5) * 40;
+            const z = (Math.random() - 0.5) * 30;
+            const scale = 0.8 + Math.random() * 0.6;
+            const { stone, ripples } = createZenStone(x, -8, z, scale);
+            scene.add(stone);
+            scene.add(ripples);
+            stones.push({ stone, ripples });
+        }
+
+        // 💧 水滴を配置
+        const waterDrops = [];
+        function spawnWaterDrop() {
+            const x = (Math.random() - 0.5) * 50;
+            const z = (Math.random() - 0.5) * 30;
+            const drop = createWaterDrop(x, 25, z);
+            scene.add(drop);
+            waterDrops.push(drop);
+        }
+
+        // 定期的に水滴を生成
+        setInterval(spawnWaterDrop, 3000);
+
+        // 初期水滴
+        for (let i = 0; i < 5; i++) {
+            setTimeout(spawnWaterDrop, i * 600);
+        }
+
+        // 墨の塵を追加
+        const inkDust = createInkDust();
+        scene.add(inkDust);
+
+        // 墨の葉を追加
+        const inkLeaves = createInkLeaves();
+        scene.add(inkLeaves);
+
+        // 墨の精霊を追加（ホタルの代わり）
+        const inkSpirits = createInkSpirits();
+        scene.add(inkSpirits);
 
         // ライティング（ミニマル調整）
         const ambientLight = new THREE.AmbientLight(0xffffff, 1.0);
@@ -471,6 +760,164 @@
         controls.minDistance = 10;
         controls.maxDistance = 50;
 
+        // 🖌️ インタラクティブ筆ストローク機能
+        const brushStrokes = [];
+        let isDrawing = false;
+        let currentStroke = null;
+        const MAX_STROKES = 20; // 最大ストローク数
+
+        // 筆のストロークを作成
+        function createBrushStroke(points) {
+            const curve = new THREE.CatmullRomCurve3(points);
+            const strokePoints = curve.getPoints(50);
+
+            const geometry = new THREE.BufferGeometry().setFromPoints(strokePoints);
+
+            // 墨の濃淡を表現
+            const colors = [];
+            for (let i = 0; i < strokePoints.length; i++) {
+                const intensity = 0.2 + Math.random() * 0.3;
+                colors.push(intensity, intensity, intensity);
+            }
+            geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+
+            const material = new THREE.LineBasicMaterial({
+                vertexColors: true,
+                linewidth: 3,
+                transparent: true,
+                opacity: 0.8,
+                blending: THREE.MultiplyBlending
+            });
+
+            const stroke = new THREE.Line(geometry, material);
+
+            // 筆圧の変化を表現するための球体を追加
+            for (let i = 0; i < strokePoints.length; i += 5) {
+                const dotGeometry = new THREE.SphereGeometry(Math.random() * 0.3 + 0.1, 4, 4);
+                const dotMaterial = new THREE.MeshBasicMaterial({
+                    color: 0x000000,
+                    transparent: true,
+                    opacity: Math.random() * 0.5 + 0.3
+                });
+                const dot = new THREE.Mesh(dotGeometry, dotMaterial);
+                dot.position.copy(strokePoints[i]);
+                stroke.add(dot);
+            }
+
+            // フェードアウトアニメーション用
+            stroke.userData = {
+                age: 0,
+                maxAge: 300 + Math.random() * 200
+            };
+
+            return stroke;
+        }
+
+        // マウスイベント
+        window.addEventListener('mousedown', (event) => {
+            if (event.altKey) {
+                isDrawing = true;
+                currentStroke = [];
+            }
+        });
+
+        window.addEventListener('mousemove', (event) => {
+            if (isDrawing && currentStroke) {
+                const mouse = new THREE.Vector2(
+                    (event.clientX / window.innerWidth) * 2 - 1,
+                    -(event.clientY / window.innerHeight) * 2 + 1
+                );
+
+                const raycaster = new THREE.Raycaster();
+                raycaster.setFromCamera(mouse, camera);
+
+                const distance = 20;
+                const point = new THREE.Vector3();
+                point.copy(raycaster.ray.direction);
+                point.multiplyScalar(distance);
+                point.add(raycaster.ray.origin);
+
+                currentStroke.push(point);
+            }
+        });
+
+        window.addEventListener('mouseup', () => {
+            if (isDrawing && currentStroke && currentStroke.length > 2) {
+                const stroke = createBrushStroke(currentStroke);
+                scene.add(stroke);
+                brushStrokes.push(stroke);
+
+                // 古いストロークを削除
+                if (brushStrokes.length > MAX_STROKES) {
+                    const oldStroke = brushStrokes.shift();
+                    scene.remove(oldStroke);
+                }
+            }
+            isDrawing = false;
+            currentStroke = null;
+        });
+
+        // 🖱️ インタラクティブ機能：クリックで石を配置
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+
+        function onMouseClick(event) {
+            // マウス位置を正規化
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, camera);
+
+            // 地面との交点を計算
+            const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 10);
+            const intersection = new THREE.Vector3();
+            raycaster.ray.intersectPlane(groundPlane, intersection);
+
+            if (intersection) {
+                // Shiftキーが押されていたら石を配置
+                if (event.shiftKey) {
+                    const scale = 0.5 + Math.random() * 0.5;
+                    const { stone, ripples } = createZenStone(
+                        intersection.x,
+                        -8,
+                        intersection.z,
+                        scale
+                    );
+                    scene.add(stone);
+                    scene.add(ripples);
+                    stones.push({ stone, ripples });
+
+                    // 配置アニメーション
+                    stone.scale.set(0, 0, 0);
+                    const growAnimation = setInterval(() => {
+                        stone.scale.x = Math.min(stone.scale.x + 0.1, scale);
+                        stone.scale.y = Math.min(stone.scale.y + 0.1, scale);
+                        stone.scale.z = Math.min(stone.scale.z + 0.1, scale);
+                        if (stone.scale.x >= scale) {
+                            clearInterval(growAnimation);
+                        }
+                    }, 16);
+                }
+                // Ctrlキーが押されていたら竹を配置
+                else if (event.ctrlKey || event.metaKey) {
+                    const bamboo = createBamboo(intersection.x, intersection.z);
+                    scene.add(bamboo);
+                    bamboos.push(bamboo);
+
+                    // 成長アニメーション
+                    bamboo.scale.y = 0;
+                    const growBamboo = setInterval(() => {
+                        bamboo.scale.y = Math.min(bamboo.scale.y + 0.05, 1);
+                        if (bamboo.scale.y >= 1) {
+                            clearInterval(growBamboo);
+                        }
+                    }, 16);
+                }
+            }
+        }
+
+        window.addEventListener('click', onMouseClick);
+
         // 🍫 ChocoDrop初期化
         let chocoDrop;
 
@@ -489,7 +936,12 @@
                     }
                 });
 
-                console.log('🍵 侘び寂びの世界へようこそ。@キーで始まります。');
+                console.log('🍵 侘び寂びの世界へようこそ');
+                console.log('操作方法:');
+                console.log('  @キー: ChocoDrop起動');
+                console.log('  Alt+ドラッグ: 墨で描く');
+                console.log('  Shift+クリック: 石を配置');
+                console.log('  Ctrl/Cmd+クリック: 竹を配置');
 
             } catch (error) {
                 console.error('ChocoDrop initialization failed:', error);
@@ -557,34 +1009,145 @@
                 square.rotation.z += userData.rotationSpeed * 0.3;
             });
 
-            // 苔の光パルス
-            if (moss.userData) {
-                moss.userData.time = time;
-                const pulse = Math.sin(time * moss.userData.pulseSpeed) * 0.5 + 0.5;
-                moss.children[0].material.opacity = 0.4 + pulse * 0.4;
+            // 墨の塵のパルス
+            if (inkDust.userData) {
+                inkDust.userData.time = time;
+                const pulse = Math.sin(time * inkDust.userData.pulseSpeed) * 0.5 + 0.5;
+                inkDust.children[0].material.opacity = 0.3 + pulse * 0.3;
             }
 
-            // 紅葉の落下
-            if (mapleLeaves.userData) {
-                mapleLeaves.userData.time = time;
-                const positions = mapleLeaves.geometry.attributes.position.array;
+            // 墨の葉の落下
+            if (inkLeaves.userData) {
+                inkLeaves.userData.time = time;
+                const positions = inkLeaves.geometry.attributes.position.array;
 
                 for (let i = 0; i < positions.length; i += 3) {
                     // ゆっくり落下
-                    positions[i + 1] -= mapleLeaves.userData.fallSpeed;
+                    positions[i + 1] -= inkLeaves.userData.fallSpeed;
 
                     // 左右に揺れる
-                    positions[i] += Math.sin(time * mapleLeaves.userData.swaySpeed + i) * 0.01;
+                    positions[i] += Math.sin(time * inkLeaves.userData.swaySpeed + i) * 0.01;
 
                     // 下まで落ちたら上に戻す
                     if (positions[i + 1] < -10) {
-                        positions[i + 1] = 15;
-                        positions[i] = (Math.random() - 0.5) * 20;
+                        positions[i + 1] = 20;
+                        positions[i] = (Math.random() - 0.5) * 30;
                     }
                 }
 
-                mapleLeaves.geometry.attributes.position.needsUpdate = true;
+                inkLeaves.geometry.attributes.position.needsUpdate = true;
             }
+
+            // 🎋 竹のゆらぎアニメーション
+            bamboos.forEach(bamboo => {
+                const userData = bamboo.userData;
+                bamboo.rotation.x = Math.sin(time * userData.swaySpeed) * userData.swayAmplitude;
+                bamboo.rotation.z = Math.cos(time * userData.swaySpeed * 1.3) * userData.swayAmplitude * 0.5;
+            });
+
+            // 🪨 砂紋の波紋アニメーション
+            stones.forEach(({ ripples }) => {
+                ripples.children.forEach((ring, index) => {
+                    const scale = 1 + Math.sin(time * 0.5 - index * 0.3) * 0.05;
+                    ring.scale.set(scale, scale, scale);
+                    ring.material.opacity = 0.3 - index * 0.05 - Math.sin(time * 0.5 - index * 0.3) * 0.05;
+                });
+            });
+
+            // 💧 水滴の落下アニメーション
+            waterDrops.forEach((drop, index) => {
+                if (drop.userData.splashed) {
+                    drop.userData.lifeTime += 0.016;
+                    if (drop.userData.lifeTime > 2) {
+                        // 水滴を削除して再利用
+                        scene.remove(drop);
+                        waterDrops.splice(index, 1);
+                    }
+                } else {
+                    // 落下
+                    drop.position.y -= drop.userData.fallSpeed;
+
+                    // 地面に達したら波紋エフェクト
+                    if (drop.position.y < -9) {
+                        drop.userData.splashed = true;
+                        // 波紋エフェクトの作成
+                        const splashGeometry = new THREE.RingGeometry(0.5, 2, 32);
+                        const splashMaterial = new THREE.MeshBasicMaterial({
+                            color: 0x444444,
+                            transparent: true,
+                            opacity: 0.2,
+                            side: THREE.DoubleSide
+                        });
+                        const splash = new THREE.Mesh(splashGeometry, splashMaterial);
+                        splash.rotation.x = -Math.PI / 2;
+                        splash.position.copy(drop.position);
+                        splash.position.y = -9.8;
+                        scene.add(splash);
+
+                        // 波紋を広げるアニメーション
+                        const expandSplash = setInterval(() => {
+                            splash.scale.x *= 1.05;
+                            splash.scale.y *= 1.05;
+                            splash.material.opacity *= 0.95;
+                            if (splash.material.opacity < 0.01) {
+                                scene.remove(splash);
+                                clearInterval(expandSplash);
+                            }
+                        }, 16);
+
+                        drop.visible = false;
+                    }
+                }
+            });
+
+            // 桜のアニメーションは削除
+
+            // 🌟 墨の精霊アニメーション
+            inkSpirits.children.forEach(child => {
+                if (child instanceof THREE.Mesh && child.userData.originalPos) {
+                    const userData = child.userData;
+
+                    // ゆらゆらと飛ぶ動き
+                    const wanderX = Math.sin(time * userData.moveSpeed + userData.phase) * userData.wanderRadius;
+                    const wanderY = Math.cos(time * userData.moveSpeed * 1.3 + userData.phase) * userData.wanderRadius * 0.5;
+                    const wanderZ = Math.sin(time * userData.moveSpeed * 0.7 + userData.phase) * userData.wanderRadius * 0.7;
+
+                    child.position.set(
+                        userData.originalPos.x + wanderX,
+                        userData.originalPos.y + wanderY,
+                        userData.originalPos.z + wanderZ
+                    );
+
+                    // 墨の濃淡変化
+                    const fade = Math.sin(time * userData.glowSpeed) * 0.2 + 0.5;
+                    child.material.opacity = fade;
+                    if (userData.light) {
+                        userData.light.intensity = fade * 0.2;
+                        userData.light.position.copy(child.position);
+                    }
+                }
+            });
+
+            // 🖌️ 筆ストロークのフェードアウトアニメーション
+            brushStrokes.forEach((stroke, index) => {
+                if (stroke.userData) {
+                    stroke.userData.age++;
+                    const fadeRatio = 1 - (stroke.userData.age / stroke.userData.maxAge);
+
+                    if (fadeRatio <= 0) {
+                        scene.remove(stroke);
+                        brushStrokes.splice(index, 1);
+                    } else {
+                        stroke.material.opacity = fadeRatio * 0.8;
+                        // 子要素の球体もフェードアウト
+                        stroke.children.forEach(child => {
+                            if (child.material) {
+                                child.material.opacity = fadeRatio * 0.5;
+                            }
+                        });
+                    }
+                }
+            });
 
             controls.update();
             renderer.render(scene, camera);
