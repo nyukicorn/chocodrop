@@ -288,156 +288,162 @@
         // シーン構築
         createMinimalBackground();
 
-        // 複数層の墨濃淡で立体感を演出
-        function createLayeredInk() {
-            // 手前層 (z=-5) - 薄い墨の流れ
-            const frontLayer = createInkLayer('front', -5, 50, 35);
-            scene.add(frontLayer);
+        // 🌫️ 星雲エフェクトベースの墨雲
+        function createInkNebula(x, y, z, intensity = 1.0) {
+            const nebulaGroup = new THREE.Group();
             
-            // 中間層 (z=-15) - メインの墨濃淡
-            const middleLayer = createInkLayer('middle', -15, 60, 40);
-            scene.add(middleLayer);
-            
-            // 奥層 (z=-25) - 背景の墨
-            const backLayer = createInkLayer('back', -25, 70, 45);
-            scene.add(backLayer);
-        }
-        
-        function createInkLayer(type, zPosition, width, height) {
-            const inkGeometry = new THREE.PlaneGeometry(width, height);
-            
-            // Canvas でレイヤー用の墨濃淡を作成
-            const canvas = document.createElement('canvas');
-            canvas.width = 1024;
-            canvas.height = 768;
-            const ctx = canvas.getContext('2d');
-            
-            // 白背景
-            ctx.fillStyle = 'white';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
-            ctx.strokeStyle = 'black';
-            ctx.fillStyle = 'black';
-            
-            if (type === 'front') {
-                // 手前層：細い線と薄い要素
-                ctx.lineWidth = 1;
+            // ☁️ 墨雲用のキャンバステクスチャ作成
+            function createInkTexture(size = 512) {
+                const canvas = document.createElement('canvas');
+                canvas.width = size;
+                canvas.height = size;
+                const context = canvas.getContext('2d');
+                
+                // 白背景
+                context.fillStyle = 'white';
+                context.fillRect(0, 0, size, size);
+                
+                // 墨のグラデーション（中心が濃い）
+                const gradient = context.createRadialGradient(
+                    size/2, size/2, 0,
+                    size/2, size/2, size/2
+                );
+                gradient.addColorStop(0, 'rgba(0,0,0,0.8)');
+                gradient.addColorStop(0.3, 'rgba(0,0,0,0.4)');
+                gradient.addColorStop(0.7, 'rgba(0,0,0,0.1)');
+                gradient.addColorStop(1, 'rgba(0,0,0,0)');
+                
+                context.fillStyle = gradient;
+                context.fillRect(0, 0, size, size);
+                
+                // 墨の有機的な滲み
                 for (let i = 0; i < 30; i++) {
-                    ctx.globalAlpha = Math.random() * 0.3 + 0.1;
-                    ctx.beginPath();
-                    ctx.moveTo(Math.random() * canvas.width, Math.random() * canvas.height);
-                    ctx.bezierCurveTo(
-                        Math.random() * canvas.width, Math.random() * canvas.height,
-                        Math.random() * canvas.width, Math.random() * canvas.height,
-                        Math.random() * canvas.width, Math.random() * canvas.height
-                    );
-                    ctx.stroke();
-                }
-                
-                // 小さな薄い塊
-                for (let i = 0; i < 3; i++) {
-                    ctx.globalAlpha = Math.random() * 0.2 + 0.1;
-                    ctx.beginPath();
-                    const centerX = Math.random() * canvas.width;
-                    const centerY = Math.random() * canvas.height;
-                    const size = 50 + Math.random() * 100;
+                    const x = Math.random() * size;
+                    const y = Math.random() * size;
+                    const radius = Math.random() * size * 0.2;
+                    const opacity = Math.random() * 0.3;
                     
-                    ctx.moveTo(centerX, centerY);
-                    for (let j = 0; j < 8; j++) {
-                        const angle = (j / 8) * Math.PI * 2;
-                        const radius = size * (0.5 + Math.random() * 0.5);
-                        const x = centerX + Math.cos(angle) * radius;
-                        const y = centerY + Math.sin(angle) * radius;
-                        ctx.lineTo(x, y);
-                    }
-                    ctx.closePath();
-                    ctx.fill();
-                }
-                
-            } else if (type === 'middle') {
-                // 中間層：メインの墨濃淡（現在の実装）
-                ctx.lineWidth = 3;
-                for (let i = 0; i < 50; i++) {
-                    ctx.globalAlpha = Math.random() * 0.7 + 0.1;
-                    ctx.beginPath();
-                    ctx.moveTo(Math.random() * canvas.width, Math.random() * canvas.height);
-                    ctx.bezierCurveTo(
-                        Math.random() * canvas.width, Math.random() * canvas.height,
-                        Math.random() * canvas.width, Math.random() * canvas.height,
-                        Math.random() * canvas.width, Math.random() * canvas.height
-                    );
-                    ctx.stroke();
-                }
-                
-                for (let i = 0; i < 8; i++) {
-                    ctx.globalAlpha = Math.random() * 0.6 + 0.2;
-                    ctx.beginPath();
-                    const centerX = Math.random() * canvas.width;
-                    const centerY = Math.random() * canvas.height;
-                    const size = 100 + Math.random() * 200;
+                    const grad = context.createRadialGradient(x, y, 0, x, y, radius);
+                    grad.addColorStop(0, `rgba(0,0,0,${opacity})`);
+                    grad.addColorStop(1, 'rgba(0,0,0,0)');
                     
-                    ctx.moveTo(centerX, centerY);
-                    for (let j = 0; j < 10; j++) {
-                        const angle = (j / 10) * Math.PI * 2;
-                        const radius = size * (0.5 + Math.random() * 0.8);
-                        const x = centerX + Math.cos(angle) * radius;
-                        const y = centerY + Math.sin(angle) * radius;
-                        ctx.lineTo(x, y);
-                    }
-                    ctx.closePath();
-                    ctx.fill();
+                    context.fillStyle = grad;
+                    context.fillRect(0, 0, size, size);
                 }
                 
-            } else if (type === 'back') {
-                // 奥層：大きくて薄い背景要素
-                ctx.lineWidth = 5;
-                for (let i = 0; i < 20; i++) {
-                    ctx.globalAlpha = Math.random() * 0.4 + 0.1;
-                    ctx.beginPath();
-                    ctx.moveTo(Math.random() * canvas.width, Math.random() * canvas.height);
-                    ctx.bezierCurveTo(
-                        Math.random() * canvas.width, Math.random() * canvas.height,
-                        Math.random() * canvas.width, Math.random() * canvas.height,
-                        Math.random() * canvas.width, Math.random() * canvas.height
-                    );
-                    ctx.stroke();
-                }
-                
-                // 大きな薄い塊
-                for (let i = 0; i < 4; i++) {
-                    ctx.globalAlpha = Math.random() * 0.3 + 0.1;
-                    ctx.beginPath();
-                    const centerX = Math.random() * canvas.width;
-                    const centerY = Math.random() * canvas.height;
-                    const size = 200 + Math.random() * 300;
-                    
-                    ctx.moveTo(centerX, centerY);
-                    for (let j = 0; j < 12; j++) {
-                        const angle = (j / 12) * Math.PI * 2;
-                        const radius = size * (0.4 + Math.random() * 0.6);
-                        const x = centerX + Math.cos(angle) * radius;
-                        const y = centerY + Math.sin(angle) * radius;
-                        ctx.lineTo(x, y);
-                    }
-                    ctx.closePath();
-                    ctx.fill();
-                }
+                return new THREE.CanvasTexture(canvas);
             }
             
-            const texture = new THREE.CanvasTexture(canvas);
-            const material = new THREE.MeshBasicMaterial({
-                map: texture,
-                transparent: type === 'front' || type === 'back',
-                opacity: type === 'front' ? 0.7 : type === 'back' ? 0.5 : 1.0
+            const inkTexture = createInkTexture();
+            
+            // 🌫️ 複数レイヤーの墨雲スプライト
+            for (let layer = 0; layer < 3; layer++) {
+                const layerGroup = new THREE.Group();
+                
+                for (let i = 0; i < 6; i++) {
+                    const spriteMaterial = new THREE.SpriteMaterial({
+                        map: inkTexture,
+                        color: new THREE.Color(0x000000),
+                        transparent: true,
+                        opacity: (0.4 - layer * 0.1) * intensity,
+                        blending: THREE.MultiplyBlending,
+                        depthWrite: false
+                    });
+                    
+                    const sprite = new THREE.Sprite(spriteMaterial);
+                    
+                    // 有機的な配置
+                    const angle = (i / 6) * Math.PI * 2;
+                    const radius = (15 + Math.random() * 25) * (1 + layer * 0.3);
+                    const height = (Math.random() - 0.5) * 15;
+                    
+                    sprite.position.set(
+                        Math.cos(angle) * radius + (Math.random() - 0.5) * 10,
+                        height + (Math.random() - 0.5) * 8,
+                        Math.sin(angle) * radius + (Math.random() - 0.5) * 10
+                    );
+                    
+                    // サイズをランダムに
+                    const scale = (25 + Math.random() * 35) * (1 + layer * 0.2);
+                    sprite.scale.set(scale, scale, scale);
+                    
+                    // 回転
+                    sprite.material.rotation = Math.random() * Math.PI * 2;
+                    
+                    layerGroup.add(sprite);
+                }
+                
+                nebulaGroup.add(layerGroup);
+            }
+            
+            // ✨ 中心の濃い墨核
+            const coreMaterial = new THREE.SpriteMaterial({
+                map: inkTexture,
+                color: new THREE.Color(0x000000),
+                transparent: true,
+                opacity: 0.6 * intensity,
+                blending: THREE.MultiplyBlending
             });
             
-            const inkPlane = new THREE.Mesh(inkGeometry, material);
-            inkPlane.position.z = zPosition;
+            const coreSprite = new THREE.Sprite(coreMaterial);
+            coreSprite.scale.set(35, 35, 35);
+            nebulaGroup.add(coreSprite);
             
-            return inkPlane;
+            nebulaGroup.position.set(x, y, z);
+            
+            // アニメーション用データ
+            nebulaGroup.userData = {
+                rotationSpeed: 0.0001 + Math.random() * 0.0001,
+                pulseSpeed: 0.3 + Math.random() * 0.3,
+                originalIntensity: intensity
+            };
+            
+            scene.add(nebulaGroup);
+            return nebulaGroup;
         }
         
-        createLayeredInk();
+        // 🔲 ふわふわ動く四角の墨塊
+        function createFloatingSquare(x, y, z) {
+            const geometry = new THREE.BoxGeometry(4, 4, 4);
+            const material = new THREE.MeshBasicMaterial({
+                color: 0x000000,
+                transparent: true,
+                opacity: 0.7
+            });
+            
+            const cube = new THREE.Mesh(geometry, material);
+            cube.position.set(x, y, z);
+            
+            // アニメーション用データ
+            cube.userData = {
+                floatSpeed: 0.002 + Math.random() * 0.002,
+                rotationSpeed: 0.001 + Math.random() * 0.001,
+                floatAmplitude: 3 + Math.random() * 2,
+                originalY: y,
+                phase: Math.random() * Math.PI * 2
+            };
+            
+            scene.add(cube);
+            return cube;
+        }
+        
+        // 墨雲と四角を配置
+        const inkNebulas = [];
+        inkNebulas.push(createInkNebula(-30, 10, -20, 1.2));
+        inkNebulas.push(createInkNebula(25, -15, 15, 1.0));
+        inkNebulas.push(createInkNebula(-10, 20, 30, 1.5));
+        
+        const floatingSquares = [];
+        for (let i = 0; i < 8; i++) {
+            const angle = (i / 8) * Math.PI * 2;
+            const radius = 40 + Math.random() * 20;
+            const square = createFloatingSquare(
+                Math.cos(angle) * radius + (Math.random() - 0.5) * 20,
+                (Math.random() - 0.5) * 30,
+                Math.sin(angle) * radius + (Math.random() - 0.5) * 20
+            );
+            floatingSquares.push(square);
+        }
 
         // 光る苔を追加
         const moss = createMossGlow();
@@ -527,7 +533,30 @@
 
             const time = performance.now() * 0.001;
 
-            // 墨の濃淡は静的なので、アニメーションなし
+            // 墨雲のアニメーション
+            inkNebulas.forEach((nebula, index) => {
+                if (nebula.userData && nebula.userData.rotationSpeed) {
+                    // ゆっくり回転
+                    nebula.rotation.y += nebula.userData.rotationSpeed;
+                    nebula.rotation.z += nebula.userData.rotationSpeed * 0.5;
+                    
+                    // パルス（呼吸のような）
+                    const pulse = Math.sin(time * nebula.userData.pulseSpeed) * 0.1 + 1;
+                    nebula.scale.setScalar(pulse);
+                }
+            });
+            
+            // ふわふわ四角のアニメーション
+            floatingSquares.forEach(square => {
+                const userData = square.userData;
+                // 上下浮遊
+                square.position.y = userData.originalY + 
+                    Math.sin(time * userData.floatSpeed + userData.phase) * userData.floatAmplitude;
+                // 回転
+                square.rotation.x += userData.rotationSpeed;
+                square.rotation.y += userData.rotationSpeed * 0.7;
+                square.rotation.z += userData.rotationSpeed * 0.3;
+            });
 
             // 苔の光パルス
             if (moss.userData) {
