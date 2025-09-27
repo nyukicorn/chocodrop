@@ -77,14 +77,14 @@
             }
 
             const texture = new THREE.CanvasTexture(canvas);
-            const planeGeometry = new THREE.PlaneGeometry(50, 50);
+            const planeGeometry = new THREE.PlaneGeometry(100, 100);
             const planeMaterial = new THREE.MeshBasicMaterial({
                 map: texture,
                 side: THREE.DoubleSide
             });
 
             const plane = new THREE.Mesh(planeGeometry, planeMaterial);
-            plane.position.z = -10;
+            plane.position.z = -20; // もっと奥に配置
             scene.add(plane);
         }
 
@@ -290,6 +290,7 @@
                     camera: camera,
                     renderer: renderer,
                     serverUrl: null, // GitHub Pagesなので
+                    disableServerConnection: true, // API接続を無効化
                     sceneOptions: {
                         enableMouseInteraction: true
                     },
