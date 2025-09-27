@@ -288,12 +288,25 @@
         // シーン構築
         createMinimalBackground();
 
-        // 画面全体に墨の濃淡を広げる
-        function createFullScreenInk() {
-            // 大きな背景用のPlane
-            const inkGeometry = new THREE.PlaneGeometry(60, 40);
+        // 複数層の墨濃淡で立体感を演出
+        function createLayeredInk() {
+            // 手前層 (z=-5) - 薄い墨の流れ
+            const frontLayer = createInkLayer('front', -5, 50, 35);
+            scene.add(frontLayer);
             
-            // Canvas で画面全体の墨濃淡を作成
+            // 中間層 (z=-15) - メインの墨濃淡
+            const middleLayer = createInkLayer('middle', -15, 60, 40);
+            scene.add(middleLayer);
+            
+            // 奥層 (z=-25) - 背景の墨
+            const backLayer = createInkLayer('back', -25, 70, 45);
+            scene.add(backLayer);
+        }
+        
+        function createInkLayer(type, zPosition, width, height) {
+            const inkGeometry = new THREE.PlaneGeometry(width, height);
+            
+            // Canvas でレイヤー用の墨濃淡を作成
             const canvas = document.createElement('canvas');
             canvas.width = 1024;
             canvas.height = 768;
@@ -303,57 +316,128 @@
             ctx.fillStyle = 'white';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             
-            // 画面全体に墨の濃淡を描く
             ctx.strokeStyle = 'black';
             ctx.fillStyle = 'black';
             
-            // 大きな流れる線群
-            ctx.lineWidth = 3;
-            for (let i = 0; i < 50; i++) {
-                ctx.globalAlpha = Math.random() * 0.7 + 0.1;
-                ctx.beginPath();
-                ctx.moveTo(Math.random() * canvas.width, Math.random() * canvas.height);
-                ctx.bezierCurveTo(
-                    Math.random() * canvas.width, Math.random() * canvas.height,
-                    Math.random() * canvas.width, Math.random() * canvas.height,
-                    Math.random() * canvas.width, Math.random() * canvas.height
-                );
-                ctx.stroke();
-            }
-            
-            // 大きな濃い塊
-            for (let i = 0; i < 8; i++) {
-                ctx.globalAlpha = Math.random() * 0.6 + 0.2;
-                ctx.beginPath();
-                const centerX = Math.random() * canvas.width;
-                const centerY = Math.random() * canvas.height;
-                const size = 100 + Math.random() * 200;
-                
-                // 不規則な大きな塊
-                ctx.moveTo(centerX, centerY);
-                for (let j = 0; j < 10; j++) {
-                    const angle = (j / 10) * Math.PI * 2;
-                    const radius = size * (0.5 + Math.random() * 0.8);
-                    const x = centerX + Math.cos(angle) * radius;
-                    const y = centerY + Math.sin(angle) * radius;
-                    ctx.lineTo(x, y);
+            if (type === 'front') {
+                // 手前層：細い線と薄い要素
+                ctx.lineWidth = 1;
+                for (let i = 0; i < 30; i++) {
+                    ctx.globalAlpha = Math.random() * 0.3 + 0.1;
+                    ctx.beginPath();
+                    ctx.moveTo(Math.random() * canvas.width, Math.random() * canvas.height);
+                    ctx.bezierCurveTo(
+                        Math.random() * canvas.width, Math.random() * canvas.height,
+                        Math.random() * canvas.width, Math.random() * canvas.height,
+                        Math.random() * canvas.width, Math.random() * canvas.height
+                    );
+                    ctx.stroke();
                 }
-                ctx.closePath();
-                ctx.fill();
+                
+                // 小さな薄い塊
+                for (let i = 0; i < 3; i++) {
+                    ctx.globalAlpha = Math.random() * 0.2 + 0.1;
+                    ctx.beginPath();
+                    const centerX = Math.random() * canvas.width;
+                    const centerY = Math.random() * canvas.height;
+                    const size = 50 + Math.random() * 100;
+                    
+                    ctx.moveTo(centerX, centerY);
+                    for (let j = 0; j < 8; j++) {
+                        const angle = (j / 8) * Math.PI * 2;
+                        const radius = size * (0.5 + Math.random() * 0.5);
+                        const x = centerX + Math.cos(angle) * radius;
+                        const y = centerY + Math.sin(angle) * radius;
+                        ctx.lineTo(x, y);
+                    }
+                    ctx.closePath();
+                    ctx.fill();
+                }
+                
+            } else if (type === 'middle') {
+                // 中間層：メインの墨濃淡（現在の実装）
+                ctx.lineWidth = 3;
+                for (let i = 0; i < 50; i++) {
+                    ctx.globalAlpha = Math.random() * 0.7 + 0.1;
+                    ctx.beginPath();
+                    ctx.moveTo(Math.random() * canvas.width, Math.random() * canvas.height);
+                    ctx.bezierCurveTo(
+                        Math.random() * canvas.width, Math.random() * canvas.height,
+                        Math.random() * canvas.width, Math.random() * canvas.height,
+                        Math.random() * canvas.width, Math.random() * canvas.height
+                    );
+                    ctx.stroke();
+                }
+                
+                for (let i = 0; i < 8; i++) {
+                    ctx.globalAlpha = Math.random() * 0.6 + 0.2;
+                    ctx.beginPath();
+                    const centerX = Math.random() * canvas.width;
+                    const centerY = Math.random() * canvas.height;
+                    const size = 100 + Math.random() * 200;
+                    
+                    ctx.moveTo(centerX, centerY);
+                    for (let j = 0; j < 10; j++) {
+                        const angle = (j / 10) * Math.PI * 2;
+                        const radius = size * (0.5 + Math.random() * 0.8);
+                        const x = centerX + Math.cos(angle) * radius;
+                        const y = centerY + Math.sin(angle) * radius;
+                        ctx.lineTo(x, y);
+                    }
+                    ctx.closePath();
+                    ctx.fill();
+                }
+                
+            } else if (type === 'back') {
+                // 奥層：大きくて薄い背景要素
+                ctx.lineWidth = 5;
+                for (let i = 0; i < 20; i++) {
+                    ctx.globalAlpha = Math.random() * 0.4 + 0.1;
+                    ctx.beginPath();
+                    ctx.moveTo(Math.random() * canvas.width, Math.random() * canvas.height);
+                    ctx.bezierCurveTo(
+                        Math.random() * canvas.width, Math.random() * canvas.height,
+                        Math.random() * canvas.width, Math.random() * canvas.height,
+                        Math.random() * canvas.width, Math.random() * canvas.height
+                    );
+                    ctx.stroke();
+                }
+                
+                // 大きな薄い塊
+                for (let i = 0; i < 4; i++) {
+                    ctx.globalAlpha = Math.random() * 0.3 + 0.1;
+                    ctx.beginPath();
+                    const centerX = Math.random() * canvas.width;
+                    const centerY = Math.random() * canvas.height;
+                    const size = 200 + Math.random() * 300;
+                    
+                    ctx.moveTo(centerX, centerY);
+                    for (let j = 0; j < 12; j++) {
+                        const angle = (j / 12) * Math.PI * 2;
+                        const radius = size * (0.4 + Math.random() * 0.6);
+                        const x = centerX + Math.cos(angle) * radius;
+                        const y = centerY + Math.sin(angle) * radius;
+                        ctx.lineTo(x, y);
+                    }
+                    ctx.closePath();
+                    ctx.fill();
+                }
             }
             
             const texture = new THREE.CanvasTexture(canvas);
             const material = new THREE.MeshBasicMaterial({
                 map: texture,
-                transparent: false
+                transparent: type === 'front' || type === 'back',
+                opacity: type === 'front' ? 0.7 : type === 'back' ? 0.5 : 1.0
             });
             
             const inkPlane = new THREE.Mesh(inkGeometry, material);
-            inkPlane.position.z = -15;
-            scene.add(inkPlane);
+            inkPlane.position.z = zPosition;
+            
+            return inkPlane;
         }
         
-        createFullScreenInk();
+        createLayeredInk();
 
         // 光る苔を追加
         const moss = createMossGlow();
