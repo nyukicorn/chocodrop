@@ -57,28 +57,42 @@
             // 透明背景
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // 墨のにじみ効果
-            ctx.shadowBlur = 8;
-            ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
-
-            // 筆文字風のフォント設定
-            ctx.font = 'bold 120px serif';
-            ctx.fillStyle = 'rgba(30, 30, 30, 0.8)';
+            // 墨絵風の漢字描画
+            ctx.font = 'bold 100px serif';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
 
-            // 筆のかすれ効果を演出
-            ctx.globalAlpha = 0.7 + Math.random() * 0.3;
-
-            // 漢字を描画
-            ctx.fillText(kanji, 128, 128);
+            // 濃い墨色
+            ctx.fillStyle = 'rgba(20, 20, 20, 0.9)';
+            
+            // 筆のかすれ効果を複数回重ねて描画
+            for (let i = 0; i < 3; i++) {
+                ctx.save();
+                
+                // わずかにずらして重ねる
+                ctx.translate(
+                    (Math.random() - 0.5) * 2,
+                    (Math.random() - 0.5) * 2
+                );
+                
+                // 透明度を変えて重ねる
+                ctx.globalAlpha = 0.3 + (i * 0.2);
+                
+                // 滲み効果
+                ctx.shadowBlur = 3 + i * 2;
+                ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+                
+                ctx.fillText(kanji, 128, 128);
+                ctx.restore();
+            }
 
             // テクスチャとスプライト作成
             const texture = new THREE.CanvasTexture(canvas);
             const spriteMaterial = new THREE.SpriteMaterial({
                 map: texture,
                 transparent: true,
-                opacity: 0.8
+                opacity: 0.95, // より濃く
+                alphaTest: 0.1 // 輪郭をクリアに
             });
 
             const sprite = new THREE.Sprite(spriteMaterial);
