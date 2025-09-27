@@ -3,9 +3,30 @@
 > **自然言語で3D空間にAIコンテンツをドロップ**  
 > あらゆる3D空間に、AIコンテンツをちょこんとドロップ
 
+## ⚡ クイックスタート（熟練者向け）
+
+```bash
+# HTML
+<script src="https://cdn.jsdelivr.net/npm/chocodrop@latest/dist/chocodrop.umd.min.js"></script>
+ChocoDrop.createChocoDrop(scene, { camera, renderer });
+
+# npm
+npm i chocodrop
+import { createChocoDrop } from 'chocodrop';
+createChocoDrop(scene, { camera, renderer });
+```
+
+**🎮 使い方:** `@`キー → 自然言語入力 → 完了  
+**📋 [サンプル](#完全なサンプル) | 📚 [API](#api-リファレンス) | 🔧 [DIY版](#ai自作版)**
+
+---
+
 **🌐 [ホームページ](https://nyukicorn.github.io/chocodrop/) | 🎮 [デモを試す](https://nyukicorn.github.io/chocodrop/examples/basic/index.html)**
 
 ---
+
+<details>
+<summary><b>🎯 初心者の方・詳しい説明が欲しい方はこちら</b></summary>
 
 ## ChocoDrop って何？
 
@@ -15,52 +36,72 @@
 // 自然言語で話しかけるだけ
 "猫の置物を右上に作って" → AIが猫を生成して右上に配置
 "桜を中央に配置" → 桜が瞬時に現れる
-"青いボールを大きくして" → 青いボールが拡大
+"大きくして" → 選択したオブジェクトが拡大（※要オブジェクト選択）
 ```
 
 **対応環境:** Three.js、React Three Fiber、A-Frame、Next.js、HTML
 
 ---
 
-## 🚀 始め方は簡単
+## 🎯 あなたはどのタイプ？まずはここをチェック！
 
-### 1. HTMLを使っている場合（分からない場合はこちらをお試しください）
-```bash
-git clone https://github.com/nyukicorn/chocodrop.git
-```
+### 🤔 Step1: あなたの環境は？
 
+**迷ったらここから！**
+- 📄 **HTML/CSS/JSファイルを直接書いている** → HTML環境
+- 📦 **React/Vue/Next.js/Viteを使っている** → npm環境  
+- 🤷‍♀️ **よくわからない** → HTML環境から始めてください
+
+### 🎮 Step2: あなたの使い方は？
+
+- 🚀 **とりあえず動かしたい！** → お手軽パッケージ版
+- 🔧 **仕組みを理解して自分好みにカスタマイズしたい** → AIと一緒に自作版
+- 📚 **勉強しながら進めたい** → AIと一緒に自作版がおすすめ
+
+---
+
+## 🛠️ あなたにピッタリの導入方法
+
+### 🚀 お手軽パッケージ版「すぐ使いたい！」
+
+#### 📄 HTML環境の人
 ```html
+<!-- この2行をHTMLに追加するだけ！ -->
 <script src="https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.min.js"></script>
-<script src="./chocodrop/dist/chocodrop.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chocodrop@latest/dist/chocodrop.umd.min.js"></script>
 <script>
-  // あなたの既存のThree.jsシーン
-  const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(/* ... */);
-  const renderer = new THREE.WebGLRenderer();
-
-  // ChocoDrop追加（1行だけ！）
   ChocoDrop.createChocoDrop(scene, { camera, renderer });
 </script>
 ```
 
-### 2. npm/Vite/Reactを使っている場合
+#### 📦 npm環境の人
 ```bash
 npm install chocodrop
 ```
-
 ```javascript
 import { createChocoDrop } from 'chocodrop';
-
-// あなたの既存のThree.jsシーン
-const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(/* ... */);
-const renderer = new THREE.WebGLRenderer();
-
-// ChocoDrop追加（1行だけ！）
 createChocoDrop(scene, { camera, renderer });
 ```
 
-**それだけ！** 3D空間に向かって自然に話しかけるだけで、AIで画像や動画を生成して「ちょこっと」配置、インポートして「ちょこんと」設置できます。
+### 🔧 AIと一緒に自作版「理解しながら作りたい！」
+
+#### 📄 HTML環境の人
+**「Three.jsって何？」レベルから始めたい**
+- 🎓 [超初心者向けガイド](./docs/beginner-html.md) - Three.jsの基本から
+- 🔧 [HTMLでDIY](./docs/diy-html.md) - ChocoDrop の仕組みを理解
+
+#### 📦 npm環境の人  
+**モジュール構成を理解したい**
+- 🎓 [モジュール基礎](./docs/beginner-npm.md) - import/export の基本
+- 🔧 [npmでDIY](./docs/diy-npm.md) - 一緒にコードを書いて理解
+
+---
+
+## 🆘 困ったときは
+
+- **「動かない！」** → [トラブルシューティング](./docs/troubleshooting.md)
+- **「このボタン何？」** → [UI操作ガイド](./docs/ui-guide.md)  
+- **「もっとカスタマイズしたい」** → [拡張ガイド](./docs/advanced.md)
 
 ---
 
@@ -246,7 +287,7 @@ export default App;
 "右上にドラゴンを追加"                 // → AIがドラゴンを生成＋右上配置
 "中央に桜を配置"                      // → 桜が中央に現れる
 "それを大きくして"                    // → 選択オブジェクトを拡大
-"全部削除"                          // → 全コンテンツを消去
+Clear Allボタン                      // → 全コンテンツを消去
 ```
 
 ---
@@ -471,7 +512,9 @@ npm start
 
 ---
 
+</details>
 
+---
 
 ## 📄 License
 
