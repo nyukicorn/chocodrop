@@ -108,12 +108,11 @@
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         document.body.appendChild(renderer.domElement);
 
-        // 🎨 ミニマルな白い空間
+        // 🎨 シンプルな白い空間（霧なし）
         function createMinimalBackground() {
-            // シンプルな白い背景色
+            // シンプルな白い背景色のみ
             scene.background = new THREE.Color(0xfafafa);
-            // 霧効果で奥行き感
-            scene.fog = new THREE.Fog(0xfafafa, 30, 100);
+            // 霧は削除（墨雲が見えなくなるため）
         }
 
         // 🖌️ シンプルな墨風スプライト作成
