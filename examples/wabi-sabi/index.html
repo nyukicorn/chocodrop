@@ -9,7 +9,7 @@
             margin: 0;
             overflow: hidden;
             font-family: 'Yu Gothic', 'Hiragino Sans', sans-serif;
-            background: #f5f2e8; /* 和紙のような色 */
+            background: #fafafa; /* ミニマルな白 */
         }
         canvas {
             display: block;
@@ -39,53 +39,12 @@
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         document.body.appendChild(renderer.domElement);
 
-        // 🎨 和紙のような背景
-        function createWashiBackground() {
-            // 和紙テクスチャを生成
-            const canvas = document.createElement('canvas');
-            canvas.width = 512;
-            canvas.height = 512;
-            const ctx = canvas.getContext('2d');
-
-            // ベースの和紙色
-            ctx.fillStyle = '#f5f2e8';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            // 繊維のような模様を追加
-            for (let i = 0; i < 100; i++) {
-                ctx.strokeStyle = `rgba(220, 210, 190, ${Math.random() * 0.1})`;
-                ctx.lineWidth = Math.random() * 2;
-                ctx.beginPath();
-                ctx.moveTo(Math.random() * canvas.width, Math.random() * canvas.height);
-                ctx.lineTo(
-                    Math.random() * canvas.width,
-                    Math.random() * canvas.height
-                );
-                ctx.stroke();
-            }
-
-            // 微妙な染みを追加
-            for (let i = 0; i < 20; i++) {
-                const x = Math.random() * canvas.width;
-                const y = Math.random() * canvas.height;
-                const radius = Math.random() * 30 + 10;
-                const gradient = ctx.createRadialGradient(x, y, 0, x, y, radius);
-                gradient.addColorStop(0, `rgba(200, 190, 170, ${Math.random() * 0.05})`);
-                gradient.addColorStop(1, 'rgba(200, 190, 170, 0)');
-                ctx.fillStyle = gradient;
-                ctx.fillRect(x - radius, y - radius, radius * 2, radius * 2);
-            }
-
-            const texture = new THREE.CanvasTexture(canvas);
-            const planeGeometry = new THREE.PlaneGeometry(100, 100);
-            const planeMaterial = new THREE.MeshBasicMaterial({
-                map: texture,
-                side: THREE.DoubleSide
-            });
-
-            const plane = new THREE.Mesh(planeGeometry, planeMaterial);
-            plane.position.z = -20; // もっと奥に配置
-            scene.add(plane);
+        // 🎨 ミニマルな白い空間
+        function createMinimalBackground() {
+            // シンプルな白い背景色
+            scene.background = new THREE.Color(0xfafafa);
+            // 霧効果で奥行き感
+            scene.fog = new THREE.Fog(0xfafafa, 30, 100);
         }
 
         // 🖌️ 墨の漢字スプライト作成
@@ -235,7 +194,7 @@
         }
 
         // シーン構築
-        createWashiBackground();
+        createMinimalBackground();
 
         // 墨の漢字を配置
         const kanjiList = ['静', '風', '花', '月', '和', '夢', '雪'];
@@ -262,11 +221,11 @@
         const mapleLeaves = createMapleLeaf();
         scene.add(mapleLeaves);
 
-        // ライティング
-        const ambientLight = new THREE.AmbientLight(0xf5f2e8, 0.8);
+        // ライティング（ミニマル調整）
+        const ambientLight = new THREE.AmbientLight(0xffffff, 1.0);
         scene.add(ambientLight);
 
-        const spotLight = new THREE.SpotLight(0xffffff, 0.3);
+        const spotLight = new THREE.SpotLight(0xffffff, 0.2);
         spotLight.position.set(0, 20, 10);
         scene.add(spotLight);
 
