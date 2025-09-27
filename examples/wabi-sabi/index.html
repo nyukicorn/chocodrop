@@ -73,15 +73,15 @@
             border-color: rgba(30, 30, 30, 0.8) !important;
         }
         
-        /* 🖤 墨モード - 全体に適用 */
-        canvas, .chocodrop-media, img, video {
-            mix-blend-mode: multiply !important;
-            filter: contrast(1.5) saturate(0) !important;
-        }
-        
-        /* Three.js キャンバスは背景を白に */
+        /* 🖤 墨モード - より繊細に調整 */
         canvas {
-            background: white !important;
+            /* mix-blend-modeを削除してThree.jsの描画を正常に */
+            background: transparent !important;
+        }
+
+        .chocodrop-media, img, video {
+            mix-blend-mode: multiply !important;
+            filter: contrast(1.2) saturate(0) !important;
         }
     </style>
 </head>
@@ -98,9 +98,10 @@
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
         const renderer = new THREE.WebGLRenderer({
             antialias: true,
-            alpha: true,
+            alpha: false,  // 透明背景を無効化
             powerPreference: "default"
         });
+        renderer.setClearColor(0xfafafa, 1);  // 明確に背景色を設定
 
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -405,14 +406,14 @@
                 context.fillStyle = 'white';
                 context.fillRect(0, 0, size, size);
                 
-                // 墨のグラデーション（中心が濃い）
+                // 墨のグラデーション（より薄く、自然に）
                 const gradient = context.createRadialGradient(
                     size/2, size/2, 0,
                     size/2, size/2, size/2
                 );
-                gradient.addColorStop(0, 'rgba(0,0,0,0.8)');
-                gradient.addColorStop(0.3, 'rgba(0,0,0,0.4)');
-                gradient.addColorStop(0.7, 'rgba(0,0,0,0.1)');
+                gradient.addColorStop(0, 'rgba(0,0,0,0.3)');
+                gradient.addColorStop(0.3, 'rgba(0,0,0,0.2)');
+                gradient.addColorStop(0.7, 'rgba(0,0,0,0.05)');
                 gradient.addColorStop(1, 'rgba(0,0,0,0)');
                 
                 context.fillStyle = gradient;
@@ -447,9 +448,10 @@
                         map: inkTexture,
                         color: new THREE.Color(0x000000),
                         transparent: true,
-                        opacity: (0.4 - layer * 0.1) * intensity,
-                        blending: THREE.MultiplyBlending,
-                        depthWrite: false
+                        opacity: (0.3 - layer * 0.05) * intensity,  // 透明度を上げる
+                        blending: THREE.NormalBlending,  // 通常ブレンディングに変更
+                        depthWrite: false,
+                        depthTest: true  // 深度テストは有効
                     });
                     
                     const sprite = new THREE.Sprite(spriteMaterial);
@@ -465,8 +467,8 @@
                         Math.sin(angle) * radius + (Math.random() - 0.5) * 10
                     );
                     
-                    // サイズをランダムに
-                    const scale = (25 + Math.random() * 35) * (1 + layer * 0.2);
+                    // サイズを控えめに調整
+                    const scale = (8 + Math.random() * 12) * (1 + layer * 0.2);
                     sprite.scale.set(scale, scale, scale);
                     
                     // 回転
@@ -483,12 +485,14 @@
                 map: inkTexture,
                 color: new THREE.Color(0x000000),
                 transparent: true,
-                opacity: 0.6 * intensity,
-                blending: THREE.MultiplyBlending
+                opacity: 0.4 * intensity,
+                blending: THREE.MultiplyBlending,
+                depthWrite: false,
+                depthTest: false  // 深度テストを無効化して常に表示
             });
-            
+
             const coreSprite = new THREE.Sprite(coreMaterial);
-            coreSprite.scale.set(35, 35, 35);
+            coreSprite.scale.set(15, 15, 15);  // サイズを小さく
             nebulaGroup.add(coreSprite);
             
             nebulaGroup.position.set(x, y, z);
@@ -668,11 +672,11 @@
             return drop;
         }
         
-        // 墨雲と四角を配置
+        // 墨雲と四角を配置（位置と強度を調整）
         const inkNebulas = [];
-        inkNebulas.push(createInkNebula(-30, 10, -20, 1.2));
-        inkNebulas.push(createInkNebula(25, -15, 15, 1.0));
-        inkNebulas.push(createInkNebula(-10, 20, 30, 1.5));
+        inkNebulas.push(createInkNebula(-40, 15, -30, 0.8));  // より遠くに、強度を下げる
+        inkNebulas.push(createInkNebula(35, -10, -25, 0.7));
+        inkNebulas.push(createInkNebula(-15, 25, 40, 0.9));  // より後ろに配置
 
         const floatingSquares = [];
         for (let i = 0; i < 8; i++) {
