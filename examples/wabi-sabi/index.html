@@ -288,22 +288,72 @@
         // シーン構築
         createMinimalBackground();
 
-        // 墨の流れと塊を配置
-        const inkElements = ['flow1', 'flow2', 'blob1', 'blob2', 'flow3', 'blob3'];
-        const inkSprites = [];
-
-        inkElements.forEach((element, index) => {
-            const angle = (index / inkElements.length) * Math.PI * 2;
-            const radius = 10;
-            const sprite = createSimpleInk(
-                element,
-                Math.cos(angle) * radius,
-                (Math.random() - 0.5) * 5,
-                Math.sin(angle) * radius
-            );
-            inkSprites.push(sprite);
-            scene.add(sprite);
-        });
+        // 画面全体に墨の濃淡を広げる
+        function createFullScreenInk() {
+            // 大きな背景用のPlane
+            const inkGeometry = new THREE.PlaneGeometry(60, 40);
+            
+            // Canvas で画面全体の墨濃淡を作成
+            const canvas = document.createElement('canvas');
+            canvas.width = 1024;
+            canvas.height = 768;
+            const ctx = canvas.getContext('2d');
+            
+            // 白背景
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // 画面全体に墨の濃淡を描く
+            ctx.strokeStyle = 'black';
+            ctx.fillStyle = 'black';
+            
+            // 大きな流れる線群
+            ctx.lineWidth = 3;
+            for (let i = 0; i < 50; i++) {
+                ctx.globalAlpha = Math.random() * 0.7 + 0.1;
+                ctx.beginPath();
+                ctx.moveTo(Math.random() * canvas.width, Math.random() * canvas.height);
+                ctx.bezierCurveTo(
+                    Math.random() * canvas.width, Math.random() * canvas.height,
+                    Math.random() * canvas.width, Math.random() * canvas.height,
+                    Math.random() * canvas.width, Math.random() * canvas.height
+                );
+                ctx.stroke();
+            }
+            
+            // 大きな濃い塊
+            for (let i = 0; i < 8; i++) {
+                ctx.globalAlpha = Math.random() * 0.6 + 0.2;
+                ctx.beginPath();
+                const centerX = Math.random() * canvas.width;
+                const centerY = Math.random() * canvas.height;
+                const size = 100 + Math.random() * 200;
+                
+                // 不規則な大きな塊
+                ctx.moveTo(centerX, centerY);
+                for (let j = 0; j < 10; j++) {
+                    const angle = (j / 10) * Math.PI * 2;
+                    const radius = size * (0.5 + Math.random() * 0.8);
+                    const x = centerX + Math.cos(angle) * radius;
+                    const y = centerY + Math.sin(angle) * radius;
+                    ctx.lineTo(x, y);
+                }
+                ctx.closePath();
+                ctx.fill();
+            }
+            
+            const texture = new THREE.CanvasTexture(canvas);
+            const material = new THREE.MeshBasicMaterial({
+                map: texture,
+                transparent: false
+            });
+            
+            const inkPlane = new THREE.Mesh(inkGeometry, material);
+            inkPlane.position.z = -15;
+            scene.add(inkPlane);
+        }
+        
+        createFullScreenInk();
 
         // 光る苔を追加
         const moss = createMossGlow();
@@ -393,13 +443,7 @@
 
             const time = performance.now() * 0.001;
 
-            // 墨絵の浮遊アニメーション
-            inkSprites.forEach(sprite => {
-                const userData = sprite.userData;
-                sprite.position.y = userData.originalY +
-                    Math.sin(time * userData.floatSpeed + userData.phase) * userData.floatAmplitude;
-                sprite.rotation.z += userData.rotationSpeed;
-            });
+            // 墨の濃淡は静的なので、アニメーションなし
 
             // 苔の光パルス
             if (moss.userData) {
