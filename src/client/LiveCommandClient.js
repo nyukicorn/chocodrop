@@ -228,13 +228,48 @@ export class ChocoDropClient {
   }
 
   /**
+   * 選択されたオブジェクトを変更
+   */
+  async modifySelectedObject(selectedObject, command) {
+    await this.ensureInitialized();
+    console.log(`🔧 Modifying selected object: "${command}"`);
+
+    try {
+      // 既存の /api/command エンドポイントを使用
+      // オブジェクト情報をコマンドのコンテキストとして含める
+      const modifyCommand = `${command} (対象オブジェクト: ${selectedObject?.userData?.objectId || selectedObject?.id || 'unknown'})`;
+
+      const response = await fetch(`${this.serverUrl}/api/command`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ command: modifyCommand })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Server error: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log('✅ Object modification result:', result);
+
+      return result;
+
+    } catch (error) {
+      console.error('❌ Object modification failed:', error);
+      throw error;
+    }
+  }
+
+  /**
    * 利用可能なサービス一覧取得
    */
   async getAvailableServices() {
     await this.ensureInitialized();
     try {
       const response = await fetch(`${this.serverUrl}/api/services`);
-      
+
       if (!response.ok) {
         throw new Error(`Server error: ${response.status}`);
       }

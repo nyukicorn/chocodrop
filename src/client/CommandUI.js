@@ -3434,6 +3434,11 @@ export class CommandUI {
         throw new Error('SceneManager または Client が設定されていません');
       }
 
+      // サーバーからのエラーレスポンスをチェック
+      if (result && result.success === false) {
+        throw new Error(result.error || '操作に失敗しました');
+      }
+
       if (result && result.taskId) {
         this.connectToProgress(result.taskId, taskId);
         this.currentTaskId = result.taskId;

@@ -156,18 +156,13 @@
                 <span>墨で描く</span>
             </div>
             <div class="control-item">
-                <span class="key">Shift + クリック</span>
-                <span>石を配置</span>
-            </div>
-            <div class="control-item">
-                <span class="key">Ctrl/Cmd + クリック</span>
-                <span>竹を配置</span>
-            </div>
-            <div class="control-item">
                 <span class="key">マウスドラッグ</span>
                 <span>視点移動</span>
             </div>
         </div>
+        <br>
+        💡 ヒント: コンテンツをインポートして<br>
+        「モノクロに変換して」と言ってみて！
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -945,66 +940,7 @@
             currentStroke = null;
         });
 
-        // 🖱️ インタラクティブ機能：クリックで石を配置
-        const raycaster = new THREE.Raycaster();
-        const mouse = new THREE.Vector2();
-
-        function onMouseClick(event) {
-            // マウス位置を正規化
-            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-
-            raycaster.setFromCamera(mouse, camera);
-
-            // 地面との交点を計算
-            const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 10);
-            const intersection = new THREE.Vector3();
-            raycaster.ray.intersectPlane(groundPlane, intersection);
-
-            if (intersection) {
-                // Shiftキーが押されていたら石を配置
-                if (event.shiftKey) {
-                    const scale = 0.5 + Math.random() * 0.5;
-                    const { stone, ripples } = createZenStone(
-                        intersection.x,
-                        -8,
-                        intersection.z,
-                        scale
-                    );
-                    scene.add(stone);
-                    scene.add(ripples);
-                    stones.push({ stone, ripples });
-
-                    // 配置アニメーション
-                    stone.scale.set(0, 0, 0);
-                    const growAnimation = setInterval(() => {
-                        stone.scale.x = Math.min(stone.scale.x + 0.1, scale);
-                        stone.scale.y = Math.min(stone.scale.y + 0.1, scale);
-                        stone.scale.z = Math.min(stone.scale.z + 0.1, scale);
-                        if (stone.scale.x >= scale) {
-                            clearInterval(growAnimation);
-                        }
-                    }, 16);
-                }
-                // Ctrlキーが押されていたら竹を配置
-                else if (event.ctrlKey || event.metaKey) {
-                    const bamboo = createBamboo(intersection.x, intersection.z);
-                    scene.add(bamboo);
-                    bamboos.push(bamboo);
-
-                    // 成長アニメーション
-                    bamboo.scale.y = 0;
-                    const growBamboo = setInterval(() => {
-                        bamboo.scale.y = Math.min(bamboo.scale.y + 0.05, 1);
-                        if (bamboo.scale.y >= 1) {
-                            clearInterval(growBamboo);
-                        }
-                    }, 16);
-                }
-            }
-        }
-
-        window.addEventListener('click', onMouseClick);
+        // ユーザーのクリック機能は削除（Alt+ドラッグの墨絵描画のみ）
 
         // 🍫 ChocoDrop初期化
         let chocoDrop;

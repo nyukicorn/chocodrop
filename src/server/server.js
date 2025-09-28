@@ -355,17 +355,33 @@ class ChocoDropServer {
               service: parsed.service || selectedModel.id,
               taskId: taskId
             });
-            
+
             // 3D配置情報を追加
             result.position = parsed.position;
             result.size = parsed.size;
             result.prompt = parsed.prompt;
             break;
-            
+
+          case 'modify':
+            // オブジェクト変更コマンド - 現在は画像再生成で対応
+            const modifyModel = selectModelFromCommand(command);
+            result = await this.mcpClient.generate(parsed.prompt, {
+              type: 'image',
+              width: 512,
+              height: 512,
+              service: modifyModel.id,
+              taskId: taskId
+            });
+
+            result.isModification = true;
+            result.originalCommand = command;
+            result.prompt = parsed.prompt;
+            break;
+
           default:
             result = {
               success: false,
-              error: `未対応のコマンドタイプ: ${parsed.type}`
+              error: `未対応のコマンドタイプ: ${parsed.type}。サポートされているコマンド: 画像生成、オブジェクト変更`
             };
         }
 
@@ -417,11 +433,14 @@ class ChocoDropServer {
     }
     
     // オブジェクト変更コマンド（既存オブジェクトの変更のみ）
-    if ((cmd.includes('色') || cmd.includes('大きさ') || cmd.includes('位置')) && 
-        !cmd.includes('ユニコーン') && !cmd.includes('猫') && !cmd.includes('犬') && 
+    if ((cmd.includes('色') || cmd.includes('大きさ') || cmd.includes('位置') ||
+         cmd.includes('モノクロ') || cmd.includes('白黒') || cmd.includes('グレー') ||
+         cmd.includes('変更') || cmd.includes('変える')) &&
+        !cmd.includes('ユニコーン') && !cmd.includes('猫') && !cmd.includes('犬') &&
         !cmd.includes('ドラゴン') && !cmd.includes('龍') && !cmd.includes('花')) {
       return {
-        type: 'object_modification',
+        type: 'modify',
+        prompt: command,
         command: command
       };
     }
