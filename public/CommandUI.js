@@ -32,6 +32,7 @@ export class CommandUI {
       showExamples: options.showExamples !== false,
       autoScroll: options.autoScroll !== false,
       enableDebugLogging: options.enableDebugLogging === true,
+      skipServiceDialog: options.skipServiceDialog !== false,  // デフォルトで非表示（明示的にfalseの場合のみ表示）
       ...options.config
     };
 
@@ -110,7 +111,8 @@ export class CommandUI {
 
     this.logDebug('🎮 CommandUI initialized');
 
-    if (!this.selectedImageService || !this.selectedVideoService) {
+    // GitHub Pages等でサービス設定を不要にする場合はスキップ
+    if (!this.config.skipServiceDialog && (!this.selectedImageService || !this.selectedVideoService)) {
       this.openServiceModal(true);
     }
   }
@@ -760,7 +762,7 @@ export class CommandUI {
       this.setServiceButtonsEnabled(true);
     } catch (error) {
       console.error('❌ Failed to initialize service selector:', error);
-      this.setServiceSelectorStatus('サービス情報を取得できませんでした。サーバーが起動しているか確認のうえ、再読み込みしてください。', 'error');
+      this.setServiceSelectorStatus('MCP設定が必要です。config.jsonでMCPサービスを設定してください。3000番以外のポートを使用している場合は、サーバーのCORS設定も確認してください。詳細はREADMEをご確認ください。', 'error');
       this.toggleServiceRetryButton(true);
       this.setServiceButtonsEnabled(false);
     } finally {
@@ -2632,7 +2634,7 @@ export class CommandUI {
     const placeholders = {
       generate: '「猫の画像を作って」と話しかけて ⏎ ✨',
       import: 'ファイルを選択して ⏎ 📁',
-      modify: '選択後「ピンクに変更」と伝えて ⏎ ✏️',
+      modify: '選択後「背景の緑色を透明にして」と伝えて ⏎ ✏️',
       delete: '選択後、コマンドをそのまま送って ⏎ 🗑️'
     };
     return placeholders[mode] || placeholders.generate;
@@ -3432,6 +3434,11 @@ export class CommandUI {
         }
       } else {
         throw new Error('SceneManager または Client が設定されていません');
+      }
+
+      // サーバーからのエラーレスポンスをチェック
+      if (result && result.success === false) {
+        throw new Error(result.error || '操作に失敗しました');
       }
 
       if (result && result.taskId) {

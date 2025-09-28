@@ -7585,7 +7585,7 @@
       const placeholders = {
         generate: '「猫の画像を作って」と話しかけて ⏎ ✨',
         import: 'ファイルを選択して ⏎ 📁',
-        modify: '選択後「ピンクに変更」と伝えて ⏎ ✏️',
+        modify: '選択後「背景の緑色を透明にして」と伝えて ⏎ ✏️',
         delete: '選択後、コマンドをそのまま送って ⏎ 🗑️'
       };
       return placeholders[mode] || placeholders.generate;
@@ -11248,7 +11248,7 @@
         this.setServiceButtonsEnabled(true);
       } catch (error) {
         console.error('❌ Failed to initialize service selector:', error);
-        this.setServiceSelectorStatus('サービス情報を取得できませんでした。', 'error');
+        this.setServiceSelectorStatus('MCP設定が必要です。config.jsonでMCPサービスを設定してください。3000番以外のポートを使用している場合は、サーバーのCORS設定も確認してください。詳細はREADMEをご確認ください。', 'error');
         this.toggleServiceRetryButton(true);
         this.setServiceButtonsEnabled(false);
       } finally {
@@ -13058,7 +13058,7 @@
       const placeholders = {
         generate: '「猫の画像を作って」と話しかけて ⏎ ✨',
         import: 'ファイルを選択して ⏎ 📁',
-        modify: '選択後「ピンクに変更」と伝えて ⏎ ✏️',
+        modify: '選択後「背景の緑色を透明にして」と伝えて ⏎ ✏️',
         delete: '選択後、コマンドをそのまま送って ⏎ 🗑️'
       };
       return placeholders[mode] || placeholders.generate;
