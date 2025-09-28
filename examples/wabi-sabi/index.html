@@ -133,15 +133,19 @@
             border-color: rgba(30, 30, 30, 0.8) !important;
         }
         
-        /* 🖤 墨モード - より繊細に調整 */
+        /* 🖤 墨モード - デフォルトはカラー表示 */
         canvas {
             /* mix-blend-modeを削除してThree.jsの描画を正常に */
             background: transparent !important;
         }
 
-        .chocodrop-media, img, video {
+        /* モノクロ変換用のクラス（ユーザーが要求した時のみ適用） */
+        .ink-mode .chocodrop-media,
+        .ink-mode img,
+        .ink-mode video {
             mix-blend-mode: multiply !important;
             filter: contrast(1.2) saturate(0) !important;
+            transition: filter 1s ease-in-out;
         }
     </style>
 </head>
@@ -149,12 +153,8 @@
     <div id="info">
         <strong>🖤 侘び寂び - Wabi-Sabi</strong>
         墨絵の世界へようこそ<br>
-        <code>@</code>キーで ChocoDrop を起動
+        <code>@</code>キーまたは右下の🍫マークから ChocoDrop を起動
         <div class="controls">
-            <div class="control-item">
-                <span class="key">Alt + ドラッグ</span>
-                <span>墨で描く</span>
-            </div>
             <div class="control-item">
                 <span class="key">マウスドラッグ</span>
                 <span>視点移動</span>
@@ -843,102 +843,7 @@
         controls.minDistance = 10;
         controls.maxDistance = 50;
 
-        // 🖌️ インタラクティブ筆ストローク機能
-        const brushStrokes = [];
-        let isDrawing = false;
-        let currentStroke = null;
-        const MAX_STROKES = 20; // 最大ストローク数
-
-        // 筆のストロークを作成
-        function createBrushStroke(points) {
-            const curve = new THREE.CatmullRomCurve3(points);
-            const strokePoints = curve.getPoints(50);
-
-            const geometry = new THREE.BufferGeometry().setFromPoints(strokePoints);
-
-            // 墨の濃淡を表現
-            const colors = [];
-            for (let i = 0; i < strokePoints.length; i++) {
-                const intensity = 0.2 + Math.random() * 0.3;
-                colors.push(intensity, intensity, intensity);
-            }
-            geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-
-            const material = new THREE.LineBasicMaterial({
-                vertexColors: true,
-                linewidth: 3,
-                transparent: true,
-                opacity: 0.8,
-                blending: THREE.MultiplyBlending
-            });
-
-            const stroke = new THREE.Line(geometry, material);
-
-            // 筆圧の変化を表現するための球体を追加
-            for (let i = 0; i < strokePoints.length; i += 5) {
-                const dotGeometry = new THREE.SphereGeometry(Math.random() * 0.3 + 0.1, 4, 4);
-                const dotMaterial = new THREE.MeshBasicMaterial({
-                    color: 0x000000,
-                    transparent: true,
-                    opacity: Math.random() * 0.5 + 0.3
-                });
-                const dot = new THREE.Mesh(dotGeometry, dotMaterial);
-                dot.position.copy(strokePoints[i]);
-                stroke.add(dot);
-            }
-
-            // フェードアウトアニメーション用
-            stroke.userData = {
-                age: 0,
-                maxAge: 300 + Math.random() * 200
-            };
-
-            return stroke;
-        }
-
-        // マウスイベント
-        window.addEventListener('mousedown', (event) => {
-            if (event.altKey) {
-                isDrawing = true;
-                currentStroke = [];
-            }
-        });
-
-        window.addEventListener('mousemove', (event) => {
-            if (isDrawing && currentStroke) {
-                const mouse = new THREE.Vector2(
-                    (event.clientX / window.innerWidth) * 2 - 1,
-                    -(event.clientY / window.innerHeight) * 2 + 1
-                );
-
-                const raycaster = new THREE.Raycaster();
-                raycaster.setFromCamera(mouse, camera);
-
-                const distance = 20;
-                const point = new THREE.Vector3();
-                point.copy(raycaster.ray.direction);
-                point.multiplyScalar(distance);
-                point.add(raycaster.ray.origin);
-
-                currentStroke.push(point);
-            }
-        });
-
-        window.addEventListener('mouseup', () => {
-            if (isDrawing && currentStroke && currentStroke.length > 2) {
-                const stroke = createBrushStroke(currentStroke);
-                scene.add(stroke);
-                brushStrokes.push(stroke);
-
-                // 古いストロークを削除
-                if (brushStrokes.length > MAX_STROKES) {
-                    const oldStroke = brushStrokes.shift();
-                    scene.remove(oldStroke);
-                }
-            }
-            isDrawing = false;
-            currentStroke = null;
-        });
+        // 筆ストローク機能は削除（ChocoDrop専用空間）
 
         // ユーザーのクリック機能は削除（Alt+ドラッグの墨絵描画のみ）
 
@@ -1164,26 +1069,7 @@
                 }
             });
 
-            // 🖌️ 筆ストロークのフェードアウトアニメーション
-            brushStrokes.forEach((stroke, index) => {
-                if (stroke.userData) {
-                    stroke.userData.age++;
-                    const fadeRatio = 1 - (stroke.userData.age / stroke.userData.maxAge);
-
-                    if (fadeRatio <= 0) {
-                        scene.remove(stroke);
-                        brushStrokes.splice(index, 1);
-                    } else {
-                        stroke.material.opacity = fadeRatio * 0.8;
-                        // 子要素の球体もフェードアウト
-                        stroke.children.forEach(child => {
-                            if (child.material) {
-                                child.material.opacity = fadeRatio * 0.5;
-                            }
-                        });
-                    }
-                }
-            });
+            // 筆ストロークアニメーションは削除
 
             controls.update();
             renderer.render(scene, camera);
