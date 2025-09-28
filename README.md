@@ -204,7 +204,6 @@ Import Map機能は以下のブラウザで動作します：
 
 ### 💬 **サポート**
 - **詳細エラー** → エラー内容をコピーしてAIに相談
-- **機能質問** → [GitHub Issues](https://github.com/nyukicorn/chocodrop/issues)
 
 ---
 
@@ -657,6 +656,5 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 - **GitHub:** https://github.com/nyukicorn/chocodrop
 - **Examples:** [examples/](examples/)
-- **Issues:** [GitHub Issues](https://github.com/nyukicorn/chocodrop/issues)
 
 ---
