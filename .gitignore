@@ -53,6 +53,12 @@ temp/
 # Internal development docs
 docs/
 
+# Development and test files (should not be distributed)
+index.html
+test-*.html
+test-*.js
+wabi-sabi-*.html
+
 # Agent configuration (automatically generated)
 AGENTS.md
 
