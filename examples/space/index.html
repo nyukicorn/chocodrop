@@ -370,7 +370,28 @@
         scene.background = new THREE.Color(0x000510); // 深い宇宙の色
         scene.fog = new THREE.FogExp2(0x000510, 0.0008); // 遠くのオブジェクトをフェード
 
-        // 🌌 渦巻き銀河作成（美しいグラデーション付き）
+        // 🌌 円形パーティクル用のテクスチャ作成
+        function createCircleTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 64;
+            canvas.height = 64;
+            const context = canvas.getContext('2d');
+
+            // グラデーションで円形を描画
+            const gradient = context.createRadialGradient(32, 32, 0, 32, 32, 32);
+            gradient.addColorStop(0, 'rgba(255,255,255,1)');
+            gradient.addColorStop(0.2, 'rgba(255,255,255,1)');
+            gradient.addColorStop(0.4, 'rgba(255,255,255,0.8)');
+            gradient.addColorStop(0.7, 'rgba(255,255,255,0.4)');
+            gradient.addColorStop(1, 'rgba(255,255,255,0)');
+
+            context.fillStyle = gradient;
+            context.fillRect(0, 0, 64, 64);
+
+            return new THREE.CanvasTexture(canvas);
+        }
+
+        // 🌌 渦巻き銀河作成（美しいグラデーション付き円形パーティクル）
         function createGalaxy() {
             const parameters = {
                 count: 8000,  // 10000→8000に減らして適度な密度に
@@ -383,51 +404,56 @@
                 insideColor: 0xffa575,
                 outsideColor: 0x311599
             };
-            
+
             const geometry = new THREE.BufferGeometry();
             const positions = new Float32Array(parameters.count * 3);
             const colors = new Float32Array(parameters.count * 3);
             const sizes = new Float32Array(parameters.count);
-            
+
             const colorInside = new THREE.Color(parameters.insideColor);
             const colorOutside = new THREE.Color(parameters.outsideColor);
-            
+
             for (let i = 0; i < parameters.count; i++) {
                 const i3 = i * 3;
-                
+
                 // 位置計算
                 const radius = Math.random() * parameters.radius;
                 const spinAngle = radius * parameters.spin;
                 const branchAngle = (i % parameters.branches) / parameters.branches * Math.PI * 2;
-                
+
                 // ランダム性（中心から離れるほど強く）
-                const randomX = Math.pow(Math.random(), parameters.randomnessPower) * 
+                const randomX = Math.pow(Math.random(), parameters.randomnessPower) *
                                (Math.random() < 0.5 ? 1 : -1) * parameters.randomness * radius;
-                const randomY = Math.pow(Math.random(), parameters.randomnessPower) * 
+                const randomY = Math.pow(Math.random(), parameters.randomnessPower) *
                                (Math.random() < 0.5 ? 1 : -1) * parameters.randomness * radius * 0.5;
-                const randomZ = Math.pow(Math.random(), parameters.randomnessPower) * 
+                const randomZ = Math.pow(Math.random(), parameters.randomnessPower) *
                                (Math.random() < 0.5 ? 1 : -1) * parameters.randomness * radius;
-                
+
                 positions[i3] = Math.cos(branchAngle + spinAngle) * radius + randomX;
                 positions[i3 + 1] = randomY;
                 positions[i3 + 2] = Math.sin(branchAngle + spinAngle) * radius + randomZ;
-                
+
                 // 色のグラデーション（中心は明るく、外側は暗く）
                 const mixedColor = colorInside.clone();
                 mixedColor.lerp(colorOutside, radius / parameters.radius);
-                
+
                 colors[i3] = mixedColor.r;
                 colors[i3 + 1] = mixedColor.g;
                 colors[i3 + 2] = mixedColor.b;
-                
-                // サイズ（中心は大きく、より繊細に）
-                sizes[i] = Math.random() * 2 * (1 - radius / parameters.radius) + 0.3;
+
+                // ランダムサイズ（中心は大きく、外側は小さく、でもバラツキあり）
+                const baseSize = (1 - radius / parameters.radius) + 0.2;
+                const randomFactor = 0.3 + Math.random() * 1.7;  // 0.3～2.0倍のランダム
+                sizes[i] = baseSize * randomFactor;
             }
-            
+
             geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
             geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
             geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
-            
+
+            // 円形テクスチャを作成
+            const circleTexture = createCircleTexture();
+
             const material = new THREE.PointsMaterial({
                 size: 1.5,  // 2→1.5で繊細に
                 sizeAttenuation: true,
@@ -435,19 +461,20 @@
                 transparent: true,
                 opacity: 0.85,  // 0.9→0.85で優雅に
                 blending: THREE.AdditiveBlending,
-                depthWrite: false
+                depthWrite: false,
+                map: circleTexture  // 円形テクスチャを適用
             });
-            
+
             const galaxy = new THREE.Points(geometry, material);
             scene.add(galaxy);
-            
+
             // 動的回転設定
             galaxy.userData = {
                 rotationSpeed: 0.0002,  // 時計回りの基本速度
                 initialPositions: positions.slice(),  // 初期位置保存
                 time: 0
             };
-            
+
             return galaxy;
         }
 
