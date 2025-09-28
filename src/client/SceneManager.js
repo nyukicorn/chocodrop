@@ -1259,6 +1259,7 @@ export class SceneManager {
 
     // エフェクト解析の追加
     const effects = this.parseEffects(cmd);
+    console.log(`🔍 parseObjectModificationCommand - Effects found:`, effects);
     
     // サイズ変更の解析
     let scale = null;
@@ -1425,6 +1426,9 @@ export class SceneManager {
       if (cmd.includes(keyword)) {
         effects.push(effect);
         console.log(`🎭 Effect detected: ${keyword} -> ${effect.name}`);
+        if (keyword === 'キラキラ') {
+          console.log(`✨ SPARKLE EFFECT FOUND! cmd="${cmd}"`);
+        }
       }
     }
 
