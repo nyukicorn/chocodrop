@@ -1252,6 +1252,59 @@
             } else {
                 musicData.beatDetected = false;
             }
+
+            // 🎛️ リアルタイム音楽データ表示を更新
+            updateMusicDebugDisplay();
+        }
+
+        // 🎛️ 音楽データのリアルタイム表示
+        function updateMusicDebugDisplay() {
+            let debugPanel = document.getElementById('music-debug');
+            
+            if (!debugPanel) {
+                debugPanel = document.createElement('div');
+                debugPanel.id = 'music-debug';
+                debugPanel.style.cssText = `
+                    position: fixed;
+                    bottom: 20px;
+                    left: 20px;
+                    background: rgba(0, 0, 0, 0.8);
+                    color: #00ff88;
+                    padding: 10px;
+                    border-radius: 6px;
+                    font-family: 'Monaco', monospace;
+                    font-size: 10px;
+                    z-index: 100;
+                    min-width: 200px;
+                    backdrop-filter: blur(10px);
+                    border: 1px solid rgba(0, 255, 136, 0.3);
+                `;
+                document.body.appendChild(debugPanel);
+
+                // クリックで表示/非表示切り替え
+                debugPanel.addEventListener('click', () => {
+                    debugPanel.style.display = debugPanel.style.display === 'none' ? 'block' : 'none';
+                });
+            }
+
+            if (musicData.isPlaying) {
+                debugPanel.innerHTML = `
+                    <div style="color: #00ff88; font-weight: bold;">🎵 MUSIC ACTIVE</div>
+                    <div>Volume: ${'█'.repeat(Math.floor(musicData.volume * 20))} ${(musicData.volume * 100).toFixed(0)}%</div>
+                    <div>Bass:   ${'█'.repeat(Math.floor(musicData.bass * 20))} ${(musicData.bass * 100).toFixed(0)}%</div>
+                    <div>Mid:    ${'█'.repeat(Math.floor(musicData.mid * 20))} ${(musicData.mid * 100).toFixed(0)}%</div>
+                    <div>Treble: ${'█'.repeat(Math.floor(musicData.treble * 20))} ${(musicData.treble * 100).toFixed(0)}%</div>
+                    <div>BPM: ${musicData.bpm ? musicData.bpm.toFixed(0) : '--'}</div>
+                    <div>${musicData.beatDetected ? '🥁 BEAT!' : '⚪ ----'}</div>
+                    <div style="font-size: 8px; color: #666; margin-top: 5px;">Click to hide</div>
+                `;
+            } else {
+                debugPanel.innerHTML = `
+                    <div style="color: #ff6666;">🔇 NO MUSIC</div>
+                    <div style="font-size: 8px; color: #666;">Video with audio needed</div>
+                    <div style="font-size: 8px; color: #666; margin-top: 5px;">Click to hide</div>
+                `;
+            }
         }
 
         // ChocoDrop の動画要素を監視
@@ -1284,53 +1337,135 @@
         // 監視開始
         observeVideoElements();
 
-        // 🎵 Three.js Scene内のVideoTextureを監視して音声接続
+        // 🎵 強化されたVideoTexture音声接続システム
         function monitorVideoTextures() {
             let foundVideo = false;
+            let connectionAttempts = 0;
 
+            // Scene内のすべてのオブジェクトを詳細検査
             scene.traverse((child) => {
-                if (child.material && child.material.map && child.material.map.image) {
-                    const image = child.material.map.image;
-
-                    // HTMLVideoElementを発見
-                    if (image instanceof HTMLVideoElement && !image.audioConnected) {
-                        console.log('🎵 Found VideoTexture with HTMLVideoElement:', image);
-                        console.log('  - src:', image.src);
-                        console.log('  - readyState:', image.readyState);
-                        console.log('  - paused:', image.paused);
-
-                        // 音声接続を試みる
-                        image.addEventListener('play', () => {
-                            console.log('▶️ VideoTexture playing, connecting audio...');
-                            setupAudioAnalysis();
-                            connectVideoToAnalyser(image);
-                            image.audioConnected = true;
+                // VideoTexture検出（複数パターン対応）
+                if (child.material) {
+                    const materials = Array.isArray(child.material) ? child.material : [child.material];
+                    
+                    materials.forEach(material => {
+                        // map, emissiveMap, normalMapなど全テクスチャをチェック
+                        ['map', 'emissiveMap', 'normalMap', 'roughnessMap'].forEach(texType => {
+                            const texture = material[texType];
+                            if (texture && texture.image instanceof HTMLVideoElement) {
+                                const video = texture.image;
+                                
+                                if (!video.audioConnected) {
+                                    console.log(`🎵 Found VideoTexture (${texType}):`, video.src);
+                                    connectVideoWithRetry(video);
+                                    foundVideo = true;
+                                }
+                            }
                         });
+                    });
+                }
+            });
 
-                        // 既に再生中なら即接続
-                        if (!image.paused) {
-                            console.log('🎬 Video already playing, connecting now...');
-                            setupAudioAnalysis();
-                            connectVideoToAnalyser(image);
-                            image.audioConnected = true;
-                        }
-
-                        foundVideo = true;
-                    }
+            // DOM内のvideo要素も監視（ChocoDrop要素用）
+            document.querySelectorAll('video').forEach(video => {
+                if (!video.audioConnected && video.src) {
+                    console.log('🎵 Found DOM video element:', video.src);
+                    connectVideoWithRetry(video);
+                    foundVideo = true;
                 }
             });
 
             if (foundVideo) {
-                console.log('✅ VideoTexture found and processed');
-                window.videoTextureFound = true;
+                console.log('✅ VideoTexture detection completed');
             }
         }
 
-        // 1秒ごとに監視
-        setInterval(monitorVideoTextures, 1000);
+        // リトライ機能付き音声接続
+        function connectVideoWithRetry(video, retries = 3) {
+            const attemptConnection = () => {
+                try {
+                    if (video.paused) {
+                        // 再生待ち
+                        video.addEventListener('play', () => {
+                            console.log('▶️ Video started playing, connecting audio...');
+                            setupAudioAnalysis();
+                            connectVideoToAnalyser(video);
+                            video.audioConnected = true;
+                            showMusicStatus(true);
+                        }, { once: true });
+                    } else {
+                        // 既に再生中
+                        console.log('🎬 Video already playing, connecting now...');
+                        setupAudioAnalysis();
+                        connectVideoToAnalyser(video);
+                        video.audioConnected = true;
+                        showMusicStatus(true);
+                    }
 
-        // 初回実行
-        setTimeout(monitorVideoTextures, 2000);
+                    // 停止/一時停止の監視
+                    video.addEventListener('pause', () => {
+                        musicData.isPlaying = false;
+                        showMusicStatus(false);
+                    });
+
+                    video.addEventListener('ended', () => {
+                        musicData.isPlaying = false;
+                        showMusicStatus(false);
+                    });
+
+                } catch (error) {
+                    console.log(`音声接続エラー (残り${retries}回):`, error);
+                    if (retries > 0) {
+                        setTimeout(() => connectVideoWithRetry(video, retries - 1), 1000);
+                    }
+                }
+            };
+
+            attemptConnection();
+        }
+
+        // 音楽状況の可視化
+        function showMusicStatus(isConnected) {
+            // 既存のステータス表示を削除
+            const existingStatus = document.getElementById('music-status');
+            if (existingStatus) {
+                existingStatus.remove();
+            }
+
+            // 新しいステータス表示を作成
+            const statusDiv = document.createElement('div');
+            statusDiv.id = 'music-status';
+            statusDiv.style.cssText = `
+                position: fixed;
+                top: 80px;
+                left: 16px;
+                background: ${isConnected ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)'};
+                border: 1px solid ${isConnected ? 'rgba(34, 197, 94, 0.3)' : 'rgba(239, 68, 68, 0.3)'};
+                color: ${isConnected ? '#16a34a' : '#dc2626'};
+                padding: 6px 10px;
+                border-radius: 6px;
+                font-size: 11px;
+                z-index: 100;
+                backdrop-filter: blur(10px);
+                transition: all 0.3s ease;
+            `;
+            statusDiv.textContent = isConnected ? '🎵 音楽連動 ON' : '🔇 音楽未検出';
+            document.body.appendChild(statusDiv);
+
+            // 5秒後に自動で非表示
+            setTimeout(() => {
+                if (statusDiv.parentNode) {
+                    statusDiv.style.opacity = '0';
+                    setTimeout(() => statusDiv.remove(), 300);
+                }
+            }, 5000);
+        }
+
+        // より頻繁な監視（500ms間隔）
+        setInterval(monitorVideoTextures, 500);
+
+        // 初回実行を早める
+        setTimeout(monitorVideoTextures, 1000);
 
         // アニメーションループ
         function animate() {
