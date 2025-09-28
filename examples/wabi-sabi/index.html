@@ -1284,6 +1284,54 @@
         // 監視開始
         observeVideoElements();
 
+        // 🎵 Three.js Scene内のVideoTextureを監視して音声接続
+        function monitorVideoTextures() {
+            let foundVideo = false;
+
+            scene.traverse((child) => {
+                if (child.material && child.material.map && child.material.map.image) {
+                    const image = child.material.map.image;
+
+                    // HTMLVideoElementを発見
+                    if (image instanceof HTMLVideoElement && !image.audioConnected) {
+                        console.log('🎵 Found VideoTexture with HTMLVideoElement:', image);
+                        console.log('  - src:', image.src);
+                        console.log('  - readyState:', image.readyState);
+                        console.log('  - paused:', image.paused);
+
+                        // 音声接続を試みる
+                        image.addEventListener('play', () => {
+                            console.log('▶️ VideoTexture playing, connecting audio...');
+                            setupAudioAnalysis();
+                            connectVideoToAnalyser(image);
+                            image.audioConnected = true;
+                        });
+
+                        // 既に再生中なら即接続
+                        if (!image.paused) {
+                            console.log('🎬 Video already playing, connecting now...');
+                            setupAudioAnalysis();
+                            connectVideoToAnalyser(image);
+                            image.audioConnected = true;
+                        }
+
+                        foundVideo = true;
+                    }
+                }
+            });
+
+            if (foundVideo) {
+                console.log('✅ VideoTexture found and processed');
+                window.videoTextureFound = true;
+            }
+        }
+
+        // 1秒ごとに監視
+        setInterval(monitorVideoTextures, 1000);
+
+        // 初回実行
+        setTimeout(monitorVideoTextures, 2000);
+
         // アニメーションループ
         function animate() {
             requestAnimationFrame(animate);
