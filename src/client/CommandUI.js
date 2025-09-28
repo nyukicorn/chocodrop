@@ -3448,7 +3448,22 @@ export class CommandUI {
         }
         result = await this.handleImportCommand(command);
       } else if (this.sceneManager) {
-        result = await this.sceneManager.executeCommand(fullCommand);
+        // modifyモードの場合は選択されたオブジェクトに直接適用
+        if (this.currentMode === 'modify') {
+          const selectedObject = this.sceneManager?.selectedObject;
+          if (!selectedObject) {
+            this.addOutput('⚠️ 変更するオブジェクトが選択されていません。まず3Dシーン内のオブジェクトをクリックで選択してから、再度コマンドを実行してください。', 'system');
+            return;
+          }
+          // LiveCommandClientのmodifySelectedObjectを呼び出し
+          if (this.client && this.client.modifySelectedObject) {
+            result = await this.client.modifySelectedObject(selectedObject, command);
+          } else {
+            result = await this.sceneManager.executeCommand(fullCommand);
+          }
+        } else {
+          result = await this.sceneManager.executeCommand(fullCommand);
+        }
       } else if (this.client) {
         if (this.currentMode === 'generate') {
           if (commandType.mediaType === 'video') {

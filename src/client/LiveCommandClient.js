@@ -235,8 +235,65 @@ export class ChocoDropClient {
     console.log(`🔧 Modifying selected object: "${command}"`);
 
     try {
-      // 既存の /api/command エンドポイントを使用
-      // オブジェクト情報をコマンドのコンテキストとして含める
+      // SceneManagerの統合コマンド処理機能を使用
+      if (this.sceneManager) {
+        console.log('🎨 Using SceneManager integrated command processing');
+        
+        // SceneManagerのparseCommandでコマンドを解析
+        const parsed = this.sceneManager.parseCommand(command);
+        
+        if (parsed && (parsed.color !== null || (parsed.effects && parsed.effects.length > 0) || parsed.movement !== null)) {
+          // 選択されたオブジェクトに直接適用
+          let modified = false;
+          
+          // 色変更
+          if (parsed.color !== null && selectedObject.material) {
+            if (selectedObject.material.map) {
+              selectedObject.material.color.setHex(parsed.color);
+              selectedObject.material.needsUpdate = true;
+              console.log(`🎨 Texture color tint changed to: #${parsed.color.toString(16)}`);
+            } else {
+              selectedObject.material.color.setHex(parsed.color);
+              selectedObject.material.needsUpdate = true;
+              console.log(`🎨 Material color changed to: #${parsed.color.toString(16)}`);
+            }
+            modified = true;
+          }
+
+          // エフェクト適用
+          if (parsed.effects && parsed.effects.length > 0) {
+            const effectsApplied = this.sceneManager.applyEffects(selectedObject, parsed.effects);
+            if (effectsApplied) {
+              modified = true;
+            }
+          }
+          
+          // 位置移動
+          if (parsed.movement !== null) {
+            const currentPos = selectedObject.position;
+            const newPos = {
+              x: currentPos.x + parsed.movement.x,
+              y: currentPos.y + parsed.movement.y,
+              z: currentPos.z + parsed.movement.z
+            };
+            selectedObject.position.set(newPos.x, newPos.y, newPos.z);
+            console.log(`📍 Object moved to: (${newPos.x.toFixed(2)}, ${newPos.y.toFixed(2)}, ${newPos.z.toFixed(2)})`);
+            modified = true;
+          }
+          
+          if (modified) {
+            console.log('✅ Object modification applied successfully');
+            return {
+              success: true,
+              message: 'オブジェクトを変更しました',
+              isClientSideEffect: true
+            };
+          }
+        }
+      }
+
+      // SceneManagerで処理できない場合は、サーバー側で処理（画像再生成）
+      console.log('🔄 Falling back to server-side processing');
       const modifyCommand = `${command} (対象オブジェクト: ${selectedObject?.userData?.objectId || selectedObject?.id || 'unknown'})`;
 
       const response = await fetch(`${this.serverUrl}/api/command`, {
