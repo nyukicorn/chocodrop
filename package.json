@@ -1,7 +1,11 @@
 {
-  "name": "@chocodrop/core",
+  "name": "chocodrop",
   "version": "1.0.0",
   "description": "ChocoDrop: real-time AI image drops for 3D scenes via Model Context Protocol (MCP)",
+  "homepage": "https://nyukicorn.github.io/chocodrop/",
+  "bugs": {
+    "url": "https://github.com/nyukicorn/chocodrop/issues"
+  },
   "main": "src/index.js",
   "type": "module",
   "exports": {
@@ -36,7 +40,11 @@
     "chocodrop",
     "claude-code"
   ],
-  "author": "ChocoDrop Project",
+  "author": {
+    "name": "ChocoDrop Project",
+    "email": "chocodrop.dev@gmail.com",
+    "url": "https://nyukicorn.github.io/chocodrop/"
+  },
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -64,7 +72,12 @@
     "src/",
     "dist/",
     "examples/",
-    "public/",
-    "README.md"
-  ]
+    "README.md",
+    "LICENSE",
+    "CONTRIBUTING.md",
+    "SECURITY.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  }
 }

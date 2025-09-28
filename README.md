@@ -99,9 +99,10 @@ createChocoDrop(scene, { camera, renderer });
 
 ## 🆘 困ったときは
 
-- **「動かない！」** → [トラブルシューティング](./docs/troubleshooting.md)
+- **「動かない！」** → エラーカードにマウスホバーで詳細表示
 - **「このボタン何？」** → [UI操作ガイド](./docs/ui-guide.md)  
 - **「もっとカスタマイズしたい」** → [拡張ガイド](./docs/advanced.md)
+- **「エラーをAIに相談したい」** → エラー詳細をコピーしてAIに送信
 
 ---
 
