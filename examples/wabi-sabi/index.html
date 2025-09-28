@@ -1594,18 +1594,51 @@
                     userData.swayAmplitude * 0.5 * beatBoost;
             });
 
-            // 🪨 砂紋の波紋アニメーション（音楽連動）
-            stones.forEach(({ ripples }) => {
-                ripples.children.forEach((ring, index) => {
-                    // 基本の波紋 + 音楽ビートで拡張
-                    const beatPulse = musicData.beatDetected ? 0.15 : 0;
-                    const bassWave = musicData.isPlaying ? musicData.bass * 0.1 : 0;
+            // 🪨 砂紋の波紋アニメーション（音楽連動・強化版）
+            stones.forEach(({ stone, ripples }) => {
+                // 石本体の音楽連動アニメーション（新機能）
+                if (musicData.isPlaying) {
+                    // 音楽ビートで石がわずかに震える
+                    const beatShake = musicData.beatDetected ?
+                        (Math.random() - 0.5) * 0.1 : 0;
 
-                    const scale = 1 + Math.sin(time * 0.5 - index * 0.3) * 0.05 + beatPulse + bassWave;
+                    // ベース音で上下に微かに動く
+                    const bassMovement = Math.sin(time * 6) * musicData.bass * 0.3;
+
+                    // 音量で回転速度が変わる
+                    const rotationSpeed = musicData.volume * 0.002;
+
+                    // 石の位置を音楽に合わせて調整（元の位置からの微細な変化）
+                    if (!stone.userData.originalPosition) {
+                        stone.userData.originalPosition = stone.position.clone();
+                    }
+
+                    stone.position.x = stone.userData.originalPosition.x + beatShake;
+                    stone.position.y = stone.userData.originalPosition.y + bassMovement;
+                    stone.position.z = stone.userData.originalPosition.z + beatShake * 0.5;
+
+                    // 回転も音楽に連動
+                    stone.rotation.y += rotationSpeed;
+                    stone.rotation.x += rotationSpeed * 0.3;
+                }
+
+                // 砂紋の波紋アニメーション
+                ripples.children.forEach((ring, index) => {
+                    // 音楽ビートで大きく拡張（効果を強化）
+                    const beatPulse = musicData.beatDetected ? 0.3 : 0;
+                    const bassWave = musicData.isPlaying ? musicData.bass * 0.2 : 0;
+                    const volumeBoost = musicData.isPlaying ? musicData.volume * 0.15 : 0;
+
+                    // より目立つスケール変化
+                    const baseWave = Math.sin(time * 0.8 - index * 0.5) * 0.1;
+                    const scale = 1 + baseWave + beatPulse + bassWave + volumeBoost;
                     ring.scale.set(scale, scale, scale);
 
-                    const baseOpacity = 0.3 - index * 0.05 - Math.sin(time * 0.5 - index * 0.3) * 0.05;
-                    ring.material.opacity = Math.max(0, baseOpacity + beatPulse * 0.2);
+                    // より明瞭な透明度変化
+                    const baseOpacity = 0.4 - index * 0.06;
+                    const fadeWave = Math.sin(time * 0.8 - index * 0.5) * 0.1;
+                    const musicOpacity = beatPulse * 0.4 + volumeBoost * 0.3;
+                    ring.material.opacity = Math.max(0, Math.min(0.8, baseOpacity + fadeWave + musicOpacity));
                 });
             });
 
