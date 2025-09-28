@@ -32,6 +32,7 @@ export class CommandUI {
       showExamples: options.showExamples !== false,
       autoScroll: options.autoScroll !== false,
       enableDebugLogging: options.enableDebugLogging === true,
+      skipServiceDialog: options.skipServiceDialog === true,  // GitHub Pages用オプション
       ...options.config
     };
 
@@ -110,7 +111,8 @@ export class CommandUI {
 
     this.logDebug('🎮 CommandUI initialized');
 
-    if (!this.selectedImageService || !this.selectedVideoService) {
+    // GitHub Pages等でサービス設定を不要にする場合はスキップ
+    if (!this.config.skipServiceDialog && (!this.selectedImageService || !this.selectedVideoService)) {
       this.openServiceModal(true);
     }
   }

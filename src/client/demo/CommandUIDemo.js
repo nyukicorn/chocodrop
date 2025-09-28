@@ -28,6 +28,7 @@ export class CommandUIDemo {
       width: options.width || 450,
       maxHeight: options.maxHeight || 600,
       theme: options.theme || 'dark',
+      skipServiceDialog: options.skipServiceDialog === true,  // GitHub Pages用オプション
       showExamples: options.showExamples !== false,
       autoScroll: options.autoScroll !== false,
       enableDebugLogging: options.enableDebugLogging === true,
@@ -99,7 +100,8 @@ export class CommandUIDemo {
 
     this.logDebug('🎮 CommandUI initialized');
 
-    if (!this.selectedImageService || !this.selectedVideoService) {
+    // GitHub Pages等でサービス設定を不要にする場合はスキップ
+    if (!this.config.skipServiceDialog && (!this.selectedImageService || !this.selectedVideoService)) {
       this.openServiceModal(true);
     }
   }

@@ -1122,20 +1122,13 @@
           this.updateSelectionIndicatorScale(dragObject);
 
         } else if (dragMode === 'move') {
-          // 移動モード（従来の処理）
-          const cameraRight = new THREE.Vector3();
-          const cameraUp = new THREE.Vector3();
-          this.camera.getWorldDirection(new THREE.Vector3()); // dummy call to update matrix
-          cameraRight.setFromMatrixColumn(this.camera.matrixWorld, 0).normalize();
-          cameraUp.setFromMatrixColumn(this.camera.matrixWorld, 1).normalize();
-
-          // マウス移動をワールド座標に変換
+          // 移動モード（シンプルで直感的な平面移動）
           const moveScale = 0.01;
-          const worldMove = new THREE.Vector3()
-            .add(cameraRight.clone().multiplyScalar(deltaX * moveScale))
-            .add(cameraUp.clone().multiplyScalar(-deltaY * moveScale));
 
-          dragObject.position.add(worldMove);
+          // 直感的な移動：右にドラッグ→右に移動、上にドラッグ→上に移動
+          dragObject.position.x += deltaX * moveScale;
+          dragObject.position.y -= deltaY * moveScale; // Y軸は画面上下と逆なので反転
+
           mouseStart.set(event.clientX, event.clientY);
         }
       });
@@ -5255,6 +5248,7 @@
         width: options.width || 450,
         maxHeight: options.maxHeight || 600,
         theme: options.theme || 'dark',
+        skipServiceDialog: options.skipServiceDialog === true,  // GitHub Pages用オプション
         showExamples: options.showExamples !== false,
         autoScroll: options.autoScroll !== false,
         enableDebugLogging: options.enableDebugLogging === true,
@@ -5326,7 +5320,8 @@
 
       this.logDebug('🎮 CommandUI initialized');
 
-      if (!this.selectedImageService || !this.selectedVideoService) {
+      // GitHub Pages等でサービス設定を不要にする場合はスキップ
+      if (!this.config.skipServiceDialog && (!this.selectedImageService || !this.selectedVideoService)) {
         this.openServiceModal(true);
       }
     }
@@ -10526,6 +10521,7 @@
         showExamples: options.showExamples !== false,
         autoScroll: options.autoScroll !== false,
         enableDebugLogging: options.enableDebugLogging === true,
+        skipServiceDialog: options.skipServiceDialog === true,  // GitHub Pages用オプション
         ...options.config
       };
 
@@ -10604,7 +10600,8 @@
 
       this.logDebug('🎮 CommandUI initialized');
 
-      if (!this.selectedImageService || !this.selectedVideoService) {
+      // GitHub Pages等でサービス設定を不要にする場合はスキップ
+      if (!this.config.skipServiceDialog && (!this.selectedImageService || !this.selectedVideoService)) {
         this.openServiceModal(true);
       }
     }
@@ -16364,7 +16361,9 @@
       client = null,
       onControlsToggle = () => {},
       sceneOptions = {},
-      uiOptions = {}
+      uiOptions = {},
+      // トップレベルオプションを抽出
+      ...otherSceneOptions
     } = options;
 
     const resolvedServerUrl = serverUrl || sceneOptions.serverUrl || null;
@@ -16375,14 +16374,17 @@
       renderer,
       serverUrl: resolvedServerUrl,
       client: chocoDropClient,
-      ...sceneOptions
+      ...sceneOptions,
+      ...otherSceneOptions
     });
 
     const commandUI = new CommandUI({
       sceneManager,
       client: chocoDropClient,
       onControlsToggle,
-      ...uiOptions
+      ...uiOptions,
+      // GitHub Pages等でサービス設定ダイアログを無効化するオプション
+      skipServiceDialog: options.skipServiceDialog
     });
 
     return {

@@ -50,7 +50,9 @@ export function createChocoDrop(scene, options = {}) {
     sceneManager,
     client: chocoDropClient,
     onControlsToggle,
-    ...uiOptions
+    ...uiOptions,
+    // GitHub Pages等でサービス設定ダイアログを無効化するオプション
+    skipServiceDialog: options.skipServiceDialog
   });
 
   return {
