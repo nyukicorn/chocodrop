@@ -868,10 +868,15 @@
             const rippleGroup = new THREE.Group();
             const rippleCount = 5;
 
+            // radiusが0やNaNの場合のフォールバック
+            const safeRadius = (!radius || isNaN(radius) || radius <= 0) ? 10 : radius;
+
             for (let i = 0; i < rippleCount; i++) {
+                const innerRadius = safeRadius * (0.5 + i * 0.2);
+                const outerRadius = innerRadius + 0.5; // より明確な幅を持たせる
                 const geometry = new THREE.RingGeometry(
-                    radius * (0.5 + i * 0.2),
-                    radius * (0.5 + i * 0.2) + 0.1,
+                    innerRadius,
+                    outerRadius,
                     32
                 );
 
