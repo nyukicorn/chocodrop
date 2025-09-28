@@ -120,10 +120,12 @@ createChocoDrop(scene, { camera, renderer, enableMouseInteraction: true });
 1. [リポジトリをダウンロード](https://github.com/nyukicorn/chocodrop/archive/refs/heads/main.zip)
 2. `chocodrop-main` フォルダを展開
 3. あなたのHTMLファイルを同じ階層に配置
-4. ローカルサーバーで配信:
+4. ローカルサーバーで配信（必須）:
    - **Python使用時**: `python -m http.server 8000`
    - **Node.js使用時**: `npx http-server`
    - **VS Code使用時**: Live Server拡張機能をインストールし、HTMLファイルで右クリック→「Open with Live Server」
+
+> ⚠️ `index.html` をダブルクリックして `file://` で開くと ES Modules や Import Map が読み込めず、`chocodrop.esm.js` などが 404 になります。必ずローカルサーバー経由でアクセスしてください。
 
 #### 💻 **推奨: Import Map使用**
 
