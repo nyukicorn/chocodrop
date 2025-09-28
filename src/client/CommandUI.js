@@ -3409,12 +3409,6 @@ export class CommandUI {
               service: this.selectedImageService || undefined
             });
           }
-        } else if (this.currentMode === 'modify') {
-          const selectedObject = this.sceneManager?.selectedObject;
-          if (!selectedObject) {
-            throw new Error('変更するオブジェクトが選択されていません。まず対象オブジェクトを選択してください。');
-          }
-          result = await this.client.modifySelectedObject(selectedObject, command);
         } else if (this.currentMode === 'delete') {
           const selectedObject = this.sceneManager?.selectedObject;
           if (!selectedObject && !this.sceneManager?.getSelectedObjects()?.length) {
