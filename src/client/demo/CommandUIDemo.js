@@ -2395,7 +2395,7 @@ export class CommandUIDemo {
     const placeholders = {
       generate: '「猫の画像を作って」と話しかけて ⏎ ✨',
       import: 'ファイルを選択して ⏎ 📁',
-      modify: '選択後「背景の緑色を透明にして」と伝えて ⏎ ✏️',
+      modify: '選択後「透明に変更」と伝えて ⏎ ✏️',
       delete: '選択後、コマンドをそのまま送って ⏎ 🗑️'
     };
     return placeholders[mode] || placeholders.generate;
@@ -4902,6 +4902,7 @@ export class CommandUIDemo {
                
       case 'modify':
         return deletePatterns.some(pattern => pattern.test(inputValue)) ||
+               modifyPatterns.some(pattern => pattern.test(inputValue)) ||
                importPatterns.some(pattern => pattern.test(inputValue));
                
       case 'import':

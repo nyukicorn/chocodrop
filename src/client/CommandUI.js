@@ -2634,7 +2634,7 @@ export class CommandUI {
     const placeholders = {
       generate: '「猫の画像を作って」と話しかけて ⏎ ✨',
       import: 'ファイルを選択して ⏎ 📁',
-      modify: '選択後「背景の緑色を透明にして」と伝えて ⏎ ✏️',
+      modify: '選択後「透明に変更」と伝えて ⏎ ✏️',
       delete: '選択後、コマンドをそのまま送って ⏎ 🗑️'
     };
     return placeholders[mode] || placeholders.generate;
@@ -3029,6 +3029,57 @@ export class CommandUI {
       this.animateCardSuccess(card, taskId);
     } else if (status === 'error') {
       this.animateCardError(card, taskId);
+    }
+  }
+
+  /**
+   * エラー時のクリーンアップ処理
+   */
+  performErrorCleanup(taskId, error) {
+    // タスクカードのエラー状態を更新
+    if (taskId) {
+      this.updateTaskCard(taskId, 'error', { errorMessage: error.message });
+      
+      // 一定時間後にタスクカードを自動削除（ユーザーが手動で消せるようになるまでの時間）
+      setTimeout(() => {
+        this.removeTaskCard(taskId);
+      }, 10000); // 10秒後に自動削除
+    }
+
+    // 現在のタスクIDをクリア
+    if (this.currentTaskId) {
+      this.currentTaskId = null;
+    }
+
+    // SceneManagerに残っているローディング状態をクリア
+    if (this.sceneManager) {
+      this.sceneManager.clearLoadingStates?.();
+    }
+
+    // アクティブなプログレス接続をクリア
+    if (this.progressConnections) {
+      for (const [connectionId, connection] of this.progressConnections.entries()) {
+        if (connection.taskId === taskId) {
+          this.progressConnections.delete(connectionId);
+        }
+      }
+    }
+
+    console.log('🧹 Error cleanup completed');
+  }
+
+  /**
+   * タスクカードを削除する
+   */
+  removeTaskCard(taskId) {
+    const taskCard = document.querySelector(`[data-task-id="${taskId}"]`);
+    if (taskCard) {
+      taskCard.style.opacity = '0';
+      taskCard.style.transform = 'translateX(-20px)';
+      setTimeout(() => {
+        taskCard.remove();
+      }, 300); // フェードアウト後に削除
+      console.log(`🗑️ Task card removed: ${taskId}`);
     }
   }
 
@@ -3466,9 +3517,8 @@ export class CommandUI {
         delete: '❌ 削除エラー'
       };
 
-      if (taskId) {
-        this.updateTaskCard(taskId, 'error', { errorMessage: error.message });
-      }
+      // エラー時のクリーンアップ処理
+      this.performErrorCleanup(taskId, error);
 
       this.addOutput(`${errorMessages[this.currentMode]}: ${error.message}`, 'error');
       console.error('Command execution error:', error);
@@ -5482,6 +5532,7 @@ export class CommandUI {
                
       case 'modify':
         return deletePatterns.some(pattern => pattern.test(inputValue)) ||
+               modifyPatterns.some(pattern => pattern.test(inputValue)) ||
                importPatterns.some(pattern => pattern.test(inputValue));
                
       case 'import':
