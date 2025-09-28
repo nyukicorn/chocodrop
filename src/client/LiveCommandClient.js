@@ -2,8 +2,9 @@
  * ChocoDrop Client - サーバーとの通信クライアント
  */
 export class ChocoDropClient {
-  constructor(serverUrl = null) {
+  constructor(serverUrl = null, sceneManager = null) {
     this.serverUrl = null;
+    this.sceneManager = sceneManager;
     this.initialized = false;
     this.initPromise = null;
 
@@ -241,6 +242,7 @@ export class ChocoDropClient {
         
         // SceneManagerのparseCommandでコマンドを解析
         const parsed = this.sceneManager.parseCommand(command);
+        console.log('🔍 Parsed command result:', parsed);
         
         if (parsed && (parsed.color !== null || (parsed.effects && parsed.effects.length > 0) || parsed.movement !== null)) {
           // 選択されたオブジェクトに直接適用

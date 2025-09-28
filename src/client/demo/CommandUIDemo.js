@@ -2581,6 +2581,7 @@ export class CommandUIDemo {
               return;
             }
             // LiveCommandClientのmodifySelectedObjectを呼び出し
+            console.log('🔧 Demo: Calling modifySelectedObject with:', selectedObject, command);
             if (this.client && this.client.modifySelectedObject) {
               result = await this.client.modifySelectedObject(selectedObject, command);
             } else {

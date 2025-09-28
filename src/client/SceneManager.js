@@ -20,7 +20,7 @@ export class SceneManager {
     this.labelRenderer = null; // CSS2DRenderer for UI overlays like audio controls
     // ChocoDrop Client（共通クライアント注入を優先）
     // 外部フォルダから共有する場合は options.client でクライアントを再利用
-    this.client = options.client || new ChocoDropClient(options.serverUrl);
+    this.client = options.client || new ChocoDropClient(options.serverUrl, this);
     
     // 実験オブジェクト管理用グループ
     this.experimentGroup = new THREE.Group();
@@ -574,7 +574,9 @@ export class SceneManager {
     canvas.addEventListener('mouseup', () => {
       if (isDragging && dragObject) {
         // ドラッグ終了の処理
-        if (dragObject.material) {
+        // 注意: マテリアルの透明度は復元しない（エフェクトを保持）
+        // ドラッグ中の一時的な透明度変更があった場合のみ復元
+        if (dragObject.material && dragObject.userData && !dragObject.userData.hasOpacityEffect) {
           dragObject.material.opacity = 1.0;
           dragObject.material.transparent = false;
         }
@@ -1586,6 +1588,11 @@ export class SceneManager {
     targetObject.material.transparent = true;
     targetObject.material.opacity = effect.value;
     targetObject.material.needsUpdate = true;
+
+    // エフェクトが適用されたことをマーク
+    if (!targetObject.userData) targetObject.userData = {};
+    targetObject.userData.hasOpacityEffect = true;
+    targetObject.userData.originalOpacity = effect.value;
 
     console.log(`👻 Opacity set to: ${effect.value} (${effect.name})`);
     return true;
