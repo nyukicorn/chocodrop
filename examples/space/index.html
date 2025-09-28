@@ -33,6 +33,140 @@
                 0 8px 32px rgba(0, 100, 255, 0.15),
                 0 0 40px rgba(100, 200, 255, 0.1),
                 inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            transition: opacity 0.3s ease, transform 0.3s ease;
+        }
+
+        #info.hidden {
+            opacity: 0;
+            transform: translateY(-10px);
+            pointer-events: none;
+        }
+
+        .close-btn {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: none;
+            border: none;
+            font-size: 16px;
+            color: #64c8ff;
+            cursor: pointer;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: background-color 0.2s ease;
+        }
+
+        .close-btn:hover {
+            background-color: rgba(100, 200, 255, 0.1);
+        }
+
+        #hint-toggle {
+            position: fixed;
+            top: 16px;
+            left: 16px;
+            background: rgba(139, 92, 246, 0.15);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(139, 92, 246, 0.3);
+            color: #a78bfa;
+            padding: 4px 6px;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+            z-index: 99;
+            display: none;
+            transition: all 0.2s ease;
+            box-shadow: 0 1px 4px rgba(139, 92, 246, 0.2);
+            animation: hint-sparkle 2.5s ease-in-out infinite;
+        }
+
+        #hint-toggle:hover {
+            background: rgba(139, 92, 246, 0.25);
+            transform: translateY(-1px) scale(1.05);
+            animation: hint-sparkle-fast 1s ease-in-out infinite;
+        }
+
+        @keyframes hint-sparkle {
+            0%, 100% {
+                filter: brightness(1) drop-shadow(0 0 3px rgba(139, 92, 246, 0.3));
+                transform: scale(1) rotate(0deg);
+            }
+            25% {
+                filter: brightness(1.1) drop-shadow(0 0 6px rgba(139, 92, 246, 0.5));
+                transform: scale(1.02) rotate(2deg);
+            }
+            50% {
+                filter: brightness(1.2) drop-shadow(0 0 8px rgba(139, 92, 246, 0.7));
+                transform: scale(1.05) rotate(0deg);
+            }
+            75% {
+                filter: brightness(1.1) drop-shadow(0 0 6px rgba(139, 92, 246, 0.5));
+                transform: scale(1.02) rotate(-2deg);
+            }
+        }
+
+        @keyframes hint-sparkle-fast {
+            0%, 100% {
+                filter: brightness(1.1) drop-shadow(0 0 5px rgba(139, 92, 246, 0.6));
+                transform: scale(1.05) rotate(0deg);
+            }
+            50% {
+                filter: brightness(1.3) drop-shadow(0 0 10px rgba(139, 92, 246, 0.8));
+                transform: scale(1.1) rotate(5deg);
+            }
+        }
+
+        .navigation {
+            position: fixed;
+            top: 16px;
+            right: 80px;
+            z-index: 100;
+            display: flex;
+            gap: 8px;
+        }
+
+        .nav-link {
+            background: linear-gradient(135deg, rgba(0, 17, 82, 0.85) 0%, rgba(0, 0, 0, 0.95) 100%);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(139, 92, 246, 0.3);
+            color: #ffffff;
+            text-decoration: none;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 8px rgba(0, 100, 255, 0.15);
+        }
+
+        .nav-link:hover {
+            background: rgba(139, 92, 246, 0.2);
+            transform: translateY(-1px);
+        }
+
+        .controls {
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(100, 200, 255, 0.3);
+            font-size: 11px;
+        }
+
+        .control-item {
+            margin: 4px 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .key {
+            background: rgba(100, 200, 255, 0.15);
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-weight: 500;
+            min-width: fit-content;
         }
 
         #info strong {
@@ -147,7 +281,7 @@
             border-radius: 12px;
             font-size: 12px;
             font-weight: 600;
-            border: 1px solid rgba(100, 200, 255, 0.3);
+            border: 1px solid rgba(139, 92, 246, 0.3);
             box-shadow: 0 4px 20px rgba(0, 100, 255, 0.2);
             transition: all 0.3s ease;
             backdrop-filter: blur(20px);
@@ -155,8 +289,8 @@
 
         .demo-link:hover {
             transform: translateY(-3px);
-            box-shadow: 0 8px 25px rgba(100, 200, 255, 0.4);
-            border-color: rgba(100, 200, 255, 0.6);
+            background: rgba(139, 92, 246, 0.2);
+            border-color: rgba(139, 92, 246, 0.5);
             text-shadow: 0 0 10px currentColor;
         }
 
@@ -166,18 +300,35 @@
     </style>
 </head>
 <body>
+    <!-- Navigation Links -->
+    <div class="navigation">
+        <a href="../../index.html" class="nav-link">🏠 Home</a>
+        <a href="https://github.com/nyukicorn/chocodrop" class="nav-link" target="_blank">📦 GitHub</a>
+    </div>
+
+    <!-- Hint Toggle Button (initially hidden) -->
+    <button id="hint-toggle">💡</button>
+
+    <!-- Main Info Panel -->
     <div id="info">
-        <strong><span class="space-title">🌌 コズミック空間</span></strong>
-        <div class="subtitle">無限の宇宙で創造しよう</div>
+        <button class="close-btn" onclick="hideInfoPanel()">×</button>
+        <strong>🌌 コズミック空間へようこそ</strong>
 
-        <div style="margin: 18px 0 14px 0;">
-            <code>@</code>キー または <span class="space-icon">🍫</span> で起動<br>
-            画像を宇宙空間に配置
-        </div>
+        💡 基本操作:<br>
+        1. 動画や画像をインポートしてみて！<br>
+        2. 🌌宇宙空間配置をやってみて！(「画像を中央に」「右上に配置」)<br>
+        3. 視点操作: ChocoDrop / ちょこドロップを最小化してドラッグ<br>
+        4. ✨スペース世界をやってみて！(銀河の中で創造)<br>
 
-        <div class="highlight">
-            ✨ 試してみて:<br>
-            「画像を中央に」「右上に配置」
+        <div class="controls">
+            <div class="control-item">
+                <span class="key">@</span>
+                <span>ChocoDrop起動</span>
+            </div>
+            <div class="control-item">
+                <span class="key">🍫</span>
+                <span>右下ボタンからも起動可</span>
+            </div>
         </div>
     </div>
 
@@ -916,6 +1067,46 @@
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
         });
+
+        // 🎯 ヒントパネル管理システム
+        let autoHideTimer = null;
+
+        function hideInfoPanel() {
+            const infoPanel = document.getElementById('info');
+            const hintToggle = document.getElementById('hint-toggle');
+
+            infoPanel.classList.add('hidden');
+            setTimeout(() => {
+                infoPanel.style.display = 'none';
+                hintToggle.style.display = 'block';
+            }, 300);
+
+            if (autoHideTimer) {
+                clearTimeout(autoHideTimer);
+            }
+        }
+
+        function showInfoPanel() {
+            const infoPanel = document.getElementById('info');
+            const hintToggle = document.getElementById('hint-toggle');
+
+            hintToggle.style.display = 'none';
+            infoPanel.style.display = 'block';
+            setTimeout(() => {
+                infoPanel.classList.remove('hidden');
+            }, 10);
+
+            // 30秒後に自動非表示
+            autoHideTimer = setTimeout(hideInfoPanel, 30000);
+        }
+
+        // ヒントトグルボタンのクリックイベント
+        document.getElementById('hint-toggle').onclick = showInfoPanel;
+
+        // 30秒後の自動非表示タイマー開始
+        autoHideTimer = setTimeout(hideInfoPanel, 30000);
+
+        console.log('✅ コズミック空間が準備完了！🌌 宇宙で創造しましょう');
 
     </script>
 </body>
