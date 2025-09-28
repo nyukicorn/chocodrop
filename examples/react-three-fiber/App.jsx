@@ -1,7 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 import { Canvas, useThree } from '@react-three/fiber';
 import { OrbitControls, Box, Sphere } from '@react-three/drei';
-import { createChocoDrop } from '@chocodrop/core';
+import { createChocoDrop } from 'chocodrop';
 
 /**
  * ChocoDrop統合コンポーネント

@@ -14,7 +14,7 @@
     "@react-three/fiber": "^8.15.0",
     "@react-three/drei": "^9.88.0",
     "three": "^0.170.0",
-    "@chocodrop/core": "^1.0.0"
+    "chocodrop": "^1.0.0"
   },
   "devDependencies": {
     "@types/react": "^18.2.0",

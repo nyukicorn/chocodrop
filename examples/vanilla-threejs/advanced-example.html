@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { SceneManager, CommandUI, createChocoDrop } from '@chocodrop/core';
+import { SceneManager, CommandUI, createChocoDrop } from 'chocodrop';
 
 /**
  * React Three.js Scene with ChocoDrop integration
@@ -312,7 +312,7 @@ export default App;
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
     "three": "^0.158.0",
-    "@chocodrop/core": "file:../",
+    "chocodrop": "file:../",
     "@vitejs/plugin-react": "^4.0.0",
     "vite": "^4.0.0"
   },

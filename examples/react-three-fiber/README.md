@@ -9,7 +9,7 @@ React Three Fiberプロジェクトに ChocoDrop を統合する例です。
 ```bash
 npm install react react-dom
 npm install @react-three/fiber @react-three/drei three
-npm install @chocodrop/core
+npm install chocodrop
 ```
 
 ### 2. 開発環境
@@ -27,7 +27,7 @@ import react from '@vitejs/plugin-react';
 export default defineConfig({
   plugins: [react()],
   optimizeDeps: {
-    include: ['@chocodrop/core']
+    include: ['chocodrop']
   }
 });
 ```
@@ -38,7 +38,7 @@ export default defineConfig({
 
 ```jsx
 import { useThree } from '@react-three/fiber';
-import { createChocoDrop } from '@chocodrop/core';
+import { createChocoDrop } from 'chocodrop';
 
 function ChocoDropIntegration() {
   const { scene, camera, gl } = useThree();
@@ -92,7 +92,7 @@ function Scene() {
 ```javascript
 import { useRef, useEffect } from 'react';
 import { useThree } from '@react-three/fiber';
-import { createChocoDrop } from '@chocodrop/core';
+import { createChocoDrop } from 'chocodrop';
 
 export function useChocoDrop(options = {}) {
   const { scene, camera, gl } = useThree();

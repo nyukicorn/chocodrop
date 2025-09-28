@@ -29,9 +29,90 @@
             font-size: 12px;
             font-weight: 400;
             z-index: 100;
-            max-width: 240px;
+            max-width: 280px;
             line-height: 1.5;
             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            transition: opacity 0.3s ease, transform 0.3s ease;
+        }
+
+        #info.hidden {
+            opacity: 0;
+            transform: translateY(-10px);
+            pointer-events: none;
+        }
+
+        .close-btn {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: none;
+            border: none;
+            font-size: 16px;
+            color: #666;
+            cursor: pointer;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: background-color 0.2s ease;
+        }
+
+        .close-btn:hover {
+            background-color: rgba(30, 30, 30, 0.1);
+        }
+
+        #hint-toggle {
+            position: fixed;
+            top: 16px;
+            left: 16px;
+            background: rgba(250, 250, 250, 0.9);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(30, 30, 30, 0.2);
+            color: #2d3748;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            cursor: pointer;
+            z-index: 99;
+            display: none;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        #hint-toggle:hover {
+            background: rgba(250, 250, 250, 1);
+            transform: translateY(-1px);
+        }
+
+        .navigation {
+            position: fixed;
+            top: 16px;
+            right: 16px;
+            z-index: 100;
+            display: flex;
+            gap: 8px;
+        }
+
+        .nav-link {
+            background: rgba(250, 250, 250, 0.9);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(30, 30, 30, 0.2);
+            color: #2d3748;
+            text-decoration: none;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .nav-link:hover {
+            background: rgba(250, 250, 250, 1);
+            transform: translateY(-1px);
         }
 
         #info strong {
@@ -150,19 +231,36 @@
     </style>
 </head>
 <body>
+    <!-- Navigation Links -->
+    <div class="navigation">
+        <a href="../../index.html" class="nav-link">🏠 Home</a>
+        <a href="https://github.com/nyukicorn/chocodrop" class="nav-link" target="_blank">📦 GitHub</a>
+    </div>
+
+    <!-- Hint Toggle Button (initially hidden) -->
+    <button id="hint-toggle">💡 ヒント</button>
+
+    <!-- Main Info Panel -->
     <div id="info">
-        <strong>🖤 侘び寂び - Wabi-Sabi</strong>
-        墨絵の世界へようこそ<br>
-        <code>@</code>キーまたは右下の🍫マークから ChocoDrop を起動
+        <button class="close-btn" onclick="hideInfoPanel()">×</button>
+        <strong>🖤 侘び寂びの世界へようこそ</strong>
+
+        💡 基本操作:<br>
+        1. 動画や画像をインポートしてみて！<br>
+        2. 🎵 音楽入り動画で墨絵に魂が宿ります<br>
+        3. 視点変更: ChocoDropを×で最小化してからドラッグ<br>
+        4. 「モノクロにして」でカラー変換を体験<br>
+
         <div class="controls">
             <div class="control-item">
-                <span class="key">マウスドラッグ</span>
-                <span>視点移動</span>
+                <span class="key">@</span>
+                <span>ChocoDrop起動</span>
+            </div>
+            <div class="control-item">
+                <span class="key">🍫</span>
+                <span>右下ボタンからも起動可</span>
             </div>
         </div>
-        <br>
-        💡 ヒント: コンテンツをインポートして<br>
-        「モノクロに変換して」と言ってみて！
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -1351,6 +1449,46 @@
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
         });
+
+        // 🎯 ヒントパネル管理システム
+        let autoHideTimer = null;
+
+        function hideInfoPanel() {
+            const infoPanel = document.getElementById('info');
+            const hintToggle = document.getElementById('hint-toggle');
+
+            infoPanel.classList.add('hidden');
+            setTimeout(() => {
+                infoPanel.style.display = 'none';
+                hintToggle.style.display = 'block';
+            }, 300);
+
+            if (autoHideTimer) {
+                clearTimeout(autoHideTimer);
+            }
+        }
+
+        function showInfoPanel() {
+            const infoPanel = document.getElementById('info');
+            const hintToggle = document.getElementById('hint-toggle');
+
+            hintToggle.style.display = 'none';
+            infoPanel.style.display = 'block';
+            setTimeout(() => {
+                infoPanel.classList.remove('hidden');
+            }, 10);
+
+            // 30秒後に自動非表示
+            autoHideTimer = setTimeout(hideInfoPanel, 30000);
+        }
+
+        // ヒントトグルボタンのクリックイベント
+        document.getElementById('hint-toggle').onclick = showInfoPanel;
+
+        // 30秒後の自動非表示タイマー開始
+        autoHideTimer = setTimeout(hideInfoPanel, 30000);
+
+        console.log('✅ 侘寂の世界が準備完了！🎨 音楽入り動画で墨絵に魂を宿らせましょう');
 
     </script>
 </body>

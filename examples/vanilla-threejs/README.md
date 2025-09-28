@@ -31,7 +31,7 @@ vanilla-threejs/
         "imports": {
             "three": "https://unpkg.com/three@0.170.0/build/three.module.js",
             "three/addons/": "https://unpkg.com/three@0.170.0/examples/jsm/",
-            "@chocodrop/core": "./src/index.js"
+            "chocodrop": "./src/index.js"
         }
     }
     </script>
@@ -39,7 +39,7 @@ vanilla-threejs/
     <script type="module">
         import * as THREE from 'three';
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-        import { createChocoDrop } from '@chocodrop/core';
+        import { createChocoDrop } from 'chocodrop';
 
         // 基本的な Three.js セットアップ
         const scene = new THREE.Scene();
@@ -330,7 +330,7 @@ function setupVRControls() {
 npm init -y
 
 # 依存関係追加
-npm install three @chocodrop/core
+npm install three chocodrop
 
 # 開発依存関係
 npm install -D vite
@@ -350,7 +350,7 @@ npm install -D vite
 // main.js
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { createChocoDrop } from '@chocodrop/core';
+import { createChocoDrop } from 'chocodrop';
 
 // Three.js セットアップ
 const scene = new THREE.Scene();
@@ -376,7 +376,7 @@ export { chocoDrop };
 {
     "imports": {
         "three": "https://unpkg.com/three@0.170.0/build/three.module.js",
-        "@chocodrop/core": "./src/index.js"
+        "chocodrop": "./src/index.js"
     }
 }
 </script>
