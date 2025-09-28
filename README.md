@@ -114,6 +114,8 @@ const renderer = new THREE.WebGLRenderer();
 createChocoDrop(scene, { camera, renderer, enableMouseInteraction: true });
 ```
 
+> ⚠️ API を利用するには ChocoDrop サーバーを起動する必要があります。リポジトリ直下で `npm run dev`（または本番構成なら `npm start`）を実行し、`http://localhost:3011` でサーバーが稼働していることを確認してください。
+
 ### 🔧 HTML環境 (ES Modules)
 
 #### 📋 **事前準備**
@@ -125,7 +127,7 @@ createChocoDrop(scene, { camera, renderer, enableMouseInteraction: true });
    - **Node.js使用時**: `npx http-server`
    - **VS Code使用時**: Live Server拡張機能をインストールし、HTMLファイルで右クリック→「Open with Live Server」
 
-> ⚠️ `index.html` をダブルクリックして `file://` で開くと ES Modules や Import Map が読み込めず、`chocodrop.esm.js` などが 404 になります。必ずローカルサーバー経由でアクセスしてください。
+> ⚠️ `index.html` をダブルクリックして `file://` で開くと ES Modules や Import Map が読み込めず、`chocodrop.esm.js` などが 404 になります。必ずローカルサーバー経由でアクセスしてください。あわせて API を利用する場合は別ターミナルで `npm run dev` を実行し、ChocoDrop サーバーを起動しておいてください。
 
 #### 💻 **推奨: Import Map使用**
 

@@ -77,6 +77,34 @@ export class ChocoDropClient {
   }
 
   /**
+   * ネットワークエラーを検出して利用者向けメッセージに変換
+   */
+  createConnectionError(context) {
+    const serverInfo = this.serverUrl ? `（接続先: ${this.serverUrl}）` : '';
+    const hint = 'ChocoDrop サーバーが起動しているか確認してください（例: `npm run dev` で起動）。';
+    return new Error(`${context}\nサーバーへ接続できません。${hint}${serverInfo}`);
+  }
+
+  isNetworkError(error) {
+    if (!error) return false;
+    const message = typeof error.message === 'string' ? error.message : '';
+    return (
+      error.name === 'TypeError' ||
+      message.includes('Failed to fetch') ||
+      message.includes('NetworkError') ||
+      message.includes('connect ECONNREFUSED') ||
+      message.includes('ERR_CONNECTION')
+    );
+  }
+
+  handleRequestError(error, context) {
+    if (this.isNetworkError(error)) {
+      return this.createConnectionError(context);
+    }
+    return error instanceof Error ? error : new Error(context);
+  }
+
+  /**
    * 画像生成リクエスト
    */
   async generateImage(prompt, options = {}) {
@@ -113,7 +141,7 @@ export class ChocoDropClient {
 
     } catch (error) {
       console.error('❌ Image generation request failed:', error);
-      throw error;
+      throw this.handleRequestError(error, '画像生成リクエストに失敗しました。');
     }
   }
 
@@ -193,7 +221,7 @@ export class ChocoDropClient {
 
     } catch (error) {
       console.error('❌ Video generation request failed:', error);
-      throw error;
+      throw this.handleRequestError(error, '動画生成リクエストに失敗しました。');
     }
   }
 
@@ -224,7 +252,7 @@ export class ChocoDropClient {
 
     } catch (error) {
       console.error('❌ Command execution failed:', error);
-      throw error;
+      throw this.handleRequestError(error, 'コマンド実行に失敗しました。');
     }
   }
 
@@ -322,7 +350,7 @@ export class ChocoDropClient {
 
     } catch (error) {
       console.error('❌ Object modification failed:', error);
-      throw error;
+      throw this.handleRequestError(error, 'オブジェクト変更リクエストに失敗しました。');
     }
   }
 
