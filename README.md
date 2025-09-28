@@ -9,11 +9,11 @@
 # npm/yarn
 npm i chocodrop
 import { createChocoDrop } from 'chocodrop';
-createChocoDrop(scene, { camera, renderer });
+createChocoDrop(scene, { camera, renderer, enableMouseInteraction: true });
 
 # HTML (ES Modules)
 import { createChocoDrop } from './src/index.js';
-createChocoDrop(scene, { camera, renderer });
+createChocoDrop(scene, { camera, renderer, enableMouseInteraction: true });
 ```
 
 **🎮 使い方:** `@`キー → 自然言語入力 → 完了
@@ -78,7 +78,7 @@ const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 const renderer = new THREE.WebGLRenderer();
 
-createChocoDrop(scene, { camera, renderer });
+createChocoDrop(scene, { camera, renderer, enableMouseInteraction: true });
 ```
 
 ### 🔧 HTML環境 (ES Modules)
@@ -116,7 +116,7 @@ createChocoDrop(scene, { camera, renderer });
       const renderer = new THREE.WebGLRenderer();
 
       // ChocoDrop追加
-      const chocoDrop = createChocoDrop(scene, { camera, renderer });
+      const chocoDrop = createChocoDrop(scene, { camera, renderer, enableMouseInteraction: true });
     </script>
 </body>
 </html>
@@ -129,7 +129,7 @@ createChocoDrop(scene, { camera, renderer });
   import { createChocoDrop } from './chocodrop-main/src/index.js';
   
   // ChocoDrop初期化
-  createChocoDrop(scene, { camera, renderer });
+  createChocoDrop(scene, { camera, renderer, enableMouseInteraction: true });
 </script>
 ```
 
