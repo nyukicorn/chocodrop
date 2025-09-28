@@ -5248,7 +5248,7 @@
         width: options.width || 450,
         maxHeight: options.maxHeight || 600,
         theme: options.theme || 'dark',
-        skipServiceDialog: options.skipServiceDialog === true,  // GitHub Pages用オプション
+        skipServiceDialog: options.skipServiceDialog !== false,  // GitHub Pages用：デフォルトで無効化
         showExamples: options.showExamples !== false,
         autoScroll: options.autoScroll !== false,
         enableDebugLogging: options.enableDebugLogging === true,
@@ -10521,7 +10521,7 @@
         showExamples: options.showExamples !== false,
         autoScroll: options.autoScroll !== false,
         enableDebugLogging: options.enableDebugLogging === true,
-        skipServiceDialog: options.skipServiceDialog === true,  // GitHub Pages用オプション
+        skipServiceDialog: options.skipServiceDialog !== false,  // デフォルトで非表示（明示的にfalseの場合のみ表示）
         ...options.config
       };
 
@@ -11248,7 +11248,7 @@
         this.setServiceButtonsEnabled(true);
       } catch (error) {
         console.error('❌ Failed to initialize service selector:', error);
-        this.setServiceSelectorStatus('サービス情報を取得できませんでした。サーバーが起動しているか確認のうえ、再読み込みしてください。', 'error');
+        this.setServiceSelectorStatus('サービス情報を取得できませんでした。', 'error');
         this.toggleServiceRetryButton(true);
         this.setServiceButtonsEnabled(false);
       } finally {
