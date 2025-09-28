@@ -824,6 +824,64 @@
         const inkSpirits = createInkSpirits();
         scene.add(inkSpirits);
 
+        // 🌟 金箔パーティクル
+        function createGoldLeaves() {
+            const goldGroup = new THREE.Group();
+            const leafCount = 15;
+
+            const leafGeometry = new THREE.BufferGeometry();
+            const positions = new Float32Array(leafCount * 3);
+            const colors = new Float32Array(leafCount * 3);
+            const sizes = new Float32Array(leafCount);
+
+            for (let i = 0; i < leafCount; i++) {
+                const i3 = i * 3;
+
+                positions[i3] = (Math.random() - 0.5) * 60;
+                positions[i3 + 1] = 20 + Math.random() * 30;
+                positions[i3 + 2] = (Math.random() - 0.5) * 40;
+
+                // 金箔の色（温かみのある金色）
+                const brightness = 0.7 + Math.random() * 0.3;
+                colors[i3] = 0.9 * brightness;     // R
+                colors[i3 + 1] = 0.7 * brightness; // G
+                colors[i3 + 2] = 0.2 * brightness; // B
+
+                sizes[i] = 3 + Math.random() * 4;
+            }
+
+            leafGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            leafGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+            leafGeometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+
+            const leafMaterial = new THREE.PointsMaterial({
+                size: 2,
+                sizeAttenuation: true,
+                vertexColors: true,
+                transparent: true,
+                opacity: 0.6,
+                blending: THREE.AdditiveBlending
+            });
+
+            const goldLeaves = new THREE.Points(leafGeometry, leafMaterial);
+
+            // アニメーション用データ
+            goldLeaves.userData = {
+                fallSpeed: 0.005,
+                swaySpeed: 0.001,
+                glitterSpeed: 0.003,
+                musicIntensity: 0,
+                time: 0
+            };
+
+            goldGroup.add(goldLeaves);
+            return goldGroup;
+        }
+
+        // 金箔を追加
+        const goldLeaves = createGoldLeaves();
+        scene.add(goldLeaves);
+
         // ライティング（ミニマル調整）
         const ambientLight = new THREE.AmbientLight(0xffffff, 1.0);
         scene.add(ambientLight);
@@ -919,21 +977,169 @@
         // 定期的にスタイルをチェック・修正
         setInterval(enforceInkStyle, 500);
 
+        // 🎵 音楽解析システム
+        let audioContext = null;
+        let analyser = null;
+        let dataArray = null;
+        let beatDetectionHistory = [];
+        let lastBeatTime = 0;
+        let musicData = {
+            volume: 0,
+            bass: 0,
+            mid: 0,
+            treble: 0,
+            tempo: 0,
+            bpm: 0,
+            beatDetected: false,
+            isPlaying: false
+        };
+
+        function setupAudioAnalysis() {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                analyser = audioContext.createAnalyser();
+                analyser.fftSize = 256;
+                dataArray = new Uint8Array(analyser.frequencyBinCount);
+            }
+        }
+
+        function connectVideoToAnalyser(videoElement) {
+            if (!audioContext || !analyser) return;
+
+            try {
+                const source = audioContext.createMediaElementSource(videoElement);
+                source.connect(analyser);
+                analyser.connect(audioContext.destination);
+                musicData.isPlaying = true;
+                console.log('🎵 音楽解析開始');
+            } catch (error) {
+                console.log('音楽解析エラー:', error);
+            }
+        }
+
+        function analyzeMusicData() {
+            if (!analyser || !dataArray) return;
+
+            analyser.getByteFrequencyData(dataArray);
+
+            // 音量計算
+            let sum = 0;
+            for (let i = 0; i < dataArray.length; i++) {
+                sum += dataArray[i];
+            }
+            musicData.volume = sum / dataArray.length / 255;
+
+            // 周波数帯域分析
+            const bassRange = Math.floor(dataArray.length * 0.1);
+            const midRange = Math.floor(dataArray.length * 0.5);
+
+            let bassSum = 0, midSum = 0, trebleSum = 0;
+
+            for (let i = 0; i < bassRange; i++) {
+                bassSum += dataArray[i];
+            }
+            for (let i = bassRange; i < midRange; i++) {
+                midSum += dataArray[i];
+            }
+            for (let i = midRange; i < dataArray.length; i++) {
+                trebleSum += dataArray[i];
+            }
+
+            musicData.bass = bassSum / bassRange / 255;
+            musicData.mid = midSum / (midRange - bassRange) / 255;
+            musicData.treble = trebleSum / (dataArray.length - midRange) / 255;
+
+            // 🥁 ビート検出とBPM計算
+            const currentTime = performance.now();
+            const bassThreshold = 0.3;
+            const volumeThreshold = 0.2;
+
+            // ビート検出（ベース音量の急激な変化）
+            if (musicData.bass > bassThreshold && musicData.volume > volumeThreshold) {
+                if (currentTime - lastBeatTime > 300) { // 最小300ms間隔
+                    musicData.beatDetected = true;
+                    lastBeatTime = currentTime;
+
+                    // BPM計算用履歴更新
+                    beatDetectionHistory.push(currentTime);
+                    if (beatDetectionHistory.length > 8) {
+                        beatDetectionHistory.shift();
+                    }
+
+                    // BPM計算
+                    if (beatDetectionHistory.length >= 4) {
+                        const intervals = [];
+                        for (let i = 1; i < beatDetectionHistory.length; i++) {
+                            intervals.push(beatDetectionHistory[i] - beatDetectionHistory[i-1]);
+                        }
+                        const avgInterval = intervals.reduce((a, b) => a + b) / intervals.length;
+                        musicData.bpm = 60000 / avgInterval; // ms → BPM
+                    }
+                }
+            } else {
+                musicData.beatDetected = false;
+            }
+        }
+
+        // ChocoDrop の動画要素を監視
+        function observeVideoElements() {
+            const observer = new MutationObserver((mutations) => {
+                mutations.forEach((mutation) => {
+                    mutation.addedNodes.forEach((node) => {
+                        if (node.nodeType === 1) { // ELEMENT_NODE
+                            const videos = node.tagName === 'VIDEO' ? [node] : node.querySelectorAll('video');
+                            videos.forEach((video) => {
+                                video.addEventListener('play', () => {
+                                    setupAudioAnalysis();
+                                    connectVideoToAnalyser(video);
+                                });
+                                video.addEventListener('pause', () => {
+                                    musicData.isPlaying = false;
+                                });
+                            });
+                        }
+                    });
+                });
+            });
+
+            observer.observe(document.body, {
+                childList: true,
+                subtree: true
+            });
+        }
+
+        // 監視開始
+        observeVideoElements();
+
         // アニメーションループ
         function animate() {
             requestAnimationFrame(animate);
 
             const time = performance.now() * 0.001;
 
-            // 墨雲のアニメーション
+            // 🎵 音楽データ更新
+            if (musicData.isPlaying) {
+                analyzeMusicData();
+
+                // 高音域が強いときに追加の水滴を生成
+                if (musicData.treble > 0.6 && Math.random() < 0.1) {
+                    const newDrop = createWaterDrop();
+                    scene.add(newDrop);
+                    waterDrops.push(newDrop);
+                }
+            }
+
+            // 墨雲のアニメーション（音楽連動）
             inkNebulas.forEach((nebula, index) => {
                 if (nebula.userData && nebula.userData.rotationSpeed) {
-                    // ゆっくり回転
-                    nebula.rotation.y += nebula.userData.rotationSpeed;
-                    nebula.rotation.z += nebula.userData.rotationSpeed * 0.5;
-                    
-                    // パルス（呼吸のような）
-                    const pulse = Math.sin(time * nebula.userData.pulseSpeed) * 0.1 + 1;
+                    // 音楽に合わせて回転速度調整
+                    const musicBoost = musicData.isPlaying ? 1 + musicData.volume * 2 : 1;
+                    nebula.rotation.y += nebula.userData.rotationSpeed * musicBoost;
+                    nebula.rotation.z += nebula.userData.rotationSpeed * 0.5 * musicBoost;
+
+                    // 音楽の低音に合わせてパルス
+                    const bassPulse = musicData.isPlaying ? musicData.bass * 0.5 : 0;
+                    const pulse = Math.sin(time * nebula.userData.pulseSpeed) * 0.1 + 1 + bassPulse;
                     nebula.scale.setScalar(pulse);
                 }
             });
@@ -979,23 +1185,35 @@
                 inkLeaves.geometry.attributes.position.needsUpdate = true;
             }
 
-            // 🎋 竹のゆらぎアニメーション
+            // 🎋 竹のゆらぎアニメーション（音楽連動）
             bamboos.forEach(bamboo => {
                 const userData = bamboo.userData;
-                bamboo.rotation.x = Math.sin(time * userData.swaySpeed) * userData.swayAmplitude;
-                bamboo.rotation.z = Math.cos(time * userData.swaySpeed * 1.3) * userData.swayAmplitude * 0.5;
+                // 基本の揺れ + 音楽ビートで強調
+                const beatBoost = musicData.isPlaying && musicData.beatDetected ? 2.0 : 1.0;
+                const volumeBoost = musicData.isPlaying ? 1 + musicData.volume : 1;
+
+                bamboo.rotation.x = Math.sin(time * userData.swaySpeed * volumeBoost) *
+                    userData.swayAmplitude * beatBoost;
+                bamboo.rotation.z = Math.cos(time * userData.swaySpeed * 1.3 * volumeBoost) *
+                    userData.swayAmplitude * 0.5 * beatBoost;
             });
 
-            // 🪨 砂紋の波紋アニメーション
+            // 🪨 砂紋の波紋アニメーション（音楽連動）
             stones.forEach(({ ripples }) => {
                 ripples.children.forEach((ring, index) => {
-                    const scale = 1 + Math.sin(time * 0.5 - index * 0.3) * 0.05;
+                    // 基本の波紋 + 音楽ビートで拡張
+                    const beatPulse = musicData.beatDetected ? 0.15 : 0;
+                    const bassWave = musicData.isPlaying ? musicData.bass * 0.1 : 0;
+
+                    const scale = 1 + Math.sin(time * 0.5 - index * 0.3) * 0.05 + beatPulse + bassWave;
                     ring.scale.set(scale, scale, scale);
-                    ring.material.opacity = 0.3 - index * 0.05 - Math.sin(time * 0.5 - index * 0.3) * 0.05;
+
+                    const baseOpacity = 0.3 - index * 0.05 - Math.sin(time * 0.5 - index * 0.3) * 0.05;
+                    ring.material.opacity = Math.max(0, baseOpacity + beatPulse * 0.2);
                 });
             });
 
-            // 💧 水滴の落下アニメーション
+            // 💧 水滴の落下アニメーション（音楽連動）
             waterDrops.forEach((drop, index) => {
                 if (drop.userData.splashed) {
                     drop.userData.lifeTime += 0.016;
@@ -1005,8 +1223,9 @@
                         waterDrops.splice(index, 1);
                     }
                 } else {
-                    // 落下
-                    drop.position.y -= drop.userData.fallSpeed;
+                    // 落下（高音域で速度増加）
+                    const trebleBoost = musicData.isPlaying ? 1 + musicData.treble * 0.5 : 1;
+                    drop.position.y -= drop.userData.fallSpeed * trebleBoost;
 
                     // 地面に達したら波紋エフェクト
                     if (drop.position.y < -9) {
@@ -1043,15 +1262,63 @@
 
             // 桜のアニメーションは削除
 
-            // 🌟 墨の精霊アニメーション
+            // 🌟 金箔パーティクルアニメーション（音楽連動）
+            if (goldLeaves.userData) {
+                const positions = goldLeaves.children[0].geometry.attributes.position.array;
+                const colors = goldLeaves.children[0].geometry.attributes.color.array;
+
+                for (let i = 0; i < positions.length; i += 3) {
+                    // 音楽ビートで金箔が舞い踊る
+                    if (musicData.isPlaying) {
+                        const beatPulse = musicData.beatDetected ? 0.2 : 0;
+                        const volumeFloat = musicData.volume * 0.1;
+
+                        // ゆっくり落下 + 音楽で浮上
+                        positions[i + 1] -= goldLeaves.userData.fallSpeed - volumeFloat;
+
+                        // 左右に揺れる + ビートで激しく
+                        const swayIntensity = goldLeaves.userData.swaySpeed * (1 + beatPulse * 3);
+                        positions[i] += Math.sin(time * swayIntensity + i) * (0.01 + beatPulse);
+                        positions[i + 2] += Math.cos(time * swayIntensity + i) * (0.005 + beatPulse * 0.5);
+
+                        // 金色の輝きを音楽で調整
+                        const brightness = 0.8 + musicData.mid * 0.4 + beatPulse * 0.6;
+                        colors[i] = brightness;     // R
+                        colors[i + 1] = brightness * 0.8; // G
+                        colors[i + 2] = brightness * 0.2; // B
+                    } else {
+                        // 通常の落下
+                        positions[i + 1] -= goldLeaves.userData.fallSpeed;
+                        positions[i] += Math.sin(time * goldLeaves.userData.swaySpeed + i) * 0.01;
+                    }
+
+                    // 下まで落ちたら上に戻す
+                    if (positions[i + 1] < -15) {
+                        positions[i + 1] = 25;
+                        positions[i] = (Math.random() - 0.5) * 40;
+                        positions[i + 2] = (Math.random() - 0.5) * 20;
+                    }
+                }
+
+                goldLeaves.children[0].geometry.attributes.position.needsUpdate = true;
+                goldLeaves.children[0].geometry.attributes.color.needsUpdate = true;
+            }
+
+            // 🌟 墨の精霊アニメーション（音楽連動）
             inkSpirits.children.forEach(child => {
                 if (child instanceof THREE.Mesh && child.userData.originalPos) {
                     const userData = child.userData;
 
-                    // ゆらゆらと飛ぶ動き
-                    const wanderX = Math.sin(time * userData.moveSpeed + userData.phase) * userData.wanderRadius;
-                    const wanderY = Math.cos(time * userData.moveSpeed * 1.3 + userData.phase) * userData.wanderRadius * 0.5;
-                    const wanderZ = Math.sin(time * userData.moveSpeed * 0.7 + userData.phase) * userData.wanderRadius * 0.7;
+                    // ゆらゆらと飛ぶ動き + 音楽で活発化
+                    const midBoost = musicData.isPlaying ? 1 + musicData.mid * 0.5 : 1;
+                    const beatBoost = musicData.beatDetected ? 1.5 : 1;
+
+                    const wanderX = Math.sin(time * userData.moveSpeed * midBoost + userData.phase) *
+                        userData.wanderRadius * beatBoost;
+                    const wanderY = Math.cos(time * userData.moveSpeed * 1.3 * midBoost + userData.phase) *
+                        userData.wanderRadius * 0.5 * beatBoost;
+                    const wanderZ = Math.sin(time * userData.moveSpeed * 0.7 * midBoost + userData.phase) *
+                        userData.wanderRadius * 0.7 * beatBoost;
 
                     child.position.set(
                         userData.originalPos.x + wanderX,
@@ -1059,9 +1326,10 @@
                         userData.originalPos.z + wanderZ
                     );
 
-                    // 墨の濃淡変化
-                    const fade = Math.sin(time * userData.glowSpeed) * 0.2 + 0.5;
-                    child.material.opacity = fade;
+                    // 墨の濃淡変化 + 音楽で明滅
+                    const volumePulse = musicData.isPlaying ? musicData.volume * 0.3 : 0;
+                    const fade = Math.sin(time * userData.glowSpeed) * 0.2 + 0.5 + volumePulse;
+                    child.material.opacity = Math.max(0.1, Math.min(1.0, fade));
                     if (userData.light) {
                         userData.light.intensity = fade * 0.2;
                         userData.light.position.copy(child.position);
