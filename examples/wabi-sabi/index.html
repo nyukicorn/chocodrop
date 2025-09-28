@@ -1350,31 +1350,70 @@
                 }
             }
 
-            // 墨雲のアニメーション（音楽連動）
+            // 墨雲のアニメーション（音楽連動・美しく控えめに）
             inkNebulas.forEach((nebula, index) => {
                 if (nebula.userData && nebula.userData.rotationSpeed) {
-                    // 音楽に合わせて回転速度調整
-                    const musicBoost = musicData.isPlaying ? 1 + musicData.volume * 2 : 1;
+                    // 音楽に合わせて回転速度調整（控えめ）
+                    const musicBoost = musicData.isPlaying ? 1 + musicData.volume * 0.5 : 1;
                     nebula.rotation.y += nebula.userData.rotationSpeed * musicBoost;
-                    nebula.rotation.z += nebula.userData.rotationSpeed * 0.5 * musicBoost;
+                    nebula.rotation.z += nebula.userData.rotationSpeed * 0.3 * musicBoost;
 
-                    // 音楽の低音に合わせてパルス
-                    const bassPulse = musicData.isPlaying ? musicData.bass * 0.5 : 0;
-                    const pulse = Math.sin(time * nebula.userData.pulseSpeed) * 0.1 + 1 + bassPulse;
-                    nebula.scale.setScalar(pulse);
+                    // 音楽の低音に合わせて微細なパルス（美しく制限）
+                    const bassPulse = musicData.isPlaying ?
+                        Math.sin(time * 5) * musicData.bass * 0.05 : 0; // 大幅に縮小
+                    const naturalPulse = Math.sin(time * nebula.userData.pulseSpeed) * 0.02 + 1;
+                    const finalPulse = Math.max(0.8, Math.min(1.2, naturalPulse + bassPulse)); // 範囲制限
+                    nebula.scale.setScalar(finalPulse);
+
+                    // 透明度で音楽表現（新しい美しさ）
+                    nebula.children.forEach(layer => {
+                        layer.children.forEach(sprite => {
+                            if (sprite.material) {
+                                const musicGlow = musicData.isPlaying ?
+                                    Math.sin(time * 3) * musicData.volume * 0.1 : 0;
+                                const baseOpacity = sprite.material.userData?.originalOpacity || sprite.material.opacity;
+                                sprite.material.opacity = Math.max(0.1, Math.min(1.0, baseOpacity + musicGlow));
+
+                                // 初回のみ元の透明度を保存
+                                if (!sprite.material.userData) {
+                                    sprite.material.userData = { originalOpacity: sprite.material.opacity };
+                                }
+                            }
+                        });
+                    });
                 }
             });
             
-            // ふわふわ四角のアニメーション
+            // ふわふわ四角のアニメーション（音楽連動）
             floatingSquares.forEach(square => {
                 const userData = square.userData;
-                // 上下浮遊
-                square.position.y = userData.originalY + 
-                    Math.sin(time * userData.floatSpeed + userData.phase) * userData.floatAmplitude;
-                // 回転
-                square.rotation.x += userData.rotationSpeed;
-                square.rotation.y += userData.rotationSpeed * 0.7;
-                square.rotation.z += userData.rotationSpeed * 0.3;
+
+                // 音楽ビートで優雅な脈動
+                const beatPulse = musicData.isPlaying && musicData.beatDetected ?
+                    Math.sin(time * 10) * 0.2 + 0.8 : 1.0; // 穏やかな脈動
+
+                // 音楽ボリュームで浮遊の強さを微調整
+                const volumeBoost = musicData.isPlaying ?
+                    1 + musicData.volume * 0.3 : 1; // 控えめなボリューム反応
+
+                // 上下浮遊（音楽で少し活発に）
+                square.position.y = userData.originalY +
+                    Math.sin(time * userData.floatSpeed * volumeBoost + userData.phase) *
+                    userData.floatAmplitude * beatPulse;
+
+                // より有機的な回転（音楽で少し速く）
+                const rotationBoost = musicData.isPlaying ? 1 + musicData.mid * 0.2 : 1;
+                square.rotation.x += userData.rotationSpeed * rotationBoost;
+                square.rotation.y += userData.rotationSpeed * 0.7 * rotationBoost;
+                square.rotation.z += userData.rotationSpeed * 0.3 * rotationBoost;
+
+                // 透明度の微妙な変化（音楽で息づくように）
+                if (square.material) {
+                    const breathe = Math.sin(time * 2 + userData.phase) * 0.1 + 0.9;
+                    const musicBreath = musicData.isPlaying ?
+                        musicData.volume * 0.1 : 0;
+                    square.material.opacity = Math.min(1.0, breathe + musicBreath);
+                }
             });
 
             // 墨の塵のパルス
