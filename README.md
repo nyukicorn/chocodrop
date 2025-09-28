@@ -39,6 +39,40 @@ Three.jsシーンをAI搭載のコンテンツスタジオに：
 
 **対応環境:** Three.js、React Three Fiber、A-Frame、Next.js、HTML
 
+## 🚀 **最小動作サンプル**
+
+Three.jsに不慣れな方向けに、コピペで動く最小限のサンプルです：
+
+```html
+<!-- このHTMLをそのまま保存して使えます -->
+<!DOCTYPE html>
+<html>
+<head>
+    <style>body { margin: 0; }</style>
+    <script type="module">
+        import * as THREE from 'https://unpkg.com/three@latest/build/three.module.js';
+        import { createChocoDrop } from 'https://unpkg.com/chocodrop@latest/src/index.js';
+
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.1, 1000);
+        camera.position.z = 5;
+        const renderer = new THREE.WebGLRenderer();
+        renderer.setSize(innerWidth, innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        createChocoDrop(scene, { camera, renderer, enableMouseInteraction: true });
+
+        function animate() {
+            requestAnimationFrame(animate);
+            renderer.render(scene, camera);
+        }
+        animate();
+    </script>
+</head>
+<body></body>
+</html>
+```
+
 ---
 
 ## 🎯 あなたの環境を確認
@@ -86,9 +120,21 @@ createChocoDrop(scene, { camera, renderer, enableMouseInteraction: true });
 1. [リポジトリをダウンロード](https://github.com/nyukicorn/chocodrop/archive/refs/heads/main.zip)
 2. `chocodrop-main` フォルダを展開
 3. あなたのHTMLファイルを同じ階層に配置
-4. ローカルサーバーで配信する準備（例: `python -m http.server` や VS Code Live Server）
+4. ローカルサーバーで配信:
+   - **Python使用時**: `python -m http.server 8000`
+   - **Node.js使用時**: `npx http-server`
+   - **VS Code使用時**: Live Server拡張機能をインストールし、HTMLファイルで右クリック→「Open with Live Server」
 
 #### 💻 **推奨: Import Map使用**
+
+##### ブラウザ対応状況
+Import Map機能は以下のブラウザで動作します：
+- Chrome 89+
+- Edge 89+
+- Safari 16.4+
+- Firefox 108+
+
+古いブラウザを使用している場合は、下記の直接パス指定の方法をご利用ください。
 ```html
 <!DOCTYPE html>
 <html>
@@ -141,14 +187,17 @@ createChocoDrop(scene, { camera, renderer, enableMouseInteraction: true });
 - **「createChocoDrop is not a function」** → `import { createChocoDrop }` の波括弧を確認
 - **「Three.js エラー」** → `npm install three` でThree.jsをインストール
 
-### 📄 **HTML環境のトラブル**  
-- **「Failed to resolve module」** → ファイルパスが正しいか確認（`./chocodrop-main/src/index.js`）
+### 📄 **HTML環境のトラブル**
+- **「Failed to resolve module」** → ファイルパスが正しいか確認（`./src/index.js`）
+- **「Uncaught TypeError: Failed to resolve module specifier」** → Import Mapが正しく設定されているか確認。`<script type="importmap">`がHTMLの最初にあるか確認
 - **「Import map エラー」** → `<script type="importmap">` がHTMLの最初にあるか確認
 - **「CORS エラー」** → ローカルサーバー（Live Server拡張等）で開く
+- **「MIME type エラー」** → ローカルファイルを直接開いている可能性。必ずローカルサーバー経由でアクセス
 
 ### 🔧 **共通のトラブル**
 - **「動かない！」** → ブラウザの開発者ツール（F12）でエラー確認
 - **「@キーが反応しない」** → `createChocoDrop` の後に `console.log('ChocoDrop ready!')` 追加
+- **「createChocoDrop is not defined」** → インポート文の波括弧を確認：`import { createChocoDrop }` (波括弧必須)
 - **「オブジェクトが選択できない」** → `enableMouseInteraction: true` を追加
 - **「api/config 404エラー」** → 正常です。AI生成にはMCPサーバー起動が必要（インポート機能は動作します）
 - **「AIが応答しない」** → サーバー（`npm run dev`）が起動しているか確認
@@ -233,6 +282,7 @@ ChocoDrop は**クリエイティブな実験を自由に楽しめる**ように
         const chocoDrop = createChocoDrop(scene, {
             camera: camera,
             renderer: renderer,
+            enableMouseInteraction: true,  // マウス操作を有効化
             onControlsToggle: (disabled) => {
                 controls.enabled = !disabled;
             }
@@ -577,8 +627,13 @@ chocoDrop.ui.toggle();                  // 表示/非表示を切り替え
 git clone https://github.com/nyukicorn/chocodrop.git
 cd chocodrop
 npm install
-npm start
+npm start  # または npm run dev
 ```
+
+### サーバー起動コマンド
+- `npm run dev` - 開発モード（デバッグ情報付き）
+- `npm start` - 本番モード
+※ 両コマンドは現在同じ動作をします（port 3011で起動）
 
 サーバーは `http://localhost:3011` で起動します
 
