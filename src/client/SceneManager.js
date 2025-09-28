@@ -560,20 +560,13 @@ export class SceneManager {
         this.updateSelectionIndicatorScale(dragObject);
 
       } else if (dragMode === 'move') {
-        // 移動モード（従来の処理）
-        const cameraRight = new THREE.Vector3();
-        const cameraUp = new THREE.Vector3();
-        this.camera.getWorldDirection(new THREE.Vector3()); // dummy call to update matrix
-        cameraRight.setFromMatrixColumn(this.camera.matrixWorld, 0).normalize();
-        cameraUp.setFromMatrixColumn(this.camera.matrixWorld, 1).normalize();
-
-        // マウス移動をワールド座標に変換
+        // 移動モード（シンプルで直感的な平面移動）
         const moveScale = 0.01;
-        const worldMove = new THREE.Vector3()
-          .add(cameraRight.clone().multiplyScalar(deltaX * moveScale))
-          .add(cameraUp.clone().multiplyScalar(-deltaY * moveScale));
 
-        dragObject.position.add(worldMove);
+        // 直感的な移動：右にドラッグ→右に移動、上にドラッグ→上に移動
+        dragObject.position.x += deltaX * moveScale;
+        dragObject.position.y -= deltaY * moveScale; // Y軸は画面上下と逆なので反転
+
         mouseStart.set(event.clientX, event.clientY);
       }
     });
