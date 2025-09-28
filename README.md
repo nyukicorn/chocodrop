@@ -67,9 +67,17 @@ HTMLファイルを直接書いているなら **HTML環境**、
 ### 🚀 npm/yarn環境
 ```bash
 npm install chocodrop
+# Peer dependency（Three.js）も必須
+npm install three
 ```
 ```javascript
+import * as THREE from 'three';
 import { createChocoDrop } from 'chocodrop';
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+const renderer = new THREE.WebGLRenderer();
+
 createChocoDrop(scene, { camera, renderer });
 ```
 
@@ -79,6 +87,7 @@ createChocoDrop(scene, { camera, renderer });
 1. [リポジトリをダウンロード](https://github.com/nyukicorn/chocodrop/archive/refs/heads/main.zip)
 2. `chocodrop-main` フォルダを展開
 3. あなたのHTMLファイルを同じ階層に配置
+4. ローカルサーバーで配信する準備（例: `python -m http.server` や VS Code Live Server）
 
 #### 💻 **推奨: Import Map使用**
 ```html
@@ -572,4 +581,3 @@ MIT License - see [LICENSE](LICENSE) file for details.
 - **Issues:** [GitHub Issues](https://github.com/nyukicorn/chocodrop/issues)
 
 ---
-
