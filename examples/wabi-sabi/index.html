@@ -1000,7 +1000,7 @@
         // 🌟 金箔パーティクル
         function createGoldLeaves() {
             const goldGroup = new THREE.Group();
-            const leafCount = 15;
+            const leafCount = 30;
 
             const leafGeometry = new THREE.BufferGeometry();
             const positions = new Float32Array(leafCount * 3);
@@ -1014,11 +1014,11 @@
                 positions[i3 + 1] = 20 + Math.random() * 30;
                 positions[i3 + 2] = (Math.random() - 0.5) * 40;
 
-                // 金箔の色（温かみのある金色）
-                const brightness = 0.7 + Math.random() * 0.3;
-                colors[i3] = 0.9 * brightness;     // R
-                colors[i3 + 1] = 0.7 * brightness; // G
-                colors[i3 + 2] = 0.2 * brightness; // B
+                // 金箔の色（明るい金色）
+                const brightness = 0.8 + Math.random() * 0.2;
+                colors[i3] = 1.0 * brightness;     // R
+                colors[i3 + 1] = 0.8 * brightness; // G
+                colors[i3 + 2] = 0.1 * brightness; // B
 
                 sizes[i] = 3 + Math.random() * 4;
             }
@@ -1028,11 +1028,11 @@
             leafGeometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
 
             const leafMaterial = new THREE.PointsMaterial({
-                size: 2,
+                size: 6,
                 sizeAttenuation: true,
                 vertexColors: true,
                 transparent: true,
-                opacity: 0.6,
+                opacity: 0.8,
                 blending: THREE.AdditiveBlending
             });
 
@@ -1524,21 +1524,25 @@
             floatingSquares.forEach(square => {
                 const userData = square.userData;
 
-                // 音楽ビートで優雅な脈動
+                // 音楽ビートで適度な脈動
                 const beatPulse = musicData.isPlaying && musicData.beatDetected ?
-                    Math.sin(time * 10) * 0.2 + 0.8 : 1.0; // 穏やかな脈動
+                    Math.sin(time * 12) * 0.4 + 1.0 : 1.0; // 適度な脈動
 
-                // 音楽ボリュームで浮遊の強さを微調整
+                // 音楽ボリュームで浮遊の強さを適度に調整
                 const volumeBoost = musicData.isPlaying ?
-                    1 + musicData.volume * 0.3 : 1; // 控えめなボリューム反応
+                    1 + musicData.volume * 0.6 : 1; // 適度なボリューム反応
 
-                // 上下浮遊（音楽で少し活発に）
+                // ベース音で追加の動き
+                const bassFloat = musicData.isPlaying ?
+                    Math.sin(time * 6) * musicData.bass * 2 : 0;
+
+                // 上下浮遊（音楽で適度に活発に）
                 square.position.y = userData.originalY +
                     Math.sin(time * userData.floatSpeed * volumeBoost + userData.phase) *
-                    userData.floatAmplitude * beatPulse;
+                    userData.floatAmplitude * beatPulse + bassFloat;
 
-                // より有機的な回転（音楽で少し速く）
-                const rotationBoost = musicData.isPlaying ? 1 + musicData.mid * 0.2 : 1;
+                // より有機的な回転（音楽で適度に速く）
+                const rotationBoost = musicData.isPlaying ? 1 + musicData.mid * 0.4 : 1;
                 square.rotation.x += userData.rotationSpeed * rotationBoost;
                 square.rotation.y += userData.rotationSpeed * 0.7 * rotationBoost;
                 square.rotation.z += userData.rotationSpeed * 0.3 * rotationBoost;
@@ -1596,30 +1600,34 @@
 
             // 🪨 砂紋の波紋アニメーション（音楽連動・強化版）
             stones.forEach(({ stone, ripples }) => {
-                // 石本体の音楽連動アニメーション（新機能）
+                // 石本体の音楽連動アニメーション（強化版）
                 if (musicData.isPlaying) {
-                    // 音楽ビートで石がわずかに震える
+                    // 音楽ビートで石が明確に震える（効果を大幅強化）
                     const beatShake = musicData.beatDetected ?
-                        (Math.random() - 0.5) * 0.1 : 0;
+                        (Math.random() - 0.5) * 0.4 : 0;
 
-                    // ベース音で上下に微かに動く
-                    const bassMovement = Math.sin(time * 6) * musicData.bass * 0.3;
+                    // ベース音で上下に大きく動く
+                    const bassMovement = Math.sin(time * 8) * musicData.bass * 1.2;
 
-                    // 音量で回転速度が変わる
-                    const rotationSpeed = musicData.volume * 0.002;
+                    // 音量で回転速度が大幅に変わる
+                    const rotationSpeed = musicData.volume * 0.01;
 
-                    // 石の位置を音楽に合わせて調整（元の位置からの微細な変化）
+                    // 高音域で左右に揺れる
+                    const trebleShake = Math.sin(time * 12) * musicData.treble * 0.6;
+
+                    // 石の位置を音楽に合わせて調整（より大きな変化）
                     if (!stone.userData.originalPosition) {
                         stone.userData.originalPosition = stone.position.clone();
                     }
 
-                    stone.position.x = stone.userData.originalPosition.x + beatShake;
+                    stone.position.x = stone.userData.originalPosition.x + beatShake + trebleShake;
                     stone.position.y = stone.userData.originalPosition.y + bassMovement;
-                    stone.position.z = stone.userData.originalPosition.z + beatShake * 0.5;
+                    stone.position.z = stone.userData.originalPosition.z + beatShake * 0.8;
 
-                    // 回転も音楽に連動
+                    // 回転も音楽に大きく連動
                     stone.rotation.y += rotationSpeed;
-                    stone.rotation.x += rotationSpeed * 0.3;
+                    stone.rotation.x += rotationSpeed * 0.5;
+                    stone.rotation.z += rotationSpeed * 0.3;
                 }
 
                 // 砂紋の波紋アニメーション
