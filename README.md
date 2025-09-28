@@ -17,6 +17,7 @@ createChocoDrop(scene, { camera, renderer, enableMouseInteraction: true });
 ```
 
 **🎮 使い方:** `@`キー → 自然言語入力 → 完了
+**🖱️ 重要:** `enableMouseInteraction: true` でオブジェクト選択・移動・編集が可能に！
 **📋 [サンプル](#完全なサンプル) | 📚 [API](#api-リファレンス) | 🔧 [カスタマイズ](#aiと一緒に作るカスタマイズ版)**
 
 ---
@@ -150,6 +151,8 @@ createChocoDrop(scene, { camera, renderer, enableMouseInteraction: true });
 ### 🔧 **共通のトラブル**
 - **「動かない！」** → ブラウザの開発者ツール（F12）でエラー確認
 - **「@キーが反応しない」** → `createChocoDrop` の後に `console.log('ChocoDrop ready!')` 追加
+- **「オブジェクトが選択できない」** → `enableMouseInteraction: true` を追加
+- **「api/config 404エラー」** → 正常です。AI生成にはMCPサーバー起動が必要（インポート機能は動作します）
 - **「AIが応答しない」** → サーバー（`npm run dev`）が起動しているか確認
 
 ### 💬 **サポート**
@@ -165,6 +168,7 @@ createChocoDrop(scene, { camera, renderer, enableMouseInteraction: true });
 | 🎯 **自然言語で3D配置** | 「右上」「中央」「カメラの後ろ」など日本語で指定 |
 | 🎨 **複数のAIモデル対応** | Flux、DALL-E、Stable Diffusion、動画生成 |
 | 🔄 **リアルタイム編集** | 配置後もサイズ、位置、エフェクトを変更可能 |
+| 🖱️ **マウス操作** | `enableMouseInteraction: true`でクリック選択・ドラッグ移動 |
 | 📦 **フレームワーク自由** | どんなThree.js環境でも動作 |
 | 🌐 **MCP統合** | 拡張可能なAIモデルサポート |
 | 🎮 **直感的UI** | @キー起動、学習コスト不要 |

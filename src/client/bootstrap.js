@@ -29,7 +29,9 @@ export function createChocoDrop(scene, options = {}) {
     client = null,
     onControlsToggle = () => {},
     sceneOptions = {},
-    uiOptions = {}
+    uiOptions = {},
+    // トップレベルオプションを抽出
+    ...otherSceneOptions
   } = options;
 
   const resolvedServerUrl = serverUrl || sceneOptions.serverUrl || null;
@@ -40,7 +42,8 @@ export function createChocoDrop(scene, options = {}) {
     renderer,
     serverUrl: resolvedServerUrl,
     client: chocoDropClient,
-    ...sceneOptions
+    ...sceneOptions,
+    ...otherSceneOptions
   });
 
   const commandUI = new CommandUI({
