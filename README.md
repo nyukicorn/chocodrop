@@ -67,9 +67,7 @@ HTMLファイルを直接書いているなら **HTML環境**、
 
 ### 🚀 npm/yarn環境
 ```bash
-npm install chocodrop
-# Peer dependency（Three.js）も必須
-npm install three
+npm install chocodrop three
 ```
 ```javascript
 import * as THREE from 'three';
@@ -100,7 +98,7 @@ createChocoDrop(scene, { camera, renderer, enableMouseInteraction: true });
       "imports": {
         "three": "https://unpkg.com/three@latest/build/three.module.js",
         "three/": "https://unpkg.com/three@latest/",
-        "chocodrop": "./chocodrop-main/src/index.js"
+        "chocodrop": "./src/index.js"
       }
     }
     </script>
@@ -212,10 +210,10 @@ ChocoDrop は**クリエイティブな実験を自由に楽しめる**ように
     <div id="container"></div>
 
     <script type="module">
-        // ES Modules使用
-        import * as THREE from 'https://unpkg.com/three@latest/build/three.module.js';
-        import { OrbitControls } from 'https://unpkg.com/three@latest/examples/jsm/controls/OrbitControls.js';
-        import { createChocoDrop } from './src/index.js';
+        // ES Modules使用（Import Map対応）
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+        import { createChocoDrop } from 'chocodrop';
 
         // Scene setup
         const scene = new THREE.Scene();
