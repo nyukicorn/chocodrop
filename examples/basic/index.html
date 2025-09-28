@@ -122,8 +122,31 @@
             -webkit-text-fill-color: transparent;
             background-clip: text;
             display: block;
-            margin-bottom: 8px;
+            margin-bottom: 10px;
             text-align: center;
+            letter-spacing: 0.5px;
+        }
+
+        .controls {
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(0, 0, 0, 0.15);
+            font-size: 11px;
+        }
+
+        .control-item {
+            margin: 4px 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .key {
+            background: rgba(0, 0, 0, 0.1);
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-weight: 500;
+            min-width: fit-content;
         }
 
         #info code {
@@ -252,18 +275,36 @@
     </style>
 </head>
 <body>
+    <!-- Navigation Links -->
+    <div class="navigation">
+        <a href="../../index.html" class="nav-link">🏠 Home</a>
+        <a href="https://github.com/nyukicorn/chocodrop" class="nav-link" target="_blank">📦 GitHub</a>
+    </div>
+
+    <!-- Hint Toggle Button (initially hidden) -->
+    <button id="hint-toggle">💡 ヒント</button>
+
+    <!-- Main Info Panel -->
     <div id="info">
-        <strong><span class="emoji choco-title">🍫</span>ChocoDrop デモ空間</strong>
-        <div class="subtitle">3D空間を自由に実験しよう</div>
+        <button class="close-btn" onclick="hideInfoPanel()">×</button>
+        <strong><span class="emoji choco-title">🍫</span>ベーシックな世界へようこそ</strong>
 
-        <div style="margin: 16px 0 12px 0;">
-            <code>@</code>キー または <span class="emoji choco-icon">🍫</span> で起動<br>
-            画像をちょこっと配置してみて
-        </div>
+        💡 基本操作:<br>
+        1. 動画や画像をインポートしてみて！<br>
+        2. 視点変更: ChocoDropを×で最小化してからドラッグ<br>
+        3. 「キューブを削除して」で削除機能を体験<br>
 
-        <div class="highlight">
-            <span class="emoji">✨</span> 配置後：クリックで選択、<br>ドラッグで移動
+        <div class="controls">
+            <div class="control-item">
+                <span class="key">@</span>
+                <span>ChocoDrop起動</span>
+            </div>
+            <div class="control-item">
+                <span class="key">🍫</span>
+                <span>右下ボタンからも起動可</span>
+            </div>
         </div>
+    </div>
     </div>
 
     <div class="demo-links">
@@ -689,9 +730,45 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
         });
         
-        console.log('🍫 ChocoDrop インポート機能デモ loaded');
-        console.log('Press @ key to activate command interface (インポート機能のみ)');
-        console.log('使用例: 🍫アイコンクリックでUI起動、ファイル選択で配置');
+        // 🎯 ヒントパネル管理システム
+        let autoHideTimer = null;
+
+        function hideInfoPanel() {
+            const infoPanel = document.getElementById('info');
+            const hintToggle = document.getElementById('hint-toggle');
+
+            infoPanel.classList.add('hidden');
+            setTimeout(() => {
+                infoPanel.style.display = 'none';
+                hintToggle.style.display = 'block';
+            }, 300);
+
+            if (autoHideTimer) {
+                clearTimeout(autoHideTimer);
+            }
+        }
+
+        function showInfoPanel() {
+            const infoPanel = document.getElementById('info');
+            const hintToggle = document.getElementById('hint-toggle');
+
+            hintToggle.style.display = 'none';
+            infoPanel.style.display = 'block';
+            setTimeout(() => {
+                infoPanel.classList.remove('hidden');
+            }, 10);
+
+            // 30秒後に自動非表示
+            autoHideTimer = setTimeout(hideInfoPanel, 30000);
+        }
+
+        // ヒントトグルボタンのクリックイベント
+        document.getElementById('hint-toggle').onclick = showInfoPanel;
+
+        // 30秒後の自動非表示タイマー開始
+        autoHideTimer = setTimeout(hideInfoPanel, 30000);
+
+        console.log('✅ ベーシックな世界が準備完了！🍫 ChocoDrop でコンテンツを配置しましょう');
     </script>
 </body>
 </html>
