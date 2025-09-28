@@ -539,18 +539,31 @@
                     <p class="workflow-note">リロードしたら全部消える。それがいい。</p>
                 </div>
                 <div class="preview-content">
-                    <h2>導入は1行だけ</h2>
+                    <h2>2つの導入方法</h2>
+                    
+                    <h3 style="color: #ff6b9d; margin-bottom: 10px;">📦 npm環境 (React/Vue/Next.js等)</h3>
+                    <div class="code-block" style="margin-bottom: 20px;">
+                        <pre><span class="syntax-comment">npm install chocodrop</span>
+
+<span class="syntax-keyword">import</span> { <span class="syntax-string">createChocoDrop</span> } <span class="syntax-keyword">from</span> <span class="syntax-string">'chocodrop'</span>;
+<span class="syntax-keyword">const</span> chocoDrop = <span class="syntax-string">createChocoDrop</span>(scene, { camera, renderer });</pre>
+                    </div>
+
+                    <h3 style="color: #ff6b9d; margin-bottom: 10px;">📄 HTML環境 (Import Maps)</h3>
                     <div class="code-block">
-                        <pre><span class="syntax-keyword">import</span> { <span class="syntax-string">createChocoDrop</span> } <span class="syntax-keyword">from</span> <span class="syntax-string">'chocodrop'</span>;
+                        <pre><span class="syntax-keyword">&lt;script type="importmap"&gt;</span>
+{
+  <span class="syntax-string">"imports"</span>: {
+    <span class="syntax-string">"three"</span>: <span class="syntax-string">"https://unpkg.com/three@latest/build/three.module.js"</span>,
+    <span class="syntax-string">"chocodrop"</span>: <span class="syntax-string">"./src/index.js"</span>
+  }
+}
+<span class="syntax-keyword">&lt;/script&gt;</span>
 
-<span class="syntax-comment">// あなたの既存のThree.jsシーン</span>
-<span class="syntax-keyword">const</span> scene = <span class="syntax-keyword">new</span> THREE.Scene();
-
-<span class="syntax-comment">// ChocoDrop追加（これだけ！）</span>
-<span class="syntax-keyword">const</span> chocoDrop = <span class="syntax-string">createChocoDrop</span>(scene, {
-  camera,
-  renderer
-});</pre>
+<span class="syntax-keyword">&lt;script type="module"&gt;</span>
+<span class="syntax-keyword">import</span> { <span class="syntax-string">createChocoDrop</span> } <span class="syntax-keyword">from</span> <span class="syntax-string">'chocodrop'</span>;
+<span class="syntax-keyword">const</span> chocoDrop = <span class="syntax-string">createChocoDrop</span>(scene, { camera, renderer });
+<span class="syntax-keyword">&lt;/script&gt;</span></pre>
                     </div>
                 </div>
             </div>

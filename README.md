@@ -40,13 +40,25 @@ Three.jsシーンをAI搭載のコンテンツスタジオに：
 
 ---
 
-## 🎯 2つの導入方法
+## 🎯 あなたの環境を確認
 
-### 🚀 **すぐに始める**: npm/yarn環境
-- React/Vue/Next.js等をお使いの場合
+### 🤔 **どちらの環境ですか？**
 
-### 🔧 **理解して始める**: HTML + ES Modules
-- HTML/CSS/JSを直接書いている場合
+#### 📦 **npm環境**の場合
+✅ `package.json` ファイルがある  
+✅ `npm install` や `yarn add` を使っている  
+✅ React, Vue, Next.js, Vite, Webpack等を使用  
+→ **[npm環境の導入方法](#-npyarn環境)** へ
+
+#### 📄 **HTML環境**の場合  
+✅ HTMLファイルを直接編集している  
+✅ `<script>` タグでJavaScriptを書いている  
+✅ CodePen, JSFiddle等のオンラインエディタ使用  
+→ **[HTML環境の導入方法](#-html環境-es-modules)** へ
+
+### 💡 **迷った場合**
+HTMLファイルを直接書いているなら **HTML環境**、  
+フレームワークを使っているなら **npm環境** です。
 
 ---
 
@@ -63,33 +75,51 @@ createChocoDrop(scene, { camera, renderer });
 
 ### 🔧 HTML環境 (ES Modules)
 
-**方法1: ローカルソースコード使用**
+#### 📋 **事前準備**
+1. [リポジトリをダウンロード](https://github.com/nyukicorn/chocodrop/archive/refs/heads/main.zip)
+2. `chocodrop-main` フォルダを展開
+3. あなたのHTMLファイルを同じ階層に配置
+
+#### 💻 **推奨: Import Map使用**
+```html
+<!DOCTYPE html>
+<html>
+<head>
+    <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@latest/build/three.module.js",
+        "three/": "https://unpkg.com/three@latest/",
+        "chocodrop": "./chocodrop-main/src/index.js"
+      }
+    }
+    </script>
+</head>
+<body>
+    <script type="module">
+      import * as THREE from 'three';
+      import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+      import { createChocoDrop } from 'chocodrop';
+
+      // あなたのThree.jsシーン
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+      const renderer = new THREE.WebGLRenderer();
+
+      // ChocoDrop追加
+      const chocoDrop = createChocoDrop(scene, { camera, renderer });
+    </script>
+</body>
+</html>
+```
+
+#### 🔄 **代替: 直接パス指定**
 ```html
 <script type="module">
   import * as THREE from 'https://unpkg.com/three@latest/build/three.module.js';
-  import { OrbitControls } from 'https://unpkg.com/three@latest/examples/jsm/controls/OrbitControls.js';
-  import { createChocoDrop } from './src/index.js';
-
+  import { createChocoDrop } from './chocodrop-main/src/index.js';
+  
   // ChocoDrop初期化
-  createChocoDrop(scene, { camera, renderer });
-</script>
-```
-
-**方法2: Import Map使用**
-```html
-<script type="importmap">
-{
-  "imports": {
-    "three": "https://unpkg.com/three@latest/build/three.module.js",
-    "three/": "https://unpkg.com/three@latest/"
-  }
-}
-</script>
-<script type="module">
-  import * as THREE from 'three';
-  import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-  import { createChocoDrop } from './src/index.js';
-
   createChocoDrop(scene, { camera, renderer });
 </script>
 ```
@@ -98,10 +128,24 @@ createChocoDrop(scene, { camera, renderer });
 
 ## 🆘 困ったときは
 
-- **「動かない！」** → エラーカードにマウスホバーで詳細表示
-- **「このボタン何？」** → [UI操作ガイド](./docs/ui-guide.md)  
-- **「もっとカスタマイズしたい」** → [拡張ガイド](./docs/advanced.md)
-- **「エラーをAIに相談したい」** → エラー詳細をコピーしてAIに送信
+### 📦 **npm環境のトラブル**
+- **「chocodrop が見つからない」** → `npm install chocodrop` 実行済みか確認
+- **「createChocoDrop is not a function」** → `import { createChocoDrop }` の波括弧を確認
+- **「Three.js エラー」** → `npm install three` でThree.jsをインストール
+
+### 📄 **HTML環境のトラブル**  
+- **「Failed to resolve module」** → ファイルパスが正しいか確認（`./chocodrop-main/src/index.js`）
+- **「Import map エラー」** → `<script type="importmap">` がHTMLの最初にあるか確認
+- **「CORS エラー」** → ローカルサーバー（Live Server拡張等）で開く
+
+### 🔧 **共通のトラブル**
+- **「動かない！」** → ブラウザの開発者ツール（F12）でエラー確認
+- **「@キーが反応しない」** → `createChocoDrop` の後に `console.log('ChocoDrop ready!')` 追加
+- **「AIが応答しない」** → サーバー（`npm run dev`）が起動しているか確認
+
+### 💬 **サポート**
+- **詳細エラー** → エラー内容をコピーしてAIに相談
+- **機能質問** → [GitHub Issues](https://github.com/nyukicorn/chocodrop/issues)
 
 ---
 
