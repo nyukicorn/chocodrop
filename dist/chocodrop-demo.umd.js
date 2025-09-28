@@ -2,7 +2,7 @@
   typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports, require('three')) :
   typeof define === 'function' && define.amd ? define(['exports', 'three'], factory) :
   (global = typeof globalThis !== 'undefined' ? globalThis : global || self, factory(global.ChocoDrop = {}, global.THREE));
-})(this, (function (exports, THREE) { 'use strict';
+})(this, (function (exports, THREEModule) { 'use strict';
 
   function _interopNamespaceDefault(e) {
     var n = Object.create(null);
@@ -21,7 +21,7 @@
     return Object.freeze(n);
   }
 
-  var THREE__namespace = /*#__PURE__*/_interopNamespaceDefault(THREE);
+  var THREEModule__namespace = /*#__PURE__*/_interopNamespaceDefault(THREEModule);
 
   /**
    * ChocoDrop Client - サーバーとの通信クライアント
@@ -253,13 +253,48 @@
     }
 
     /**
+     * 選択されたオブジェクトを変更
+     */
+    async modifySelectedObject(selectedObject, command) {
+      await this.ensureInitialized();
+      console.log(`🔧 Modifying selected object: "${command}"`);
+
+      try {
+        // 既存の /api/command エンドポイントを使用
+        // オブジェクト情報をコマンドのコンテキストとして含める
+        const modifyCommand = `${command} (対象オブジェクト: ${selectedObject?.userData?.objectId || selectedObject?.id || 'unknown'})`;
+
+        const response = await fetch(`${this.serverUrl}/api/command`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ command: modifyCommand })
+        });
+
+        if (!response.ok) {
+          throw new Error(`Server error: ${response.status}`);
+        }
+
+        const result = await response.json();
+        console.log('✅ Object modification result:', result);
+
+        return result;
+
+      } catch (error) {
+        console.error('❌ Object modification failed:', error);
+        throw error;
+      }
+    }
+
+    /**
      * 利用可能なサービス一覧取得
      */
     async getAvailableServices() {
       await this.ensureInitialized();
       try {
         const response = await fetch(`${this.serverUrl}/api/services`);
-        
+
         if (!response.ok) {
           throw new Error(`Server error: ${response.status}`);
         }
@@ -532,6 +567,9 @@
     module.exports = { TRANSLATION_DICTIONARY, createObjectKeywords, translateKeyword, matchKeywordWithFilename };
   }
 
+  // UMDビルド対応: グローバルのTHREEを優先し、なければES moduleのimportを使用
+  const THREE = globalThis.THREE || THREEModule__namespace;
+
   /**
    * Scene Manager - 3D scene integration for ChocoDrop System
    * Handles natural language parsing and 3D object management
@@ -551,7 +589,7 @@
       this.client = options.client || new ChocoDropClient(options.serverUrl);
       
       // 実験オブジェクト管理用グループ
-      this.experimentGroup = new THREE__namespace.Group();
+      this.experimentGroup = new THREE.Group();
       this.experimentGroup.name = 'LiveExperiments';
       // 一旦シーンに追加（後でカメラに移動する可能性あり）
       this.scene.add(this.experimentGroup);
@@ -570,11 +608,11 @@
       this.audioControlUpdateListener = null;
 
       // Animation管理（UI要素用）
-      this.clock = new THREE__namespace.Clock();
+      this.clock = new THREE.Clock();
       
       // レイキャスティング用
-      this.raycaster = new THREE__namespace.Raycaster();
-      this.mouse = new THREE__namespace.Vector2();
+      this.raycaster = new THREE.Raycaster();
+      this.mouse = new THREE.Vector2();
       this.lastHoveredObject = null;
       
       // 設定
@@ -635,7 +673,7 @@
       // 生成されたオブジェクト
       console.log(`📦 Spawned objects: ${this.spawnedObjects.size}`);
       this.spawnedObjects.forEach((obj, id) => {
-        const worldPos = new THREE__namespace.Vector3();
+        const worldPos = new THREE.Vector3();
         obj.getWorldPosition(worldPos);
         console.log(`  - ${id} (${obj.userData.type}): 
         Local: (${obj.position.x.toFixed(2)}, ${obj.position.y.toFixed(2)}, ${obj.position.z.toFixed(2)})
@@ -644,9 +682,9 @@
         
         // 3Dモデルの詳細情報
         if (obj.userData.type === 'generated_3d_model') {
-          const box = new THREE__namespace.Box3().setFromObject(obj);
-          const size = box.getSize(new THREE__namespace.Vector3());
-          const center = box.getCenter(new THREE__namespace.Vector3());
+          const box = new THREE.Box3().setFromObject(obj);
+          const size = box.getSize(new THREE.Vector3());
+          const center = box.getCenter(new THREE.Vector3());
           console.log(`    📐 Bounding box - Center: (${center.x.toFixed(2)}, ${center.y.toFixed(2)}, ${center.z.toFixed(2)}), Size: (${size.x.toFixed(2)}, ${size.y.toFixed(2)}, ${size.z.toFixed(2)})`);
           
           // メッシュ数
@@ -721,17 +759,17 @@
         object.remove(existingIndicator);
       }
 
-      const indicatorGroup = new THREE__namespace.Group();
+      const indicatorGroup = new THREE.Group();
       indicatorGroup.name = 'selectionIndicator';
 
       // オブジェクトのバウンディングボックスを正確に取得
-      const box = new THREE__namespace.Box3().setFromObject(object);
-      const size = box.getSize(new THREE__namespace.Vector3());
-      const center = box.getCenter(new THREE__namespace.Vector3());
+      const box = new THREE.Box3().setFromObject(object);
+      const size = box.getSize(new THREE.Vector3());
+      const center = box.getCenter(new THREE.Vector3());
 
       // 小さなマージンを追加して枠が見えやすくする
       const margin = 0.1;
-      const adjustedSize = new THREE__namespace.Vector3(
+      const adjustedSize = new THREE.Vector3(
         size.x + margin,
         size.y + margin, 
         size.z + margin
@@ -745,7 +783,7 @@
         const height = object.geometry.parameters.height;
         
         // 平面の周りに枠線を作成
-        const shape = new THREE__namespace.Shape();
+        const shape = new THREE.Shape();
         shape.moveTo(-width/2, -height/2);
         shape.lineTo(width/2, -height/2);
         shape.lineTo(width/2, height/2);
@@ -753,34 +791,34 @@
         shape.lineTo(-width/2, -height/2);
         
         const points = shape.getPoints();
-        const geometryLine = new THREE__namespace.BufferGeometry().setFromPoints(points);
+        const geometryLine = new THREE.BufferGeometry().setFromPoints(points);
         // 2025年トレンド: アダプティブ選択インジケーター
         const adaptiveColor = this.getAdaptiveSelectionColor();
-        const materialLine = new THREE__namespace.LineBasicMaterial({
+        const materialLine = new THREE.LineBasicMaterial({
           color: adaptiveColor,
           linewidth: 2,
           transparent: true,
           opacity: 0.9
         });
         
-        const line = new THREE__namespace.Line(geometryLine, materialLine);
+        const line = new THREE.Line(geometryLine, materialLine);
         line.position.set(0, 0, 0.01); // 少し前に出して見えるようにする
         indicatorGroup.add(line);
       } else {
         // その他のオブジェクトは通常の3Dボックス枠
-        const edgesGeometry = new THREE__namespace.EdgesGeometry(
-          new THREE__namespace.BoxGeometry(adjustedSize.x, adjustedSize.y, adjustedSize.z)
+        const edgesGeometry = new THREE.EdgesGeometry(
+          new THREE.BoxGeometry(adjustedSize.x, adjustedSize.y, adjustedSize.z)
         );
         // 2025年トレンド: アダプティブ選択インジケーター
         const adaptiveColor = this.getAdaptiveSelectionColor();
-        const edgesMaterial = new THREE__namespace.LineBasicMaterial({
+        const edgesMaterial = new THREE.LineBasicMaterial({
           color: adaptiveColor,
           linewidth: 2,
           transparent: true,
           opacity: 0.9
         });
         
-        const edges = new THREE__namespace.LineSegments(edgesGeometry, edgesMaterial);
+        const edges = new THREE.LineSegments(edgesGeometry, edgesMaterial);
         edges.position.copy(center);
         indicatorGroup.add(edges);
       }
@@ -818,13 +856,13 @@
       console.log('✅ PlaneGeometry detected, creating handles');
 
       const handleSize = 0.15; // 2025年トレンド: より小さく洗練された
-      const handleGeometry = new THREE__namespace.BoxGeometry(handleSize, handleSize, handleSize);
+      const handleGeometry = new THREE.BoxGeometry(handleSize, handleSize, handleSize);
       // 角を丸くするため、後でroundedBoxを使用
 
       // 常に前面に表示されるマテリアル
       // 2025年トレンド: アダプティブリサイズハンドル
       const adaptiveColor = this.getAdaptiveSelectionColor();
-      const handleMaterial = new THREE__namespace.MeshBasicMaterial({
+      const handleMaterial = new THREE.MeshBasicMaterial({
         color: adaptiveColor,
         transparent: true,
         opacity: 0.8,
@@ -832,7 +870,7 @@
         depthWrite: false
       });
 
-      const handleHoverMaterial = new THREE__namespace.MeshBasicMaterial({
+      const handleHoverMaterial = new THREE.MeshBasicMaterial({
         color: this.getAdaptiveHoverColor(),
         transparent: true,
         opacity: 1.0,
@@ -852,7 +890,7 @@
       ];
 
       positions.forEach((pos, index) => {
-        const handle = new THREE__namespace.Mesh(handleGeometry, handleMaterial.clone());
+        const handle = new THREE.Mesh(handleGeometry, handleMaterial.clone());
         handle.position.set(pos.x, pos.y, pos.z); // 親からの相対位置
         handle.userData = { 
           isResizeHandle: true, 
@@ -934,10 +972,10 @@
       const canvas = this.renderer.domElement;
       let isDragging = false;
       let dragObject = null;
-      let dragOffset = new THREE__namespace.Vector3();
-      let mouseStart = new THREE__namespace.Vector2();
+      let dragOffset = new THREE.Vector3();
+      let mouseStart = new THREE.Vector2();
       let dragMode = 'move'; // 'move', 'resize', 'rotate'
-      let originalScale = new THREE__namespace.Vector3();
+      let originalScale = new THREE.Vector3();
       
       canvas.addEventListener('mousedown', (event) => {
         if (event.button !== 0) return; // 左クリックのみ
@@ -1085,15 +1123,15 @@
 
         } else if (dragMode === 'move') {
           // 移動モード（従来の処理）
-          const cameraRight = new THREE__namespace.Vector3();
-          const cameraUp = new THREE__namespace.Vector3();
-          this.camera.getWorldDirection(new THREE__namespace.Vector3()); // dummy call to update matrix
+          const cameraRight = new THREE.Vector3();
+          const cameraUp = new THREE.Vector3();
+          this.camera.getWorldDirection(new THREE.Vector3()); // dummy call to update matrix
           cameraRight.setFromMatrixColumn(this.camera.matrixWorld, 0).normalize();
           cameraUp.setFromMatrixColumn(this.camera.matrixWorld, 1).normalize();
 
           // マウス移動をワールド座標に変換
           const moveScale = 0.01;
-          const worldMove = new THREE__namespace.Vector3()
+          const worldMove = new THREE.Vector3()
             .add(cameraRight.clone().multiplyScalar(deltaX * moveScale))
             .add(cameraUp.clone().multiplyScalar(-deltaY * moveScale));
 
@@ -1128,7 +1166,7 @@
         event.preventDefault();
         
         const rect = canvas.getBoundingClientRect();
-        const mouse = new THREE__namespace.Vector2();
+        const mouse = new THREE.Vector2();
         mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
         mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
         
@@ -1209,7 +1247,7 @@
             // リセット：正面向きに戻す
             object.rotation.x = 0;
             // カメラの視線方向（ユーザーがモニターで見ている方向）に向ける
-            const cameraDirection = new THREE__namespace.Vector3();
+            const cameraDirection = new THREE.Vector3();
             this.camera.getWorldDirection(cameraDirection);
             const targetPoint = object.position.clone().add(cameraDirection.multiplyScalar(-1));
             object.lookAt(targetPoint);
@@ -2116,7 +2154,7 @@
       if (!targetObject.material) return false;
 
       if (this.ensureEmissiveSupport(targetObject)) {
-        targetObject.material.emissive = new THREE__namespace.Color(effect.color);
+        targetObject.material.emissive = new THREE.Color(effect.color);
         targetObject.material.emissiveIntensity = effect.intensity;
         targetObject.material.needsUpdate = true;
         console.log(`💡 Glow applied: color=0x${effect.color.toString(16)}, intensity=${effect.intensity}`);
@@ -2124,7 +2162,7 @@
       }
 
       // Fallback: 調色による簡易発光表現
-      const fallbackColor = new THREE__namespace.Color(effect.color);
+      const fallbackColor = new THREE.Color(effect.color);
       if (!targetObject.userData.originalColor) {
         targetObject.userData.originalColor = targetObject.material.color ? targetObject.material.color.clone() : null;
       }
@@ -2238,7 +2276,7 @@
           console.warn('🚫 Cosmic fallback could not adjust color');
         }
       } else {
-        targetObject.material.emissive = new THREE__namespace.Color(effect.colors[0]);
+        targetObject.material.emissive = new THREE.Color(effect.colors[0]);
         targetObject.material.emissiveIntensity = effect.intensity;
         targetObject.material.needsUpdate = true;
       }
@@ -2282,17 +2320,17 @@
         return true;
       }
 
-      const shaderMaterial = new THREE__namespace.ShaderMaterial({
+      const shaderMaterial = new THREE.ShaderMaterial({
         uniforms: {
           map: { value: texture },
-          keyColor: { value: new THREE__namespace.Color(effect.color) },
+          keyColor: { value: new THREE.Color(effect.color) },
           threshold: { value: effect.threshold },
           smoothing: { value: effect.smoothing }
         },
         vertexShader: `varying vec2 vUv;\nvoid main() {\n  vUv = uv;\n  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);\n}`,
         fragmentShader: `uniform sampler2D map;\nuniform vec3 keyColor;\nuniform float threshold;\nuniform float smoothing;\nvarying vec2 vUv;\nvoid main() {\n  vec4 color = texture2D(map, vUv);\n  float dist = distance(color.rgb, keyColor);\n  float alpha = smoothstep(threshold, threshold + smoothing, dist) * color.a;\n  if (alpha <= 0.0) discard;\n  gl_FragColor = vec4(color.rgb, alpha);\n}`,
         transparent: true,
-        side: THREE__namespace.DoubleSide,
+        side: THREE.DoubleSide,
         depthTest: material.depthTest,
         depthWrite: material.depthWrite,
         toneMapped: material.toneMapped === true
@@ -2349,7 +2387,7 @@
       }
 
       // 初期色を設定（発光ではなく拡散色）
-      targetObject.material.color = new THREE__namespace.Color(effect.colors[0]);
+      targetObject.material.color = new THREE.Color(effect.colors[0]);
       targetObject.material.needsUpdate = true;
 
       // 水彩画アニメーションデータを作成
@@ -2362,7 +2400,7 @@
         speed: this.getWatercolorSpeed(effect.type),
         startTime: Date.now(),
         colorIndex: 0,
-        originalColor: new THREE__namespace.Color(targetObject.material.color),
+        originalColor: new THREE.Color(targetObject.material.color),
         originalOpacity: targetObject.material.opacity
       };
 
@@ -2490,7 +2528,7 @@
     updateRainbowAnimation(animation, elapsed) {
       if (animation.object.material) {
         const hue = (elapsed * animation.speed) % 1;
-        const color = new THREE__namespace.Color().setHSL(hue, 1, 0.5);
+        const color = new THREE.Color().setHSL(hue, 1, 0.5);
         animation.object.material.color = color;
         animation.object.material.needsUpdate = true;
       }
@@ -2527,8 +2565,8 @@
       const lerpFactor = colorProgress - currentColorIndex;
 
       // 現在の色と次の色をブレンド
-      const currentColor = new THREE__namespace.Color(animation.colors[currentColorIndex]);
-      const nextColor = new THREE__namespace.Color(animation.colors[nextColorIndex]);
+      const currentColor = new THREE.Color(animation.colors[currentColorIndex]);
+      const nextColor = new THREE.Color(animation.colors[nextColorIndex]);
       const blendedColor = currentColor.lerp(nextColor, lerpFactor);
 
       // 宇宙的エフェクトタイプごとの特別な処理
@@ -2589,8 +2627,8 @@
       const lerpFactor = colorProgress - currentColorIndex;
 
       // 現在の色と次の色をブレンド
-      const currentColor = new THREE__namespace.Color(animation.colors[currentColorIndex]);
-      const nextColor = new THREE__namespace.Color(animation.colors[nextColorIndex]);
+      const currentColor = new THREE.Color(animation.colors[currentColorIndex]);
+      const nextColor = new THREE.Color(animation.colors[nextColorIndex]);
       const blendedColor = currentColor.lerp(nextColor, lerpFactor);
 
       // 透明度の柔らかな変化
@@ -3136,7 +3174,7 @@
           console.log(`📡 Used model: ${imageResult.modelName}`);
         }
         
-        const loader = new THREE__namespace.TextureLoader();
+        const loader = new THREE.TextureLoader();
         let texture;
         if (imageResult && imageResult.success && (imageResult.imageUrl || imageResult.localPath)) {
           // 成功: 生成された画像をテクスチャとして使用
@@ -3152,7 +3190,7 @@
           texture = await loader.loadAsync(imageUrl);
 
           // テクスチャの色彩を正確に表示するための設定
-          texture.colorSpace = THREE__namespace.SRGBColorSpace; // 正しいカラースペース
+          texture.colorSpace = THREE.SRGBColorSpace; // 正しいカラースペース
         } else {
           // 失敗: プレースホルダー画像を使用
           console.log(`⚠️ Using fallback image (last error: ${lastError?.message || 'unknown'})`);
@@ -3177,15 +3215,15 @@
         }
 
         // 画像を表示する平面ジオメトリを作成
-        const geometry = new THREE__namespace.PlaneGeometry(planeWidth, planeHeight);
-        const material = new THREE__namespace.MeshBasicMaterial({
+        const geometry = new THREE.PlaneGeometry(planeWidth, planeHeight);
+        const material = new THREE.MeshBasicMaterial({
           map: texture,
           transparent: true,
-          side: THREE__namespace.DoubleSide, // 両面表示
+          side: THREE.DoubleSide, // 両面表示
           toneMapped: false    // トーンマッピングを無効化（より鮮やかな色彩）
         });
         
-        const plane = new THREE__namespace.Mesh(geometry, material);
+        const plane = new THREE.Mesh(geometry, material);
         
         // レンダリング順序を設定（画像も前面に表示）
         plane.renderOrder = 1000;  // 高い値で前面に表示
@@ -3281,8 +3319,8 @@
           video.playsInline = true;
           
           // 動画テクスチャを作成
-          videoTexture = new THREE__namespace.VideoTexture(video);
-          videoTexture.colorSpace = THREE__namespace.SRGBColorSpace;
+          videoTexture = new THREE.VideoTexture(video);
+          videoTexture.colorSpace = THREE.SRGBColorSpace;
           
           // 動画の自動再生を開始
           video.addEventListener('loadeddata', () => {
@@ -3312,15 +3350,15 @@
           planeWidth = baseSize * planeAspect;
         }
 
-        const geometry = new THREE__namespace.PlaneGeometry(planeWidth, planeHeight);
-        const material = new THREE__namespace.MeshBasicMaterial({
+        const geometry = new THREE.PlaneGeometry(planeWidth, planeHeight);
+        const material = new THREE.MeshBasicMaterial({
           map: videoTexture,
           transparent: false,
-          side: THREE__namespace.DoubleSide,
+          side: THREE.DoubleSide,
           toneMapped: false
         });
         
-        const plane = new THREE__namespace.Mesh(geometry, material);
+        const plane = new THREE.Mesh(geometry, material);
         
         // レンダリング順序を設定（動画を前面に表示）
         plane.renderOrder = 1000;  // 高い値で前面に表示
@@ -3388,15 +3426,15 @@
         // 動画を表示する平面ジオメトリを作成
         const sizeScale = parsed.size?.scale ?? this.config.defaultObjectScale ?? 1;
         const baseSize = 6 * sizeScale;
-        const geometry = new THREE__namespace.PlaneGeometry(baseSize, baseSize);
-        const material = new THREE__namespace.MeshBasicMaterial({
+        const geometry = new THREE.PlaneGeometry(baseSize, baseSize);
+        const material = new THREE.MeshBasicMaterial({
           map: fallbackVideoTexture,
           transparent: false,
-          side: THREE__namespace.DoubleSide,
+          side: THREE.DoubleSide,
           toneMapped: false
         });
         
-        const plane = new THREE__namespace.Mesh(geometry, material);
+        const plane = new THREE.Mesh(geometry, material);
         
         // カメラ相対位置で配置
         if (this.camera) {
@@ -3447,11 +3485,11 @@
         console.log(`📁 Loading image file: ${fileUrl}`);
         
         // ファイルからテクスチャを読み込み
-        const loader = new THREE__namespace.TextureLoader();
+        const loader = new THREE.TextureLoader();
         const texture = await loader.loadAsync(fileUrl);
 
         // テクスチャの色彩を正確に表示するための設定
-        texture.colorSpace = THREE__namespace.SRGBColorSpace;
+        texture.colorSpace = THREE.SRGBColorSpace;
 
         // アスペクト比を算出（fallback: 1）
         const imageWidth = texture.image?.naturalWidth || texture.image?.width || texture.source?.data?.width || 1;
@@ -3470,17 +3508,17 @@
         }
 
         // 画像を表示する平面ジオメトリを作成（縦横比を維持）
-        const geometry = new THREE__namespace.PlaneGeometry(width, height);
-        const material = new THREE__namespace.MeshBasicMaterial({
+        const geometry = new THREE.PlaneGeometry(width, height);
+        const material = new THREE.MeshBasicMaterial({
           map: texture,
           transparent: true,
-          side: THREE__namespace.DoubleSide,
+          side: THREE.DoubleSide,
           toneMapped: false
         });
         material.alphaTest = 0.01;
         material.needsUpdate = true;
         
-        const plane = new THREE__namespace.Mesh(geometry, material);
+        const plane = new THREE.Mesh(geometry, material);
 
         // レンダリング順序を設定
         plane.renderOrder = 1000;
@@ -3553,8 +3591,8 @@
         video.preload = 'auto';
 
         // VideoTextureを作成
-        const videoTexture = new THREE__namespace.VideoTexture(video);
-        videoTexture.colorSpace = THREE__namespace.SRGBColorSpace;
+        const videoTexture = new THREE.VideoTexture(video);
+        videoTexture.colorSpace = THREE.SRGBColorSpace;
 
         // ビデオの読み込みとサイズ取得
         await new Promise((resolve, reject) => {
@@ -3590,17 +3628,17 @@
         }
         
         // 動画を表示する平面ジオメトリを作成
-        const geometry = new THREE__namespace.PlaneGeometry(width, height);
-        const material = new THREE__namespace.MeshBasicMaterial({
+        const geometry = new THREE.PlaneGeometry(width, height);
+        const material = new THREE.MeshBasicMaterial({
           map: videoTexture,
           transparent: true,
-          side: THREE__namespace.DoubleSide,
+          side: THREE.DoubleSide,
           toneMapped: false
         });
         material.alphaTest = 0.01;
         material.needsUpdate = true;
         
-        const plane = new THREE__namespace.Mesh(geometry, material);
+        const plane = new THREE.Mesh(geometry, material);
         
         // レンダリング順序を設定
         plane.renderOrder = 1000;
@@ -4256,7 +4294,7 @@
       ctx.fillStyle = 'rgba(255,255,255,0.7)';
       ctx.fillText('Placeholder Image', 256, 300);
       
-      return new THREE__namespace.CanvasTexture(canvas);
+      return new THREE.CanvasTexture(canvas);
     }
 
     /**
@@ -4311,7 +4349,7 @@
       // アニメーション開始
       animate();
       
-      return new THREE__namespace.CanvasTexture(canvas);
+      return new THREE.CanvasTexture(canvas);
     }
 
     /**
@@ -4422,14 +4460,14 @@
      */
     createLocationIndicator(relativePosition) {
       // 目立つ光る球体を作成
-      const geometry = new THREE__namespace.SphereGeometry(1, 16, 16);
-      const material = new THREE__namespace.MeshBasicMaterial({
+      const geometry = new THREE.SphereGeometry(1, 16, 16);
+      const material = new THREE.MeshBasicMaterial({
         color: 0x00ff00,
         transparent: true,
         opacity: 0.9
       });
       
-      const indicator = new THREE__namespace.Mesh(geometry, material);
+      const indicator = new THREE.Mesh(geometry, material);
       
       // カメラ相対位置でインジケーターも配置
       if (this.camera) {
@@ -4479,20 +4517,20 @@
         if (this.config.enableDebugLogging) {
           console.warn('📷 Camera not available, using fallback positioning');
         }
-        return new THREE__namespace.Vector3(relativePosition.x, relativePosition.y, relativePosition.z);
+        return new THREE.Vector3(relativePosition.x, relativePosition.y, relativePosition.z);
       }
 
       try {
         // カメラの位置と方向を取得
         const cameraPos = this.camera.position.clone();
-        const cameraDirection = new THREE__namespace.Vector3();
+        const cameraDirection = new THREE.Vector3();
         this.camera.getWorldDirection(cameraDirection);
         
         // カメラの右方向と上方向を計算
-        const cameraRight = new THREE__namespace.Vector3();
-        const cameraUp = new THREE__namespace.Vector3(0, 1, 0); // ワールドの上方向
+        const cameraRight = new THREE.Vector3();
+        const cameraUp = new THREE.Vector3(0, 1, 0); // ワールドの上方向
         cameraRight.crossVectors(cameraDirection, cameraUp).normalize();
-        const cameraUpActual = new THREE__namespace.Vector3();
+        const cameraUpActual = new THREE.Vector3();
         cameraUpActual.crossVectors(cameraRight, cameraDirection).normalize();
 
         // 相対位置をカメラ座標系で計算
@@ -4514,7 +4552,7 @@
         
       } catch (error) {
         console.error('❌ Camera relative position calculation failed:', error);
-        return new THREE__namespace.Vector3(relativePosition.x, relativePosition.y, relativePosition.z);
+        return new THREE.Vector3(relativePosition.x, relativePosition.y, relativePosition.z);
       }
     }
 
@@ -4526,22 +4564,22 @@
         return;
       }
 
-      const forward = new THREE__namespace.Vector3();
+      const forward = new THREE.Vector3();
       this.camera.getWorldDirection(forward); // カメラの前方向（前方が負Z）
       forward.negate(); // 平面の法線をカメラ側へ向ける
 
-      let up = new THREE__namespace.Vector3().copy(this.camera.up).applyQuaternion(this.camera.quaternion).normalize();
+      let up = new THREE.Vector3().copy(this.camera.up).applyQuaternion(this.camera.quaternion).normalize();
       if (Math.abs(forward.dot(up)) > 0.999) {
-        up = new THREE__namespace.Vector3(0, 1, 0);
+        up = new THREE.Vector3(0, 1, 0);
         if (Math.abs(forward.dot(up)) > 0.999) {
-          up = new THREE__namespace.Vector3(0, 0, 1);
+          up = new THREE.Vector3(0, 0, 1);
         }
       }
 
-      const right = new THREE__namespace.Vector3().crossVectors(up, forward).normalize();
-      up = new THREE__namespace.Vector3().crossVectors(forward, right).normalize();
+      const right = new THREE.Vector3().crossVectors(up, forward).normalize();
+      up = new THREE.Vector3().crossVectors(forward, right).normalize();
 
-      const orientation = new THREE__namespace.Matrix4();
+      const orientation = new THREE.Matrix4();
       orientation.makeBasis(right, up, forward);
       plane.quaternion.setFromRotationMatrix(orientation);
     }
@@ -4923,7 +4961,7 @@
       if (!this.camera || !this.renderer || !audioButton.parentNode) return;
 
       // 動画オブジェクトの3D座標を画面座標に変換
-      const vector = new THREE__namespace.Vector3();
+      const vector = new THREE.Vector3();
       videoObject.getWorldPosition(vector);
       vector.project(this.camera);
 
@@ -13815,6 +13853,11 @@
           }
         } else {
           throw new Error('SceneManager または Client が設定されていません');
+        }
+
+        // サーバーからのエラーレスポンスをチェック
+        if (result && result.success === false) {
+          throw new Error(result.error || '操作に失敗しました');
         }
 
         if (result && result.taskId) {

@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ChocoDrop インストールテスト</title>
+    <style>
+        body { margin: 0; background: #000; overflow: hidden; }
+        #container { width: 100vw; height: 100vh; }
+    </style>
+</head>
+<body>
+    <div id="container"></div>
+
+    <script type="module">
+        // 現代的なES Modules使用
+        import * as THREE from 'https://unpkg.com/three@latest/build/three.module.js';
+        import { OrbitControls } from 'https://unpkg.com/three@latest/examples/jsm/controls/OrbitControls.js';
+
+        // ChocoDrop ES Modules版を直接インポート
+        import { createChocoDrop } from './src/index.js';
+        
+        // ソースコード直接使用（UMD版廃止により）
+
+            // Scene setup
+            const scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x1a1a2e);
+
+            const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 2, 5);
+
+            const renderer = new THREE.WebGLRenderer();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.getElementById('container').appendChild(renderer.domElement);
+
+            // Controls
+            const controls = new OrbitControls(camera, renderer.domElement);
+
+            // ChocoDrop initialization
+            const chocoDrop = createChocoDrop(scene, {
+                camera: camera,
+                renderer: renderer,
+                onControlsToggle: (disabled) => {
+                    controls.enabled = !disabled;
+                }
+            });
+
+            // Render loop
+            function animate() {
+                requestAnimationFrame(animate);
+                controls.update();
+                renderer.render(scene, camera);
+            }
+            animate();
+
+            console.log('✅ ChocoDrop ready! Press @ key to start.');
+        };
+    </script>
+</body>
+</html>

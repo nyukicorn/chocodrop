@@ -3,21 +3,21 @@
 > **自然言語で3D空間にAIコンテンツをドロップ**  
 > あらゆる3D空間に、AIコンテンツをちょこんとドロップ
 
-## ⚡ クイックスタート（熟練者向け）
+## ⚡ クイックスタート
 
 ```bash
-# HTML
-<script src="https://cdn.jsdelivr.net/npm/chocodrop@latest/dist/chocodrop.umd.min.js"></script>
-ChocoDrop.createChocoDrop(scene, { camera, renderer });
-
-# npm
+# npm/yarn
 npm i chocodrop
 import { createChocoDrop } from 'chocodrop';
 createChocoDrop(scene, { camera, renderer });
+
+# HTML (ES Modules)
+import { createChocoDrop } from './src/index.js';
+createChocoDrop(scene, { camera, renderer });
 ```
 
-**🎮 使い方:** `@`キー → 自然言語入力 → 完了  
-**📋 [サンプル](#完全なサンプル) | 📚 [API](#api-リファレンス) | 🔧 [DIY版](#ai自作版)**
+**🎮 使い方:** `@`キー → 自然言語入力 → 完了
+**📋 [サンプル](#完全なサンプル) | 📚 [API](#api-リファレンス) | 🔧 [カスタマイズ](#aiと一緒に作るカスタマイズ版)**
 
 ---
 
@@ -25,56 +25,34 @@ createChocoDrop(scene, { camera, renderer });
 
 ---
 
-<details>
-<summary><b>🎯 初心者の方・詳しい説明が欲しい方はこちら</b></summary>
+## 🎨 ChocoDrop って何？
 
-## ChocoDrop って何？
-
-どんなThree.jsシーンも、AI搭載のコンテンツスタジオに変身：
+Three.jsシーンをAI搭載のコンテンツスタジオに：
 
 ```javascript
-// 自然言語で話しかけるだけ
+// 自然言語でコンテンツを作成
 "猫の置物を右上に作って" → AIが猫を生成して右上に配置
 "桜を中央に配置" → 桜が瞬時に現れる
-"大きくして" → 選択したオブジェクトが拡大（※要オブジェクト選択）
+"モノクロにして" → 選択したオブジェクトがモノクロに
 ```
 
 **対応環境:** Three.js、React Three Fiber、A-Frame、Next.js、HTML
 
 ---
 
-## 🎯 あなたはどのタイプ？まずはここをチェック！
+## 🎯 2つの導入方法
 
-### 🤔 Step1: あなたの環境は？
+### 🚀 **すぐに始める**: npm/yarn環境
+- React/Vue/Next.js等をお使いの場合
 
-**迷ったらここから！**
-- 📄 **HTML/CSS/JSファイルを直接書いている** → HTML環境
-- 📦 **React/Vue/Next.js/Viteを使っている** → npm環境  
-- 🤷‍♀️ **よくわからない** → HTML環境から始めてください
-
-### 🎮 Step2: あなたの使い方は？
-
-- 🚀 **とりあえず動かしたい！** → お手軽パッケージ版
-- 🔧 **仕組みを理解して自分好みにカスタマイズしたい** → AIと一緒に自作版
-- 📚 **勉強しながら進めたい** → AIと一緒に自作版がおすすめ
+### 🔧 **理解して始める**: HTML + ES Modules
+- HTML/CSS/JSを直接書いている場合
 
 ---
 
-## 🛠️ あなたにピッタリの導入方法
+## 🛠️ 導入方法
 
-### 🚀 お手軽パッケージ版「すぐ使いたい！」
-
-#### 📄 HTML環境の人
-```html
-<!-- この2行をHTMLに追加するだけ！ -->
-<script src="https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chocodrop@latest/dist/chocodrop.umd.min.js"></script>
-<script>
-  ChocoDrop.createChocoDrop(scene, { camera, renderer });
-</script>
-```
-
-#### 📦 npm環境の人
+### 🚀 npm/yarn環境
 ```bash
 npm install chocodrop
 ```
@@ -83,17 +61,38 @@ import { createChocoDrop } from 'chocodrop';
 createChocoDrop(scene, { camera, renderer });
 ```
 
-### 🔧 AIと一緒に自作版「理解しながら作りたい！」
+### 🔧 HTML環境 (ES Modules)
 
-#### 📄 HTML環境の人
-**「Three.jsって何？」レベルから始めたい**
-- 🎓 [超初心者向けガイド](./docs/beginner-html.md) - Three.jsの基本から
-- 🔧 [HTMLでDIY](./docs/diy-html.md) - ChocoDrop の仕組みを理解
+**方法1: ローカルソースコード使用**
+```html
+<script type="module">
+  import * as THREE from 'https://unpkg.com/three@latest/build/three.module.js';
+  import { OrbitControls } from 'https://unpkg.com/three@latest/examples/jsm/controls/OrbitControls.js';
+  import { createChocoDrop } from './src/index.js';
 
-#### 📦 npm環境の人  
-**モジュール構成を理解したい**
-- 🎓 [モジュール基礎](./docs/beginner-npm.md) - import/export の基本
-- 🔧 [npmでDIY](./docs/diy-npm.md) - 一緒にコードを書いて理解
+  // ChocoDrop初期化
+  createChocoDrop(scene, { camera, renderer });
+</script>
+```
+
+**方法2: Import Map使用**
+```html
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@latest/build/three.module.js",
+    "three/": "https://unpkg.com/three@latest/"
+  }
+}
+</script>
+<script type="module">
+  import * as THREE from 'three';
+  import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+  import { createChocoDrop } from './src/index.js';
+
+  createChocoDrop(scene, { camera, renderer });
+</script>
+```
 
 ---
 
@@ -136,7 +135,7 @@ ChocoDrop は**クリエイティブな実験を自由に楽しめる**ように
 
 **つまり：** 作品制作はしっかり、編集実験は自由に！
 
-「ちょっと試してみたい」「どんな感じになるかな？」という好奇心を、何の心配もなく満たせるツールです。
+「ちょっと試してみたい」「どんな感じになるかな？」という好奇心を安心して満たせるツールです。
 
 ---
 
@@ -155,14 +154,12 @@ ChocoDrop は**クリエイティブな実験を自由に楽しめる**ように
 <body>
     <div id="container"></div>
 
-    <!-- Three.js -->
-    <script src="https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.170.0/examples/js/controls/OrbitControls.js"></script>
+    <script type="module">
+        // ES Modules使用
+        import * as THREE from 'https://unpkg.com/three@latest/build/three.module.js';
+        import { OrbitControls } from 'https://unpkg.com/three@latest/examples/jsm/controls/OrbitControls.js';
+        import { createChocoDrop } from './src/index.js';
 
-    <!-- ChocoDrop -->
-    <script src="https://cdn.jsdelivr.net/npm/chocodrop@latest/dist/chocodrop.umd.min.js"></script>
-
-    <script>
         // Scene setup
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0x1a1a2e);
@@ -175,10 +172,10 @@ ChocoDrop は**クリエイティブな実験を自由に楽しめる**ように
         document.getElementById('container').appendChild(renderer.domElement);
 
         // Controls
-        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        const controls = new OrbitControls(camera, renderer.domElement);
 
         // ChocoDrop initialization
-        const chocoDrop = ChocoDrop.createChocoDrop(scene, {
+        const chocoDrop = createChocoDrop(scene, {
             camera: camera,
             renderer: renderer,
             onControlsToggle: (disabled) => {
@@ -196,6 +193,7 @@ ChocoDrop は**クリエイティブな実験を自由に楽しめる**ように
 
         console.log('✅ ChocoDrop ready! Press @ key to start.');
     </script>
+
 </body>
 </html>
 ```

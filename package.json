@@ -15,9 +15,7 @@
     "./bootstrap": "./src/client/bootstrap.js",
     "./server": "./src/server/index.js"
   },
-  "browser": "dist/chocodrop.umd.js",
-  "unpkg": "dist/chocodrop.umd.min.js",
-  "jsdelivr": "dist/chocodrop.umd.min.js",
+
   "scripts": {
     "dev": "node src/server/server.js",
     "start": "node src/server/server.js",
