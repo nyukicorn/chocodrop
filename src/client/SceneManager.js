@@ -1378,7 +1378,13 @@ export class SceneManager {
       '水彩': { type: 'watercolor_art', colors: [0xff6b9d, 0x4ecdc4, 0xffe66d, 0x95e1d3], opacity: 0.6, name: 'watercolor' },
       '水彩画': { type: 'watercolor_art', colors: [0xff6b9d, 0x4ecdc4, 0xffe66d, 0x95e1d3], opacity: 0.6, name: 'watercolor' },
       'パステル': { type: 'pastel_art', colors: [0xffb3ba, 0xffdfba, 0xffffba, 0xbaffc9, 0xbae1ff], opacity: 0.7, name: 'pastel' },
-      '虹色': { type: 'rainbow_glow', colors: [0xff0000, 0xff8800, 0xffff00, 0x00ff00, 0x0088ff, 0x0000ff, 0x8800ff], intensity: 0.5, name: 'rainbow_glow' }
+      '虹色': { type: 'rainbow_glow', colors: [0xff0000, 0xff8800, 0xffff00, 0x00ff00, 0x0088ff, 0x0000ff, 0x8800ff], intensity: 0.5, name: 'rainbow_glow' },
+      
+      // モノクロ・グレースケール系
+      'モノクロ': { type: 'monochrome', name: 'monochrome' },
+      'グレースケール': { type: 'monochrome', name: 'grayscale' },
+      'モノクロに': { type: 'monochrome', name: 'monochrome' },
+      '白黒': { type: 'monochrome', name: 'black_white' }
     };
 
     // プリセット効果
@@ -1559,6 +1565,9 @@ export class SceneManager {
           break;
         case 'chroma_key':
           applied = this.applyChromaKeyEffect(targetObject, effect) || applied;
+          break;
+        case 'monochrome':
+          applied = this.applyMonochromeEffect(targetObject, effect) || applied;
           break;
         default:
           console.warn(`🚫 Unknown effect type: ${effect.type}`);
@@ -1779,6 +1788,66 @@ export class SceneManager {
     }
 
     console.log('🪄 Applied chroma key shader material');
+    return true;
+  }
+
+  /**
+   * モノクロ（グレースケール）エフェクト適用
+   */
+  applyMonochromeEffect(targetObject, effect) {
+    if (!targetObject.material) return false;
+    const material = targetObject.material;
+    const texture = material.map;
+
+    if (!texture) {
+      console.warn('🚫 Monochrome effect requires texture map');
+      return false;
+    }
+
+    // 既存のモノクロマテリアルをチェック
+    if (material.userData && material.userData.isMonochromeMaterial && material.uniforms) {
+      console.log('🎯 Monochrome material already applied');
+      return true;
+    }
+
+    // グレースケール用のシェーダーマテリアルを作成
+    const shaderMaterial = new THREE.ShaderMaterial({
+      uniforms: {
+        map: { value: texture }
+      },
+      vertexShader: `
+        varying vec2 vUv;
+        void main() {
+          vUv = uv;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform sampler2D map;
+        varying vec2 vUv;
+        void main() {
+          vec4 color = texture2D(map, vUv);
+          // ルミナンス（輝度）計算でグレースケール化
+          float gray = dot(color.rgb, vec3(0.299, 0.587, 0.114));
+          gl_FragColor = vec4(vec3(gray), color.a);
+        }
+      `,
+      transparent: material.transparent,
+      side: THREE.DoubleSide,
+      depthTest: material.depthTest,
+      depthWrite: material.depthWrite,
+      toneMapped: material.toneMapped === true
+    });
+
+    shaderMaterial.userData.isMonochromeMaterial = true;
+    targetObject.material = shaderMaterial;
+
+    // 古いマテリアルを削除
+    if (typeof material.dispose === 'function') {
+      material.dispose();
+    }
+
+    console.log('⚫ Applied monochrome effect');
     return true;
   }
 
@@ -3943,6 +4012,45 @@ export class SceneManager {
       }
     };
     animate();
+  }
+
+  /**
+   * エラー時にローディング状態をクリアする
+   */
+  clearLoadingStates() {
+    // ローディングインジケーターを削除
+    const loadingIndicators = [];
+    this.scene.traverse((object) => {
+      if (object.userData && object.userData.isLoadingIndicator) {
+        loadingIndicators.push(object);
+      }
+    });
+
+    loadingIndicators.forEach(indicator => {
+      this.scene.remove(indicator);
+      if (indicator.geometry) indicator.geometry.dispose();
+      if (indicator.material) {
+        if (Array.isArray(indicator.material)) {
+          indicator.material.forEach(mat => mat.dispose());
+        } else {
+          indicator.material.dispose();
+        }
+      }
+    });
+
+    // 進行中のアニメーションを停止
+    if (this.animations) {
+      for (const [id, animation] of this.animations.entries()) {
+        if (animation.type === 'loading' || animation.isLoadingAnimation) {
+          this.animations.delete(id);
+        }
+      }
+    }
+
+    // 現在選択中のオブジェクトの選択状態を維持
+    // エラー時にオブジェクトが選択解除されないようにする
+
+    console.log('🧹 Loading states cleared from scene');
   }
 
   /**
