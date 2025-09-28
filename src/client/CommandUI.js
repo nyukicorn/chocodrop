@@ -762,7 +762,7 @@ export class CommandUI {
       this.setServiceButtonsEnabled(true);
     } catch (error) {
       console.error('❌ Failed to initialize service selector:', error);
-      this.setServiceSelectorStatus('サービス情報を取得できませんでした。', 'error');
+      this.setServiceSelectorStatus('MCP設定が必要です。config.jsonでMCPサービスを設定してください。3000番以外のポートを使用している場合は、サーバーのCORS設定も確認してください。詳細はREADMEをご確認ください。', 'error');
       this.toggleServiceRetryButton(true);
       this.setServiceButtonsEnabled(false);
     } finally {

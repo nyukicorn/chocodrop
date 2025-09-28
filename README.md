@@ -483,6 +483,28 @@ Clear Allボタン                      // → 全コンテンツを消去
 
 ---
 
+## 🌐 開発環境でのCORS設定
+
+ChocoDrop サーバーは以下のオリジンからのリクエストを許可しています：
+
+- `http://localhost:3000` - React、Next.js等の標準開発サーバー
+- `http://localhost:3001` - ポート3000が使用中の場合のフォールバック
+- `http://localhost:5173` - Vite開発サーバー
+- `http://localhost:8080` - 汎用開発ポート
+
+**異なるポートを使用する場合:**
+`src/server/server.js` のCORS設定を更新してください：
+
+```javascript
+this.app.use(cors({
+  origin: ['http://localhost:YOUR_PORT', ...existing_origins],
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  credentials: true
+}));
+```
+
+---
+
 ## 🔧 API リファレンス（開発者向け）
 
 ### createChocoDrop(scene, options) - メイン関数

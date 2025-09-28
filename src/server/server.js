@@ -44,7 +44,7 @@ class ChocoDropServer {
   setupMiddleware() {
     // CORS設定
     this.app.use(cors({
-      origin: ['http://localhost:3000', 'http://localhost:5173', 'http://localhost:8080'],
+      origin: ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:5173', 'http://localhost:8080'],
       methods: ['GET', 'POST', 'PUT', 'DELETE'],
       credentials: true
     }));
