@@ -4649,7 +4649,8 @@ export class CommandUIDemo {
         URL.revokeObjectURL(importedUrl);
       }
 
-      this.selectedFile = null;
+      // ファイル選択状態を維持（同じファイルの再インポートを可能にするため）
+      // this.selectedFile = null;
       this.selectMode('generate', false);
 
       return {

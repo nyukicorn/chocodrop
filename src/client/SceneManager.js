@@ -1427,10 +1427,12 @@ export class SceneManager {
     const canApplyChroma = chromaConfig !== null;
 
     // 個別効果をチェック
+    console.log(`🔍 Checking effects for cmd: "${cmd}"`);
     for (const [keyword, effect] of Object.entries(effectKeywords)) {
       if (canApplyChroma && keyword === '透明') {
         continue;
       }
+      console.log(`🔍 Checking keyword: "${keyword}" in cmd: "${cmd}"`);
       if (cmd.includes(keyword)) {
         effects.push(effect);
         console.log(`🎭 Effect detected: ${keyword} -> ${effect.name}`);

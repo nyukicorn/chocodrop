@@ -240,8 +240,13 @@ export class ChocoDropClient {
       if (this.sceneManager) {
         console.log('🎨 Using SceneManager integrated command processing');
         
-        // SceneManagerのparseCommandでコマンドを解析
-        const parsed = this.sceneManager.parseCommand(command);
+        // SceneManagerのparseCommandでコマンドを解析（変更モードを明示）
+        const trimmedCommand = typeof command === 'string' ? command.trim() : '';
+        const commandForParsing = trimmedCommand.startsWith('[変更]')
+          ? trimmedCommand
+          : `[変更] ${trimmedCommand}`;
+
+        const parsed = this.sceneManager.parseCommand(commandForParsing);
         console.log('🔍 Parsed command result:', parsed);
         
         if (parsed && (parsed.color !== null || (parsed.effects && parsed.effects.length > 0) || parsed.movement !== null)) {
