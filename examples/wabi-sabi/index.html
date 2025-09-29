@@ -339,14 +339,14 @@
     <script>
         // VRButton.jsを手動で読み込み
         const vrScript = document.createElement('script');
-        vrScript.src = 'https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/webxr/VRButton.js';
+        vrScript.src = 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/webxr/VRButton.js';
         vrScript.onload = () => console.log('✅ VRButton.js loaded');
         vrScript.onerror = () => console.error('❌ Failed to load VRButton.js');
         document.head.appendChild(vrScript);
 
         // ARButton.jsを手動で読み込み
         const arScript = document.createElement('script');
-        arScript.src = 'https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/webxr/ARButton.js';
+        arScript.src = 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/webxr/ARButton.js';
         arScript.onload = () => console.log('✅ ARButton.js loaded');
         arScript.onerror = () => console.error('❌ Failed to load ARButton.js');
         document.head.appendChild(arScript);
@@ -1128,8 +1128,12 @@
         camera.lookAt(0, 0, 0);
 
         // ★ ARレチクル（ヒット位置表示）
+        const reticleGeometry = new THREE.RingGeometry(0.08, 0.10, 32);
+        reticleGeometry.rotateX(-Math.PI / 2);
+        reticleGeometry.computeBoundingSphere(); // NaN防止
+
         const reticle = new THREE.Mesh(
-            new THREE.RingGeometry(0.08, 0.10, 32).rotateX(-Math.PI / 2),
+            reticleGeometry,
             new THREE.MeshBasicMaterial({
                 color: 0x333333,
                 side: THREE.DoubleSide,
