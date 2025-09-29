@@ -360,6 +360,10 @@
                             }).then(session => {
                                 renderer.xr.setSession(session);
                                 button.textContent = 'EXIT VR';
+
+                                session.addEventListener('end', () => {
+                                    button.textContent = 'ENTER VR';
+                                });
                             }).catch(err => {
                                 console.error('VR session failed:', err);
                             });
@@ -427,8 +431,13 @@
                             }).then(session => {
                                 renderer.xr.setSession(session);
                                 button.textContent = 'EXIT AR';
+
+                                session.addEventListener('end', () => {
+                                    button.textContent = 'ENTER AR';
+                                });
                             }).catch(err => {
                                 console.error('AR session failed:', err);
+                                alert('AR not supported: ' + err.message);
                             });
                         }
                     };
