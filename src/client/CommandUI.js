@@ -256,7 +256,7 @@ export class CommandUI {
       border: 1px solid ${this.isDarkMode ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.2)'};
       border-radius: 6px;
       color: ${this.isDarkMode ? '#ffffff' : '#1f2937'};
-      font-size: 16px;
+      font-size: 12px;
       cursor: pointer;
       transition: all 0.2s ease;
       z-index: 1;
@@ -596,7 +596,7 @@ export class CommandUI {
     title.textContent = 'サービス設定';
     title.style.cssText = `
       margin: 0;
-      font-size: 18px;
+      font-size: 14px;
       font-weight: 700;
       letter-spacing: 0.03em;
     `;
@@ -1179,7 +1179,7 @@ export class CommandUI {
       const icon = document.createElement('div');
       icon.textContent = mode.icon;
       icon.style.cssText = `
-        font-size: 16px;
+        font-size: 12px;
         margin-bottom: 2px;
         filter: ${this.isDarkMode 
           ? 'hue-rotate(220deg) saturate(0.8) brightness(1.2)' 
@@ -2200,7 +2200,7 @@ export class CommandUI {
       -webkit-text-fill-color: transparent;
       background-clip: text;
       font-weight: 800;
-      font-size: 18px;
+      font-size: 14px;
       border-bottom: 1px solid rgba(79, 70, 229, 0.2);
       padding-bottom: 12px;
     `;
@@ -2722,7 +2722,7 @@ export class CommandUI {
         <h3 style="margin: 0 0 16px 0; color: ${this.isDarkMode ? '#a5b4fc' : '#6366f1'}; font-size: 20px; font-weight: 700; letter-spacing: 0.02em;">
           ${title}
         </h3>
-        <p style="margin: 0 0 28px 0; color: ${this.isDarkMode ? '#d1d5db' : '#6b7280'}; line-height: 1.6; font-size: 16px;">
+        <p style="margin: 0 0 28px 0; color: ${this.isDarkMode ? '#d1d5db' : '#6b7280'}; line-height: 1.6; font-size: 12px;">
           ${message}
         </p>
         <div style="display: flex; gap: 8px; justify-content: center;">
@@ -3879,7 +3879,7 @@ export class CommandUI {
     
     modalContent.innerHTML = `
       <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px;">
-        <h3 style="margin: 0; color: ${textColor}; font-size: 18px; font-weight: 600;">タスク詳細</h3>
+        <h3 style="margin: 0; color: ${textColor}; font-size: 14px; font-weight: 600;">タスク詳細</h3>
         <button class="close-btn" style="
           background: none;
           border: none;
