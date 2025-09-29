@@ -3,8 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ChocoDrop - 1秒で世界を落とす。10秒で咲かせる。</title>
-    <meta name="description" content="テキストや声から、3Dの世界と演出をその場で。ちょこっと試せる3D実験場。">
+    <title>ChocoDrop | 言ったら3Dが出る、驚きが咲く</title>
+    <meta name="description" content="テキストや声から、3Dの世界と演出をその場で。ブラウザで今すぐ体験。">
+
+    <!-- OGP -->
+    <meta property="og:title" content="ChocoDrop | 言ったら3Dが出る、驚きが咲く">
+    <meta property="og:description" content="1秒で世界を落とす。10秒で咲かせる。今すぐブラウザで。">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://nyukicorn.github.io/chocodrop/">
+    <meta property="og:image" content="https://nyukicorn.github.io/chocodrop/ogp.jpg">
+    <meta name="twitter:card" content="summary_large_image">
 
     <style>
         :root {
@@ -524,6 +532,8 @@
                                 width="100%"
                                 height="100%"
                                 frameborder="0"
+                                title="ChocoDrop インタラクティブデモ - 音声やテキストで3D配置を試せます"
+                                allow="microphone"
                                 style="border-radius: var(--r-m);">
                         </iframe>
                     </div>
@@ -579,10 +589,26 @@
                 <div class="bento-box">
                     <h3 class="bento-title">今週のしずくたち</h3>
                     <div class="gallery-grid">
-                        <div class="gallery-item"></div>
-                        <div class="gallery-item"></div>
-                        <div class="gallery-item"></div>
-                        <div class="gallery-item"></div>
+                        <div class="gallery-item">
+                            <div style="position: absolute; inset: 0; background: linear-gradient(135deg, #ff6b9d, #c44b7a); display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 14px; text-align: center;">
+                                「桜舞う夜の街」<br>@yukiko_3d
+                            </div>
+                        </div>
+                        <div class="gallery-item">
+                            <div style="position: absolute; inset: 0; background: linear-gradient(135deg, #4facfe, #00f2fe); display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 14px; text-align: center;">
+                                「未来都市の朝」<br>@tech_creator
+                            </div>
+                        </div>
+                        <div class="gallery-item">
+                            <div style="position: absolute; inset: 0; background: linear-gradient(135deg, #43e97b, #38f9d7); display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 14px; text-align: center;">
+                                「魔法の森」<br>@wizard_arts
+                            </div>
+                        </div>
+                        <div class="gallery-item">
+                            <div style="position: absolute; inset: 0; background: linear-gradient(135deg, var(--choco-mocha), var(--choco-milk)); display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 14px; text-align: center; opacity: 0.5; border: 2px dashed rgba(255,255,255,0.3);">
+                                あなたの作品も<br>ここに表示
+                            </div>
+                        </div>
                     </div>
                 </div>
 
