@@ -866,8 +866,8 @@
 
             const material = new THREE.MeshPhongMaterial({
                 color: 0x3a3a3a,
-                roughness: 0.8,
-                metalness: 0.1
+                emissive: 0x0a0a0a,
+                shininess: 10
             });
 
             const stone = new THREE.Mesh(geometry, material);
@@ -893,8 +893,8 @@
             const safeRadius = (!radius || isNaN(radius) || radius <= 0) ? 10 : radius;
 
             for (let i = 0; i < rippleCount; i++) {
-                const innerRadius = safeRadius * (0.5 + i * 0.2);
-                const outerRadius = innerRadius + 0.5; // より明確な幅を持たせる
+                const innerRadius = Math.max(0.1, safeRadius * (0.5 + i * 0.2));
+                const outerRadius = Math.max(innerRadius + 0.1, innerRadius + 0.5);
                 const geometry = new THREE.RingGeometry(
                     innerRadius,
                     outerRadius,
