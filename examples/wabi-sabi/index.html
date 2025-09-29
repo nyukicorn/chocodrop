@@ -351,10 +351,19 @@
                     button.onmouseenter = function() { button.style.opacity = '1.0'; };
                     button.onmouseleave = function() { button.style.opacity = '0.5'; };
                     button.onclick = function() {
-                        renderer.xr.getSession().then(() => button.textContent = 'EXIT VR', () => {});
-                        renderer.xr.getSession() ? renderer.xr.getSession().end() :
-                            navigator.xr.requestSession('immersive-vr', { optionalFeatures: ['local-floor', 'bounded-floor'] })
-                                .then(session => { renderer.xr.setSession(session); });
+                        const session = renderer.xr.getSession();
+                        if (session) {
+                            session.end();
+                        } else {
+                            navigator.xr.requestSession('immersive-vr', {
+                                optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking']
+                            }).then(session => {
+                                renderer.xr.setSession(session);
+                                button.textContent = 'EXIT VR';
+                            }).catch(err => {
+                                console.error('VR session failed:', err);
+                            });
+                        }
                     };
                 }
 
@@ -408,12 +417,20 @@
                     button.onmouseenter = function() { button.style.opacity = '1.0'; };
                     button.onmouseleave = function() { button.style.opacity = '0.5'; };
                     button.onclick = function() {
-                        renderer.xr.getSession() ? renderer.xr.getSession().end() :
+                        const session = renderer.xr.getSession();
+                        if (session) {
+                            session.end();
+                        } else {
                             navigator.xr.requestSession('immersive-ar', {
-                                requiredFeatures: ['hit-test'],
-                                optionalFeatures: ['dom-overlay'],
+                                optionalFeatures: ['hit-test', 'dom-overlay', 'local-floor'],
                                 domOverlay: options?.domOverlay || { root: document.body }
-                            }).then(session => { renderer.xr.setSession(session); });
+                            }).then(session => {
+                                renderer.xr.setSession(session);
+                                button.textContent = 'EXIT AR';
+                            }).catch(err => {
+                                console.error('AR session failed:', err);
+                            });
+                        }
                     };
                 }
 
