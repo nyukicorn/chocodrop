@@ -359,15 +359,23 @@
         renderer.xr.enabled = true; // ★ VR/AR有効化
         document.body.appendChild(renderer.domElement);
 
-        // ★ VR/ARボタン追加
-        document.body.appendChild(THREE.VRButton.createButton(renderer));
+        // ★ VR/ARボタン追加（グローバル変数として利用可能）
+        if (typeof VRButton !== 'undefined') {
+            document.body.appendChild(VRButton.createButton(renderer));
+        } else {
+            console.log('VR not available in this environment');
+        }
 
-        const arButton = THREE.ARButton.createButton(renderer, {
-            requiredFeatures: ['hit-test'],
-            optionalFeatures: ['dom-overlay'],
-            domOverlay: { root: document.body }
-        });
-        document.body.appendChild(arButton);
+        if (typeof ARButton !== 'undefined') {
+            const arButton = ARButton.createButton(renderer, {
+                requiredFeatures: ['hit-test'],
+                optionalFeatures: ['dom-overlay'],
+                domOverlay: { root: document.body }
+            });
+            document.body.appendChild(arButton);
+        } else {
+            console.log('AR not available in this environment');
+        }
 
         // 🎨 シンプルな白い空間（霧なし）
         function createMinimalBackground() {
