@@ -7,7 +7,15 @@
   "server": {
     "port": 3011,
     "host": "localhost",
-    "outputDir": "./public/generated"
+    "outputDir": "./public/generated",
+    "corsOrigins": [
+      "http://localhost:3000",
+      "http://localhost:3001",
+      "http://localhost:5173",
+      "http://localhost:8080",
+      "http://localhost:8000",
+      "http://localhost:8001"
+    ]
   },
   "client": {
     "serverUrl": "http://localhost:3011",

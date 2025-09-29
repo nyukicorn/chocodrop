@@ -214,13 +214,21 @@ export class MCPClient {
     if (this.mcpConfigPath) {
       console.log(`📄 MCP config path: ${this.mcpConfigPath}`);
     } else {
-      console.warn('⚠️ MCP config path is not set. Update config.json or set MCP_CONFIG_PATH.');
+      console.warn('⚠️ AI生成サーバー（MCP）が未設定です。docs/SETUP.md を参照し、config.json もしくは MCP_CONFIG_PATH を更新してください。');
     }
+  }
+
+  createMcpConfigError(detail = '') {
+    const guidance = 'AI生成サーバー（MCP）が設定されていません。画像生成にはMCPの登録が必要です。docs/SETUP.md を参照してください。';
+    const suffix = detail ? ` (${detail})` : '';
+    const error = new Error(`${guidance}${suffix} MCP config`);
+    error.code = 'MCP_CONFIG_MISSING';
+    return error;
   }
 
   loadMcpConfig(forceReload = false) {
     if (!this.mcpConfigPath) {
-      throw new Error('MCP config path is not set. Please update config.json or set MCP_CONFIG_PATH.');
+      throw this.createMcpConfigError('config path is empty');
     }
 
     if (!forceReload && this.mcpConfigCache) {
@@ -252,7 +260,7 @@ export class MCPClient {
       const pathHint = this.originalMcpConfigPath && this.originalMcpConfigPath !== targetPath
         ? ` (original value: "${this.originalMcpConfigPath}")`
         : '';
-      throw new Error(`MCP config file not found at ${targetPath}${pathHint}`);
+      throw this.createMcpConfigError(`config file not found at ${targetPath}${pathHint}`);
     }
 
     try {
@@ -261,7 +269,7 @@ export class MCPClient {
       this.mcpConfigCache = parsed;
       return parsed;
     } catch (error) {
-      throw new Error(`Failed to load MCP config at ${targetPath}: ${error.message}`);
+      throw this.createMcpConfigError(`failed to load config at ${targetPath}: ${error.message}`);
     }
   }
 
@@ -328,39 +336,41 @@ export class MCPClient {
     return 't2i-kamui-seedream-v4';
   }
   /**
-   * オフライン翻訳辞書
-   * 共通辞書を使用してクライアントと一貫性を保つ
+   * オフライン翻訳辞書を使った簡易翻訳
+   * 辞書読み込みに失敗した場合は原文を返す
    */
-  /**
   async translateOffline(text) {
-    // 共通辞書をインポート（ES Module形式）
-    const { TRANSLATION_DICTIONARY } = await import('../common/translation-dictionary.js');
-    const translationDict = TRANSLATION_DICTIONARY;
+    try {
+      const { TRANSLATION_DICTIONARY } = await import('../common/translation-dictionary.js');
+      const translationDict = TRANSLATION_DICTIONARY;
 
-    // テキストを翻訳
-    let result = text.toLowerCase();
+      let result = String(text ?? '').toLowerCase();
 
-    // 辞書の各エントリーに対してテキストを置換
-    for (const [japanese, english] of Object.entries(translationDict)) {
-      const regex = new RegExp(japanese, 'gi');
-      result = result.replace(regex, english);
+      for (const [japanese, english] of Object.entries(translationDict)) {
+        const regex = new RegExp(japanese, 'gi');
+        result = result.replace(regex, english);
+      }
+
+      result = result
+        .replace(/を/g, '')
+        .replace(/が/g, '')
+        .replace(/に/g, '')
+        .replace(/で/g, '')
+        .replace(/と/g, ' and ')
+        .replace(/、/g, ', ')
+        .replace(/。/g, '.')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+      console.log(`🌐 Offline translation: "${text}" → "${result}"`);
+      return result;
+    } catch (error) {
+      console.warn('⚠️ Offline translation skipped:', error);
+      return String(text ?? '');
     }
-
-    // 基本的な文字置換
-    result = result
-      .replace(/を/g, '')
-      .replace(/が/g, '')
-      .replace(/に/g, '')
-      .replace(/で/g, '')
-      .replace(/と/g, ' and ')
-      .replace(/、/g, ', ')
-      .replace(/。/g, '.')
-      .replace(/\s+/g, ' ')
-      .trim();
-    
-    console.log(`🌐 Offline translation: "${text}" → "${result}"`);
-    return result;
   }
+
+  /**
    * 進捗情報をサーバーに送信
    */
   sendProgress(taskId, percent, message = '') {

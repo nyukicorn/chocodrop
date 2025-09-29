@@ -42,13 +42,33 @@ class ChocoDropServer {
    * ミドルウェア設定
    */
   setupMiddleware() {
+    const defaultCorsOrigins = [
+      'http://localhost:3000',
+      'http://localhost:3001',
+      'http://localhost:5173',
+      'http://localhost:8080',
+      'http://localhost:8000',
+      'http://localhost:8001'
+    ];
+    const configuredCorsOrigins = config.get('server.corsOrigins');
+    const allowedCorsOrigins = Array.isArray(configuredCorsOrigins)
+      ? [...defaultCorsOrigins, ...configuredCorsOrigins]
+      : defaultCorsOrigins;
+    const uniqueCorsOrigins = [...new Set(allowedCorsOrigins.filter(Boolean))];
+
     // CORS設定
     this.app.use(cors({
-      origin: ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:5173', 'http://localhost:8080'],
+      origin: (origin, callback) => {
+        if (!origin || uniqueCorsOrigins.includes(origin)) {
+          return callback(null, true);
+        }
+        console.warn(`⚠️ CORS denied for origin: ${origin}`);
+        return callback(new Error('Not allowed by CORS'));
+      },
       methods: ['GET', 'POST', 'PUT', 'DELETE'],
       credentials: true
     }));
-    
+
     // JSON解析
     this.app.use(express.json({ limit: '10mb' }));
     
