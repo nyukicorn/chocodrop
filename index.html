@@ -494,6 +494,123 @@
         .highlight-cursor:hover::after {
             opacity: 1;
         }
+
+        /* "今週のしずく" Card Styles */
+        .cd-drops-grid {
+            display: grid;
+            gap: var(--gap-m);
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        .cd-card {
+            display: grid;
+            grid-template-rows: 140px auto auto;
+            gap: 10px;
+            padding: 12px;
+            border-radius: var(--r-l);
+            background: var(--surface-1);
+            border: 1px solid rgba(255, 248, 231, 0.08);
+            text-decoration: none;
+            color: inherit;
+            transition: transform 0.15s ease, box-shadow 0.15s ease, border-radius 0.15s ease;
+            box-shadow: var(--shadow-1);
+        }
+
+        .cd-card:hover {
+            transform: translateY(-2px);
+            border-radius: var(--r-xl);
+            box-shadow: var(--shadow-2);
+            border-color: rgba(139, 92, 246, 0.2);
+        }
+
+        /* Thumbnail with gradients */
+        .cd-thumb {
+            position: relative;
+            border-radius: var(--r-s);
+            overflow: hidden;
+            background: radial-gradient(120% 120% at 0% 0%, var(--choco-mocha) 0%, var(--choco-bg) 60%) no-repeat;
+        }
+
+        .cd-thumb--rpg {
+            background: radial-gradient(120% 120% at 0% 0%, var(--accent-plum) 0%, #1A1333 60%) no-repeat;
+        }
+
+        .cd-thumb--sea {
+            background: radial-gradient(120% 120% at 0% 0%, #2aa3ff 0%, #051a2c 60%) no-repeat;
+        }
+
+        .cd-thumb-overlay {
+            position: absolute;
+            inset: 0;
+            display: grid;
+            place-items: end start;
+            padding: 10px;
+            font-size: 12px;
+            letter-spacing: 0.02em;
+            background: linear-gradient(to top, rgba(0,0,0,0.4), rgba(0,0,0,0) 50%);
+            color: var(--choco-cream);
+            font-weight: 500;
+        }
+
+        /* Card metadata */
+        .cd-meta {
+            display: grid;
+            gap: 6px;
+        }
+
+        .cd-badge {
+            display: inline-block;
+            font-size: 10px;
+            padding: 4px 8px;
+            border-radius: 999px;
+            background: rgba(255, 248, 231, 0.08);
+            color: var(--choco-cream);
+            border: 1px solid rgba(255, 248, 231, 0.12);
+            justify-self: start;
+            font-weight: 500;
+        }
+
+        .cd-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--choco-milk);
+        }
+
+        .cd-author {
+            opacity: 0.7;
+            font-size: 11px;
+            color: var(--choco-cream);
+        }
+
+        /* CTA button */
+        .cd-cta {
+            margin-top: 2px;
+            font-size: 11px;
+            color: #111;
+            background: var(--accent-caramel);
+            padding: 6px 10px;
+            border-radius: var(--r-s);
+            justify-self: start;
+            font-weight: 600;
+            transition: all 0.15s ease;
+        }
+
+        .cd-card:hover .cd-cta {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(210, 105, 30, 0.3);
+        }
+
+        /* Responsive for card grid */
+        @media (max-width: 768px) {
+            .cd-drops-grid {
+                grid-template-columns: 1fr;
+                gap: var(--gap-s);
+            }
+
+            .cd-card {
+                grid-template-rows: 120px auto auto;
+            }
+        }
     </style>
 </head>
 <body>
@@ -526,16 +643,19 @@
         <section class="bento-section">
             <div class="bento-grid bento-row-1">
                 <div class="bento-box">
-                    <h2 class="bento-title">その場で試せるミニデモ</h2>
-                    <div class="demo-embed">
-                        <iframe src="examples/basic/index.html?mini=true"
-                                width="100%"
-                                height="100%"
-                                frameborder="0"
-                                title="ChocoDrop インタラクティブデモ - 音声やテキストで3D配置を試せます"
-                                allow="microphone"
-                                style="border-radius: var(--r-m);">
-                        </iframe>
+                    <h2 class="bento-title" id="mini-demo">ブラウザで、今すぐ触れる</h2>
+                    <iframe src="examples/basic/index.html"
+                            width="100%"
+                            height="420"
+                            frameborder="0"
+                            title="ChocoDrop ミニデモ"
+                            loading="lazy"
+                            allow="microphone; clipboard-read; clipboard-write"
+                            style="border: 1px solid rgba(255,248,231,.12); border-radius: var(--r-m); overflow: hidden;">
+                    </iframe>
+                    <div style="margin-top: 12px; font-size: 12px; color: rgba(255, 248, 231, 0.7);">
+                        <a href="examples/basic/index.html" style="color: var(--choco-milk); text-decoration: none;">全画面で開く →</a><br>
+                        <span style="opacity: 0.8;">キーボード: ＠で起動 / Tabでフォーカス移動 / Enterで実行</span>
                     </div>
                 </div>
 
@@ -587,28 +707,46 @@
         <section class="bento-section">
             <div class="bento-grid bento-row-3">
                 <div class="bento-box">
-                    <h3 class="bento-title">今週のしずくたち</h3>
-                    <div class="gallery-grid">
-                        <div class="gallery-item">
-                            <div style="position: absolute; inset: 0; background: linear-gradient(135deg, #ff6b9d, #c44b7a); display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 14px; text-align: center;">
-                                「桜舞う夜の街」<br>@yukiko_3d
+                    <h3 class="bento-title" id="weekly-drops">今週のしずくたち</h3>
+                    <div class="cd-drops-grid">
+                        <!-- Card 1 -->
+                        <a class="cd-card" href="examples/music-garden/index.html" aria-label="夜桜の庭 をこのテーマで作る">
+                            <div class="cd-thumb" role="img" aria-label="夜桜の庭のサンプルビジュアル">
+                                <div class="cd-thumb-overlay">夜桜の庭</div>
                             </div>
-                        </div>
-                        <div class="gallery-item">
-                            <div style="position: absolute; inset: 0; background: linear-gradient(135deg, #4facfe, #00f2fe); display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 14px; text-align: center;">
-                                「未来都市の朝」<br>@tech_creator
+                            <div class="cd-meta">
+                                <span class="cd-badge">テーマ: 音楽の花園</span>
+                                <strong class="cd-title">夜桜、音に咲く</strong>
+                                <span class="cd-author">by demo_user</span>
                             </div>
-                        </div>
-                        <div class="gallery-item">
-                            <div style="position: absolute; inset: 0; background: linear-gradient(135deg, #43e97b, #38f9d7); display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 14px; text-align: center;">
-                                「魔法の森」<br>@wizard_arts
+                            <span class="cd-cta">このテーマで作る →</span>
+                        </a>
+
+                        <!-- Card 2 -->
+                        <a class="cd-card" href="examples/pixel-rpg/index.html" aria-label="失われた王国の広場 をこのテーマで作る">
+                            <div class="cd-thumb cd-thumb--rpg" role="img" aria-label="失われた王国の広場のサンプルビジュアル">
+                                <div class="cd-thumb-overlay">失われた王国の広場</div>
                             </div>
-                        </div>
-                        <div class="gallery-item">
-                            <div style="position: absolute; inset: 0; background: linear-gradient(135deg, var(--choco-mocha), var(--choco-milk)); display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 14px; text-align: center; opacity: 0.5; border: 2px dashed rgba(255,255,255,0.3);">
-                                あなたの作品も<br>ここに表示
+                            <div class="cd-meta">
+                                <span class="cd-badge">テーマ: RPG王国</span>
+                                <strong class="cd-title">朝霧のアーチ</strong>
+                                <span class="cd-author">by demo_user</span>
                             </div>
-                        </div>
+                            <span class="cd-cta">このテーマで作る →</span>
+                        </a>
+
+                        <!-- Card 3 -->
+                        <a class="cd-card" href="examples/pixel-ocean/index.html" aria-label="灯るクラゲ街 をこのテーマで作る">
+                            <div class="cd-thumb cd-thumb--sea" role="img" aria-label="海底のサンプルビジュアル">
+                                <div class="cd-thumb-overlay">灯るクラゲ街</div>
+                            </div>
+                            <div class="cd-meta">
+                                <span class="cd-badge">テーマ: 海底世界</span>
+                                <strong class="cd-title">ブルー・ドリフト</strong>
+                                <span class="cd-author">by demo_user</span>
+                            </div>
+                            <span class="cd-cta">このテーマで作る →</span>
+                        </a>
                     </div>
                 </div>
 
