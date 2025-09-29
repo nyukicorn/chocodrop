@@ -335,13 +335,34 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-    <script src="https://unpkg.com/three@0.128.0/examples/js/webxr/VRButton.js"></script>
-    <script src="https://unpkg.com/three@0.128.0/examples/js/webxr/ARButton.js"></script>
+    <!-- VR/AR Button scripts with error handling -->
+    <script>
+        // VRButton.jsを手動で読み込み
+        const vrScript = document.createElement('script');
+        vrScript.src = 'https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/webxr/VRButton.js';
+        vrScript.onload = () => console.log('✅ VRButton.js loaded');
+        vrScript.onerror = () => console.error('❌ Failed to load VRButton.js');
+        document.head.appendChild(vrScript);
+
+        // ARButton.jsを手動で読み込み
+        const arScript = document.createElement('script');
+        arScript.src = 'https://cdn.jsdelivr.net/gh/mrdoob/three.js@r128/examples/js/webxr/ARButton.js';
+        arScript.onload = () => console.log('✅ ARButton.js loaded');
+        arScript.onerror = () => console.error('❌ Failed to load ARButton.js');
+        document.head.appendChild(arScript);
+    </script>
     <script src="./chocodrop-demo.umd.min.js"></script>
 
     <script>
         // 🍵 侘び寂びの世界 - Wabi-Sabi Space
 
+        // スクリプトの読み込みを待つ
+        window.addEventListener('load', () => {
+            console.log('🔄 Page loaded, checking WebXR scripts...');
+            setTimeout(initializeScene, 500); // 少し待ってから初期化
+        });
+
+        function initializeScene() {
         // Three.js 基本設定
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -1939,6 +1960,7 @@
         console.log('navigator.xr available:', !!navigator.xr);
         console.log('Window location:', window.location.href);
         console.log('Is HTTPS:', window.location.protocol === 'https:');
+        } // initializeScene終了
 
     </script>
 </body>
