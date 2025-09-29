@@ -27,8 +27,9 @@
    * ChocoDrop Client - サーバーとの通信クライアント
    */
   class ChocoDropClient {
-    constructor(serverUrl = null) {
+    constructor(serverUrl = null, sceneManager = null) {
       this.serverUrl = null;
+      this.sceneManager = sceneManager;
       this.initialized = false;
       this.initPromise = null;
 
@@ -101,6 +102,34 @@
     }
 
     /**
+     * ネットワークエラーを検出して利用者向けメッセージに変換
+     */
+    createConnectionError(context) {
+      const serverInfo = this.serverUrl ? `（接続先: ${this.serverUrl}）` : '';
+      const hint = 'ChocoDrop ローカルサーバー（Express）が起動しているか確認してください（例: `npm run dev`）。';
+      return new Error(`${context}\nサーバーへ接続できません。${hint}${serverInfo}`);
+    }
+
+    isNetworkError(error) {
+      if (!error) return false;
+      const message = typeof error.message === 'string' ? error.message : '';
+      return (
+        error.name === 'TypeError' ||
+        message.includes('Failed to fetch') ||
+        message.includes('NetworkError') ||
+        message.includes('connect ECONNREFUSED') ||
+        message.includes('ERR_CONNECTION')
+      );
+    }
+
+    handleRequestError(error, context) {
+      if (this.isNetworkError(error)) {
+        return this.createConnectionError(context);
+      }
+      return error instanceof Error ? error : new Error(context);
+    }
+
+    /**
      * 画像生成リクエスト
      */
     async generateImage(prompt, options = {}) {
@@ -137,7 +166,7 @@
 
       } catch (error) {
         console.error('❌ Image generation request failed:', error);
-        throw error;
+        throw this.handleRequestError(error, '画像生成リクエストに失敗しました。');
       }
     }
 
@@ -217,7 +246,7 @@
 
       } catch (error) {
         console.error('❌ Video generation request failed:', error);
-        throw error;
+        throw this.handleRequestError(error, '動画生成リクエストに失敗しました。');
       }
     }
 
@@ -248,7 +277,7 @@
 
       } catch (error) {
         console.error('❌ Command execution failed:', error);
-        throw error;
+        throw this.handleRequestError(error, 'コマンド実行に失敗しました。');
       }
     }
 
@@ -260,8 +289,71 @@
       console.log(`🔧 Modifying selected object: "${command}"`);
 
       try {
-        // 既存の /api/command エンドポイントを使用
-        // オブジェクト情報をコマンドのコンテキストとして含める
+        // SceneManagerの統合コマンド処理機能を使用
+        if (this.sceneManager) {
+          console.log('🎨 Using SceneManager integrated command processing');
+          
+          // SceneManagerのparseCommandでコマンドを解析（変更モードを明示）
+          const trimmedCommand = typeof command === 'string' ? command.trim() : '';
+          const commandForParsing = trimmedCommand.startsWith('[変更]')
+            ? trimmedCommand
+            : `[変更] ${trimmedCommand}`;
+
+          const parsed = this.sceneManager.parseCommand(commandForParsing);
+          console.log('🔍 Parsed command result:', parsed);
+          
+          if (parsed && (parsed.color !== null || (parsed.effects && parsed.effects.length > 0) || parsed.movement !== null)) {
+            // 選択されたオブジェクトに直接適用
+            let modified = false;
+            
+            // 色変更
+            if (parsed.color !== null && selectedObject.material) {
+              if (selectedObject.material.map) {
+                selectedObject.material.color.setHex(parsed.color);
+                selectedObject.material.needsUpdate = true;
+                console.log(`🎨 Texture color tint changed to: #${parsed.color.toString(16)}`);
+              } else {
+                selectedObject.material.color.setHex(parsed.color);
+                selectedObject.material.needsUpdate = true;
+                console.log(`🎨 Material color changed to: #${parsed.color.toString(16)}`);
+              }
+              modified = true;
+            }
+
+            // エフェクト適用
+            if (parsed.effects && parsed.effects.length > 0) {
+              const effectsApplied = this.sceneManager.applyEffects(selectedObject, parsed.effects);
+              if (effectsApplied) {
+                modified = true;
+              }
+            }
+            
+            // 位置移動
+            if (parsed.movement !== null) {
+              const currentPos = selectedObject.position;
+              const newPos = {
+                x: currentPos.x + parsed.movement.x,
+                y: currentPos.y + parsed.movement.y,
+                z: currentPos.z + parsed.movement.z
+              };
+              selectedObject.position.set(newPos.x, newPos.y, newPos.z);
+              console.log(`📍 Object moved to: (${newPos.x.toFixed(2)}, ${newPos.y.toFixed(2)}, ${newPos.z.toFixed(2)})`);
+              modified = true;
+            }
+            
+            if (modified) {
+              console.log('✅ Object modification applied successfully');
+              return {
+                success: true,
+                message: 'オブジェクトを変更しました',
+                isClientSideEffect: true
+              };
+            }
+          }
+        }
+
+        // SceneManagerで処理できない場合は、サーバー側で処理（画像再生成）
+        console.log('🔄 Falling back to server-side processing');
         const modifyCommand = `${command} (対象オブジェクト: ${selectedObject?.userData?.objectId || selectedObject?.id || 'unknown'})`;
 
         const response = await fetch(`${this.serverUrl}/api/command`, {
@@ -283,7 +375,7 @@
 
       } catch (error) {
         console.error('❌ Object modification failed:', error);
-        throw error;
+        throw this.handleRequestError(error, 'オブジェクト変更リクエストに失敗しました。');
       }
     }
 
@@ -586,7 +678,7 @@
       this.labelRenderer = null; // CSS2DRenderer for UI overlays like audio controls
       // ChocoDrop Client（共通クライアント注入を優先）
       // 外部フォルダから共有する場合は options.client でクライアントを再利用
-      this.client = options.client || new ChocoDropClient(options.serverUrl);
+      this.client = options.client || new ChocoDropClient(options.serverUrl, this);
       
       // 実験オブジェクト管理用グループ
       this.experimentGroup = new THREE.Group();
@@ -1136,7 +1228,9 @@
       canvas.addEventListener('mouseup', () => {
         if (isDragging && dragObject) {
           // ドラッグ終了の処理
-          if (dragObject.material) {
+          // 注意: マテリアルの透明度は復元しない（エフェクトを保持）
+          // ドラッグ中の一時的な透明度変更があった場合のみ復元
+          if (dragObject.material && dragObject.userData && !dragObject.userData.hasOpacityEffect) {
             dragObject.material.opacity = 1.0;
             dragObject.material.transparent = false;
           }
@@ -1821,6 +1915,7 @@
 
       // エフェクト解析の追加
       const effects = this.parseEffects(cmd);
+      console.log(`🔍 parseObjectModificationCommand - Effects found:`, effects);
       
       // サイズ変更の解析
       let scale = null;
@@ -1939,7 +2034,13 @@
         '水彩': { type: 'watercolor_art', colors: [0xff6b9d, 0x4ecdc4, 0xffe66d, 0x95e1d3], opacity: 0.6, name: 'watercolor' },
         '水彩画': { type: 'watercolor_art', colors: [0xff6b9d, 0x4ecdc4, 0xffe66d, 0x95e1d3], opacity: 0.6, name: 'watercolor' },
         'パステル': { type: 'pastel_art', colors: [0xffb3ba, 0xffdfba, 0xffffba, 0xbaffc9, 0xbae1ff], opacity: 0.7, name: 'pastel' },
-        '虹色': { type: 'rainbow_glow', colors: [0xff0000, 0xff8800, 0xffff00, 0x00ff00, 0x0088ff, 0x0000ff, 0x8800ff], intensity: 0.5, name: 'rainbow_glow' }
+        '虹色': { type: 'rainbow_glow', colors: [0xff0000, 0xff8800, 0xffff00, 0x00ff00, 0x0088ff, 0x0000ff, 0x8800ff], intensity: 0.5, name: 'rainbow_glow' },
+        
+        // モノクロ・グレースケール系
+        'モノクロ': { type: 'monochrome', name: 'monochrome' },
+        'グレースケール': { type: 'monochrome', name: 'grayscale' },
+        'モノクロに': { type: 'monochrome', name: 'monochrome' },
+        '白黒': { type: 'monochrome', name: 'black_white' }
       };
 
       // プリセット効果
@@ -1980,13 +2081,18 @@
       const canApplyChroma = chromaConfig !== null;
 
       // 個別効果をチェック
+      console.log(`🔍 Checking effects for cmd: "${cmd}"`);
       for (const [keyword, effect] of Object.entries(effectKeywords)) {
         if (canApplyChroma && keyword === '透明') {
           continue;
         }
+        console.log(`🔍 Checking keyword: "${keyword}" in cmd: "${cmd}"`);
         if (cmd.includes(keyword)) {
           effects.push(effect);
           console.log(`🎭 Effect detected: ${keyword} -> ${effect.name}`);
+          if (keyword === 'キラキラ') {
+            console.log(`✨ SPARKLE EFFECT FOUND! cmd="${cmd}"`);
+          }
         }
       }
 
@@ -2118,6 +2224,9 @@
           case 'chroma_key':
             applied = this.applyChromaKeyEffect(targetObject, effect) || applied;
             break;
+          case 'monochrome':
+            applied = this.applyMonochromeEffect(targetObject, effect) || applied;
+            break;
           default:
             console.warn(`🚫 Unknown effect type: ${effect.type}`);
         }
@@ -2135,6 +2244,11 @@
       targetObject.material.transparent = true;
       targetObject.material.opacity = effect.value;
       targetObject.material.needsUpdate = true;
+
+      // エフェクトが適用されたことをマーク
+      if (!targetObject.userData) targetObject.userData = {};
+      targetObject.userData.hasOpacityEffect = true;
+      targetObject.userData.originalOpacity = effect.value;
 
       console.log(`👻 Opacity set to: ${effect.value} (${effect.name})`);
       return true;
@@ -2337,6 +2451,66 @@
       }
 
       console.log('🪄 Applied chroma key shader material');
+      return true;
+    }
+
+    /**
+     * モノクロ（グレースケール）エフェクト適用
+     */
+    applyMonochromeEffect(targetObject, effect) {
+      if (!targetObject.material) return false;
+      const material = targetObject.material;
+      const texture = material.map;
+
+      if (!texture) {
+        console.warn('🚫 Monochrome effect requires texture map');
+        return false;
+      }
+
+      // 既存のモノクロマテリアルをチェック
+      if (material.userData && material.userData.isMonochromeMaterial && material.uniforms) {
+        console.log('🎯 Monochrome material already applied');
+        return true;
+      }
+
+      // グレースケール用のシェーダーマテリアルを作成
+      const shaderMaterial = new THREE.ShaderMaterial({
+        uniforms: {
+          map: { value: texture }
+        },
+        vertexShader: `
+        varying vec2 vUv;
+        void main() {
+          vUv = uv;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+        fragmentShader: `
+        uniform sampler2D map;
+        varying vec2 vUv;
+        void main() {
+          vec4 color = texture2D(map, vUv);
+          // ルミナンス（輝度）計算でグレースケール化
+          float gray = dot(color.rgb, vec3(0.299, 0.587, 0.114));
+          gl_FragColor = vec4(vec3(gray), color.a);
+        }
+      `,
+        transparent: material.transparent,
+        side: THREE.DoubleSide,
+        depthTest: material.depthTest,
+        depthWrite: material.depthWrite,
+        toneMapped: material.toneMapped === true
+      });
+
+      shaderMaterial.userData.isMonochromeMaterial = true;
+      targetObject.material = shaderMaterial;
+
+      // 古いマテリアルを削除
+      if (typeof material.dispose === 'function') {
+        material.dispose();
+      }
+
+      console.log('⚫ Applied monochrome effect');
       return true;
     }
 
@@ -4500,6 +4674,45 @@
         }
       };
       animate();
+    }
+
+    /**
+     * エラー時にローディング状態をクリアする
+     */
+    clearLoadingStates() {
+      // ローディングインジケーターを削除
+      const loadingIndicators = [];
+      this.scene.traverse((object) => {
+        if (object.userData && object.userData.isLoadingIndicator) {
+          loadingIndicators.push(object);
+        }
+      });
+
+      loadingIndicators.forEach(indicator => {
+        this.scene.remove(indicator);
+        if (indicator.geometry) indicator.geometry.dispose();
+        if (indicator.material) {
+          if (Array.isArray(indicator.material)) {
+            indicator.material.forEach(mat => mat.dispose());
+          } else {
+            indicator.material.dispose();
+          }
+        }
+      });
+
+      // 進行中のアニメーションを停止
+      if (this.animations) {
+        for (const [id, animation] of this.animations.entries()) {
+          if (animation.type === 'loading' || animation.isLoadingAnimation) {
+            this.animations.delete(id);
+          }
+        }
+      }
+
+      // 現在選択中のオブジェクトの選択状態を維持
+      // エラー時にオブジェクトが選択解除されないようにする
+
+      console.log('🧹 Loading states cleared from scene');
     }
 
     /**
@@ -7585,7 +7798,7 @@
       const placeholders = {
         generate: '「猫の画像を作って」と話しかけて ⏎ ✨',
         import: 'ファイルを選択して ⏎ 📁',
-        modify: '選択後「背景の緑色を透明にして」と伝えて ⏎ ✏️',
+        modify: '選択後「透明に変更」と伝えて ⏎ ✏️',
         delete: '選択後、コマンドをそのまま送って ⏎ 🗑️'
       };
       return placeholders[mode] || placeholders.generate;
@@ -7763,7 +7976,23 @@
               result = await this.sceneManager.executeCommand(fullCommand);
             }
           } else {
-            result = await this.sceneManager.executeCommand(fullCommand);
+            // modifyモードの場合は選択されたオブジェクトに直接適用
+            if (this.currentMode === 'modify') {
+              const selectedObject = this.sceneManager?.selectedObject;
+              if (!selectedObject) {
+                this.addOutput('⚠️ 変更するオブジェクトが選択されていません。まず3Dシーン内のオブジェクトをクリックで選択してから、再度コマンドを実行してください。', 'system');
+                return;
+              }
+              // LiveCommandClientのmodifySelectedObjectを呼び出し
+              console.log('🔧 Demo: Calling modifySelectedObject with:', selectedObject, command);
+              if (this.client && this.client.modifySelectedObject) {
+                result = await this.client.modifySelectedObject(selectedObject, command);
+              } else {
+                result = await this.sceneManager.executeCommand(fullCommand);
+              }
+            } else {
+              result = await this.sceneManager.executeCommand(fullCommand);
+            }
           }
         } else if (this.client) {
           // モードに応じてAPIエンドポイントを選択
@@ -9815,7 +10044,8 @@
           URL.revokeObjectURL(importedUrl);
         }
 
-        this.selectedFile = null;
+        // ファイル選択状態を維持（同じファイルの再インポートを可能にするため）
+        // this.selectedFile = null;
         this.selectMode('generate', false);
 
         return {
@@ -10084,6 +10314,7 @@
                  
         case 'modify':
           return deletePatterns.some(pattern => pattern.test(inputValue)) ||
+                 modifyPatterns.some(pattern => pattern.test(inputValue)) ||
                  importPatterns.some(pattern => pattern.test(inputValue));
                  
         case 'import':
@@ -10745,7 +10976,7 @@
       border: 1px solid ${this.isDarkMode ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.2)'};
       border-radius: 6px;
       color: ${this.isDarkMode ? '#ffffff' : '#1f2937'};
-      font-size: 16px;
+      font-size: 12px;
       cursor: pointer;
       transition: all 0.2s ease;
       z-index: 1;
@@ -11082,7 +11313,7 @@
       title.textContent = 'サービス設定';
       title.style.cssText = `
       margin: 0;
-      font-size: 18px;
+      font-size: 14px;
       font-weight: 700;
       letter-spacing: 0.03em;
     `;
@@ -11665,7 +11896,7 @@
         const icon = document.createElement('div');
         icon.textContent = mode.icon;
         icon.style.cssText = `
-        font-size: 16px;
+        font-size: 12px;
         margin-bottom: 2px;
         filter: ${this.isDarkMode 
           ? 'hue-rotate(220deg) saturate(0.8) brightness(1.2)' 
@@ -12624,7 +12855,7 @@
       -webkit-text-fill-color: transparent;
       background-clip: text;
       font-weight: 800;
-      font-size: 18px;
+      font-size: 14px;
       border-bottom: 1px solid rgba(79, 70, 229, 0.2);
       padding-bottom: 12px;
     `;
@@ -13058,7 +13289,7 @@
       const placeholders = {
         generate: '「猫の画像を作って」と話しかけて ⏎ ✨',
         import: 'ファイルを選択して ⏎ 📁',
-        modify: '選択後「背景の緑色を透明にして」と伝えて ⏎ ✏️',
+        modify: '選択後「透明に変更」と伝えて ⏎ ✏️',
         delete: '選択後、コマンドをそのまま送って ⏎ 🗑️'
       };
       return placeholders[mode] || placeholders.generate;
@@ -13146,7 +13377,7 @@
         <h3 style="margin: 0 0 16px 0; color: ${this.isDarkMode ? '#a5b4fc' : '#6366f1'}; font-size: 20px; font-weight: 700; letter-spacing: 0.02em;">
           ${title}
         </h3>
-        <p style="margin: 0 0 28px 0; color: ${this.isDarkMode ? '#d1d5db' : '#6b7280'}; line-height: 1.6; font-size: 16px;">
+        <p style="margin: 0 0 28px 0; color: ${this.isDarkMode ? '#d1d5db' : '#6b7280'}; line-height: 1.6; font-size: 12px;">
           ${message}
         </p>
         <div style="display: flex; gap: 8px; justify-content: center;">
@@ -13445,6 +13676,57 @@
         this.animateCardSuccess(card, taskId);
       } else if (status === 'error') {
         this.animateCardError(card, taskId);
+      }
+    }
+
+    /**
+     * エラー時のクリーンアップ処理
+     */
+    performErrorCleanup(taskId, error) {
+      // タスクカードのエラー状態を更新
+      if (taskId) {
+        this.updateTaskCard(taskId, 'error', { errorMessage: error.message });
+        
+        // 一定時間後にタスクカードを自動削除（ユーザーが手動で消せるようになるまでの時間）
+        setTimeout(() => {
+          this.removeTaskCard(taskId);
+        }, 10000); // 10秒後に自動削除
+      }
+
+      // 現在のタスクIDをクリア
+      if (this.currentTaskId) {
+        this.currentTaskId = null;
+      }
+
+      // SceneManagerに残っているローディング状態をクリア
+      if (this.sceneManager) {
+        this.sceneManager.clearLoadingStates?.();
+      }
+
+      // アクティブなプログレス接続をクリア
+      if (this.progressConnections) {
+        for (const [connectionId, connection] of this.progressConnections.entries()) {
+          if (connection.taskId === taskId) {
+            this.progressConnections.delete(connectionId);
+          }
+        }
+      }
+
+      console.log('🧹 Error cleanup completed');
+    }
+
+    /**
+     * タスクカードを削除する
+     */
+    removeTaskCard(taskId) {
+      const taskCard = document.querySelector(`[data-task-id="${taskId}"]`);
+      if (taskCard) {
+        taskCard.style.opacity = '0';
+        taskCard.style.transform = 'translateX(-20px)';
+        setTimeout(() => {
+          taskCard.remove();
+        }, 300); // フェードアウト後に削除
+        console.log(`🗑️ Task card removed: ${taskId}`);
       }
     }
 
@@ -13813,7 +14095,22 @@
           }
           result = await this.handleImportCommand(command);
         } else if (this.sceneManager) {
-          result = await this.sceneManager.executeCommand(fullCommand);
+          // modifyモードの場合は選択されたオブジェクトに直接適用
+          if (this.currentMode === 'modify') {
+            const selectedObject = this.sceneManager?.selectedObject;
+            if (!selectedObject) {
+              this.addOutput('⚠️ 変更するオブジェクトが選択されていません。まず3Dシーン内のオブジェクトをクリックで選択してから、再度コマンドを実行してください。', 'system');
+              return;
+            }
+            // LiveCommandClientのmodifySelectedObjectを呼び出し
+            if (this.client && this.client.modifySelectedObject) {
+              result = await this.client.modifySelectedObject(selectedObject, command);
+            } else {
+              result = await this.sceneManager.executeCommand(fullCommand);
+            }
+          } else {
+            result = await this.sceneManager.executeCommand(fullCommand);
+          }
         } else if (this.client) {
           if (this.currentMode === 'generate') {
             if (commandType.mediaType === 'video') {
@@ -13825,12 +14122,6 @@
                 service: this.selectedImageService || undefined
               });
             }
-          } else if (this.currentMode === 'modify') {
-            const selectedObject = this.sceneManager?.selectedObject;
-            if (!selectedObject) {
-              throw new Error('変更するオブジェクトが選択されていません。まず対象オブジェクトを選択してください。');
-            }
-            result = await this.client.modifySelectedObject(selectedObject, command);
           } else if (this.currentMode === 'delete') {
             const selectedObject = this.sceneManager?.selectedObject;
             if (!selectedObject && !this.sceneManager?.getSelectedObjects()?.length) {
@@ -13888,9 +14179,8 @@
           delete: '❌ 削除エラー'
         };
 
-        if (taskId) {
-          this.updateTaskCard(taskId, 'error', { errorMessage: error.message });
-        }
+        // エラー時のクリーンアップ処理
+        this.performErrorCleanup(taskId, error);
 
         this.addOutput(`${errorMessages[this.currentMode]}: ${error.message}`, 'error');
         console.error('Command execution error:', error);
@@ -14236,7 +14526,7 @@
       
       modalContent.innerHTML = `
       <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px;">
-        <h3 style="margin: 0; color: ${textColor}; font-size: 18px; font-weight: 600;">タスク詳細</h3>
+        <h3 style="margin: 0; color: ${textColor}; font-size: 14px; font-weight: 600;">タスク詳細</h3>
         <button class="close-btn" style="
           background: none;
           border: none;
@@ -15904,6 +16194,7 @@
                  
         case 'modify':
           return deletePatterns.some(pattern => pattern.test(inputValue)) ||
+                 modifyPatterns.some(pattern => pattern.test(inputValue)) ||
                  importPatterns.some(pattern => pattern.test(inputValue));
                  
         case 'import':
