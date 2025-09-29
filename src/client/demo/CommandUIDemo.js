@@ -2990,7 +2990,9 @@ export class CommandUIDemo {
     this.mcpNoticeShown = true;
 
     const message = error?.message || 'MCP 設定が見つかりません。config.json の設定を確認してください。';
-    this.addOutput(`⚙️ MCP 設定が必要です: ${message}\nconfig.json の mcp セクション、または MCP_CONFIG_PATH 環境変数を設定してください。`, 'system');
+    const guidance = '⚙️ MCP 設定が必要です: docs/SETUP.md を参照し、config.json の mcp セクションまたは MCP_CONFIG_PATH 環境変数を設定してください。';
+    this.showInputFeedback('AI生成サーバー (MCP) が未設定です。設定が完了するまで生成を実行できません。', 'error');
+    this.addOutput(`${guidance}\nサーバーからのメッセージ: ${message}`, 'error');
   }
 
   /**
