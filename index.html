@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChocoDrop - 1秒で世界を落とす。10秒で咲かせる。</title>
+    <meta name="description" content="テキストや声から、3Dの世界と演出をその場で。ちょこっと試せる3D実験場。">
+
+    <style>
+        :root {
+            /* Core brand */
+            --choco-bg: #2C1810;         /* Dark Chocolate */
+            --choco-mocha: #8B6F47;      /* Mocha Mousse */
+            --choco-milk: #C19A6B;       /* Milk Choco accent */
+            --choco-cream: #FFF8E7;      /* White Choco text/base */
+            --accent-plum: #8B5CF6;      /* Plum accent */
+            --accent-caramel: #D2691E;   /* CTA */
+
+            /* Neutral surface for可読性 */
+            --surface-0: #0F0F10;
+            --surface-1: #161617;
+            --surface-2: #1F1F21;
+
+            /* State */
+            --ok-mint: #98FB98;
+            --warn-strawberry: #FFB6C1;
+
+            /* Effects */
+            --glass-bg: rgba(22,22,23,0.45);
+            --glass-blur: blur(8px);
+
+            /* Radii & space */
+            --r-s: 12px;
+            --r-m: 16px;
+            --r-l: 24px;
+            --r-xl: 28px;
+            --gap-s: 8px;
+            --gap-m: 12px;
+            --gap-l: 20px;
+            --gap-xl: 28px;
+            --shadow-1: 0 6px 20px rgba(0,0,0,.25);
+            --shadow-2: 0 8px 32px rgba(0,0,0,.35);
+            --shadow-glow: 0 0 40px rgba(139, 92, 246, 0.2);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: var(--surface-0);
+            color: var(--choco-cream);
+            font-family: "Helvetica Neue", -apple-system, "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic", sans-serif;
+            line-height: 1.6;
+            overflow-x: hidden;
+            min-height: 100vh;
+        }
+
+        /* Subtle background gradient */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background:
+                radial-gradient(circle at 20% 40%, rgba(139, 92, 246, 0.03) 0%, transparent 40%),
+                radial-gradient(circle at 80% 60%, rgba(139, 108, 71, 0.02) 0%, transparent 40%);
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .container {
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 0 24px;
+            position: relative;
+            z-index: 2;
+        }
+
+        /* Hero Section with Glass Effect */
+        .hero {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 80px 20px;
+            position: relative;
+        }
+
+        .hero-content {
+            background: var(--glass-bg);
+            -webkit-backdrop-filter: var(--glass-blur);
+            backdrop-filter: var(--glass-blur);
+            border: 1px solid rgba(255, 248, 231, 0.08);
+            border-radius: var(--r-xl);
+            padding: 60px 40px;
+            max-width: 800px;
+            margin: 0 auto;
+            box-shadow: var(--shadow-2);
+            transition: all 0.3s ease;
+        }
+
+        .hero-content:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-2), var(--shadow-glow);
+        }
+
+        .logo {
+            font-size: 48px;
+            margin-bottom: 24px;
+            display: inline-block;
+            animation: float-gentle 3s ease-in-out infinite;
+        }
+
+        @keyframes float-gentle {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+        }
+
+        h1 {
+            font-size: clamp(32px, 6vw, 56px);
+            font-weight: 700;
+            margin-bottom: 16px;
+            background: linear-gradient(135deg, var(--choco-cream) 0%, var(--choco-milk) 50%, var(--accent-plum) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            line-height: 1.2;
+            letter-spacing: -0.02em;
+        }
+
+        .hero-subtitle {
+            font-size: 18px;
+            color: rgba(255, 248, 231, 0.8);
+            margin-bottom: 40px;
+            font-weight: 400;
+        }
+
+        .hero-buttons {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn-primary {
+            background: var(--accent-caramel);
+            color: #111;
+            border-radius: var(--r-xl);
+            padding: 16px 32px;
+            box-shadow: var(--shadow-1);
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 16px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.15s ease;
+            border: none;
+            cursor: pointer;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-2);
+            border-radius: var(--r-l);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            color: var(--choco-cream);
+            border: 1px solid rgba(255, 248, 231, 0.2);
+            border-radius: var(--r-xl);
+            padding: 16px 32px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 16px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.15s ease;
+            cursor: pointer;
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 248, 231, 0.05);
+            border-color: rgba(255, 248, 231, 0.3);
+            transform: translateY(-1px);
+        }
+
+        /* Floating Chocolate Cubes */
+        .floating-elements {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .choco-cube {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--choco-mocha), var(--choco-milk));
+            border-radius: var(--r-s);
+            opacity: 0.3;
+            animation: float-rotate 20s ease-in-out infinite;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+
+        .choco-cube:nth-child(1) {
+            top: 20%;
+            left: 10%;
+            animation-delay: 0s;
+        }
+
+        .choco-cube:nth-child(2) {
+            top: 60%;
+            right: 15%;
+            animation-delay: 7s;
+            width: 30px;
+            height: 30px;
+        }
+
+        .choco-cube:nth-child(3) {
+            bottom: 20%;
+            left: 20%;
+            animation-delay: 14s;
+            width: 35px;
+            height: 35px;
+        }
+
+        @keyframes float-rotate {
+            0%, 100% {
+                transform: translateY(0px) rotateX(0deg) rotateY(0deg);
+            }
+            25% {
+                transform: translateY(-20px) rotateX(180deg) rotateY(90deg);
+            }
+            50% {
+                transform: translateY(10px) rotateX(360deg) rotateY(180deg);
+            }
+            75% {
+                transform: translateY(-15px) rotateX(180deg) rotateY(270deg);
+            }
+        }
+
+        /* Bento Grid Layout */
+        .bento-section {
+            padding: 80px 0;
+        }
+
+        .bento-grid {
+            display: grid;
+            gap: var(--gap-xl);
+            margin-bottom: 80px;
+        }
+
+        /* 1段目: 2×2 */
+        .bento-row-1 {
+            grid-template-columns: 2fr 1fr;
+            min-height: 400px;
+        }
+
+        /* 2段目: 3カラム */
+        .bento-row-2 {
+            grid-template-columns: repeat(3, 1fr);
+        }
+
+        /* 3段目: 2×2 */
+        .bento-row-3 {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        /* 4段目: 1カラム */
+        .bento-row-4 {
+            grid-template-columns: 1fr;
+        }
+
+        .bento-box {
+            background: var(--surface-1);
+            border: 1px solid rgba(255, 248, 231, 0.05);
+            border-radius: var(--r-l);
+            padding: 32px;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .bento-box:hover {
+            border-color: rgba(139, 92, 246, 0.2);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-1);
+        }
+
+        .bento-box::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(139, 92, 246, 0.05) 0%, transparent 70%);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+        }
+
+        .bento-box:hover::before {
+            opacity: 1;
+        }
+
+        .bento-title {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: var(--choco-milk);
+        }
+
+        .bento-description {
+            color: rgba(255, 248, 231, 0.7);
+            line-height: 1.8;
+        }
+
+        .feature-icon {
+            font-size: 48px;
+            margin-bottom: 20px;
+            display: block;
+        }
+
+        /* Mini Demo Embed */
+        .demo-embed {
+            width: 100%;
+            height: 350px;
+            border-radius: var(--r-m);
+            background: var(--surface-2);
+            border: 1px solid rgba(255, 248, 231, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: rgba(255, 248, 231, 0.5);
+            font-size: 14px;
+        }
+
+        /* Gallery */
+        .gallery-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: var(--gap-m);
+        }
+
+        .gallery-item {
+            aspect-ratio: 16/9;
+            border-radius: var(--r-s);
+            background: var(--surface-2);
+            overflow: hidden;
+            position: relative;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .gallery-item:hover {
+            transform: scale(1.02);
+            box-shadow: var(--shadow-1);
+        }
+
+        /* Weekly Challenge */
+        .challenge-box {
+            background: linear-gradient(135deg, rgba(139, 92, 246, 0.1) 0%, rgba(139, 108, 71, 0.05) 100%);
+            border: 2px solid var(--accent-plum);
+        }
+
+        .challenge-box .bento-title {
+            color: var(--accent-plum);
+        }
+
+        .challenge-button {
+            margin-top: 24px;
+            background: var(--accent-plum);
+            color: white;
+            padding: 12px 24px;
+            border-radius: var(--r-l);
+            text-decoration: none;
+            display: inline-block;
+            font-weight: 600;
+            transition: all 0.15s ease;
+        }
+
+        .challenge-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(139, 92, 246, 0.3);
+        }
+
+        /* Footer */
+        footer {
+            padding: 40px 0;
+            border-top: 1px solid rgba(255, 248, 231, 0.1);
+            text-align: center;
+            color: rgba(255, 248, 231, 0.5);
+            font-size: 14px;
+        }
+
+        .footer-links {
+            display: flex;
+            gap: 24px;
+            justify-content: center;
+            margin-bottom: 24px;
+        }
+
+        .footer-links a {
+            color: rgba(255, 248, 231, 0.6);
+            text-decoration: none;
+            transition: color 0.2s ease;
+        }
+
+        .footer-links a:hover {
+            color: var(--accent-plum);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .hero-content {
+                padding: 40px 24px;
+            }
+
+            .bento-row-1,
+            .bento-row-2,
+            .bento-row-3 {
+                grid-template-columns: 1fr;
+            }
+
+            .hero-buttons {
+                flex-direction: column;
+                width: 100%;
+            }
+
+            .btn-primary,
+            .btn-secondary {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .bento-box {
+                padding: 24px;
+            }
+
+            .gallery-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Micro Interactions */
+        .melting-hover {
+            transition: border-radius 0.15s ease;
+        }
+
+        .melting-hover:hover {
+            border-radius: var(--r-l);
+        }
+
+        /* Cursor highlight effect (CSS only) */
+        .highlight-cursor {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .highlight-cursor::after {
+            content: '';
+            position: absolute;
+            width: 100px;
+            height: 100px;
+            background: radial-gradient(circle, rgba(255, 248, 231, 0.1) 0%, transparent 70%);
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .highlight-cursor:hover::after {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="floating-elements">
+            <div class="choco-cube"></div>
+            <div class="choco-cube"></div>
+            <div class="choco-cube"></div>
+        </div>
+
+        <div class="hero-content highlight-cursor">
+            <div class="logo">🍫</div>
+            <h1>1秒で世界を落とす。<br>10秒で咲かせる。</h1>
+            <p class="hero-subtitle">テキストや声から、3Dの世界と演出をその場で。</p>
+
+            <div class="hero-buttons">
+                <a href="examples/basic/index.html" class="btn-primary melting-hover">
+                    🎮 今すぐ遊ぶ
+                </a>
+                <button class="btn-secondary melting-hover" onclick="scrollToVideo()">
+                    ▶️ 30秒でわかる
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <div class="container">
+        <!-- Bento Section 1: Hero + Video -->
+        <section class="bento-section">
+            <div class="bento-grid bento-row-1">
+                <div class="bento-box">
+                    <h2 class="bento-title">その場で試せるミニデモ</h2>
+                    <div class="demo-embed">
+                        <iframe src="examples/basic/index.html?mini=true"
+                                width="100%"
+                                height="100%"
+                                frameborder="0"
+                                style="border-radius: var(--r-m);">
+                        </iframe>
+                    </div>
+                </div>
+
+                <div class="bento-box" id="video-section">
+                    <h2 class="bento-title">30秒でわかる</h2>
+                    <div class="demo-embed">
+                        <span>動画プレースホルダー</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Bento Section 2: 3つの価値 -->
+        <section class="bento-section">
+            <div class="bento-grid bento-row-2">
+                <div class="bento-box highlight-cursor">
+                    <span class="feature-icon">💬</span>
+                    <h3 class="bento-title">言ったら出る</h3>
+                    <p class="bento-description">
+                        「桜を右上に」「都市の夜景を」<br>
+                        テキストや声で、すぐに3D配置。<br>
+                        AIが理解して、その場で生成。
+                    </p>
+                </div>
+
+                <div class="bento-box highlight-cursor">
+                    <span class="feature-icon">✨</span>
+                    <h3 class="bento-title">驚きを足せる</h3>
+                    <p class="bento-description">
+                        「モノクロにして」「キラキラさせて」<br>
+                        思いついた演出をちょこっと試せる。<br>
+                        元ファイルは絶対に無傷。
+                    </p>
+                </div>
+
+                <div class="bento-box highlight-cursor">
+                    <span class="feature-icon">📸</span>
+                    <h3 class="bento-title">見せたくなる</h3>
+                    <p class="bento-description">
+                        スクショ→AI実装依頼で本番へ。<br>
+                        「これいい！」を形にする最短路。<br>
+                        実験から実装への架け橋。
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Bento Section 3: Gallery + Challenge + Examples + Pricing -->
+        <section class="bento-section">
+            <div class="bento-grid bento-row-3">
+                <div class="bento-box">
+                    <h3 class="bento-title">今週のしずくたち</h3>
+                    <div class="gallery-grid">
+                        <div class="gallery-item"></div>
+                        <div class="gallery-item"></div>
+                        <div class="gallery-item"></div>
+                        <div class="gallery-item"></div>
+                    </div>
+                </div>
+
+                <div class="bento-box challenge-box">
+                    <h3 class="bento-title">🏆 今週のチャレンジ</h3>
+                    <p class="bento-description">
+                        お題：「未来の和室」<br>
+                        テクノロジーと和の融合を表現しよう！<br>
+                        #ChocoDrop #WeeklyChallenge
+                    </p>
+                    <a href="examples/basic/index.html" class="challenge-button melting-hover">
+                        参加する
+                    </a>
+                </div>
+            </div>
+        </section>
+
+        <!-- Bento Section 4: Documentation -->
+        <section class="bento-section">
+            <div class="bento-grid bento-row-4">
+                <div class="bento-box">
+                    <h3 class="bento-title">開発者向けドキュメント</h3>
+                    <p class="bento-description" style="margin-bottom: 24px;">
+                        npm install chocodrop で、あなたのプロジェクトにも導入できます。
+                    </p>
+                    <div style="display: flex; gap: 16px; flex-wrap: wrap;">
+                        <a href="https://github.com/nyukicorn/chocodrop" class="btn-secondary melting-hover" style="font-size: 14px; padding: 12px 20px;">
+                            📚 README
+                        </a>
+                        <a href="https://github.com/nyukicorn/chocodrop/wiki" class="btn-secondary melting-hover" style="font-size: 14px; padding: 12px 20px;">
+                            📖 Docs
+                        </a>
+                        <a href="https://www.npmjs.com/package/chocodrop" class="btn-secondary melting-hover" style="font-size: 14px; padding: 12px 20px;">
+                            📦 npm
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- Footer -->
+    <footer>
+        <div class="container">
+            <div class="footer-links">
+                <a href="#">利用規約</a>
+                <a href="#">ライセンス</a>
+                <a href="#">プライバシー</a>
+                <a href="https://twitter.com">X</a>
+                <a href="#">Discord</a>
+            </div>
+            <p>© 2025 ChocoDrop. Made with 🍫 and ✨</p>
+        </div>
+    </footer>
+
+    <script>
+        // Scroll to video section
+        function scrollToVideo() {
+            document.getElementById('video-section').scrollIntoView({
+                behavior: 'smooth',
+                block: 'center'
+            });
+        }
+
+        // Simple cursor follow effect for hero
+        const heroContent = document.querySelector('.hero-content');
+        if (heroContent) {
+            heroContent.addEventListener('mousemove', (e) => {
+                const rect = heroContent.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+
+                const highlight = heroContent.querySelector('::after');
+                if (highlight) {
+                    highlight.style.left = x + 'px';
+                    highlight.style.top = y + 'px';
+                }
+            });
+        }
+
+        // Hidden easter egg
+        let secretCode = '';
+        document.addEventListener('keypress', (e) => {
+            secretCode += e.key;
+            if (secretCode.includes('月光')) {
+                // Add moon reflection to chocolate cubes
+                document.querySelectorAll('.choco-cube').forEach(cube => {
+                    cube.style.boxShadow = '0 10px 30px rgba(255, 255, 255, 0.3), inset 0 0 20px rgba(255, 255, 255, 0.2)';
+                    setTimeout(() => {
+                        cube.style.boxShadow = '0 10px 30px rgba(0,0,0,0.3)';
+                    }, 3000);
+                });
+                secretCode = '';
+            }
+            // Reset if too long
+            if (secretCode.length > 10) secretCode = '';
+        });
+    </script>
+</body>
+</html>
