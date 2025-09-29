@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ChocoDrop | 言ったら3Dが出る、驚きが咲く</title>
-    <meta name="description" content="テキストや声から、3Dの世界と演出をその場で。ブラウザで今すぐ体験。">
+    <title>ChocoDrop | Drop a little, bloom a lot.</title>
+    <meta name="description" content="テキストや声から3Dを生成。ちょこっとDropして、すぐ咲かせる。Drop a little, bloom a lot.">
 
     <!-- OGP -->
-    <meta property="og:title" content="ChocoDrop | 言ったら3Dが出る、驚きが咲く">
-    <meta property="og:description" content="1秒で世界を落とす。10秒で咲かせる。今すぐブラウザで。">
+    <meta property="og:title" content="ChocoDrop | Drop a little, bloom a lot.">
+    <meta property="og:description" content="ちょこっと試して、ちょこんと置く。1秒で世界を落とし、10秒で咲かせる。">
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://nyukicorn.github.io/chocodrop/">
     <meta property="og:image" content="https://nyukicorn.github.io/chocodrop/ogp.jpg">
@@ -141,6 +141,14 @@
             background-clip: text;
             line-height: 1.2;
             letter-spacing: -0.02em;
+        }
+
+        .hero .lead {
+            color: var(--accent-plum);   /* アクセント色をタグラインに */
+            font-size: clamp(1.05rem, 2.2vw, 1.25rem);
+            letter-spacing: .02em;
+            text-decoration: underline;
+            text-underline-offset: 3px;
         }
 
         .hero-subtitle {
@@ -625,6 +633,7 @@
         <div class="hero-content highlight-cursor">
             <div class="logo">🍫</div>
             <h1>1秒で世界を落とす。<br>10秒で咲かせる。</h1>
+            <p class="lead">Drop a little, bloom a lot.</p>
             <p class="hero-subtitle">テキストや声から、3Dの世界と演出をその場で。</p>
 
             <div class="hero-buttons">

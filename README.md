@@ -1,7 +1,10 @@
-# ChocoDrop / ちょこドロップ 🍫
+# ChocoDrop
+Drop a little, bloom a lot.
+ちょこっとDropして、すぐ咲かせる。
 
-> **自然言語で3D空間にAIコンテンツをドロップ**  
-> あらゆる3D空間に、AIコンテンツをちょこんとドロップ
+- 🌐 HP: https://nyukicorn.github.io/chocodrop/
+- 🎮 Demo: https://nyukicorn.github.io/chocodrop/examples/basic/
+- 📚 Docs: ./docs/GETTING_STARTED.md
 
 ## ⚡ クイックスタート
 
@@ -21,8 +24,6 @@ createChocoDrop(scene, { camera, renderer, enableMouseInteraction: true });
 **📋 [サンプル](#完全なサンプル) | 📚 [API](#api-リファレンス) | 🔧 [カスタマイズ](#aiと一緒に作るカスタマイズ版)**
 
 ---
-
-**🌐 [ホームページ](https://nyukicorn.github.io/chocodrop/) | 🎮 [デモを試す](https://nyukicorn.github.io/chocodrop/examples/basic/index.html)**
 
 ---
 
@@ -114,7 +115,7 @@ const renderer = new THREE.WebGLRenderer();
 createChocoDrop(scene, { camera, renderer, enableMouseInteraction: true });
 ```
 
-> ⚠️ API を利用するには ChocoDrop サーバーを起動する必要があります。リポジトリ直下で `npm run dev`（または本番構成なら `npm start`）を実行し、`http://localhost:3011` でサーバーが稼働していることを確認してください。
+> ⚠️ API を利用するには ChocoDrop のローカル Express サーバーを起動する必要があります。リポジトリ直下で `npm run dev`（本番構成なら `npm start`）を実行し、`http://localhost:3011` で応答することを確認してください。MCP サーバー設定（`config.json` の `mcp` セクションなど）は任意で、画像生成を使わない場合は省略できます。
 
 ### 🔧 HTML環境 (ES Modules)
 
@@ -127,7 +128,7 @@ createChocoDrop(scene, { camera, renderer, enableMouseInteraction: true });
    - **Node.js使用時**: `npx http-server`
    - **VS Code使用時**: Live Server拡張機能をインストールし、HTMLファイルで右クリック→「Open with Live Server」
 
-> ⚠️ `index.html` をダブルクリックして `file://` で開くと ES Modules や Import Map が読み込めず、`chocodrop.esm.js` などが 404 になります。必ずローカルサーバー経由でアクセスしてください。あわせて API を利用する場合は別ターミナルで `npm run dev` を実行し、ChocoDrop サーバーを起動しておいてください。
+> ⚠️ `index.html` をダブルクリックして `file://` で開くと ES Modules や Import Map が読み込めず、`chocodrop.esm.js` などが 404 になります。必ずローカルサーバー経由でアクセスしてください。あわせて API を利用する場合は別ターミナルで `npm run dev` を実行し、ChocoDrop ローカルサーバーを起動してください（MCP サーバー接続は任意）。
 
 #### 💻 **推奨: Import Map使用**
 
