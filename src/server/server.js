@@ -109,7 +109,8 @@ class ChocoDropServer {
       } catch (error) {
         res.status(500).json({
           success: false,
-          error: error.message
+          error: error.message,
+          errorCategory: this.classifyError(error)
         });
       }
     });
@@ -139,7 +140,8 @@ class ChocoDropServer {
       } catch (error) {
         res.status(500).json({
           success: false,
-          error: error.message
+          error: error.message,
+          errorCategory: this.classifyError(error)
         });
       }
     });
@@ -189,6 +191,7 @@ class ChocoDropServer {
         res.status(500).json({
           success: false,
           error: error.message,
+          errorCategory: this.classifyError(error),
           fallbackUrl: this.mcpClient.generatePlaceholderImage(req.body.prompt || 'エラー')
         });
       }
@@ -296,7 +299,8 @@ class ChocoDropServer {
         console.error('❌ Video generation API error:', error);
         res.status(500).json({
           success: false,
-          error: error.message
+          error: error.message,
+          errorCategory: this.classifyError(error)
         });
       }
     });
@@ -396,7 +400,8 @@ class ChocoDropServer {
         console.error('❌ Command API error:', error);
         res.status(500).json({
           success: false,
-          error: error.message
+          error: error.message,
+          errorCategory: this.classifyError(error)
         });
       }
     });
@@ -414,7 +419,8 @@ class ChocoDropServer {
       console.error('❌ Server error:', error);
       res.status(500).json({
         success: false,
-        error: 'サーバーエラーが発生しました'
+        error: 'サーバーエラーが発生しました',
+        errorCategory: this.classifyError(error)
       });
     });
   }
@@ -527,6 +533,29 @@ class ChocoDropServer {
     if (command.includes('大きな') || command.includes('大きい')) return { scale: 2.0 };
     if (command.includes('小さな') || command.includes('小さい')) return { scale: 0.5 };
     return { scale: 1.0 };
+  }
+
+  classifyError(error) {
+    if (!error) {
+      return 'UNKNOWN';
+    }
+
+    const message = typeof error.message === 'string' ? error.message : '';
+    const normalized = message.toLowerCase();
+
+    if (normalized.includes('mcp config')) {
+      return 'MCP_CONFIG_MISSING';
+    }
+
+    if (normalized.includes('mcp client not initialized')) {
+      return 'MCP_CONFIG_MISSING';
+    }
+
+    if (normalized.includes('econnrefused')) {
+      return 'EXTERNAL_SERVICE_UNREACHABLE';
+    }
+
+    return 'UNKNOWN';
   }
 
   /**

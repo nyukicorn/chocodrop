@@ -33,6 +33,7 @@ export class CommandUI {
       autoScroll: options.autoScroll !== false,
       enableDebugLogging: options.enableDebugLogging === true,
       skipServiceDialog: options.skipServiceDialog !== false,  // デフォルトで非表示（明示的にfalseの場合のみ表示）
+      enableServerHealthCheck: options.enableServerHealthCheck !== false,
       ...options.config
     };
 
@@ -56,9 +57,21 @@ export class CommandUI {
     this.isExpanded = false;
     this.overlayTextarea = null;
     this.pendingImageService = null;
-    this.pendingVideoService = null;
-    this.feedbackAutoClearTimer = null;
-    this.currentFeedback = null;
+   this.pendingVideoService = null;
+   this.feedbackAutoClearTimer = null;
+   this.currentFeedback = null;
+
+    this.serverHealthState = {
+      available: true,
+      checking: false,
+      lastError: null
+    };
+    this.serverHealthBackdrop = null;
+    this.serverHealthModal = null;
+    this.serverHealthMessage = null;
+    this.serverHealthDetail = null;
+    this.serverHealthRetryButton = null;
+    this.mcpNoticeShown = false;
 
     try {
       const storedImage = localStorage.getItem(IMAGE_SERVICE_STORAGE_KEY);
@@ -100,6 +113,8 @@ export class CommandUI {
     if (!this.client && this.sceneManager && this.sceneManager.client) {
       this.client = this.sceneManager.client;
     }
+
+    this.initializeServerHealthCheck();
 
     this.createServiceModal();
     this.createFloatingChocolateIcon();
@@ -3438,7 +3453,11 @@ export class CommandUI {
 
       // サーバーからのエラーレスポンスをチェック
       if (result && result.success === false) {
-        throw new Error(result.error || '操作に失敗しました');
+        const errorToThrow = new Error(result.error || '操作に失敗しました');
+        if (result.errorCategory) {
+          errorToThrow.code = result.errorCategory;
+        }
+        throw errorToThrow;
       }
 
       if (result && result.taskId) {
@@ -3471,6 +3490,14 @@ export class CommandUI {
         modify: '❌ 変更エラー',
         delete: '❌ 削除エラー'
       };
+
+      if (error?.code === 'LOCAL_SERVER_UNREACHABLE') {
+        this.serverHealthState.available = false;
+        this.serverHealthState.lastError = error;
+        this.showServerHealthModal(error);
+      } else if (error?.code === 'MCP_CONFIG_MISSING') {
+        this.showMcpConfigNotice(error);
+      }
 
       if (taskId) {
         this.updateTaskCard(taskId, 'error', { errorMessage: error.message });
@@ -3513,6 +3540,269 @@ export class CommandUI {
     
     // パターンマッチしない場合はデフォルト
     return `${command}の画像を作って`;
+  }
+
+  initializeServerHealthCheck() {
+    if (this.config.enableServerHealthCheck === false) {
+      this.logDebug('🚫 Server health check disabled via config');
+      return;
+    }
+
+    if (!this.client) {
+      this.logDebug('⚠️ Server health check skipped - client not available');
+      return;
+    }
+
+    setTimeout(() => {
+      this.performServerHealthCheck({ reason: 'initial', showModalOnFail: true }).catch(error => {
+        this.logDebug('⚠️ Initial health check failed:', error);
+      });
+    }, 100);
+  }
+
+  async performServerHealthCheck(options = {}) {
+    if (this.config.enableServerHealthCheck === false) {
+      return true;
+    }
+
+    if (!this.client) {
+      return true;
+    }
+
+    if (this.serverHealthState.checking) {
+      return this.serverHealthState.available;
+    }
+
+    this.serverHealthState.checking = true;
+
+    const { showModalOnFail = true } = options;
+
+    if (this.serverHealthRetryButton) {
+      this.serverHealthRetryButton.disabled = true;
+      this.serverHealthRetryButton.textContent = '再接続中…';
+    }
+
+    try {
+      if (typeof this.client.ensureInitialized === 'function') {
+        await this.client.ensureInitialized();
+      }
+
+      const healthUrl = this.getHealthEndpoint();
+      const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+      const timeoutId = controller ? setTimeout(() => controller.abort(), 5000) : null;
+
+      const response = await fetch(healthUrl, {
+        method: 'GET',
+        cache: 'no-store',
+        signal: controller ? controller.signal : undefined
+      });
+
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+
+      if (!response.ok) {
+        throw new Error(`Health check failed: HTTP ${response.status}`);
+      }
+
+      await response.json();
+
+      this.serverHealthState.available = true;
+      this.serverHealthState.lastError = null;
+      this.hideServerHealthModal();
+      return true;
+    } catch (error) {
+      this.serverHealthState.available = false;
+      this.serverHealthState.lastError = error;
+
+      if (showModalOnFail) {
+        this.showServerHealthModal(error);
+      }
+
+      return false;
+    } finally {
+      this.serverHealthState.checking = false;
+      if (this.serverHealthRetryButton) {
+        this.serverHealthRetryButton.disabled = false;
+        this.serverHealthRetryButton.textContent = '再接続を試す';
+      }
+    }
+  }
+
+  getHealthEndpoint() {
+    const serverUrl = this.client?.serverUrl || this.sceneManager?.client?.serverUrl;
+    if (serverUrl) {
+      return `${serverUrl.replace(/\/$/, '')}/health`;
+    }
+    return '/health';
+  }
+
+  ensureServerHealthModal() {
+    if (this.serverHealthModal) {
+      return;
+    }
+
+    const backdrop = document.createElement('div');
+    backdrop.style.cssText = `
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.65);
+      backdrop-filter: blur(6px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+    `;
+
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+      max-width: 420px;
+      width: calc(100% - 64px);
+      background: ${this.isDarkMode ? 'rgba(15, 23, 42, 0.95)' : 'rgba(255, 255, 255, 0.98)'};
+      color: ${this.isDarkMode ? '#f1f5f9' : '#1f2937'};
+      border-radius: 16px;
+      padding: 28px;
+      box-shadow: 0 25px 60px rgba(15, 23, 42, 0.35);
+      border: 1px solid ${this.isDarkMode ? 'rgba(148, 163, 184, 0.1)' : 'rgba(148, 163, 184, 0.2)'};
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    `;
+
+    const title = document.createElement('div');
+    title.textContent = 'ChocoDrop サーバーに接続できません';
+    title.style.cssText = `
+      font-size: 18px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    `;
+
+    const titleIcon = document.createElement('span');
+    titleIcon.textContent = '🔌';
+    title.prepend(titleIcon);
+
+    const message = document.createElement('p');
+    message.style.cssText = `
+      margin: 0;
+      line-height: 1.6;
+      font-size: 14px;
+    `;
+    message.textContent = 'ローカルで起動している ChocoDrop サーバー（Express）に接続できません。ターミナルで `npm run dev` を実行し、サーバーが起動していることを確認してください。';
+
+    const detail = document.createElement('pre');
+    detail.style.cssText = `
+      margin: 0;
+      padding: 12px;
+      background: ${this.isDarkMode ? 'rgba(30, 41, 59, 0.6)' : 'rgba(15, 23, 42, 0.05)'};
+      border-radius: 10px;
+      font-size: 12px;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      word-break: break-word;
+      color: ${this.isDarkMode ? '#94a3b8' : '#475569'};
+      border: 1px dashed ${this.isDarkMode ? 'rgba(148, 163, 184, 0.25)' : 'rgba(148, 163, 184, 0.35)'};
+    `;
+    detail.textContent = '';
+
+    const buttonRow = document.createElement('div');
+    buttonRow.style.cssText = `
+      display: flex;
+      gap: 12px;
+      justify-content: flex-end;
+    `;
+
+    const dismissButton = document.createElement('button');
+    dismissButton.textContent = '閉じる';
+    dismissButton.style.cssText = this.getSecondaryButtonStyles();
+    dismissButton.addEventListener('click', () => {
+      this.hideServerHealthModal();
+    });
+
+    const retryButton = document.createElement('button');
+    retryButton.textContent = '再接続を試す';
+    retryButton.style.cssText = this.getPrimaryButtonStyles();
+    retryButton.addEventListener('click', () => {
+      this.performServerHealthCheck({ reason: 'manual', showModalOnFail: true });
+    });
+
+    buttonRow.appendChild(dismissButton);
+    buttonRow.appendChild(retryButton);
+
+    modal.appendChild(title);
+    modal.appendChild(message);
+    modal.appendChild(detail);
+    modal.appendChild(buttonRow);
+
+    backdrop.appendChild(modal);
+    document.body.appendChild(backdrop);
+
+    this.serverHealthBackdrop = backdrop;
+    this.serverHealthModal = modal;
+    this.serverHealthMessage = message;
+    this.serverHealthDetail = detail;
+    this.serverHealthRetryButton = retryButton;
+  }
+
+  getPrimaryButtonStyles() {
+    return `
+      padding: 10px 16px;
+      border-radius: 10px;
+      border: none;
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      color: #ffffff;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      box-shadow: 0 10px 25px rgba(99, 102, 241, 0.35);
+    `;
+  }
+
+  getSecondaryButtonStyles() {
+    return `
+      padding: 10px 16px;
+      border-radius: 10px;
+      border: 1px solid ${this.isDarkMode ? 'rgba(148, 163, 184, 0.3)' : 'rgba(71, 85, 105, 0.3)'};
+      background: transparent;
+      color: ${this.isDarkMode ? '#cbd5f5' : '#1f2937'};
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s ease, background 0.2s ease;
+    `;
+  }
+
+  showServerHealthModal(error) {
+    if (this.config.enableServerHealthCheck === false) {
+      return;
+    }
+
+    this.ensureServerHealthModal();
+
+    if (this.serverHealthBackdrop) {
+      this.serverHealthBackdrop.style.display = 'flex';
+    }
+
+    if (this.serverHealthDetail) {
+      const message = error?.message || 'サーバーに接続できません。';
+      this.serverHealthDetail.textContent = message;
+    }
+  }
+
+  hideServerHealthModal() {
+    if (this.serverHealthBackdrop) {
+      this.serverHealthBackdrop.style.display = 'none';
+    }
+  }
+
+  showMcpConfigNotice(error) {
+    if (this.mcpNoticeShown) {
+      return;
+    }
+    this.mcpNoticeShown = true;
+
+    const message = error?.message || 'MCP 設定が見つかりません。config.json の設定を確認してください。';
+    this.addOutput(`⚙️ MCP 設定が必要です: ${message}\nconfig.json の mcp セクション、または MCP_CONFIG_PATH 環境変数を設定してください。`, 'system');
   }
 
   /**

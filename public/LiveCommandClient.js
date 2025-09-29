@@ -80,7 +80,7 @@ export class ChocoDropClient {
    */
   createConnectionError(context) {
     const serverInfo = this.serverUrl ? `（接続先: ${this.serverUrl}）` : '';
-    const hint = 'ChocoDrop サーバーが起動しているか確認してください（例: `npm run dev` で起動）。';
+    const hint = 'ChocoDrop ローカルサーバー（Express）が起動しているか確認してください（例: `npm run dev`）。';
     return new Error(`${context}\nサーバーへ接続できません。${hint}${serverInfo}`);
   }
 
@@ -98,9 +98,15 @@ export class ChocoDropClient {
 
   handleRequestError(error, context) {
     if (this.isNetworkError(error)) {
-      return this.createConnectionError(context);
+      const connectionError = this.createConnectionError(context);
+      connectionError.code = 'LOCAL_SERVER_UNREACHABLE';
+      connectionError.cause = error;
+      return connectionError;
     }
-    return error instanceof Error ? error : new Error(context);
+    if (error instanceof Error) {
+      return error;
+    }
+    return new Error(context);
   }
 
   /**
@@ -130,7 +136,17 @@ export class ChocoDropClient {
       });
 
       if (!response.ok) {
-        throw new Error(`Server error: ${response.status}`);
+        let errorPayload = null;
+        try {
+          errorPayload = await response.json();
+        } catch (parseError) {
+          // ignore
+        }
+        const serverError = new Error(errorPayload?.error || `Server error: ${response.status}`);
+        if (errorPayload?.errorCategory) {
+          serverError.code = errorPayload.errorCategory;
+        }
+        throw serverError;
       }
 
       const result = await response.json();
@@ -172,7 +188,17 @@ export class ChocoDropClient {
       });
 
       if (!response.ok) {
-        throw new Error(`Server error: ${response.status}`);
+        let errorPayload = null;
+        try {
+          errorPayload = await response.json();
+        } catch (parseError) {
+          // ignore
+        }
+        const serverError = new Error(errorPayload?.error || `Server error: ${response.status}`);
+        if (errorPayload?.errorCategory) {
+          serverError.code = errorPayload.errorCategory;
+        }
+        throw serverError;
       }
 
       const result = await response.json();
@@ -203,7 +229,17 @@ export class ChocoDropClient {
       });
 
       if (!response.ok) {
-        throw new Error(`Server error: ${response.status}`);
+        let errorPayload = null;
+        try {
+          errorPayload = await response.json();
+        } catch (parseError) {
+          // ignore
+        }
+        const serverError = new Error(errorPayload?.error || `Server error: ${response.status}`);
+        if (errorPayload?.errorCategory) {
+          serverError.code = errorPayload.errorCategory;
+        }
+        throw serverError;
       }
 
       const result = await response.json();
