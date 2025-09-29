@@ -339,14 +339,14 @@
     <script>
         // VRButton.jsを手動で読み込み
         const vrScript = document.createElement('script');
-        vrScript.src = 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/webxr/VRButton.js';
+        vrScript.src = 'https://unpkg.com/three@0.128.0/examples/js/webxr/VRButton.js';
         vrScript.onload = () => console.log('✅ VRButton.js loaded');
         vrScript.onerror = () => console.error('❌ Failed to load VRButton.js');
         document.head.appendChild(vrScript);
 
         // ARButton.jsを手動で読み込み
         const arScript = document.createElement('script');
-        arScript.src = 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/webxr/ARButton.js';
+        arScript.src = 'https://unpkg.com/three@0.128.0/examples/js/webxr/ARButton.js';
         arScript.onload = () => console.log('✅ ARButton.js loaded');
         arScript.onerror = () => console.error('❌ Failed to load ARButton.js');
         document.head.appendChild(arScript);
@@ -1799,6 +1799,7 @@
                         drop.userData.splashed = true;
                         // 波紋エフェクトの作成
                         const splashGeometry = new THREE.RingGeometry(0.5, 2, 32);
+                        splashGeometry.computeBoundingSphere(); // NaN防止
                         const splashMaterial = new THREE.MeshBasicMaterial({
                             color: 0x444444,
                             transparent: true,
