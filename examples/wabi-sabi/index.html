@@ -335,6 +335,8 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/webxr/VRButton.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/webxr/ARButton.js"></script>
     <script src="./chocodrop-demo.umd.min.js"></script>
 
     <script>
@@ -354,7 +356,18 @@
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         renderer.shadowMap.enabled = true;
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.xr.enabled = true; // ★ VR/AR有効化
         document.body.appendChild(renderer.domElement);
+
+        // ★ VR/ARボタン追加
+        document.body.appendChild(THREE.VRButton.createButton(renderer));
+
+        const arButton = THREE.ARButton.createButton(renderer, {
+            requiredFeatures: ['hit-test'],
+            optionalFeatures: ['dom-overlay'],
+            domOverlay: { root: document.body }
+        });
+        document.body.appendChild(arButton);
 
         // 🎨 シンプルな白い空間（霧なし）
         function createMinimalBackground() {
@@ -1067,6 +1080,20 @@
         camera.position.set(0, 0, 25);
         camera.lookAt(0, 0, 0);
 
+        // ★ ARレチクル（ヒット位置表示）
+        const reticle = new THREE.Mesh(
+            new THREE.RingGeometry(0.08, 0.10, 32).rotateX(-Math.PI / 2),
+            new THREE.MeshBasicMaterial({
+                color: 0x333333,
+                side: THREE.DoubleSide,
+                transparent: true,
+                opacity: 0.7
+            })
+        );
+        reticle.matrixAutoUpdate = false;
+        reticle.visible = false;
+        scene.add(reticle);
+
         // コントロール
         const controls = new THREE.OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
@@ -1468,11 +1495,63 @@
         // 初回実行を早める
         setTimeout(monitorVideoTextures, 1000);
 
-        // アニメーションループ
-        function animate() {
-            requestAnimationFrame(animate);
+        // ★ AR ヒットテスト用変数
+        let hitTestSource = null;
+        let hitTestSourceRequested = false;
 
+        // ★ ARタップで墨のオブジェクトを配置
+        const onSelect = () => {
+            if (!reticle.visible) return;
+
+            // レチクル位置に墨の精霊を配置
+            const spirit = createInkSpirits().children[0]; // 単体の精霊を作成
+            spirit.position.copy(reticle.position);
+            spirit.position.y += 0.5; // 少し浮かせる
+            scene.add(spirit);
+
+            console.log('🖤 墨の精霊を配置:', reticle.position);
+        };
+
+        // XRセッション開始時の設定
+        renderer.xr.addEventListener('sessionstart', () => {
+            const session = renderer.xr.getSession();
+            if (session) {
+                session.addEventListener('select', onSelect);
+                console.log('🥽 XRセッション開始');
+            }
+        });
+
+        // アニメーションループ（XR対応）
+        renderer.setAnimationLoop((timestamp, frame) => {
             const time = performance.now() * 0.001;
+
+            // ★ ARヒットテスト処理
+            const session = renderer.xr.getSession();
+            if (session && frame) {
+                // 初回だけヒットテストsourceを取得
+                if (!hitTestSourceRequested) {
+                    session.requestReferenceSpace('viewer').then((viewerRefSpace) => {
+                        session.requestHitTestSource({ space: viewerRefSpace }).then((source) => {
+                            hitTestSource = source;
+                        });
+                    });
+                    hitTestSourceRequested = true;
+                }
+
+                if (hitTestSource) {
+                    const referenceSpace = renderer.xr.getReferenceSpace();
+                    const hitTestResults = frame.getHitTestResults(hitTestSource);
+
+                    if (hitTestResults.length) {
+                        const hit = hitTestResults[0];
+                        const pose = hit.getPose(referenceSpace);
+                        reticle.visible = true;
+                        reticle.matrix.fromArray(pose.transform.matrix);
+                    } else {
+                        reticle.visible = false;
+                    }
+                }
+            }
 
             // 🎵 音楽データ更新
             if (musicData.isPlaying) {
@@ -1778,9 +1857,7 @@
 
             controls.update();
             renderer.render(scene, camera);
-        }
-
-        animate();
+        });
 
         // レスポンシブ対応
         window.addEventListener('resize', () => {
