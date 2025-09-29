@@ -359,22 +359,40 @@
         renderer.xr.enabled = true; // ★ VR/AR有効化
         document.body.appendChild(renderer.domElement);
 
+        // ★ WebXRサポートのデバッグ情報
+        console.log('🥽 WebXR Debug Info:');
+        console.log('- navigator.xr:', !!navigator.xr);
+        console.log('- isSecureContext:', window.isSecureContext);
+        if (navigator.xr) {
+            navigator.xr.isSessionSupported('immersive-vr').then(supported => {
+                console.log('- immersive-vr supported:', supported);
+            });
+            navigator.xr.isSessionSupported('immersive-ar').then(supported => {
+                console.log('- immersive-ar supported:', supported);
+            });
+        }
+
         // ★ VR/ARボタン追加（グローバル変数として利用可能）
         if (typeof VRButton !== 'undefined') {
-            document.body.appendChild(VRButton.createButton(renderer));
+            console.log('✅ VRButton script loaded');
+            const vrButton = VRButton.createButton(renderer);
+            document.body.appendChild(vrButton);
+            console.log('VR button element:', vrButton);
         } else {
-            console.log('VR not available in this environment');
+            console.log('❌ VRButton script not loaded');
         }
 
         if (typeof ARButton !== 'undefined') {
+            console.log('✅ ARButton script loaded');
             const arButton = ARButton.createButton(renderer, {
                 requiredFeatures: ['hit-test'],
                 optionalFeatures: ['dom-overlay'],
                 domOverlay: { root: document.body }
             });
             document.body.appendChild(arButton);
+            console.log('AR button element:', arButton);
         } else {
-            console.log('AR not available in this environment');
+            console.log('❌ ARButton script not loaded');
         }
 
         // 🎨 シンプルな白い空間（霧なし）
