@@ -1,6 +1,8 @@
 # ChocoDrop
+ちょこっとDrop。  
+世界が咲く。
+
 Drop a little, bloom a lot.
-ちょこっとDropして、すぐ咲かせる。
 
 - 🌐 HP: https://nyukicorn.github.io/chocodrop/
 - 🎮 Demo: https://nyukicorn.github.io/chocodrop/examples/basic/
