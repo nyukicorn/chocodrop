@@ -4147,8 +4147,8 @@ export class SceneManager {
       }
     }
 
-    const right = new THREE.Vector3().crossVectors(up, forward).normalize();
-    up = new THREE.Vector3().crossVectors(forward, right).normalize();
+    const right = new THREE.Vector3().crossVectors(forward, up).normalize();
+    up = new THREE.Vector3().crossVectors(right, forward).normalize();
 
     const orientation = new THREE.Matrix4();
     orientation.makeBasis(right, up, forward);

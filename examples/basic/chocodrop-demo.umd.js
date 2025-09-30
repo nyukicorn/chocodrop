@@ -124,9 +124,15 @@
 
     handleRequestError(error, context) {
       if (this.isNetworkError(error)) {
-        return this.createConnectionError(context);
+        const connectionError = this.createConnectionError(context);
+        connectionError.code = 'LOCAL_SERVER_UNREACHABLE';
+        connectionError.cause = error;
+        return connectionError;
       }
-      return error instanceof Error ? error : new Error(context);
+      if (error instanceof Error) {
+        return error;
+      }
+      return new Error(context);
     }
 
     /**
@@ -156,7 +162,17 @@
         });
 
         if (!response.ok) {
-          throw new Error(`Server error: ${response.status}`);
+          let errorPayload = null;
+          try {
+            errorPayload = await response.json();
+          } catch (parseError) {
+            // ignore JSON parse errors
+          }
+          const serverError = new Error(errorPayload?.error || `Server error: ${response.status}`);
+          if (errorPayload?.errorCategory) {
+            serverError.code = errorPayload.errorCategory;
+          }
+          throw serverError;
         }
 
         const result = await response.json();
@@ -236,7 +252,17 @@
         });
 
         if (!response.ok) {
-          throw new Error(`Server error: ${response.status}`);
+          let errorPayload = null;
+          try {
+            errorPayload = await response.json();
+          } catch (parseError) {
+            // ignore
+          }
+          const serverError = new Error(errorPayload?.error || `Server error: ${response.status}`);
+          if (errorPayload?.errorCategory) {
+            serverError.code = errorPayload.errorCategory;
+          }
+          throw serverError;
         }
 
         const result = await response.json();
@@ -267,7 +293,17 @@
         });
 
         if (!response.ok) {
-          throw new Error(`Server error: ${response.status}`);
+          let errorPayload = null;
+          try {
+            errorPayload = await response.json();
+          } catch (parseError) {
+            // ignore
+          }
+          const serverError = new Error(errorPayload?.error || `Server error: ${response.status}`);
+          if (errorPayload?.errorCategory) {
+            serverError.code = errorPayload.errorCategory;
+          }
+          throw serverError;
         }
 
         const result = await response.json();
@@ -365,7 +401,17 @@
         });
 
         if (!response.ok) {
-          throw new Error(`Server error: ${response.status}`);
+          let errorPayload = null;
+          try {
+            errorPayload = await response.json();
+          } catch (parseError) {
+            // ignore
+          }
+          const serverError = new Error(errorPayload?.error || `Server error: ${response.status}`);
+          if (errorPayload?.errorCategory) {
+            serverError.code = errorPayload.errorCategory;
+          }
+          throw serverError;
         }
 
         const result = await response.json();
@@ -3173,7 +3219,7 @@
     parsePosition(command) {
       
       // 基本方向の解析（カメラ相対座標系）
-      let x = 0, y = 5, z = 10; // デフォルト値（カメラ相対、正のzが前方）
+      let x = 0, y = 5, z = -10; // デフォルト値（カメラから前方へ負方向）
       
       // 組み合わせ位置を最初にチェック（優先度最高）
       if (command.includes('左下')) {
@@ -3212,9 +3258,9 @@
       // 個別方向の解析
       // 前後方向
       if (command.includes('前に') || command.includes('手前に')) {
-        z = 5; // カメラに近づける
+        z = Math.min(z, -6);
       } else if (command.includes('後ろに') || command.includes('奥に') || command.includes('遠くに')) {
-        z = 20; // カメラから遠ざける
+        z = -25; // カメラから遠ざける（奥）
       }
       
       // 左右方向
@@ -3233,9 +3279,9 @@
       
       // 距離指定
       if (command.includes('近くに') || command.includes('すぐ前に')) {
-        z = Math.min(z * 0.5, 3); // 半分の距離、ただし最低3m（正の値なので min を使用）
+        z = Math.max(z * 0.5, -4); // よりカメラ寄り（前方）
       } else if (command.includes('遠くに') || command.includes('向こうに')) {
-        z = z * 1.5; // 1.5倍の距離
+        z = Math.min(z * 1.5, -30); // さらに遠く
       }
       
       console.log(`📍 Position parsed from "${command}": (${x}, ${y}, ${z})`);
@@ -3440,11 +3486,14 @@
           position: parsed.position,
           prompt: parsed.prompt,
           modelName: imageResult?.modelName,
-          success: true
+          success: true,
+          fallbackUsed: !imageResult?.success,
+          error: !imageResult?.success ? (lastError?.message || imageResult?.error || '画像生成に失敗しました') : null
         };
         
       } catch (error) {
         console.error('🎨 Image generation failed:', error);
+        error.fallbackUsed = true;
         throw error;
       }
     }
@@ -3472,8 +3521,9 @@
         
         let videoTexture;
         let video = null; // video変数をスコープ外で定義
+        const videoSuccess = videoResult.success && videoResult.videoUrl;
         
-        if (videoResult.success && videoResult.videoUrl) {
+        if (videoSuccess) {
           // 成功: 生成された動画をテクスチャとして使用
           console.log(`✅ Video generated successfully: ${videoResult.videoUrl}`);
           
@@ -3580,7 +3630,9 @@
           prompt: parsed.prompt,
           modelName: videoResult.modelName,
           videoUrl: videoResult.videoUrl,
-          success: true
+          success: true,
+          fallbackUsed: !videoSuccess,
+          error: !videoSuccess ? (videoResult?.error || '動画生成に失敗しました') : null
         };
         
       } catch (error) {
@@ -3760,6 +3812,11 @@
         // VideoTextureを作成
         const videoTexture = new THREE.VideoTexture(video);
         videoTexture.colorSpace = THREE.SRGBColorSpace;
+        videoTexture.flipY = false;
+        videoTexture.minFilter = THREE.LinearFilter;
+        videoTexture.magFilter = THREE.LinearFilter;
+        videoTexture.generateMipmaps = false;
+        videoTexture.needsUpdate = true;
 
         // ビデオの読み込みとサイズ取得
         await new Promise((resolve, reject) => {
@@ -3803,14 +3860,14 @@
           toneMapped: false
         });
         material.alphaTest = 0.01;
+        material.depthTest = true;
+        material.depthWrite = false;
         material.needsUpdate = true;
         
         const plane = new THREE.Mesh(geometry, material);
         
         // レンダリング順序を設定
-        plane.renderOrder = 1000;
-        material.depthTest = true;
-        material.depthWrite = true;
+        plane.renderOrder = 1001;
         
         // カメラ相対位置で配置
         if (this.camera) {
@@ -3822,6 +3879,7 @@
         }
         
         plane.scale.setScalar(1.0);
+        plane.userData.videoTexture = videoTexture;
         
         // ファイル名からpromptを作成（拡張子を除去）
         const prompt = fileName ? fileName.replace(/\.[^/.]+$/, '') : 'imported_video';
@@ -4727,35 +4785,40 @@
       }
 
       try {
-        // カメラの位置と方向を取得
-        const cameraPos = this.camera.position.clone();
-        const cameraDirection = new THREE.Vector3();
-        this.camera.getWorldDirection(cameraDirection);
-        
-        // カメラの右方向と上方向を計算
-        const cameraRight = new THREE.Vector3();
-        const cameraUp = new THREE.Vector3(0, 1, 0); // ワールドの上方向
-        cameraRight.crossVectors(cameraDirection, cameraUp).normalize();
-        const cameraUpActual = new THREE.Vector3();
-        cameraUpActual.crossVectors(cameraRight, cameraDirection).normalize();
+        const cameraPos = new THREE.Vector3();
+        this.camera.getWorldPosition(cameraPos);
 
-        // 相対位置をカメラ座標系で計算
+        const cameraDirection = new THREE.Vector3();
+        this.camera.getWorldDirection(cameraDirection).normalize();
+
+        let cameraUpActual = new THREE.Vector3();
+        cameraUpActual.copy(this.camera.up).applyQuaternion(this.camera.getWorldQuaternion(new THREE.Quaternion())).normalize();
+        if (cameraUpActual.lengthSq() === 0) {
+          cameraUpActual.set(0, 1, 0);
+        }
+
+        const cameraRight = new THREE.Vector3().crossVectors(cameraDirection, cameraUpActual).normalize();
+        if (cameraRight.lengthSq() === 0) {
+          cameraRight.set(1, 0, 0);
+        }
+
+        cameraUpActual = new THREE.Vector3().crossVectors(cameraRight, cameraDirection).normalize();
+
         const finalPosition = cameraPos.clone();
-        
-        // 前後方向（Z軸）: カメラの向きに沿って（正の値で前方、負の値で後方）
         finalPosition.add(cameraDirection.clone().multiplyScalar(relativePosition.z));
-        
-        // 左右方向（X軸）: カメラの右方向に沿って
         finalPosition.add(cameraRight.clone().multiplyScalar(relativePosition.x));
-        
-        // 上下方向（Y軸）: カメラの上方向に沿って
         finalPosition.add(cameraUpActual.clone().multiplyScalar(relativePosition.y));
 
-        this.logDebug(
-          `📍 Camera relative position calculated: (${finalPosition.x.toFixed(1)}, ${finalPosition.y.toFixed(1)}, ${finalPosition.z.toFixed(1)})`
-        );
+        const towardCamera = finalPosition.clone().sub(cameraPos);
+        if (cameraDirection.dot(towardCamera.normalize()) < 0.05) {
+          const safeDistance = Math.max(4, Math.abs(relativePosition.z)) || 6;
+          finalPosition.copy(cameraPos).add(cameraDirection.clone().multiplyScalar(safeDistance));
+          this.logDebug('⚠️ Adjusted object position to keep it in front of the camera');
+        }
+
+        this.logDebug(`📍 Camera relative position calculated: (${finalPosition.x.toFixed(1)}, ${finalPosition.y.toFixed(1)}, ${finalPosition.z.toFixed(1)})`);
         return finalPosition;
-        
+
       } catch (error) {
         console.error('❌ Camera relative position calculation failed:', error);
         return new THREE.Vector3(relativePosition.x, relativePosition.y, relativePosition.z);
@@ -4771,10 +4834,11 @@
       }
 
       const forward = new THREE.Vector3();
-      this.camera.getWorldDirection(forward); // カメラの前方向（前方が負Z）
-      forward.negate(); // 平面の法線をカメラ側へ向ける
+      this.camera.getWorldDirection(forward);
+      forward.normalize().negate();
 
-      let up = new THREE.Vector3().copy(this.camera.up).applyQuaternion(this.camera.quaternion).normalize();
+      let up = new THREE.Vector3();
+      up.copy(this.camera.up).applyQuaternion(this.camera.getWorldQuaternion(new THREE.Quaternion())).normalize();
       if (Math.abs(forward.dot(up)) > 0.999) {
         up = new THREE.Vector3(0, 1, 0);
         if (Math.abs(forward.dot(up)) > 0.999) {
@@ -4782,8 +4846,8 @@
         }
       }
 
-      const right = new THREE.Vector3().crossVectors(up, forward).normalize();
-      up = new THREE.Vector3().crossVectors(forward, right).normalize();
+      const right = new THREE.Vector3().crossVectors(forward, up).normalize();
+      up = new THREE.Vector3().crossVectors(right, forward).normalize();
 
       const orientation = new THREE.Matrix4();
       orientation.makeBasis(right, up, forward);
@@ -5465,6 +5529,7 @@
         showExamples: options.showExamples !== false,
         autoScroll: options.autoScroll !== false,
         enableDebugLogging: options.enableDebugLogging === true,
+        enableServerHealthCheck: options.enableServerHealthCheck !== false,
         ...options.config
       };
 
@@ -5504,6 +5569,18 @@
       this.pendingImageService = this.selectedImageService;
       this.pendingVideoService = this.selectedVideoService;
 
+      this.serverHealthState = {
+        available: true,
+        checking: false,
+        lastError: null
+      };
+      this.serverHealthBackdrop = null;
+      this.serverHealthModal = null;
+      this.serverHealthMessage = null;
+      this.serverHealthDetail = null;
+      this.serverHealthRetryButton = null;
+      this.mcpNoticeShown = false;
+
       this.applyServiceSelectionToSceneManager();
 
       // テーマモード状態管理 (light, dark, wabisabi)
@@ -5522,6 +5599,8 @@
       if (!this.client && this.sceneManager && this.sceneManager.client) {
         this.client = this.sceneManager.client;
       }
+
+      this.initializeServerHealthCheck();
 
       this.createServiceModal();
       this.createFloatingChocolateIcon();
@@ -8042,6 +8121,14 @@
           this.currentTaskId = result.taskId;
         }
 
+        if (result && result.success === false) {
+          const errorToThrow = new Error(result.error || '操作に失敗しました');
+          if (result.errorCategory) {
+            errorToThrow.code = result.errorCategory;
+          }
+          throw errorToThrow;
+        }
+
         // 成功メッセージ
         const successMessages = {
           generate: ``, // 成功メッセージ削除 - 結果で十分
@@ -8054,16 +8141,24 @@
           this.updateTaskCard(taskId, 'completed');
         }
         
+        if (result?.fallbackUsed) {
+          const warningMessage = result?.error
+            ? `⚠️ 生成に失敗したためプレースホルダーを表示しています: ${result.error}`
+            : '⚠️ 生成に失敗したためプレースホルダーを表示しています。';
+          this.showInputFeedback('生成に失敗したためプレースホルダーを表示しています。設定を確認してください。', 'error');
+          this.addOutput(warningMessage, 'error');
+        }
+        
         // 詳細情報表示
-        if (result.modelName) {
+        if (result?.modelName) {
           // デバッグ情報削除 - モーダル表示用に保存
         }
         
-        if (result.objectId) {
+        if (result?.objectId) {
           // オブジェクトID削除
         }
         
-        if (result.position) {
+        if (result?.position) {
           // 位置情報削除
         }
 
@@ -8077,6 +8172,18 @@
           modify: '❌ 変更エラー', 
           delete: '❌ 削除エラー'
         };
+
+        if (error?.code === 'LOCAL_SERVER_UNREACHABLE') {
+          this.serverHealthState.available = false;
+          this.serverHealthState.lastError = error;
+          this.showServerHealthModal(error);
+          this.showInputFeedback('サーバーに接続できません。`npm run dev` でローカルサーバーを起動してください。', 'error');
+          this.addOutput('📡 サーバーに接続できません。`npm run dev` でローカルサーバーを起動してください。', 'error');
+        } else if (error?.code === 'MCP_CONFIG_MISSING') {
+          this.showMcpConfigNotice(error);
+        } else {
+          this.showInputFeedback(error.message, 'error');
+        }
         // タスクカードエラー
         if (taskId) {
           this.updateTaskCard(taskId, 'error');
@@ -8100,6 +8207,271 @@
       if (this.config.autoScroll) {
         this.scrollToBottom();
       }
+    }
+
+    initializeServerHealthCheck() {
+      if (this.config.enableServerHealthCheck === false) {
+        this.logDebug('🚫 Server health check disabled via config');
+        return;
+      }
+
+      if (!this.client) {
+        this.logDebug('⚠️ Server health check skipped - client not available');
+        return;
+      }
+
+      setTimeout(() => {
+        this.performServerHealthCheck({ reason: 'initial', showModalOnFail: true }).catch(error => {
+          this.logDebug('⚠️ Initial health check failed:', error);
+        });
+      }, 100);
+    }
+
+    async performServerHealthCheck(options = {}) {
+      if (this.config.enableServerHealthCheck === false) {
+        return true;
+      }
+
+      if (!this.client) {
+        return true;
+      }
+
+      if (this.serverHealthState.checking) {
+        return this.serverHealthState.available;
+      }
+
+      this.serverHealthState.checking = true;
+
+      const { showModalOnFail = true } = options;
+
+      if (this.serverHealthRetryButton) {
+        this.serverHealthRetryButton.disabled = true;
+        this.serverHealthRetryButton.textContent = '再接続中…';
+      }
+
+      try {
+        if (typeof this.client.ensureInitialized === 'function') {
+          await this.client.ensureInitialized();
+        }
+
+        const healthUrl = this.getHealthEndpoint();
+        const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+        const timeoutId = controller ? setTimeout(() => controller.abort(), 5000) : null;
+
+        const response = await fetch(healthUrl, {
+          method: 'GET',
+          cache: 'no-store',
+          signal: controller ? controller.signal : undefined
+        });
+
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
+
+        if (!response.ok) {
+          throw new Error(`Health check failed: HTTP ${response.status}`);
+        }
+
+        await response.json();
+
+        this.serverHealthState.available = true;
+        this.serverHealthState.lastError = null;
+        this.hideServerHealthModal();
+        return true;
+      } catch (error) {
+        this.serverHealthState.available = false;
+        this.serverHealthState.lastError = error;
+
+        if (showModalOnFail) {
+          this.showServerHealthModal(error);
+        }
+
+        return false;
+      } finally {
+        this.serverHealthState.checking = false;
+        if (this.serverHealthRetryButton) {
+          this.serverHealthRetryButton.disabled = false;
+          this.serverHealthRetryButton.textContent = '再接続を試す';
+        }
+      }
+    }
+
+    getHealthEndpoint() {
+      const serverUrl = this.client?.serverUrl || this.sceneManager?.client?.serverUrl;
+      if (serverUrl) {
+        return `${serverUrl.replace(/\/$/, '')}/health`;
+      }
+      return '/health';
+    }
+
+    ensureServerHealthModal() {
+      if (this.serverHealthModal) {
+        return;
+      }
+
+      const backdrop = document.createElement('div');
+      backdrop.style.cssText = `
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.65);
+      backdrop-filter: blur(6px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+    `;
+
+      const modal = document.createElement('div');
+      modal.style.cssText = `
+      max-width: 420px;
+      width: calc(100% - 64px);
+      background: ${this.isDarkMode ? 'rgba(15, 23, 42, 0.95)' : 'rgba(255, 255, 255, 0.98)'};
+      color: ${this.isDarkMode ? '#f1f5f9' : '#1f2937'};
+      border-radius: 16px;
+      padding: 28px;
+      box-shadow: 0 25px 60px rgba(15, 23, 42, 0.35);
+      border: 1px solid ${this.isDarkMode ? 'rgba(148, 163, 184, 0.1)' : 'rgba(148, 163, 184, 0.2)'};
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    `;
+
+      const title = document.createElement('div');
+      title.textContent = 'ChocoDrop サーバーに接続できません';
+      title.style.cssText = `
+      font-size: 18px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    `;
+
+      const titleIcon = document.createElement('span');
+      titleIcon.textContent = '🔌';
+      title.prepend(titleIcon);
+
+      const message = document.createElement('p');
+      message.style.cssText = `
+      margin: 0;
+      line-height: 1.6;
+      font-size: 14px;
+    `;
+      message.textContent = 'ローカルで起動している ChocoDrop サーバー（Express）に接続できません。ターミナルで `npm run dev` を実行し、サーバーが起動していることを確認してください。';
+
+      const detail = document.createElement('pre');
+      detail.style.cssText = `
+      margin: 0;
+      padding: 12px;
+      background: ${this.isDarkMode ? 'rgba(30, 41, 59, 0.6)' : 'rgba(15, 23, 42, 0.05)'};
+      border-radius: 10px;
+      font-size: 12px;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      word-break: break-word;
+      color: ${this.isDarkMode ? '#94a3b8' : '#475569'};
+      border: 1px dashed ${this.isDarkMode ? 'rgba(148, 163, 184, 0.25)' : 'rgba(148, 163, 184, 0.35)'};
+    `;
+      detail.textContent = '';
+
+      const buttonRow = document.createElement('div');
+      buttonRow.style.cssText = `
+      display: flex;
+      gap: 12px;
+      justify-content: flex-end;
+    `;
+
+      const dismissButton = document.createElement('button');
+      dismissButton.textContent = '閉じる';
+      dismissButton.style.cssText = this.getSecondaryButtonStyles();
+      dismissButton.addEventListener('click', () => {
+        this.hideServerHealthModal();
+      });
+
+      const retryButton = document.createElement('button');
+      retryButton.textContent = '再接続を試す';
+      retryButton.style.cssText = this.getPrimaryButtonStyles();
+      retryButton.addEventListener('click', () => {
+        this.performServerHealthCheck({ reason: 'manual', showModalOnFail: true });
+      });
+
+      buttonRow.appendChild(dismissButton);
+      buttonRow.appendChild(retryButton);
+
+      modal.appendChild(title);
+      modal.appendChild(message);
+      modal.appendChild(detail);
+      modal.appendChild(buttonRow);
+
+      backdrop.appendChild(modal);
+      document.body.appendChild(backdrop);
+
+      this.serverHealthBackdrop = backdrop;
+      this.serverHealthModal = modal;
+      this.serverHealthMessage = message;
+      this.serverHealthDetail = detail;
+      this.serverHealthRetryButton = retryButton;
+    }
+
+    getPrimaryButtonStyles() {
+      return `
+      padding: 10px 16px;
+      border-radius: 10px;
+      border: none;
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      color: #ffffff;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      box-shadow: 0 10px 25px rgba(99, 102, 241, 0.35);
+    `;
+    }
+
+    getSecondaryButtonStyles() {
+      return `
+      padding: 10px 16px;
+      border-radius: 10px;
+      border: 1px solid ${this.isDarkMode ? 'rgba(148, 163, 184, 0.3)' : 'rgba(71, 85, 105, 0.3)'};
+      background: transparent;
+      color: ${this.isDarkMode ? '#cbd5f5' : '#1f2937'};
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s ease, background 0.2s ease;
+    `;
+    }
+
+    showServerHealthModal(error) {
+      if (this.config.enableServerHealthCheck === false) {
+        return;
+      }
+
+      this.ensureServerHealthModal();
+
+      if (this.serverHealthBackdrop) {
+        this.serverHealthBackdrop.style.display = 'flex';
+      }
+
+      if (this.serverHealthDetail) {
+        const message = error?.message || 'サーバーに接続できません。';
+        this.serverHealthDetail.textContent = message;
+      }
+    }
+
+    hideServerHealthModal() {
+      if (this.serverHealthBackdrop) {
+        this.serverHealthBackdrop.style.display = 'none';
+      }
+    }
+
+    showMcpConfigNotice(error) {
+      if (this.mcpNoticeShown) {
+        return;
+      }
+      this.mcpNoticeShown = true;
+
+      const message = error?.message || 'MCP 設定が見つかりません。config.json の設定を確認してください。';
+      const guidance = '⚙️ MCP 設定が必要です: docs/SETUP.md を参照し、config.json の mcp セクションまたは MCP_CONFIG_PATH 環境変数を設定してください。';
+      this.showInputFeedback('AI生成サーバー (MCP) が未設定です。設定が完了するまで生成を実行できません。', 'error');
+      this.addOutput(`${guidance}\nサーバーからのメッセージ: ${message}`, 'error');
     }
 
     /**
@@ -10753,6 +11125,7 @@
         autoScroll: options.autoScroll !== false,
         enableDebugLogging: options.enableDebugLogging === true,
         skipServiceDialog: options.skipServiceDialog !== false,  // デフォルトで非表示（明示的にfalseの場合のみ表示）
+        enableServerHealthCheck: options.enableServerHealthCheck !== false,
         ...options.config
       };
 
@@ -10779,6 +11152,18 @@
       this.pendingVideoService = null;
       this.feedbackAutoClearTimer = null;
       this.currentFeedback = null;
+
+      this.serverHealthState = {
+        available: true,
+        checking: false,
+        lastError: null
+      };
+      this.serverHealthBackdrop = null;
+      this.serverHealthModal = null;
+      this.serverHealthMessage = null;
+      this.serverHealthDetail = null;
+      this.serverHealthRetryButton = null;
+      this.mcpNoticeShown = false;
 
       try {
         const storedImage = localStorage.getItem(IMAGE_SERVICE_STORAGE_KEY);
@@ -10820,6 +11205,8 @@
       if (!this.client && this.sceneManager && this.sceneManager.client) {
         this.client = this.sceneManager.client;
       }
+
+      this.initializeServerHealthCheck();
 
       this.createServiceModal();
       this.createFloatingChocolateIcon();
@@ -14145,7 +14532,11 @@
 
         // サーバーからのエラーレスポンスをチェック
         if (result && result.success === false) {
-          throw new Error(result.error || '操作に失敗しました');
+          const errorToThrow = new Error(result.error || '操作に失敗しました');
+          if (result.errorCategory) {
+            errorToThrow.code = result.errorCategory;
+          }
+          throw errorToThrow;
         }
 
         if (result && result.taskId) {
@@ -14157,15 +14548,23 @@
           this.updateTaskCard(taskId, 'completed');
         }
 
-        if (result.modelName) {
+        if (result?.fallbackUsed) {
+          const warningMessage = result?.error
+            ? `⚠️ 生成に失敗したためプレースホルダーを表示しています: ${result.error}`
+            : '⚠️ 生成に失敗したためプレースホルダーを表示しています。';
+          this.showInputFeedback('生成に失敗したためプレースホルダーを表示しています。設定を確認してください。', 'error');
+          this.addOutput(warningMessage, 'error');
+        }
+
+        if (result?.modelName) {
           // モデル情報がある場合はモーダル表示用に保持（必要に応じて拡張）
         }
 
-        if (result.objectId) {
+        if (result?.objectId) {
           // オブジェクト ID の提示は将来のUI更新で対応
         }
 
-        if (result.position) {
+        if (result?.position) {
           // 位置情報はデバッグ表示のみ（現状は未使用）
         }
 
@@ -14178,6 +14577,18 @@
           modify: '❌ 変更エラー',
           delete: '❌ 削除エラー'
         };
+
+        if (error?.code === 'LOCAL_SERVER_UNREACHABLE') {
+          this.serverHealthState.available = false;
+          this.serverHealthState.lastError = error;
+          this.showServerHealthModal(error);
+          this.showInputFeedback('サーバーに接続できません。`npm run dev` でローカルサーバーを起動してください。', 'error');
+          this.addOutput('📡 サーバーに接続できません。`npm run dev` でローカルサーバーを起動してください。', 'error');
+        } else if (error?.code === 'MCP_CONFIG_MISSING') {
+          this.showMcpConfigNotice(error);
+        } else {
+          this.showInputFeedback(error.message, 'error');
+        }
 
         // エラー時のクリーンアップ処理
         this.performErrorCleanup(taskId, error);
@@ -14219,6 +14630,272 @@
       
       // パターンマッチしない場合はデフォルト
       return `${command}の画像を作って`;
+    }
+
+    initializeServerHealthCheck() {
+      if (this.config.enableServerHealthCheck === false) {
+        this.logDebug('🚫 Server health check disabled via config');
+        return;
+      }
+
+      if (!this.client) {
+        this.logDebug('⚠️ Server health check skipped - client not available');
+        return;
+      }
+
+      // 初回チェックは少し遅らせてUI描画を優先
+      setTimeout(() => {
+        this.performServerHealthCheck({ reason: 'initial', showModalOnFail: true }).catch(error => {
+          this.logDebug('⚠️ Initial health check failed:', error);
+        });
+      }, 100);
+    }
+
+    async performServerHealthCheck(options = {}) {
+      if (this.config.enableServerHealthCheck === false) {
+        return true;
+      }
+
+      if (!this.client) {
+        return true;
+      }
+
+      if (this.serverHealthState.checking) {
+        return this.serverHealthState.available;
+      }
+
+      this.serverHealthState.checking = true;
+
+      const { showModalOnFail = true } = options;
+
+      if (this.serverHealthRetryButton) {
+        this.serverHealthRetryButton.disabled = true;
+        this.serverHealthRetryButton.textContent = '再接続中…';
+      }
+
+      try {
+        if (typeof this.client.ensureInitialized === 'function') {
+          await this.client.ensureInitialized();
+        }
+
+        const healthUrl = this.getHealthEndpoint();
+        const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+        const timeoutId = controller ? setTimeout(() => controller.abort(), 5000) : null;
+
+        const response = await fetch(healthUrl, {
+          method: 'GET',
+          cache: 'no-store',
+          signal: controller ? controller.signal : undefined
+        });
+
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
+
+        if (!response.ok) {
+          throw new Error(`Health check failed: HTTP ${response.status}`);
+        }
+
+        await response.json();
+
+        this.serverHealthState.available = true;
+        this.serverHealthState.lastError = null;
+        this.hideServerHealthModal();
+        return true;
+      } catch (error) {
+        this.serverHealthState.available = false;
+        this.serverHealthState.lastError = error;
+
+        if (showModalOnFail) {
+          this.showServerHealthModal(error);
+        }
+
+        return false;
+      } finally {
+        this.serverHealthState.checking = false;
+        if (this.serverHealthRetryButton) {
+          this.serverHealthRetryButton.disabled = false;
+          this.serverHealthRetryButton.textContent = '再接続を試す';
+        }
+      }
+    }
+
+    getHealthEndpoint() {
+      const serverUrl = this.client?.serverUrl || this.sceneManager?.client?.serverUrl;
+      if (serverUrl) {
+        return `${serverUrl.replace(/\/$/, '')}/health`;
+      }
+      return '/health';
+    }
+
+    ensureServerHealthModal() {
+      if (this.serverHealthModal) {
+        return;
+      }
+
+      const backdrop = document.createElement('div');
+      backdrop.style.cssText = `
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.65);
+      backdrop-filter: blur(6px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+    `;
+
+      const modal = document.createElement('div');
+      modal.style.cssText = `
+      max-width: 420px;
+      width: calc(100% - 64px);
+      background: ${this.isDarkMode ? 'rgba(15, 23, 42, 0.95)' : 'rgba(255, 255, 255, 0.98)'};
+      color: ${this.isDarkMode ? '#f1f5f9' : '#1f2937'};
+      border-radius: 16px;
+      padding: 28px;
+      box-shadow: 0 25px 60px rgba(15, 23, 42, 0.35);
+      border: 1px solid ${this.isDarkMode ? 'rgba(148, 163, 184, 0.1)' : 'rgba(148, 163, 184, 0.2)'};
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    `;
+
+      const title = document.createElement('div');
+      title.textContent = 'ChocoDrop サーバーに接続できません';
+      title.style.cssText = `
+      font-size: 18px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    `;
+
+      const titleIcon = document.createElement('span');
+      titleIcon.textContent = '🔌';
+      title.prepend(titleIcon);
+
+      const message = document.createElement('p');
+      message.style.cssText = `
+      margin: 0;
+      line-height: 1.6;
+      font-size: 14px;
+    `;
+      message.textContent = 'ローカルで起動している ChocoDrop サーバー（Express）に接続できません。ターミナルで `npm run dev` を実行し、サーバーが起動していることを確認してください。';
+
+      const detail = document.createElement('pre');
+      detail.style.cssText = `
+      margin: 0;
+      padding: 12px;
+      background: ${this.isDarkMode ? 'rgba(30, 41, 59, 0.6)' : 'rgba(15, 23, 42, 0.05)'};
+      border-radius: 10px;
+      font-size: 12px;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      word-break: break-word;
+      color: ${this.isDarkMode ? '#94a3b8' : '#475569'};
+      border: 1px dashed ${this.isDarkMode ? 'rgba(148, 163, 184, 0.25)' : 'rgba(148, 163, 184, 0.35)'};
+    `;
+      detail.textContent = '';
+
+      const buttonRow = document.createElement('div');
+      buttonRow.style.cssText = `
+      display: flex;
+      gap: 12px;
+      justify-content: flex-end;
+    `;
+
+      const dismissButton = document.createElement('button');
+      dismissButton.textContent = '閉じる';
+      dismissButton.style.cssText = this.getSecondaryButtonStyles();
+      dismissButton.addEventListener('click', () => {
+        this.hideServerHealthModal();
+      });
+
+      const retryButton = document.createElement('button');
+      retryButton.textContent = '再接続を試す';
+      retryButton.style.cssText = this.getPrimaryButtonStyles();
+      retryButton.addEventListener('click', () => {
+        this.performServerHealthCheck({ reason: 'manual', showModalOnFail: true });
+      });
+
+      buttonRow.appendChild(dismissButton);
+      buttonRow.appendChild(retryButton);
+
+      modal.appendChild(title);
+      modal.appendChild(message);
+      modal.appendChild(detail);
+      modal.appendChild(buttonRow);
+
+      backdrop.appendChild(modal);
+      document.body.appendChild(backdrop);
+
+      this.serverHealthBackdrop = backdrop;
+      this.serverHealthModal = modal;
+      this.serverHealthMessage = message;
+      this.serverHealthDetail = detail;
+      this.serverHealthRetryButton = retryButton;
+    }
+
+    getPrimaryButtonStyles() {
+      return `
+      padding: 10px 16px;
+      border-radius: 10px;
+      border: none;
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      color: #ffffff;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      box-shadow: 0 10px 25px rgba(99, 102, 241, 0.35);
+    `;
+    }
+
+    getSecondaryButtonStyles() {
+      return `
+      padding: 10px 16px;
+      border-radius: 10px;
+      border: 1px solid ${this.isDarkMode ? 'rgba(148, 163, 184, 0.3)' : 'rgba(71, 85, 105, 0.3)'};
+      background: transparent;
+      color: ${this.isDarkMode ? '#cbd5f5' : '#1f2937'};
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s ease, background 0.2s ease;
+    `;
+    }
+
+    showServerHealthModal(error) {
+      if (this.config.enableServerHealthCheck === false) {
+        return;
+      }
+
+      this.ensureServerHealthModal();
+
+      if (this.serverHealthBackdrop) {
+        this.serverHealthBackdrop.style.display = 'flex';
+      }
+
+      if (this.serverHealthDetail) {
+        const message = error?.message || 'サーバーに接続できません。';
+        this.serverHealthDetail.textContent = message;
+      }
+    }
+
+    hideServerHealthModal() {
+      if (this.serverHealthBackdrop) {
+        this.serverHealthBackdrop.style.display = 'none';
+      }
+    }
+
+    showMcpConfigNotice(error) {
+      if (this.mcpNoticeShown) {
+        return;
+      }
+      this.mcpNoticeShown = true;
+
+      const message = error?.message || 'MCP 設定が見つかりません。config.json の設定を確認してください。';
+      const guidance = '⚙️ MCP 設定が必要です: docs/SETUP.md を参照し、config.json の mcp セクションまたは MCP_CONFIG_PATH 環境変数を設定してください。';
+      this.showInputFeedback('AI生成サーバー (MCP) が未設定です。設定が完了するまで生成を実行できません。', 'error');
+      this.addOutput(`${guidance}\nサーバーからのメッセージ: ${message}`, 'error');
     }
 
     /**
