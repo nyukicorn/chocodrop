@@ -454,7 +454,7 @@
 
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-        renderer.setClearColor(0x000000, 1);  // 黒背景に変更
+        renderer.setClearColor(0x0a0f1e, 1);  // 深い青紫の背景
 
         // Three.js キャンバスのz-indexを設定（動画より背景に配置）
         renderer.domElement.style.position = 'fixed';
@@ -468,93 +468,134 @@
         function createMusicFlower(x, y, z, scale = 1) {
             const flowerGroup = new THREE.Group();
 
-            // パーティクルの総数（多いほど密度が高い）
-            const particleCount = 15000;
+            // パーティクルの総数
+            const particleCount = 12000;
             const positions = new Float32Array(particleCount * 3);
             const colors = new Float32Array(particleCount * 3);
             const sizes = new Float32Array(particleCount);
 
-            // バラのような滑らかな層状構造
+            // ガラスのような透明な花びらの形状を作成
+            const petalCount = 7; // 7枚の花びら
+
             for (let i = 0; i < particleCount; i++) {
-                // どの層に属するか（0=中心、1=外側）
-                const layerProgress = Math.pow(Math.random(), 0.5);
+                // 中心からの距離（0=中心、1=外側）
+                const radiusProgress = Math.pow(Math.random(), 0.4);
+                const maxRadius = 3.5 * scale; // より大きく広げる
+                const baseRadius = radiusProgress * maxRadius;
 
-                // 明確な層を作る（15層）
-                const layerIndex = Math.floor(layerProgress * 15);
-                const layerNormalized = layerIndex / 15;
-
-                // 層のサイズ
-                const layerRadius = layerNormalized * 2.6 * scale;
-
-                // 層内での角度位置
+                // 角度
                 const angle = Math.random() * Math.PI * 2;
 
-                // 層の中での半径位置（より均等に分散）
-                const radialPos = Math.pow(Math.random(), 0.5);
-                const innerRadius = layerRadius * 0.85;
-                const outerRadius = layerRadius * 1.05;
-                const radius = innerRadius + (outerRadius - innerRadius) * radialPos;
+                // どの花びらに属するか
+                const petalAngle = (angle / (Math.PI * 2)) * petalCount;
+                const petalIndex = Math.floor(petalAngle);
 
-                // 基本的なXY位置
+                // 花びらの中心角度
+                const petalCenterAngle = (petalIndex / petalCount) * Math.PI * 2;
+                const angleFromPetalCenter = angle - petalCenterAngle;
+
+                // 花びらの形状：より広く、波打つ形
+                const normalizedAngle = angleFromPetalCenter / (Math.PI * 2 / petalCount);
+
+                // 花びらの基本幅（より広く）
+                const petalWidthBase = Math.exp(-Math.pow(normalizedAngle * 3.5, 2)) * 0.8;
+
+                // 花びらの先端に向かって広がる
+                const petalExpansion = Math.pow(radiusProgress, 0.7) * 1.2;
+                const petalWidth = petalWidthBase * petalExpansion;
+
+                // 最終的な半径（花びらの形状を適用）
+                const radius = baseRadius * (1 + petalWidth);
+
+                // XY座標
                 let px = Math.cos(angle) * radius;
                 let py = Math.sin(angle) * radius;
 
-                // 花びらの波打ち（滑らかに6つの花びら）
-                const petalCount = 6;
-                const petalAngle = angle * petalCount;
-                const waviness = Math.sin(petalAngle) * 0.12 * layerRadius * radialPos;
-                px += Math.cos(angle) * waviness;
-                py += Math.sin(angle) * waviness;
+                // Z座標：大きく立体的に湾曲（ガラスのような波打つ形）
+                let pz = 0;
 
-                // Z座標（滑らかなカップ状の曲面）
-                // 各層が内側に湾曲
-                const cupDepth = Math.pow(1 - radialPos, 3) * 0.4 * scale;
-                const layerHeight = layerNormalized * 1.2 * scale;
-                let pz = layerHeight - cupDepth;
+                if (radiusProgress < 0.08) {
+                    // 中心部：少し盛り上がる
+                    pz = (0.08 - radiusProgress) * 2 * scale;
+                } else {
+                    // 花びら部分：大きく波打つ
+                    const wave = Math.sin(radiusProgress * Math.PI);
+                    const petalCurvature = Math.exp(-Math.pow(normalizedAngle * 2.5, 2));
 
-                // 層間の重なりを滑らかに
-                const layerTransition = (layerProgress * 15) - layerIndex;
-                const nextLayerHeight = ((layerIndex + 1) / 15) * 1.2 * scale;
-                pz = pz * (1 - layerTransition) + nextLayerHeight * layerTransition - cupDepth;
+                    // 花びらが大きく上下に広がる
+                    const verticalSpread = wave * petalCurvature * 2.5 * scale;
 
-                // 非常に小さなノイズで滑らかさを保つ
-                px += (Math.random() - 0.5) * 0.03 * scale;
-                py += (Math.random() - 0.5) * 0.03 * scale;
-                pz += (Math.random() - 0.5) * 0.03 * scale;
+                    // 花びらの波打ち（ガラスのような不規則な波）
+                    const ripple = Math.sin(radiusProgress * Math.PI * 3 + angle * 2) * 0.3;
+
+                    // 花びらの先端が優雅に反る
+                    const tipCurl = Math.pow(radiusProgress, 2) * 1.2;
+
+                    pz = verticalSpread + ripple * scale + tipCurl * scale;
+                }
+
+                // より大きなノイズで有機的な質感
+                px += (Math.random() - 0.5) * 0.06 * scale;
+                py += (Math.random() - 0.5) * 0.06 * scale;
+                pz += (Math.random() - 0.5) * 0.08 * scale;
 
                 positions[i * 3] = px;
                 positions[i * 3 + 1] = py;
                 positions[i * 3 + 2] = pz;
 
-                // 色は層の深さで決定
-                const petalProgress = layerNormalized;
+                // ガラスのような透明感のあるパステルグラデーション
+                let hue, saturation, lightness;
 
-                // 色のグラデーション（外側→内側）
-                let color;
-                if (petalProgress > 0.8) {
-                    // 外側：青
-                    color = new THREE.Color().setHSL(0.6, 0.8, 0.6);
-                } else if (petalProgress > 0.6) {
-                    // シアン
-                    color = new THREE.Color().setHSL(0.55, 0.85, 0.65);
-                } else if (petalProgress > 0.4) {
-                    // 紫
-                    color = new THREE.Color().setHSL(0.75, 0.8, 0.7);
-                } else if (petalProgress > 0.2) {
-                    // ピンク
-                    color = new THREE.Color().setHSL(0.9, 0.8, 0.75);
+                if (radiusProgress < 0.08) {
+                    // 中心：柔らかい黄色
+                    const t = radiusProgress / 0.08;
+                    hue = 0.12;
+                    saturation = 0.6 - t * 0.2;
+                    lightness = 0.85 - t * 0.1;
                 } else {
-                    // 中心：イエロー
-                    color = new THREE.Color().setHSL(0.15, 0.9, 0.75);
+                    // 花びら部分：パステルピンク→ラベンダー→ブルー
+                    const t = (radiusProgress - 0.08) / (1.0 - 0.08);
+
+                    // 色相を滑らかに変化（パステルトーン）
+                    if (t < 0.3) {
+                        // パステルピンク
+                        const localT = t / 0.3;
+                        hue = 0.92 + localT * 0.05;
+                        saturation = 0.3 + localT * 0.15;
+                        lightness = 0.85 - localT * 0.1;
+                    } else if (t < 0.6) {
+                        // ピンク→ラベンダー
+                        const localT = (t - 0.3) / 0.3;
+                        hue = 0.97 - localT * 0.15;
+                        saturation = 0.45 + localT * 0.1;
+                        lightness = 0.75 - localT * 0.05;
+                    } else {
+                        // ラベンダー→アイスブルー
+                        const localT = (t - 0.6) / 0.4;
+                        hue = 0.82 - localT * 0.3;
+                        saturation = 0.55 - localT * 0.15;
+                        lightness = 0.70 + localT * 0.05;
+                    }
                 }
+
+                // 微細なバリエーションで自然な透明感
+                hue += (Math.random() - 0.5) * 0.03;
+                saturation += (Math.random() - 0.5) * 0.08;
+                lightness += (Math.random() - 0.5) * 0.06;
+
+                const color = new THREE.Color().setHSL(
+                    (hue + 1) % 1,
+                    Math.max(0, Math.min(1, saturation)),
+                    Math.max(0.4, Math.min(0.95, lightness)) // より明るく
+                );
 
                 colors[i * 3] = color.r;
                 colors[i * 3 + 1] = color.g;
                 colors[i * 3 + 2] = color.b;
 
-                // パーティクルのサイズ（大きめで滑らかに）
-                const sizeVariation = 0.9 + Math.random() * 0.2;
-                sizes[i] = 0.15 * sizeVariation * scale;
+                // パーティクルのサイズ（中心部分は小さく、外側に向かって大きく）
+                const particleSize = 0.08 + radiusProgress * 0.12;
+                sizes[i] = particleSize * scale * (0.9 + Math.random() * 0.2);
             }
 
             const geometry = new THREE.BufferGeometry();
@@ -562,12 +603,24 @@
             geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
             geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
 
+            // 元の色を保存（音楽反応で色を変えた後に戻すため）
+            const originalColors = new Float32Array(colors.length);
+            for (let i = 0; i < colors.length; i++) {
+                originalColors[i] = colors[i];
+            }
+
+            // 元の位置を保存（音楽反応で広がった後に戻すため）
+            const originalPositions = new Float32Array(positions.length);
+            for (let i = 0; i < positions.length; i++) {
+                originalPositions[i] = positions[i];
+            }
+
             const material = new THREE.PointsMaterial({
-                size: 0.15 * scale,
+                size: 0.18 * scale,
                 vertexColors: true,
                 transparent: true,
-                opacity: 0.85,
-                blending: THREE.AdditiveBlending,
+                opacity: 0.6, // より透明に
+                blending: THREE.NormalBlending, // ガラスのような自然なブレンド
                 sizeAttenuation: true,
                 depthWrite: false,
                 map: createCircleTexture() // 円形テクスチャで滑らかに
@@ -602,44 +655,83 @@
             const centerPetals = [];
 
             // 追加のキラキラエフェクト用パーティクル
-            const sparkleCount = 200;
+            const sparkleCount = 500; // 大幅に増やす
             const sparklePositions = new Float32Array(sparkleCount * 3);
             const sparkleColors = new Float32Array(sparkleCount * 3);
             const sparkleSizes = new Float32Array(sparkleCount);
+            const sparklePhases = new Float32Array(sparkleCount); // アニメーション用の位相
 
             for (let i = 0; i < sparkleCount; i++) {
-                const r = Math.random() * 3.5 * scale;
+                const r = Math.random() * 4.5 * scale; // より広範囲に
                 const theta = Math.random() * Math.PI * 2;
-                const zOffset = (Math.random() - 0.5) * 2 * scale;
+                const zOffset = (Math.random() - 0.5) * 4 * scale; // より高低差をつける
 
                 sparklePositions[i * 3] = Math.cos(theta) * r;
                 sparklePositions[i * 3 + 1] = Math.sin(theta) * r;
                 sparklePositions[i * 3 + 2] = zOffset;
 
-                const hue = Math.random();
-                const color = new THREE.Color().setHSL(hue, 0.9, 0.8);
+                // パステルカラーでキラキラ（より明るく）
+                const hue = Math.random() * 0.3 + 0.5; // 青〜ピンク系
+                const color = new THREE.Color().setHSL(hue, 0.6, 0.85); // 明度を上げる
                 sparkleColors[i * 3] = color.r;
                 sparkleColors[i * 3 + 1] = color.g;
                 sparkleColors[i * 3 + 2] = color.b;
 
-                sparkleSizes[i] = (0.03 + Math.random() * 0.05) * scale;
+                sparkleSizes[i] = (0.04 + Math.random() * 0.08) * scale;
+                sparklePhases[i] = Math.random() * Math.PI * 2; // ランダムな位相
             }
 
             const sparkleGeometry = new THREE.BufferGeometry();
             sparkleGeometry.setAttribute('position', new THREE.BufferAttribute(sparklePositions, 3));
             sparkleGeometry.setAttribute('color', new THREE.BufferAttribute(sparkleColors, 3));
 
+            // キラキラ用の円形テクスチャを作成
+            function createSparkleTexture() {
+                const canvas = document.createElement('canvas');
+                canvas.width = 64;
+                canvas.height = 64;
+                const ctx = canvas.getContext('2d');
+
+                // より明るく光るグラデーション
+                const gradient = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+                gradient.addColorStop(0, 'rgba(255,255,255,1)');
+                gradient.addColorStop(0.1, 'rgba(255,255,255,1)');
+                gradient.addColorStop(0.3, 'rgba(255,255,255,0.9)');
+                gradient.addColorStop(0.6, 'rgba(255,255,255,0.5)');
+                gradient.addColorStop(1, 'rgba(255,255,255,0)');
+
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, 64, 64);
+
+                const texture = new THREE.Texture(canvas);
+                texture.needsUpdate = true;
+                return texture;
+            }
+
             const sparkleMaterial = new THREE.PointsMaterial({
-                size: 0.06 * scale,
+                size: 0.12 * scale, // より大きく
                 vertexColors: true,
                 transparent: true,
-                opacity: 0.6,
+                opacity: 0.85, // より明るく
                 blending: THREE.AdditiveBlending,
-                sizeAttenuation: true
+                sizeAttenuation: true,
+                depthWrite: false,
+                map: createSparkleTexture() // 円形テクスチャでより美しく
             });
 
             const sparkles = new THREE.Points(sparkleGeometry, sparkleMaterial);
             flowerGroup.add(sparkles);
+
+            // sparkleの位相データと元の位置も保存
+            const originalSparklePositions = new Float32Array(sparklePositions.length);
+            for (let i = 0; i < sparklePositions.length; i++) {
+                originalSparklePositions[i] = sparklePositions[i];
+            }
+
+            sparkles.userData = {
+                phases: sparklePhases,
+                originalPositions: originalSparklePositions
+            };
 
             flowerGroup.position.set(x, y, z);
 
@@ -648,7 +740,9 @@
                 originalScale: scale,
                 mainParticles: particles,
                 sparkles: sparkles,
-                pulsePhase: Math.random() * Math.PI * 2
+                pulsePhase: Math.random() * Math.PI * 2,
+                originalColors: originalColors, // 元の色を保存
+                originalPositions: originalPositions // 元の位置を保存
             };
 
             return flowerGroup;
@@ -818,39 +912,90 @@
             scene.add(flower);
         });
 
+        // 🎵 音楽反応で散るパーティクルシステム
+        const flyingParticles = [];
+        const maxFlyingParticles = 2000;
+
+        // 飛散パーティクル用のgeometry
+        const flyingGeometry = new THREE.BufferGeometry();
+        const flyingPositions = new Float32Array(maxFlyingParticles * 3);
+        const flyingColors = new Float32Array(maxFlyingParticles * 3);
+        const flyingSizes = new Float32Array(maxFlyingParticles);
+
+        flyingGeometry.setAttribute('position', new THREE.BufferAttribute(flyingPositions, 3));
+        flyingGeometry.setAttribute('color', new THREE.BufferAttribute(flyingColors, 3));
+        flyingGeometry.setAttribute('size', new THREE.BufferAttribute(flyingSizes, 1));
+
+        // 円形テクスチャを作成（グロー効果）
+        function createParticleTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 64;
+            canvas.height = 64;
+            const ctx = canvas.getContext('2d');
+
+            const gradient = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+            gradient.addColorStop(0, 'rgba(255,255,255,1)');
+            gradient.addColorStop(0.2, 'rgba(255,255,255,0.9)');
+            gradient.addColorStop(0.5, 'rgba(255,255,255,0.5)');
+            gradient.addColorStop(0.8, 'rgba(255,255,255,0.1)');
+            gradient.addColorStop(1, 'rgba(255,255,255,0)');
+
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, 64, 64);
+
+            const texture = new THREE.Texture(canvas);
+            texture.needsUpdate = true;
+            return texture;
+        }
+
+        const flyingMaterial = new THREE.PointsMaterial({
+            size: 0.15,
+            vertexColors: true,
+            transparent: true,
+            opacity: 0.9,
+            blending: THREE.AdditiveBlending,
+            sizeAttenuation: true,
+            depthWrite: false,
+            map: createParticleTexture()
+        });
+
+        const flyingPoints = new THREE.Points(flyingGeometry, flyingMaterial);
+        scene.add(flyingPoints);
+
         // ✨ 環境光（全体を柔らかく照らす）
-        const ambientLight = new THREE.AmbientLight(0x606080, 0.4);
+        const ambientLight = new THREE.AmbientLight(0x8090c0, 0.6);
         scene.add(ambientLight);
 
         // 🌟 メインのポイントライト（花を美しく照らす）
-        const pointLight = new THREE.PointLight(0xFFE4E1, 1.2, 50);
+        const pointLight = new THREE.PointLight(0xffffff, 1.5, 50);
         pointLight.position.set(0, 10, 5);
         scene.add(pointLight);
 
-        // 追加のライト1（ピンク系）
-        const spotLight1 = new THREE.SpotLight(0xFF6B9D, 0.5);
+        // 追加のライト1（パステルピンク）
+        const spotLight1 = new THREE.SpotLight(0xffc0e0, 0.6);
         spotLight1.position.set(-10, 10, 10);
         spotLight1.target.position.set(0, 0, 0);
         scene.add(spotLight1);
         scene.add(spotLight1.target);
 
-        // 追加のライト2（紫系）
-        const spotLight2 = new THREE.SpotLight(0x9F7AEA, 0.4);
+        // 追加のライト2（パステルブルー）
+        const spotLight2 = new THREE.SpotLight(0xb0c5ff, 0.5);
         spotLight2.position.set(10, 8, -5);
         spotLight2.target.position.set(0, 0, 0);
         scene.add(spotLight2);
         scene.add(spotLight2.target);
 
-        // 📷 カメラ設定
-        camera.position.set(0, 3, 12);
-        camera.lookAt(0, 0, 0);
+        // 📷 カメラ設定（花の美しさが際立つ位置）
+        camera.position.set(-1, 6, 11);  // 少し左側から見る
+        camera.lookAt(0, 0.5, 0);  // 少し上を見る
 
         // 🎮 コントロール
         const controls = new THREE.OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
         controls.dampingFactor = 0.05;
-        controls.minDistance = 5;
-        controls.maxDistance = 30;
+        controls.minDistance = 4;  // もう少し近づけるように
+        controls.maxDistance = 28;
+        controls.target.set(0, 0.5, 0);  // 花畑の少し上を見る
 
         // 🍫 ChocoDrop初期化
         console.log('🔍 Pre-ChocoDrop system check:');
@@ -1040,6 +1185,55 @@
         console.log('Press @ key to activate command interface');
         console.log('使用例: 🍫アイコンクリックでUI起動、動画を配置して音楽反応!');
 
+        // 🎵 パーティクルを花から放出する関数
+        function emitParticlesFromFlower(flower, volume, time) {
+            const particlesToEmit = Math.floor(volume * 15); // 音量に応じて放出数を調整
+
+            for (let i = 0; i < particlesToEmit; i++) {
+                if (flyingParticles.length >= maxFlyingParticles) {
+                    // 古いパーティクルを再利用
+                    flyingParticles.shift();
+                }
+
+                // 花の位置
+                const flowerPos = flower.position;
+
+                // 花の中心からランダムな位置で放出
+                const angle = Math.random() * Math.PI * 2;
+                const radius = Math.random() * 2.5 * flower.userData.originalScale;
+                const offsetX = Math.cos(angle) * radius;
+                const offsetY = Math.sin(angle) * radius;
+                const offsetZ = Math.random() * 1.5 * flower.userData.originalScale;
+
+                // 放出速度（音量に応じて変化）
+                const speed = (0.5 + volume * 2) * (0.8 + Math.random() * 0.4);
+                const velocityAngle = angle + (Math.random() - 0.5) * 0.5;
+
+                const particle = {
+                    position: new THREE.Vector3(
+                        flowerPos.x + offsetX,
+                        flowerPos.y + offsetY,
+                        flowerPos.z + offsetZ
+                    ),
+                    velocity: new THREE.Vector3(
+                        Math.cos(velocityAngle) * speed,
+                        Math.sin(velocityAngle) * speed,
+                        (Math.random() - 0.3) * speed * 1.5
+                    ),
+                    color: new THREE.Color().setHSL(
+                        (Math.random() * 0.3 + 0.5 + time * 0.1) % 1,
+                        0.8 + Math.random() * 0.2,
+                        0.6 + Math.random() * 0.2
+                    ),
+                    size: 0.08 + Math.random() * 0.12,
+                    life: 1.0, // 寿命（1.0から0.0に減少）
+                    decay: 0.008 + Math.random() * 0.012
+                };
+
+                flyingParticles.push(particle);
+            }
+        }
+
         // 🎬 アニメーションループ
         function animate() {
             requestAnimationFrame(animate);
@@ -1109,6 +1303,60 @@
                 }
             }
 
+            // 🎵 音楽に反応して花からパーティクルを放出
+            if (volume > 0.03) {
+                flowers.forEach((flower, index) => {
+                    // 音量が大きい時だけ放出（全ての花から少しずつ）
+                    if (Math.random() < volume * 0.3) {
+                        emitParticlesFromFlower(flower, volume, time);
+                    }
+                });
+            }
+
+            // 🌟 飛散パーティクルを更新
+            const activeParticles = [];
+            flyingParticles.forEach((particle, index) => {
+                // 重力と空気抵抗を適用
+                particle.velocity.z -= 0.015; // 重力
+                particle.velocity.x *= 0.98; // 空気抵抗
+                particle.velocity.y *= 0.98;
+                particle.velocity.z *= 0.98;
+
+                // 位置を更新
+                particle.position.add(particle.velocity);
+
+                // 寿命を減らす
+                particle.life -= particle.decay;
+
+                // 生きているパーティクルのみ保持
+                if (particle.life > 0 && particle.position.z > -20) {
+                    activeParticles.push(particle);
+
+                    // geometryを更新
+                    const idx = activeParticles.length - 1;
+                    flyingPositions[idx * 3] = particle.position.x;
+                    flyingPositions[idx * 3 + 1] = particle.position.y;
+                    flyingPositions[idx * 3 + 2] = particle.position.z;
+
+                    flyingColors[idx * 3] = particle.color.r;
+                    flyingColors[idx * 3 + 1] = particle.color.g;
+                    flyingColors[idx * 3 + 2] = particle.color.b;
+
+                    flyingSizes[idx] = particle.size * particle.life; // 寿命に応じて小さくなる
+                }
+            });
+
+            // 配列を更新
+            flyingParticles.length = 0;
+            flyingParticles.push(...activeParticles);
+
+            // geometryを更新
+            flyingGeometry.setDrawRange(0, activeParticles.length);
+            flyingGeometry.attributes.position.needsUpdate = true;
+            flyingGeometry.attributes.color.needsUpdate = true;
+            flyingGeometry.attributes.size.needsUpdate = true;
+            flyingMaterial.opacity = 0.6 + volume * 0.4;
+
             // 🌸 パーティクル花のアニメーション
             flowers.forEach((flower, index) => {
                 const userData = flower.userData;
@@ -1129,48 +1377,114 @@
                     // 回転
                     mainParticles.rotation.z += 0.002 + volume * 0.01;
 
-                    // 音楽に合わせて色を変化
+                    // 音楽に合わせて色を変化（元の色を保持）
                     const colors = mainParticles.geometry.attributes.color.array;
-                    for (let i = 0; i < colors.length; i += 3) {
-                        const hue = (colors[i] * 0.3 + colors[i + 1] * 0.59 + colors[i + 2] * 0.11); // 輝度
-                        const shift = volume * 0.1 * Math.sin(time + i * 0.1);
+                    const originalColors = userData.originalColors;
+                    const positions = mainParticles.geometry.attributes.position.array;
+                    const originalPositions = userData.originalPositions;
 
-                        const baseColor = new THREE.Color(colors[i], colors[i + 1], colors[i + 2]);
+                    for (let i = 0; i < colors.length; i += 3) {
+                        // 元の色を取得
+                        const baseColor = new THREE.Color(
+                            originalColors[i],
+                            originalColors[i + 1],
+                            originalColors[i + 2]
+                        );
+
                         const hsl = {};
                         baseColor.getHSL(hsl);
 
                         if (volume > 0.005) {
+                            // 音楽に合わせて色相をシフト
+                            const shift = volume * 0.15 * Math.sin(time * 2 + i * 0.01);
                             const newColor = new THREE.Color().setHSL(
-                                (hsl.h + shift) % 1,
+                                (hsl.h + shift + 1) % 1,
                                 Math.min(1, hsl.s + volume * 0.1),
-                                Math.min(1, hsl.l + volume * 0.15)
+                                Math.min(1, hsl.l + volume * 0.1)
                             );
                             colors[i] = newColor.r;
                             colors[i + 1] = newColor.g;
                             colors[i + 2] = newColor.b;
+
+                            // 🌸 パーティクルを中心から外側に広げる
+                            const particleIndex = i / 3;
+                            const px = originalPositions[i];
+                            const py = originalPositions[i + 1];
+                            const pz = originalPositions[i + 2];
+
+                            // 中心からの距離を計算
+                            const dist = Math.sqrt(px * px + py * py);
+
+                            if (dist > 0.1) {
+                                // 外側に広げる量（音量に応じて変化）
+                                const expandAmount = 1 + volume * 0.2;
+                                const wave = Math.sin(time * 3 + particleIndex * 0.05) * 0.05;
+                                const finalExpand = expandAmount + wave;
+
+                                positions[i] = px * finalExpand;
+                                positions[i + 1] = py * finalExpand;
+                                positions[i + 2] = pz + volume * 0.3 * Math.sin(time * 2 + particleIndex * 0.1);
+                            }
+                        } else {
+                            // 音楽がない時は元の色と位置に戻す
+                            colors[i] = originalColors[i];
+                            colors[i + 1] = originalColors[i + 1];
+                            colors[i + 2] = originalColors[i + 2];
+
+                            positions[i] = originalPositions[i];
+                            positions[i + 1] = originalPositions[i + 1];
+                            positions[i + 2] = originalPositions[i + 2];
                         }
                     }
                     mainParticles.geometry.attributes.color.needsUpdate = true;
+                    mainParticles.geometry.attributes.position.needsUpdate = true;
 
-                    // 透明度とサイズ
-                    mainParticles.material.opacity = 0.8 + volume * 0.2;
-                    mainParticles.material.size = (0.08 + volume * 0.04) * userData.originalScale;
+                    // 透明度とサイズ（ガラスのような透明感を維持）
+                    mainParticles.material.opacity = 0.5 + volume * 0.3;
+                    mainParticles.material.size = (0.15 + volume * 0.05) * userData.originalScale;
                 }
 
                 // キラキラパーティクルのアニメーション
                 if (sparkles) {
-                    sparkles.rotation.z -= 0.003 + volume * 0.015;
-                    sparkles.rotation.y += 0.002;
+                    // ゆっくり回転（音楽があれば速く）
+                    sparkles.rotation.z -= 0.002 + volume * 0.02;
+                    sparkles.rotation.y += 0.001 + volume * 0.01;
 
                     const sparklePositions = sparkles.geometry.attributes.position.array;
+                    const originalSparklePositions = sparkles.userData.originalPositions;
+                    const phases = sparkles.userData.phases;
+
                     for (let i = 0; i < sparklePositions.length; i += 3) {
-                        const wave = Math.sin(time * 2 + i * 0.5) * volume * 0.2;
-                        sparklePositions[i + 2] += wave * 0.1;
+                        const particleIndex = i / 3;
+                        const phase = phases[particleIndex];
+
+                        // 元の位置を取得
+                        const origX = originalSparklePositions[i];
+                        const origY = originalSparklePositions[i + 1];
+                        const origZ = originalSparklePositions[i + 2];
+
+                        // 常に上下に漂う動き
+                        const floatSpeed = 0.5 + Math.sin(phase) * 0.3;
+                        const floatWave = Math.sin(time * floatSpeed + phase) * 0.3;
+
+                        // 音楽に反応して激しく動く
+                        const musicWave = Math.sin(time * 4 + phase) * volume * 0.8;
+
+                        // 螺旋状に舞う
+                        const spiralX = Math.cos(time * 0.3 + phase) * 0.15;
+                        const spiralY = Math.sin(time * 0.3 + phase) * 0.15;
+
+                        // 元の位置からの相対的な動き
+                        sparklePositions[i] = origX + spiralX;
+                        sparklePositions[i + 1] = origY + spiralY;
+                        sparklePositions[i + 2] = origZ + floatWave + musicWave;
                     }
                     sparkles.geometry.attributes.position.needsUpdate = true;
 
-                    sparkles.material.opacity = 0.6 + volume * 0.4;
-                    sparkles.material.size = (0.06 + volume * 0.08) * userData.originalScale;
+                    // 音楽がある時はより明るく、大きく（常にキラキラ輝く）
+                    const twinkle = Math.sin(time * 3) * 0.3; // より激しく明滅
+                    sparkles.material.opacity = 0.6 + twinkle + volume * 0.4;
+                    sparkles.material.size = (0.12 + Math.sin(time * 4) * 0.04 + volume * 0.15) * userData.originalScale;
                 }
 
                 // 花全体の回転
