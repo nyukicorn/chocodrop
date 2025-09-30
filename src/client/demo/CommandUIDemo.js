@@ -4789,6 +4789,10 @@ export class CommandUIDemo {
         name: file.name
       };
 
+      if (event?.target) {
+        event.target.value = '';
+      }
+
       this.selectMode('import', true);
 
       // 自動的にデフォルトプロンプトで実行
@@ -4957,8 +4961,11 @@ export class CommandUIDemo {
         URL.revokeObjectURL(importedUrl);
       }
 
-      // ファイル選択状態を維持（同じファイルの再インポートを可能にするため）
-      // this.selectedFile = null;
+      if (this.fileInput) {
+        this.fileInput.value = '';
+      }
+
+      this.selectedFile = null;
       this.selectMode('generate', false);
 
       return {
@@ -4971,6 +4978,9 @@ export class CommandUIDemo {
       // エラー時もファイル情報をクリーンアップ
       if (this.selectedFile?.url) {
         URL.revokeObjectURL(this.selectedFile.url);
+      }
+      if (this.fileInput) {
+        this.fileInput.value = '';
       }
       this.selectedFile = null;
       this.selectMode('generate', false);

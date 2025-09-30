@@ -27,8 +27,9 @@
    * ChocoDrop Client - サーバーとの通信クライアント
    */
   class ChocoDropClient {
-    constructor(serverUrl = null) {
+    constructor(serverUrl = null, sceneManager = null) {
       this.serverUrl = null;
+      this.sceneManager = sceneManager;
       this.initialized = false;
       this.initPromise = null;
 
@@ -101,6 +102,40 @@
     }
 
     /**
+     * ネットワークエラーを検出して利用者向けメッセージに変換
+     */
+    createConnectionError(context) {
+      const serverInfo = this.serverUrl ? `（接続先: ${this.serverUrl}）` : '';
+      const hint = 'ChocoDrop ローカルサーバー（Express）が起動しているか確認してください（例: `npm run dev`）。';
+      return new Error(`${context}\nサーバーへ接続できません。${hint}${serverInfo}`);
+    }
+
+    isNetworkError(error) {
+      if (!error) return false;
+      const message = typeof error.message === 'string' ? error.message : '';
+      return (
+        error.name === 'TypeError' ||
+        message.includes('Failed to fetch') ||
+        message.includes('NetworkError') ||
+        message.includes('connect ECONNREFUSED') ||
+        message.includes('ERR_CONNECTION')
+      );
+    }
+
+    handleRequestError(error, context) {
+      if (this.isNetworkError(error)) {
+        const connectionError = this.createConnectionError(context);
+        connectionError.code = 'LOCAL_SERVER_UNREACHABLE';
+        connectionError.cause = error;
+        return connectionError;
+      }
+      if (error instanceof Error) {
+        return error;
+      }
+      return new Error(context);
+    }
+
+    /**
      * 画像生成リクエスト
      */
     async generateImage(prompt, options = {}) {
@@ -127,7 +162,17 @@
         });
 
         if (!response.ok) {
-          throw new Error(`Server error: ${response.status}`);
+          let errorPayload = null;
+          try {
+            errorPayload = await response.json();
+          } catch (parseError) {
+            // ignore JSON parse errors
+          }
+          const serverError = new Error(errorPayload?.error || `Server error: ${response.status}`);
+          if (errorPayload?.errorCategory) {
+            serverError.code = errorPayload.errorCategory;
+          }
+          throw serverError;
         }
 
         const result = await response.json();
@@ -137,7 +182,7 @@
 
       } catch (error) {
         console.error('❌ Image generation request failed:', error);
-        throw error;
+        throw this.handleRequestError(error, '画像生成リクエストに失敗しました。');
       }
     }
 
@@ -207,7 +252,17 @@
         });
 
         if (!response.ok) {
-          throw new Error(`Server error: ${response.status}`);
+          let errorPayload = null;
+          try {
+            errorPayload = await response.json();
+          } catch (parseError) {
+            // ignore
+          }
+          const serverError = new Error(errorPayload?.error || `Server error: ${response.status}`);
+          if (errorPayload?.errorCategory) {
+            serverError.code = errorPayload.errorCategory;
+          }
+          throw serverError;
         }
 
         const result = await response.json();
@@ -217,7 +272,7 @@
 
       } catch (error) {
         console.error('❌ Video generation request failed:', error);
-        throw error;
+        throw this.handleRequestError(error, '動画生成リクエストに失敗しました。');
       }
     }
 
@@ -238,7 +293,17 @@
         });
 
         if (!response.ok) {
-          throw new Error(`Server error: ${response.status}`);
+          let errorPayload = null;
+          try {
+            errorPayload = await response.json();
+          } catch (parseError) {
+            // ignore
+          }
+          const serverError = new Error(errorPayload?.error || `Server error: ${response.status}`);
+          if (errorPayload?.errorCategory) {
+            serverError.code = errorPayload.errorCategory;
+          }
+          throw serverError;
         }
 
         const result = await response.json();
@@ -248,7 +313,7 @@
 
       } catch (error) {
         console.error('❌ Command execution failed:', error);
-        throw error;
+        throw this.handleRequestError(error, 'コマンド実行に失敗しました。');
       }
     }
 
@@ -260,8 +325,71 @@
       console.log(`🔧 Modifying selected object: "${command}"`);
 
       try {
-        // 既存の /api/command エンドポイントを使用
-        // オブジェクト情報をコマンドのコンテキストとして含める
+        // SceneManagerの統合コマンド処理機能を使用
+        if (this.sceneManager) {
+          console.log('🎨 Using SceneManager integrated command processing');
+          
+          // SceneManagerのparseCommandでコマンドを解析（変更モードを明示）
+          const trimmedCommand = typeof command === 'string' ? command.trim() : '';
+          const commandForParsing = trimmedCommand.startsWith('[変更]')
+            ? trimmedCommand
+            : `[変更] ${trimmedCommand}`;
+
+          const parsed = this.sceneManager.parseCommand(commandForParsing);
+          console.log('🔍 Parsed command result:', parsed);
+          
+          if (parsed && (parsed.color !== null || (parsed.effects && parsed.effects.length > 0) || parsed.movement !== null)) {
+            // 選択されたオブジェクトに直接適用
+            let modified = false;
+            
+            // 色変更
+            if (parsed.color !== null && selectedObject.material) {
+              if (selectedObject.material.map) {
+                selectedObject.material.color.setHex(parsed.color);
+                selectedObject.material.needsUpdate = true;
+                console.log(`🎨 Texture color tint changed to: #${parsed.color.toString(16)}`);
+              } else {
+                selectedObject.material.color.setHex(parsed.color);
+                selectedObject.material.needsUpdate = true;
+                console.log(`🎨 Material color changed to: #${parsed.color.toString(16)}`);
+              }
+              modified = true;
+            }
+
+            // エフェクト適用
+            if (parsed.effects && parsed.effects.length > 0) {
+              const effectsApplied = this.sceneManager.applyEffects(selectedObject, parsed.effects);
+              if (effectsApplied) {
+                modified = true;
+              }
+            }
+            
+            // 位置移動
+            if (parsed.movement !== null) {
+              const currentPos = selectedObject.position;
+              const newPos = {
+                x: currentPos.x + parsed.movement.x,
+                y: currentPos.y + parsed.movement.y,
+                z: currentPos.z + parsed.movement.z
+              };
+              selectedObject.position.set(newPos.x, newPos.y, newPos.z);
+              console.log(`📍 Object moved to: (${newPos.x.toFixed(2)}, ${newPos.y.toFixed(2)}, ${newPos.z.toFixed(2)})`);
+              modified = true;
+            }
+            
+            if (modified) {
+              console.log('✅ Object modification applied successfully');
+              return {
+                success: true,
+                message: 'オブジェクトを変更しました',
+                isClientSideEffect: true
+              };
+            }
+          }
+        }
+
+        // SceneManagerで処理できない場合は、サーバー側で処理（画像再生成）
+        console.log('🔄 Falling back to server-side processing');
         const modifyCommand = `${command} (対象オブジェクト: ${selectedObject?.userData?.objectId || selectedObject?.id || 'unknown'})`;
 
         const response = await fetch(`${this.serverUrl}/api/command`, {
@@ -273,7 +401,17 @@
         });
 
         if (!response.ok) {
-          throw new Error(`Server error: ${response.status}`);
+          let errorPayload = null;
+          try {
+            errorPayload = await response.json();
+          } catch (parseError) {
+            // ignore
+          }
+          const serverError = new Error(errorPayload?.error || `Server error: ${response.status}`);
+          if (errorPayload?.errorCategory) {
+            serverError.code = errorPayload.errorCategory;
+          }
+          throw serverError;
         }
 
         const result = await response.json();
@@ -283,7 +421,7 @@
 
       } catch (error) {
         console.error('❌ Object modification failed:', error);
-        throw error;
+        throw this.handleRequestError(error, 'オブジェクト変更リクエストに失敗しました。');
       }
     }
 
@@ -586,7 +724,7 @@
       this.labelRenderer = null; // CSS2DRenderer for UI overlays like audio controls
       // ChocoDrop Client（共通クライアント注入を優先）
       // 外部フォルダから共有する場合は options.client でクライアントを再利用
-      this.client = options.client || new ChocoDropClient(options.serverUrl);
+      this.client = options.client || new ChocoDropClient(options.serverUrl, this);
       
       // 実験オブジェクト管理用グループ
       this.experimentGroup = new THREE.Group();
@@ -1136,7 +1274,9 @@
       canvas.addEventListener('mouseup', () => {
         if (isDragging && dragObject) {
           // ドラッグ終了の処理
-          if (dragObject.material) {
+          // 注意: マテリアルの透明度は復元しない（エフェクトを保持）
+          // ドラッグ中の一時的な透明度変更があった場合のみ復元
+          if (dragObject.material && dragObject.userData && !dragObject.userData.hasOpacityEffect) {
             dragObject.material.opacity = 1.0;
             dragObject.material.transparent = false;
           }
@@ -1362,6 +1502,9 @@
      * @returns {object} 解析結果
      */
     parseCommand(command) {
+      // ⏎記号（Enterキーのヒント）を削除してからコマンド解析
+      command = command.replace(/\s*⏎\s*/g, '').trim();
+
       // プレフィックスでモードを判定
       if (command.startsWith('[変更] ')) {
         const actualCommand = command.replace('[変更] ', '');
@@ -1940,7 +2083,13 @@
         '水彩': { type: 'watercolor_art', colors: [0xff6b9d, 0x4ecdc4, 0xffe66d, 0x95e1d3], opacity: 0.6, name: 'watercolor' },
         '水彩画': { type: 'watercolor_art', colors: [0xff6b9d, 0x4ecdc4, 0xffe66d, 0x95e1d3], opacity: 0.6, name: 'watercolor' },
         'パステル': { type: 'pastel_art', colors: [0xffb3ba, 0xffdfba, 0xffffba, 0xbaffc9, 0xbae1ff], opacity: 0.7, name: 'pastel' },
-        '虹色': { type: 'rainbow_glow', colors: [0xff0000, 0xff8800, 0xffff00, 0x00ff00, 0x0088ff, 0x0000ff, 0x8800ff], intensity: 0.5, name: 'rainbow_glow' }
+        '虹色': { type: 'rainbow_glow', colors: [0xff0000, 0xff8800, 0xffff00, 0x00ff00, 0x0088ff, 0x0000ff, 0x8800ff], intensity: 0.5, name: 'rainbow_glow' },
+        
+        // モノクロ・グレースケール系
+        'モノクロ': { type: 'monochrome', name: 'monochrome' },
+        'グレースケール': { type: 'monochrome', name: 'grayscale' },
+        'モノクロに': { type: 'monochrome', name: 'monochrome' },
+        '白黒': { type: 'monochrome', name: 'black_white' }
       };
 
       // プリセット効果
@@ -1981,10 +2130,12 @@
       const canApplyChroma = chromaConfig !== null;
 
       // 個別効果をチェック
+      console.log(`🔍 Checking effects for cmd: "${cmd}"`);
       for (const [keyword, effect] of Object.entries(effectKeywords)) {
         if (canApplyChroma && keyword === '透明') {
           continue;
         }
+        console.log(`🔍 Checking keyword: "${keyword}" in cmd: "${cmd}"`);
         if (cmd.includes(keyword)) {
           effects.push(effect);
           console.log(`🎭 Effect detected: ${keyword} -> ${effect.name}`);
@@ -2122,6 +2273,9 @@
           case 'chroma_key':
             applied = this.applyChromaKeyEffect(targetObject, effect) || applied;
             break;
+          case 'monochrome':
+            applied = this.applyMonochromeEffect(targetObject, effect) || applied;
+            break;
           default:
             console.warn(`🚫 Unknown effect type: ${effect.type}`);
         }
@@ -2139,6 +2293,11 @@
       targetObject.material.transparent = true;
       targetObject.material.opacity = effect.value;
       targetObject.material.needsUpdate = true;
+
+      // エフェクトが適用されたことをマーク
+      if (!targetObject.userData) targetObject.userData = {};
+      targetObject.userData.hasOpacityEffect = true;
+      targetObject.userData.originalOpacity = effect.value;
 
       console.log(`👻 Opacity set to: ${effect.value} (${effect.name})`);
       return true;
@@ -2341,6 +2500,66 @@
       }
 
       console.log('🪄 Applied chroma key shader material');
+      return true;
+    }
+
+    /**
+     * モノクロ（グレースケール）エフェクト適用
+     */
+    applyMonochromeEffect(targetObject, effect) {
+      if (!targetObject.material) return false;
+      const material = targetObject.material;
+      const texture = material.map;
+
+      if (!texture) {
+        console.warn('🚫 Monochrome effect requires texture map');
+        return false;
+      }
+
+      // 既存のモノクロマテリアルをチェック
+      if (material.userData && material.userData.isMonochromeMaterial && material.uniforms) {
+        console.log('🎯 Monochrome material already applied');
+        return true;
+      }
+
+      // グレースケール用のシェーダーマテリアルを作成
+      const shaderMaterial = new THREE.ShaderMaterial({
+        uniforms: {
+          map: { value: texture }
+        },
+        vertexShader: `
+        varying vec2 vUv;
+        void main() {
+          vUv = uv;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+        fragmentShader: `
+        uniform sampler2D map;
+        varying vec2 vUv;
+        void main() {
+          vec4 color = texture2D(map, vUv);
+          // ルミナンス（輝度）計算でグレースケール化
+          float gray = dot(color.rgb, vec3(0.299, 0.587, 0.114));
+          gl_FragColor = vec4(vec3(gray), color.a);
+        }
+      `,
+        transparent: material.transparent,
+        side: THREE.DoubleSide,
+        depthTest: material.depthTest,
+        depthWrite: material.depthWrite,
+        toneMapped: material.toneMapped === true
+      });
+
+      shaderMaterial.userData.isMonochromeMaterial = true;
+      targetObject.material = shaderMaterial;
+
+      // 古いマテリアルを削除
+      if (typeof material.dispose === 'function') {
+        material.dispose();
+      }
+
+      console.log('⚫ Applied monochrome effect');
       return true;
     }
 
@@ -2747,28 +2966,31 @@
      */
     parseDeleteCommand(command) {
       const cmd = command.toLowerCase().trim();
-      
+
       // 選択されたオブジェクトのみを削除するか、全削除かを判定
       if (cmd.includes('選択') || cmd.includes('これ') || cmd.includes('この')) {
         return {
           type: 'delete',
           target: 'selected',
-          requiresSelection: true
+          requiresSelection: true,
+          command: command  // 元のコマンドを保持
         };
       }
-      
+
       if (cmd.includes('全部') || cmd.includes('すべて') || cmd.includes('全て')) {
         return {
           type: 'delete',
-          target: 'all'
+          target: 'all',
+          command: command  // 元のコマンドを保持
         };
       }
-      
+
       // デフォルト: 選択されたオブジェクトを削除
       return {
         type: 'delete',
         target: 'selected',
-        requiresSelection: true
+        requiresSelection: true,
+        command: command  // 元のコマンドを保持
       };
     }
 
@@ -3003,7 +3225,7 @@
     parsePosition(command) {
       
       // 基本方向の解析（カメラ相対座標系）
-      let x = 0, y = 5, z = 10; // デフォルト値（カメラ相対、正のzが前方）
+      let x = 0, y = 5, z = -10; // デフォルト値（カメラから前方へ負方向）
       
       // 組み合わせ位置を最初にチェック（優先度最高）
       if (command.includes('左下')) {
@@ -3042,9 +3264,9 @@
       // 個別方向の解析
       // 前後方向
       if (command.includes('前に') || command.includes('手前に')) {
-        z = 5; // カメラに近づける
+        z = Math.min(z, -6);
       } else if (command.includes('後ろに') || command.includes('奥に') || command.includes('遠くに')) {
-        z = 20; // カメラから遠ざける
+        z = -25; // カメラから遠ざける（奥）
       }
       
       // 左右方向
@@ -3063,9 +3285,9 @@
       
       // 距離指定
       if (command.includes('近くに') || command.includes('すぐ前に')) {
-        z = Math.min(z * 0.5, 3); // 半分の距離、ただし最低3m（正の値なので min を使用）
+        z = Math.max(z * 0.5, -4); // よりカメラ寄り（前方）
       } else if (command.includes('遠くに') || command.includes('向こうに')) {
-        z = z * 1.5; // 1.5倍の距離
+        z = Math.min(z * 1.5, -30); // さらに遠く
       }
       
       console.log(`📍 Position parsed from "${command}": (${x}, ${y}, ${z})`);
@@ -3270,11 +3492,14 @@
           position: parsed.position,
           prompt: parsed.prompt,
           modelName: imageResult?.modelName,
-          success: true
+          success: true,
+          fallbackUsed: !imageResult?.success,
+          error: !imageResult?.success ? (lastError?.message || imageResult?.error || '画像生成に失敗しました') : null
         };
         
       } catch (error) {
         console.error('🎨 Image generation failed:', error);
+        error.fallbackUsed = true;
         throw error;
       }
     }
@@ -3302,8 +3527,9 @@
         
         let videoTexture;
         let video = null; // video変数をスコープ外で定義
+        const videoSuccess = videoResult.success && videoResult.videoUrl;
         
-        if (videoResult.success && videoResult.videoUrl) {
+        if (videoSuccess) {
           // 成功: 生成された動画をテクスチャとして使用
           console.log(`✅ Video generated successfully: ${videoResult.videoUrl}`);
           
@@ -3410,7 +3636,9 @@
           prompt: parsed.prompt,
           modelName: videoResult.modelName,
           videoUrl: videoResult.videoUrl,
-          success: true
+          success: true,
+          fallbackUsed: !videoSuccess,
+          error: !videoSuccess ? (videoResult?.error || '動画生成に失敗しました') : null
         };
         
       } catch (error) {
@@ -3590,6 +3818,11 @@
         // VideoTextureを作成
         const videoTexture = new THREE.VideoTexture(video);
         videoTexture.colorSpace = THREE.SRGBColorSpace;
+        videoTexture.flipY = true;
+        videoTexture.minFilter = THREE.LinearFilter;
+        videoTexture.magFilter = THREE.LinearFilter;
+        videoTexture.generateMipmaps = false;
+        videoTexture.needsUpdate = true;
 
         // ビデオの読み込みとサイズ取得
         await new Promise((resolve, reject) => {
@@ -3633,14 +3866,14 @@
           toneMapped: false
         });
         material.alphaTest = 0.01;
+        material.depthTest = true;
+        material.depthWrite = false;
         material.needsUpdate = true;
         
         const plane = new THREE.Mesh(geometry, material);
         
         // レンダリング順序を設定
-        plane.renderOrder = 1000;
-        material.depthTest = true;
-        material.depthWrite = true;
+        plane.renderOrder = 1001;
         
         // カメラ相対位置で配置
         if (this.camera) {
@@ -3652,6 +3885,7 @@
         }
         
         plane.scale.setScalar(1.0);
+        plane.userData.videoTexture = videoTexture;
         
         // ファイル名からpromptを作成（拡張子を除去）
         const prompt = fileName ? fileName.replace(/\.[^/.]+$/, '') : 'imported_video';
@@ -4507,6 +4741,45 @@
     }
 
     /**
+     * エラー時にローディング状態をクリアする
+     */
+    clearLoadingStates() {
+      // ローディングインジケーターを削除
+      const loadingIndicators = [];
+      this.scene.traverse((object) => {
+        if (object.userData && object.userData.isLoadingIndicator) {
+          loadingIndicators.push(object);
+        }
+      });
+
+      loadingIndicators.forEach(indicator => {
+        this.scene.remove(indicator);
+        if (indicator.geometry) indicator.geometry.dispose();
+        if (indicator.material) {
+          if (Array.isArray(indicator.material)) {
+            indicator.material.forEach(mat => mat.dispose());
+          } else {
+            indicator.material.dispose();
+          }
+        }
+      });
+
+      // 進行中のアニメーションを停止
+      if (this.animations) {
+        for (const [id, animation] of this.animations.entries()) {
+          if (animation.type === 'loading' || animation.isLoadingAnimation) {
+            this.animations.delete(id);
+          }
+        }
+      }
+
+      // 現在選択中のオブジェクトの選択状態を維持
+      // エラー時にオブジェクトが選択解除されないようにする
+
+      console.log('🧹 Loading states cleared from scene');
+    }
+
+    /**
      * カメラ相対位置計算（画面座標対応）
      */
     calculateCameraRelativePosition(relativePosition) {
@@ -4518,35 +4791,40 @@
       }
 
       try {
-        // カメラの位置と方向を取得
-        const cameraPos = this.camera.position.clone();
-        const cameraDirection = new THREE.Vector3();
-        this.camera.getWorldDirection(cameraDirection);
-        
-        // カメラの右方向と上方向を計算
-        const cameraRight = new THREE.Vector3();
-        const cameraUp = new THREE.Vector3(0, 1, 0); // ワールドの上方向
-        cameraRight.crossVectors(cameraDirection, cameraUp).normalize();
-        const cameraUpActual = new THREE.Vector3();
-        cameraUpActual.crossVectors(cameraRight, cameraDirection).normalize();
+        const cameraPos = new THREE.Vector3();
+        this.camera.getWorldPosition(cameraPos);
 
-        // 相対位置をカメラ座標系で計算
+        const cameraDirection = new THREE.Vector3();
+        this.camera.getWorldDirection(cameraDirection).normalize();
+
+        let cameraUpActual = new THREE.Vector3();
+        cameraUpActual.copy(this.camera.up).applyQuaternion(this.camera.getWorldQuaternion(new THREE.Quaternion())).normalize();
+        if (cameraUpActual.lengthSq() === 0) {
+          cameraUpActual.set(0, 1, 0);
+        }
+
+        const cameraRight = new THREE.Vector3().crossVectors(cameraDirection, cameraUpActual).normalize();
+        if (cameraRight.lengthSq() === 0) {
+          cameraRight.set(1, 0, 0);
+        }
+
+        cameraUpActual = new THREE.Vector3().crossVectors(cameraRight, cameraDirection).normalize();
+
         const finalPosition = cameraPos.clone();
-        
-        // 前後方向（Z軸）: カメラの向きに沿って（正の値で前方、負の値で後方）
         finalPosition.add(cameraDirection.clone().multiplyScalar(relativePosition.z));
-        
-        // 左右方向（X軸）: カメラの右方向に沿って
         finalPosition.add(cameraRight.clone().multiplyScalar(relativePosition.x));
-        
-        // 上下方向（Y軸）: カメラの上方向に沿って
         finalPosition.add(cameraUpActual.clone().multiplyScalar(relativePosition.y));
 
-        this.logDebug(
-          `📍 Camera relative position calculated: (${finalPosition.x.toFixed(1)}, ${finalPosition.y.toFixed(1)}, ${finalPosition.z.toFixed(1)})`
-        );
+        const towardCamera = finalPosition.clone().sub(cameraPos);
+        if (cameraDirection.dot(towardCamera.normalize()) < 0.05) {
+          const safeDistance = Math.max(4, Math.abs(relativePosition.z)) || 6;
+          finalPosition.copy(cameraPos).add(cameraDirection.clone().multiplyScalar(safeDistance));
+          this.logDebug('⚠️ Adjusted object position to keep it in front of the camera');
+        }
+
+        this.logDebug(`📍 Camera relative position calculated: (${finalPosition.x.toFixed(1)}, ${finalPosition.y.toFixed(1)}, ${finalPosition.z.toFixed(1)})`);
         return finalPosition;
-        
+
       } catch (error) {
         console.error('❌ Camera relative position calculation failed:', error);
         return new THREE.Vector3(relativePosition.x, relativePosition.y, relativePosition.z);
@@ -4562,10 +4840,11 @@
       }
 
       const forward = new THREE.Vector3();
-      this.camera.getWorldDirection(forward); // カメラの前方向（前方が負Z）
-      forward.negate(); // 平面の法線をカメラ側へ向ける
+      this.camera.getWorldDirection(forward);
+      forward.normalize().negate();
 
-      let up = new THREE.Vector3().copy(this.camera.up).applyQuaternion(this.camera.quaternion).normalize();
+      let up = new THREE.Vector3();
+      up.copy(this.camera.up).applyQuaternion(this.camera.getWorldQuaternion(new THREE.Quaternion())).normalize();
       if (Math.abs(forward.dot(up)) > 0.999) {
         up = new THREE.Vector3(0, 1, 0);
         if (Math.abs(forward.dot(up)) > 0.999) {
@@ -4573,8 +4852,8 @@
         }
       }
 
-      const right = new THREE.Vector3().crossVectors(up, forward).normalize();
-      up = new THREE.Vector3().crossVectors(forward, right).normalize();
+      const right = new THREE.Vector3().crossVectors(forward, up).normalize();
+      up = new THREE.Vector3().crossVectors(right, forward).normalize();
 
       const orientation = new THREE.Matrix4();
       orientation.makeBasis(right, up, forward);
@@ -5256,6 +5535,7 @@
         showExamples: options.showExamples !== false,
         autoScroll: options.autoScroll !== false,
         enableDebugLogging: options.enableDebugLogging === true,
+        enableServerHealthCheck: options.enableServerHealthCheck !== false,
         ...options.config
       };
 
@@ -5295,6 +5575,18 @@
       this.pendingImageService = this.selectedImageService;
       this.pendingVideoService = this.selectedVideoService;
 
+      this.serverHealthState = {
+        available: true,
+        checking: false,
+        lastError: null
+      };
+      this.serverHealthBackdrop = null;
+      this.serverHealthModal = null;
+      this.serverHealthMessage = null;
+      this.serverHealthDetail = null;
+      this.serverHealthRetryButton = null;
+      this.mcpNoticeShown = false;
+
       this.applyServiceSelectionToSceneManager();
 
       // テーマモード状態管理 (light, dark, wabisabi)
@@ -5313,6 +5605,8 @@
       if (!this.client && this.sceneManager && this.sceneManager.client) {
         this.client = this.sceneManager.client;
       }
+
+      this.initializeServerHealthCheck();
 
       this.createServiceModal();
       this.createFloatingChocolateIcon();
@@ -7589,7 +7883,7 @@
       const placeholders = {
         generate: '「猫の画像を作って」と話しかけて ⏎ ✨',
         import: 'ファイルを選択して ⏎ 📁',
-        modify: '選択後「背景の緑色を透明にして」と伝えて ⏎ ✏️',
+        modify: '選択後「透明に変更」と伝えて ⏎ ✏️',
         delete: '選択後、コマンドをそのまま送って ⏎ 🗑️'
       };
       return placeholders[mode] || placeholders.generate;
@@ -7767,7 +8061,23 @@
               result = await this.sceneManager.executeCommand(fullCommand);
             }
           } else {
-            result = await this.sceneManager.executeCommand(fullCommand);
+            // modifyモードの場合は選択されたオブジェクトに直接適用
+            if (this.currentMode === 'modify') {
+              const selectedObject = this.sceneManager?.selectedObject;
+              if (!selectedObject) {
+                this.addOutput('⚠️ 変更するオブジェクトが選択されていません。まず3Dシーン内のオブジェクトをクリックで選択してから、再度コマンドを実行してください。', 'system');
+                return;
+              }
+              // LiveCommandClientのmodifySelectedObjectを呼び出し
+              console.log('🔧 Demo: Calling modifySelectedObject with:', selectedObject, command);
+              if (this.client && this.client.modifySelectedObject) {
+                result = await this.client.modifySelectedObject(selectedObject, command);
+              } else {
+                result = await this.sceneManager.executeCommand(fullCommand);
+              }
+            } else {
+              result = await this.sceneManager.executeCommand(fullCommand);
+            }
           }
         } else if (this.client) {
           // モードに応じてAPIエンドポイントを選択
@@ -7817,6 +8127,14 @@
           this.currentTaskId = result.taskId;
         }
 
+        if (result && result.success === false) {
+          const errorToThrow = new Error(result.error || '操作に失敗しました');
+          if (result.errorCategory) {
+            errorToThrow.code = result.errorCategory;
+          }
+          throw errorToThrow;
+        }
+
         // 成功メッセージ
         const successMessages = {
           generate: ``, // 成功メッセージ削除 - 結果で十分
@@ -7829,16 +8147,24 @@
           this.updateTaskCard(taskId, 'completed');
         }
         
+        if (result?.fallbackUsed) {
+          const warningMessage = result?.error
+            ? `⚠️ 生成に失敗したためプレースホルダーを表示しています: ${result.error}`
+            : '⚠️ 生成に失敗したためプレースホルダーを表示しています。';
+          this.showInputFeedback('生成に失敗したためプレースホルダーを表示しています。設定を確認してください。', 'error');
+          this.addOutput(warningMessage, 'error');
+        }
+        
         // 詳細情報表示
-        if (result.modelName) {
+        if (result?.modelName) {
           // デバッグ情報削除 - モーダル表示用に保存
         }
         
-        if (result.objectId) {
+        if (result?.objectId) {
           // オブジェクトID削除
         }
         
-        if (result.position) {
+        if (result?.position) {
           // 位置情報削除
         }
 
@@ -7852,6 +8178,18 @@
           modify: '❌ 変更エラー', 
           delete: '❌ 削除エラー'
         };
+
+        if (error?.code === 'LOCAL_SERVER_UNREACHABLE') {
+          this.serverHealthState.available = false;
+          this.serverHealthState.lastError = error;
+          this.showServerHealthModal(error);
+          this.showInputFeedback('サーバーに接続できません。`npm run dev` でローカルサーバーを起動してください。', 'error');
+          this.addOutput('📡 サーバーに接続できません。`npm run dev` でローカルサーバーを起動してください。', 'error');
+        } else if (error?.code === 'MCP_CONFIG_MISSING') {
+          this.showMcpConfigNotice(error);
+        } else {
+          this.showInputFeedback(error.message, 'error');
+        }
         // タスクカードエラー
         if (taskId) {
           this.updateTaskCard(taskId, 'error');
@@ -7875,6 +8213,271 @@
       if (this.config.autoScroll) {
         this.scrollToBottom();
       }
+    }
+
+    initializeServerHealthCheck() {
+      if (this.config.enableServerHealthCheck === false) {
+        this.logDebug('🚫 Server health check disabled via config');
+        return;
+      }
+
+      if (!this.client) {
+        this.logDebug('⚠️ Server health check skipped - client not available');
+        return;
+      }
+
+      setTimeout(() => {
+        this.performServerHealthCheck({ reason: 'initial', showModalOnFail: true }).catch(error => {
+          this.logDebug('⚠️ Initial health check failed:', error);
+        });
+      }, 100);
+    }
+
+    async performServerHealthCheck(options = {}) {
+      if (this.config.enableServerHealthCheck === false) {
+        return true;
+      }
+
+      if (!this.client) {
+        return true;
+      }
+
+      if (this.serverHealthState.checking) {
+        return this.serverHealthState.available;
+      }
+
+      this.serverHealthState.checking = true;
+
+      const { showModalOnFail = true } = options;
+
+      if (this.serverHealthRetryButton) {
+        this.serverHealthRetryButton.disabled = true;
+        this.serverHealthRetryButton.textContent = '再接続中…';
+      }
+
+      try {
+        if (typeof this.client.ensureInitialized === 'function') {
+          await this.client.ensureInitialized();
+        }
+
+        const healthUrl = this.getHealthEndpoint();
+        const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+        const timeoutId = controller ? setTimeout(() => controller.abort(), 5000) : null;
+
+        const response = await fetch(healthUrl, {
+          method: 'GET',
+          cache: 'no-store',
+          signal: controller ? controller.signal : undefined
+        });
+
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
+
+        if (!response.ok) {
+          throw new Error(`Health check failed: HTTP ${response.status}`);
+        }
+
+        await response.json();
+
+        this.serverHealthState.available = true;
+        this.serverHealthState.lastError = null;
+        this.hideServerHealthModal();
+        return true;
+      } catch (error) {
+        this.serverHealthState.available = false;
+        this.serverHealthState.lastError = error;
+
+        if (showModalOnFail) {
+          this.showServerHealthModal(error);
+        }
+
+        return false;
+      } finally {
+        this.serverHealthState.checking = false;
+        if (this.serverHealthRetryButton) {
+          this.serverHealthRetryButton.disabled = false;
+          this.serverHealthRetryButton.textContent = '再接続を試す';
+        }
+      }
+    }
+
+    getHealthEndpoint() {
+      const serverUrl = this.client?.serverUrl || this.sceneManager?.client?.serverUrl;
+      if (serverUrl) {
+        return `${serverUrl.replace(/\/$/, '')}/health`;
+      }
+      return '/health';
+    }
+
+    ensureServerHealthModal() {
+      if (this.serverHealthModal) {
+        return;
+      }
+
+      const backdrop = document.createElement('div');
+      backdrop.style.cssText = `
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.65);
+      backdrop-filter: blur(6px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+    `;
+
+      const modal = document.createElement('div');
+      modal.style.cssText = `
+      max-width: 420px;
+      width: calc(100% - 64px);
+      background: ${this.isDarkMode ? 'rgba(15, 23, 42, 0.95)' : 'rgba(255, 255, 255, 0.98)'};
+      color: ${this.isDarkMode ? '#f1f5f9' : '#1f2937'};
+      border-radius: 16px;
+      padding: 28px;
+      box-shadow: 0 25px 60px rgba(15, 23, 42, 0.35);
+      border: 1px solid ${this.isDarkMode ? 'rgba(148, 163, 184, 0.1)' : 'rgba(148, 163, 184, 0.2)'};
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    `;
+
+      const title = document.createElement('div');
+      title.textContent = 'ChocoDrop サーバーに接続できません';
+      title.style.cssText = `
+      font-size: 18px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    `;
+
+      const titleIcon = document.createElement('span');
+      titleIcon.textContent = '🔌';
+      title.prepend(titleIcon);
+
+      const message = document.createElement('p');
+      message.style.cssText = `
+      margin: 0;
+      line-height: 1.6;
+      font-size: 14px;
+    `;
+      message.textContent = 'ローカルで起動している ChocoDrop サーバー（Express）に接続できません。ターミナルで `npm run dev` を実行し、サーバーが起動していることを確認してください。';
+
+      const detail = document.createElement('pre');
+      detail.style.cssText = `
+      margin: 0;
+      padding: 12px;
+      background: ${this.isDarkMode ? 'rgba(30, 41, 59, 0.6)' : 'rgba(15, 23, 42, 0.05)'};
+      border-radius: 10px;
+      font-size: 12px;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      word-break: break-word;
+      color: ${this.isDarkMode ? '#94a3b8' : '#475569'};
+      border: 1px dashed ${this.isDarkMode ? 'rgba(148, 163, 184, 0.25)' : 'rgba(148, 163, 184, 0.35)'};
+    `;
+      detail.textContent = '';
+
+      const buttonRow = document.createElement('div');
+      buttonRow.style.cssText = `
+      display: flex;
+      gap: 12px;
+      justify-content: flex-end;
+    `;
+
+      const dismissButton = document.createElement('button');
+      dismissButton.textContent = '閉じる';
+      dismissButton.style.cssText = this.getSecondaryButtonStyles();
+      dismissButton.addEventListener('click', () => {
+        this.hideServerHealthModal();
+      });
+
+      const retryButton = document.createElement('button');
+      retryButton.textContent = '再接続を試す';
+      retryButton.style.cssText = this.getPrimaryButtonStyles();
+      retryButton.addEventListener('click', () => {
+        this.performServerHealthCheck({ reason: 'manual', showModalOnFail: true });
+      });
+
+      buttonRow.appendChild(dismissButton);
+      buttonRow.appendChild(retryButton);
+
+      modal.appendChild(title);
+      modal.appendChild(message);
+      modal.appendChild(detail);
+      modal.appendChild(buttonRow);
+
+      backdrop.appendChild(modal);
+      document.body.appendChild(backdrop);
+
+      this.serverHealthBackdrop = backdrop;
+      this.serverHealthModal = modal;
+      this.serverHealthMessage = message;
+      this.serverHealthDetail = detail;
+      this.serverHealthRetryButton = retryButton;
+    }
+
+    getPrimaryButtonStyles() {
+      return `
+      padding: 10px 16px;
+      border-radius: 10px;
+      border: none;
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      color: #ffffff;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      box-shadow: 0 10px 25px rgba(99, 102, 241, 0.35);
+    `;
+    }
+
+    getSecondaryButtonStyles() {
+      return `
+      padding: 10px 16px;
+      border-radius: 10px;
+      border: 1px solid ${this.isDarkMode ? 'rgba(148, 163, 184, 0.3)' : 'rgba(71, 85, 105, 0.3)'};
+      background: transparent;
+      color: ${this.isDarkMode ? '#cbd5f5' : '#1f2937'};
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s ease, background 0.2s ease;
+    `;
+    }
+
+    showServerHealthModal(error) {
+      if (this.config.enableServerHealthCheck === false) {
+        return;
+      }
+
+      this.ensureServerHealthModal();
+
+      if (this.serverHealthBackdrop) {
+        this.serverHealthBackdrop.style.display = 'flex';
+      }
+
+      if (this.serverHealthDetail) {
+        const message = error?.message || 'サーバーに接続できません。';
+        this.serverHealthDetail.textContent = message;
+      }
+    }
+
+    hideServerHealthModal() {
+      if (this.serverHealthBackdrop) {
+        this.serverHealthBackdrop.style.display = 'none';
+      }
+    }
+
+    showMcpConfigNotice(error) {
+      if (this.mcpNoticeShown) {
+        return;
+      }
+      this.mcpNoticeShown = true;
+
+      const message = error?.message || 'MCP 設定が見つかりません。config.json の設定を確認してください。';
+      const guidance = '⚙️ MCP 設定が必要です: docs/SETUP.md を参照し、config.json の mcp セクションまたは MCP_CONFIG_PATH 環境変数を設定してください。';
+      this.showInputFeedback('AI生成サーバー (MCP) が未設定です。設定が完了するまで生成を実行できません。', 'error');
+      this.addOutput(`${guidance}\nサーバーからのメッセージ: ${message}`, 'error');
     }
 
     /**
@@ -9651,6 +10254,10 @@
           name: file.name
         };
 
+        if (event?.target) {
+          event.target.value = '';
+        }
+
         this.selectMode('import', true);
 
         // 自動的にデフォルトプロンプトで実行
@@ -9819,6 +10426,10 @@
           URL.revokeObjectURL(importedUrl);
         }
 
+        if (this.fileInput) {
+          this.fileInput.value = '';
+        }
+
         this.selectedFile = null;
         this.selectMode('generate', false);
 
@@ -9832,6 +10443,9 @@
         // エラー時もファイル情報をクリーンアップ
         if (this.selectedFile?.url) {
           URL.revokeObjectURL(this.selectedFile.url);
+        }
+        if (this.fileInput) {
+          this.fileInput.value = '';
         }
         this.selectedFile = null;
         this.selectMode('generate', false);
@@ -10088,6 +10702,7 @@
                  
         case 'modify':
           return deletePatterns.some(pattern => pattern.test(inputValue)) ||
+                 modifyPatterns.some(pattern => pattern.test(inputValue)) ||
                  importPatterns.some(pattern => pattern.test(inputValue));
                  
         case 'import':
@@ -10526,6 +11141,7 @@
         autoScroll: options.autoScroll !== false,
         enableDebugLogging: options.enableDebugLogging === true,
         skipServiceDialog: options.skipServiceDialog !== false,  // デフォルトで非表示（明示的にfalseの場合のみ表示）
+        enableServerHealthCheck: options.enableServerHealthCheck !== false,
         ...options.config
       };
 
@@ -10552,6 +11168,18 @@
       this.pendingVideoService = null;
       this.feedbackAutoClearTimer = null;
       this.currentFeedback = null;
+
+      this.serverHealthState = {
+        available: true,
+        checking: false,
+        lastError: null
+      };
+      this.serverHealthBackdrop = null;
+      this.serverHealthModal = null;
+      this.serverHealthMessage = null;
+      this.serverHealthDetail = null;
+      this.serverHealthRetryButton = null;
+      this.mcpNoticeShown = false;
 
       try {
         const storedImage = localStorage.getItem(IMAGE_SERVICE_STORAGE_KEY);
@@ -10593,6 +11221,8 @@
       if (!this.client && this.sceneManager && this.sceneManager.client) {
         this.client = this.sceneManager.client;
       }
+
+      this.initializeServerHealthCheck();
 
       this.createServiceModal();
       this.createFloatingChocolateIcon();
@@ -10749,7 +11379,7 @@
       border: 1px solid ${this.isDarkMode ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.2)'};
       border-radius: 6px;
       color: ${this.isDarkMode ? '#ffffff' : '#1f2937'};
-      font-size: 16px;
+      font-size: 12px;
       cursor: pointer;
       transition: all 0.2s ease;
       z-index: 1;
@@ -10907,7 +11537,24 @@
 
 
           e.preventDefault();
-          this.executeCommand();
+          
+          // deleteモードの場合は削除確認ダイアログを表示
+          if (this.currentMode === 'delete' && this.input.value.trim()) {
+            const originalCommand = this.input.value.trim();
+            this.showDeleteConfirmation(originalCommand)
+              .then(confirmed => {
+                if (confirmed) {
+                  // [削除]プレフィックスを追加してコマンド実行
+                  const deleteCommand = `[削除] ${originalCommand}`;
+                  // input.valueを変更せず、直接executeCommandに渡す（inputイベント発火を防ぐ）
+                  this.executeCommand(deleteCommand);
+                } else {
+                  this.addOutput('❌ 削除をキャンセルしました', 'info');
+                }
+              });
+          } else {
+            this.executeCommand();
+          }
         }
       });
       
@@ -11086,7 +11733,7 @@
       title.textContent = 'サービス設定';
       title.style.cssText = `
       margin: 0;
-      font-size: 18px;
+      font-size: 14px;
       font-weight: 700;
       letter-spacing: 0.03em;
     `;
@@ -11669,7 +12316,7 @@
         const icon = document.createElement('div');
         icon.textContent = mode.icon;
         icon.style.cssText = `
-        font-size: 16px;
+        font-size: 12px;
         margin-bottom: 2px;
         filter: ${this.isDarkMode 
           ? 'hue-rotate(220deg) saturate(0.8) brightness(1.2)' 
@@ -12628,7 +13275,7 @@
       -webkit-text-fill-color: transparent;
       background-clip: text;
       font-weight: 800;
-      font-size: 18px;
+      font-size: 14px;
       border-bottom: 1px solid rgba(79, 70, 229, 0.2);
       padding-bottom: 12px;
     `;
@@ -13062,7 +13709,7 @@
       const placeholders = {
         generate: '「猫の画像を作って」と話しかけて ⏎ ✨',
         import: 'ファイルを選択して ⏎ 📁',
-        modify: '選択後「背景の緑色を透明にして」と伝えて ⏎ ✏️',
+        modify: '選択後「透明に変更」と伝えて ⏎ ✏️',
         delete: '選択後、コマンドをそのまま送って ⏎ 🗑️'
       };
       return placeholders[mode] || placeholders.generate;
@@ -13071,8 +13718,9 @@
     /**
      * コマンド実行
      */
-    async executeCommand() {
-      const command = this.input.value.trim();
+    async executeCommand(commandOverride = null) {
+      // ⏎記号（Enterキーのヒント）を削除してからコマンド処理
+      const command = commandOverride || this.input.value.replace(/\s*⏎\s*/g, '').trim();
       if (!command) return;
 
       // 事前バリデーション（2025年UX改善）
@@ -13150,7 +13798,7 @@
         <h3 style="margin: 0 0 16px 0; color: ${this.isDarkMode ? '#a5b4fc' : '#6366f1'}; font-size: 20px; font-weight: 700; letter-spacing: 0.02em;">
           ${title}
         </h3>
-        <p style="margin: 0 0 28px 0; color: ${this.isDarkMode ? '#d1d5db' : '#6b7280'}; line-height: 1.6; font-size: 16px;">
+        <p style="margin: 0 0 28px 0; color: ${this.isDarkMode ? '#d1d5db' : '#6b7280'}; line-height: 1.6; font-size: 12px;">
           ${message}
         </p>
         <div style="display: flex; gap: 8px; justify-content: center;">
@@ -13207,12 +13855,16 @@
         });
 
         // イベントリスナー
-        dialog.querySelector('#cancel-btn').onclick = () => {
+        dialog.querySelector('#cancel-btn').onclick = (e) => {
+          e.stopPropagation();
+          e.preventDefault();
           this.closeModalWithAnimation(modal);
           resolve(false);
         };
 
-        dialog.querySelector('#confirm-btn').onclick = () => {
+        dialog.querySelector('#confirm-btn').onclick = (e) => {
+          e.stopPropagation();
+          e.preventDefault();
           this.closeModalWithAnimation(modal);
           resolve(true);
         };
@@ -13227,12 +13879,18 @@
         };
         document.addEventListener('keydown', escHandler);
 
-        // モーダル背景クリックでキャンセル
+        // モーダル全体でクリックイベントの伝播を防止
         modal.onclick = (e) => {
+          e.stopPropagation();
           if (e.target === modal) {
             this.closeModalWithAnimation(modal);
             resolve(false);
           }
+        };
+        
+        // ダイアログ自体のクリックでも伝播を防止
+        dialog.onclick = (e) => {
+          e.stopPropagation();
         };
       });
     }
@@ -13449,6 +14107,57 @@
         this.animateCardSuccess(card, taskId);
       } else if (status === 'error') {
         this.animateCardError(card, taskId);
+      }
+    }
+
+    /**
+     * エラー時のクリーンアップ処理
+     */
+    performErrorCleanup(taskId, error) {
+      // タスクカードのエラー状態を更新
+      if (taskId) {
+        this.updateTaskCard(taskId, 'error', { errorMessage: error.message });
+        
+        // 一定時間後にタスクカードを自動削除（ユーザーが手動で消せるようになるまでの時間）
+        setTimeout(() => {
+          this.removeTaskCard(taskId);
+        }, 10000); // 10秒後に自動削除
+      }
+
+      // 現在のタスクIDをクリア
+      if (this.currentTaskId) {
+        this.currentTaskId = null;
+      }
+
+      // SceneManagerに残っているローディング状態をクリア
+      if (this.sceneManager) {
+        this.sceneManager.clearLoadingStates?.();
+      }
+
+      // アクティブなプログレス接続をクリア
+      if (this.progressConnections) {
+        for (const [connectionId, connection] of this.progressConnections.entries()) {
+          if (connection.taskId === taskId) {
+            this.progressConnections.delete(connectionId);
+          }
+        }
+      }
+
+      console.log('🧹 Error cleanup completed');
+    }
+
+    /**
+     * タスクカードを削除する
+     */
+    removeTaskCard(taskId) {
+      const taskCard = document.querySelector(`[data-task-id="${taskId}"]`);
+      if (taskCard) {
+        taskCard.style.opacity = '0';
+        taskCard.style.transform = 'translateX(-20px)';
+        setTimeout(() => {
+          taskCard.remove();
+        }, 300); // フェードアウト後に削除
+        console.log(`🗑️ Task card removed: ${taskId}`);
       }
     }
 
@@ -13817,7 +14526,22 @@
           }
           result = await this.handleImportCommand(command);
         } else if (this.sceneManager) {
-          result = await this.sceneManager.executeCommand(fullCommand);
+          // modifyモードの場合は選択されたオブジェクトに直接適用
+          if (this.currentMode === 'modify') {
+            const selectedObject = this.sceneManager?.selectedObject;
+            if (!selectedObject) {
+              this.addOutput('⚠️ 変更するオブジェクトが選択されていません。まず3Dシーン内のオブジェクトをクリックで選択してから、再度コマンドを実行してください。', 'system');
+              return;
+            }
+            // LiveCommandClientのmodifySelectedObjectを呼び出し
+            if (this.client && this.client.modifySelectedObject) {
+              result = await this.client.modifySelectedObject(selectedObject, command);
+            } else {
+              result = await this.sceneManager.executeCommand(fullCommand);
+            }
+          } else {
+            result = await this.sceneManager.executeCommand(fullCommand);
+          }
         } else if (this.client) {
           if (this.currentMode === 'generate') {
             if (commandType.mediaType === 'video') {
@@ -13829,12 +14553,6 @@
                 service: this.selectedImageService || undefined
               });
             }
-          } else if (this.currentMode === 'modify') {
-            const selectedObject = this.sceneManager?.selectedObject;
-            if (!selectedObject) {
-              throw new Error('変更するオブジェクトが選択されていません。まず対象オブジェクトを選択してください。');
-            }
-            result = await this.client.modifySelectedObject(selectedObject, command);
           } else if (this.currentMode === 'delete') {
             const selectedObject = this.sceneManager?.selectedObject;
             if (!selectedObject && !this.sceneManager?.getSelectedObjects()?.length) {
@@ -13858,7 +14576,11 @@
 
         // サーバーからのエラーレスポンスをチェック
         if (result && result.success === false) {
-          throw new Error(result.error || '操作に失敗しました');
+          const errorToThrow = new Error(result.error || '操作に失敗しました');
+          if (result.errorCategory) {
+            errorToThrow.code = result.errorCategory;
+          }
+          throw errorToThrow;
         }
 
         if (result && result.taskId) {
@@ -13870,15 +14592,23 @@
           this.updateTaskCard(taskId, 'completed');
         }
 
-        if (result.modelName) {
+        if (result?.fallbackUsed) {
+          const warningMessage = result?.error
+            ? `⚠️ 生成に失敗したためプレースホルダーを表示しています: ${result.error}`
+            : '⚠️ 生成に失敗したためプレースホルダーを表示しています。';
+          this.showInputFeedback('生成に失敗したためプレースホルダーを表示しています。設定を確認してください。', 'error');
+          this.addOutput(warningMessage, 'error');
+        }
+
+        if (result?.modelName) {
           // モデル情報がある場合はモーダル表示用に保持（必要に応じて拡張）
         }
 
-        if (result.objectId) {
+        if (result?.objectId) {
           // オブジェクト ID の提示は将来のUI更新で対応
         }
 
-        if (result.position) {
+        if (result?.position) {
           // 位置情報はデバッグ表示のみ（現状は未使用）
         }
 
@@ -13892,9 +14622,20 @@
           delete: '❌ 削除エラー'
         };
 
-        if (taskId) {
-          this.updateTaskCard(taskId, 'error', { errorMessage: error.message });
+        if (error?.code === 'LOCAL_SERVER_UNREACHABLE') {
+          this.serverHealthState.available = false;
+          this.serverHealthState.lastError = error;
+          this.showServerHealthModal(error);
+          this.showInputFeedback('サーバーに接続できません。`npm run dev` でローカルサーバーを起動してください。', 'error');
+          this.addOutput('📡 サーバーに接続できません。`npm run dev` でローカルサーバーを起動してください。', 'error');
+        } else if (error?.code === 'MCP_CONFIG_MISSING') {
+          this.showMcpConfigNotice(error);
+        } else {
+          this.showInputFeedback(error.message, 'error');
         }
+
+        // エラー時のクリーンアップ処理
+        this.performErrorCleanup(taskId, error);
 
         this.addOutput(`${errorMessages[this.currentMode]}: ${error.message}`, 'error');
         console.error('Command execution error:', error);
@@ -13933,6 +14674,272 @@
       
       // パターンマッチしない場合はデフォルト
       return `${command}の画像を作って`;
+    }
+
+    initializeServerHealthCheck() {
+      if (this.config.enableServerHealthCheck === false) {
+        this.logDebug('🚫 Server health check disabled via config');
+        return;
+      }
+
+      if (!this.client) {
+        this.logDebug('⚠️ Server health check skipped - client not available');
+        return;
+      }
+
+      // 初回チェックは少し遅らせてUI描画を優先
+      setTimeout(() => {
+        this.performServerHealthCheck({ reason: 'initial', showModalOnFail: true }).catch(error => {
+          this.logDebug('⚠️ Initial health check failed:', error);
+        });
+      }, 100);
+    }
+
+    async performServerHealthCheck(options = {}) {
+      if (this.config.enableServerHealthCheck === false) {
+        return true;
+      }
+
+      if (!this.client) {
+        return true;
+      }
+
+      if (this.serverHealthState.checking) {
+        return this.serverHealthState.available;
+      }
+
+      this.serverHealthState.checking = true;
+
+      const { showModalOnFail = true } = options;
+
+      if (this.serverHealthRetryButton) {
+        this.serverHealthRetryButton.disabled = true;
+        this.serverHealthRetryButton.textContent = '再接続中…';
+      }
+
+      try {
+        if (typeof this.client.ensureInitialized === 'function') {
+          await this.client.ensureInitialized();
+        }
+
+        const healthUrl = this.getHealthEndpoint();
+        const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+        const timeoutId = controller ? setTimeout(() => controller.abort(), 5000) : null;
+
+        const response = await fetch(healthUrl, {
+          method: 'GET',
+          cache: 'no-store',
+          signal: controller ? controller.signal : undefined
+        });
+
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
+
+        if (!response.ok) {
+          throw new Error(`Health check failed: HTTP ${response.status}`);
+        }
+
+        await response.json();
+
+        this.serverHealthState.available = true;
+        this.serverHealthState.lastError = null;
+        this.hideServerHealthModal();
+        return true;
+      } catch (error) {
+        this.serverHealthState.available = false;
+        this.serverHealthState.lastError = error;
+
+        if (showModalOnFail) {
+          this.showServerHealthModal(error);
+        }
+
+        return false;
+      } finally {
+        this.serverHealthState.checking = false;
+        if (this.serverHealthRetryButton) {
+          this.serverHealthRetryButton.disabled = false;
+          this.serverHealthRetryButton.textContent = '再接続を試す';
+        }
+      }
+    }
+
+    getHealthEndpoint() {
+      const serverUrl = this.client?.serverUrl || this.sceneManager?.client?.serverUrl;
+      if (serverUrl) {
+        return `${serverUrl.replace(/\/$/, '')}/health`;
+      }
+      return '/health';
+    }
+
+    ensureServerHealthModal() {
+      if (this.serverHealthModal) {
+        return;
+      }
+
+      const backdrop = document.createElement('div');
+      backdrop.style.cssText = `
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.65);
+      backdrop-filter: blur(6px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+    `;
+
+      const modal = document.createElement('div');
+      modal.style.cssText = `
+      max-width: 420px;
+      width: calc(100% - 64px);
+      background: ${this.isDarkMode ? 'rgba(15, 23, 42, 0.95)' : 'rgba(255, 255, 255, 0.98)'};
+      color: ${this.isDarkMode ? '#f1f5f9' : '#1f2937'};
+      border-radius: 16px;
+      padding: 28px;
+      box-shadow: 0 25px 60px rgba(15, 23, 42, 0.35);
+      border: 1px solid ${this.isDarkMode ? 'rgba(148, 163, 184, 0.1)' : 'rgba(148, 163, 184, 0.2)'};
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    `;
+
+      const title = document.createElement('div');
+      title.textContent = 'ChocoDrop サーバーに接続できません';
+      title.style.cssText = `
+      font-size: 18px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    `;
+
+      const titleIcon = document.createElement('span');
+      titleIcon.textContent = '🔌';
+      title.prepend(titleIcon);
+
+      const message = document.createElement('p');
+      message.style.cssText = `
+      margin: 0;
+      line-height: 1.6;
+      font-size: 14px;
+    `;
+      message.textContent = 'ローカルで起動している ChocoDrop サーバー（Express）に接続できません。ターミナルで `npm run dev` を実行し、サーバーが起動していることを確認してください。';
+
+      const detail = document.createElement('pre');
+      detail.style.cssText = `
+      margin: 0;
+      padding: 12px;
+      background: ${this.isDarkMode ? 'rgba(30, 41, 59, 0.6)' : 'rgba(15, 23, 42, 0.05)'};
+      border-radius: 10px;
+      font-size: 12px;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      word-break: break-word;
+      color: ${this.isDarkMode ? '#94a3b8' : '#475569'};
+      border: 1px dashed ${this.isDarkMode ? 'rgba(148, 163, 184, 0.25)' : 'rgba(148, 163, 184, 0.35)'};
+    `;
+      detail.textContent = '';
+
+      const buttonRow = document.createElement('div');
+      buttonRow.style.cssText = `
+      display: flex;
+      gap: 12px;
+      justify-content: flex-end;
+    `;
+
+      const dismissButton = document.createElement('button');
+      dismissButton.textContent = '閉じる';
+      dismissButton.style.cssText = this.getSecondaryButtonStyles();
+      dismissButton.addEventListener('click', () => {
+        this.hideServerHealthModal();
+      });
+
+      const retryButton = document.createElement('button');
+      retryButton.textContent = '再接続を試す';
+      retryButton.style.cssText = this.getPrimaryButtonStyles();
+      retryButton.addEventListener('click', () => {
+        this.performServerHealthCheck({ reason: 'manual', showModalOnFail: true });
+      });
+
+      buttonRow.appendChild(dismissButton);
+      buttonRow.appendChild(retryButton);
+
+      modal.appendChild(title);
+      modal.appendChild(message);
+      modal.appendChild(detail);
+      modal.appendChild(buttonRow);
+
+      backdrop.appendChild(modal);
+      document.body.appendChild(backdrop);
+
+      this.serverHealthBackdrop = backdrop;
+      this.serverHealthModal = modal;
+      this.serverHealthMessage = message;
+      this.serverHealthDetail = detail;
+      this.serverHealthRetryButton = retryButton;
+    }
+
+    getPrimaryButtonStyles() {
+      return `
+      padding: 10px 16px;
+      border-radius: 10px;
+      border: none;
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      color: #ffffff;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      box-shadow: 0 10px 25px rgba(99, 102, 241, 0.35);
+    `;
+    }
+
+    getSecondaryButtonStyles() {
+      return `
+      padding: 10px 16px;
+      border-radius: 10px;
+      border: 1px solid ${this.isDarkMode ? 'rgba(148, 163, 184, 0.3)' : 'rgba(71, 85, 105, 0.3)'};
+      background: transparent;
+      color: ${this.isDarkMode ? '#cbd5f5' : '#1f2937'};
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s ease, background 0.2s ease;
+    `;
+    }
+
+    showServerHealthModal(error) {
+      if (this.config.enableServerHealthCheck === false) {
+        return;
+      }
+
+      this.ensureServerHealthModal();
+
+      if (this.serverHealthBackdrop) {
+        this.serverHealthBackdrop.style.display = 'flex';
+      }
+
+      if (this.serverHealthDetail) {
+        const message = error?.message || 'サーバーに接続できません。';
+        this.serverHealthDetail.textContent = message;
+      }
+    }
+
+    hideServerHealthModal() {
+      if (this.serverHealthBackdrop) {
+        this.serverHealthBackdrop.style.display = 'none';
+      }
+    }
+
+    showMcpConfigNotice(error) {
+      if (this.mcpNoticeShown) {
+        return;
+      }
+      this.mcpNoticeShown = true;
+
+      const message = error?.message || 'MCP 設定が見つかりません。config.json の設定を確認してください。';
+      const guidance = '⚙️ MCP 設定が必要です: docs/SETUP.md を参照し、config.json の mcp セクションまたは MCP_CONFIG_PATH 環境変数を設定してください。';
+      this.showInputFeedback('AI生成サーバー (MCP) が未設定です。設定が完了するまで生成を実行できません。', 'error');
+      this.addOutput(`${guidance}\nサーバーからのメッセージ: ${message}`, 'error');
     }
 
     /**
@@ -14240,7 +15247,7 @@
       
       modalContent.innerHTML = `
       <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px;">
-        <h3 style="margin: 0; color: ${textColor}; font-size: 18px; font-weight: 600;">タスク詳細</h3>
+        <h3 style="margin: 0; color: ${textColor}; font-size: 14px; font-weight: 600;">タスク詳細</h3>
         <button class="close-btn" style="
           background: none;
           border: none;
@@ -15663,6 +16670,12 @@
      * 削除モードが選択された時の処理
      */
     handleDeleteModeSelection() {
+      // selectedFileをクリア（削除モードではファイル選択状態を解除）
+      if (this.selectedFile?.url) {
+        URL.revokeObjectURL(this.selectedFile.url);
+      }
+      this.selectedFile = null;
+
       // SceneManagerから選択されたオブジェクトを取得
       const selectedObject = this.sceneManager?.selectedObject;
       
@@ -15692,6 +16705,12 @@
      * 修正モードが選択された時の処理
      */
     handleModifyModeSelection() {
+      // selectedFileをクリア（修正モードではファイル選択状態を解除）
+      if (this.selectedFile?.url) {
+        URL.revokeObjectURL(this.selectedFile.url);
+      }
+      this.selectedFile = null;
+
       // SceneManagerから選択されたオブジェクトを取得
       const selectedObject = this.sceneManager?.selectedObject;
       
@@ -15908,6 +16927,7 @@
                  
         case 'modify':
           return deletePatterns.some(pattern => pattern.test(inputValue)) ||
+                 modifyPatterns.some(pattern => pattern.test(inputValue)) ||
                  importPatterns.some(pattern => pattern.test(inputValue));
                  
         case 'import':
