@@ -295,7 +295,7 @@
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="../../src/client/CommandUI.js" type="module"></script>
+    <script src="../basic/chocodrop-demo.umd.min.js"></script>
 
     <script>
         // Basic Three.js setup
@@ -1526,15 +1526,13 @@
         console.log('🧸 AI遊園地が完成しました！');
     </script>
 
-    <script type="module">
-        import { createChocoDrop } from '../../src/client/index.js';
-
+    <script>
         const context = window.toyCityContext;
         if (context && context.scene && context.camera && context.renderer) {
-            createChocoDrop(context.scene, {
+            ChocoDrop.createChocoDrop(context.scene, {
                 camera: context.camera,
                 renderer: context.renderer,
-                skipServiceDialog: true,
+                serverUrl: null,
                 sceneOptions: {
                     enableMouseInteraction: false,
                     enableDebugLogging: false
