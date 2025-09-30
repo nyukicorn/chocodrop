@@ -13821,12 +13821,14 @@
         });
 
         // イベントリスナー
-        dialog.querySelector('#cancel-btn').onclick = () => {
+        dialog.querySelector('#cancel-btn').onclick = (e) => {
+          e.stopPropagation();
           this.closeModalWithAnimation(modal);
           resolve(false);
         };
 
-        dialog.querySelector('#confirm-btn').onclick = () => {
+        dialog.querySelector('#confirm-btn').onclick = (e) => {
+          e.stopPropagation();
           this.closeModalWithAnimation(modal);
           resolve(true);
         };
@@ -13841,12 +13843,18 @@
         };
         document.addEventListener('keydown', escHandler);
 
-        // モーダル背景クリックでキャンセル
+        // モーダル全体でクリックイベントの伝播を防止
         modal.onclick = (e) => {
+          e.stopPropagation();
           if (e.target === modal) {
             this.closeModalWithAnimation(modal);
             resolve(false);
           }
+        };
+        
+        // ダイアログ自体のクリックでも伝播を防止
+        dialog.onclick = (e) => {
+          e.stopPropagation();
         };
       });
     }
