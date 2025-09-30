@@ -2787,11 +2787,14 @@ export class SceneManager {
         position: parsed.position,
         prompt: parsed.prompt,
         modelName: imageResult?.modelName,
-        success: true
+        success: true,
+        fallbackUsed: !imageResult?.success,
+        error: !imageResult?.success ? (lastError?.message || imageResult?.error || '画像生成に失敗しました') : null
       };
       
     } catch (error) {
       console.error('🎨 Image generation failed:', error);
+      error.fallbackUsed = true;
       throw error;
     }
   }
@@ -2819,8 +2822,9 @@ export class SceneManager {
       
       let videoTexture;
       let video = null; // video変数をスコープ外で定義
+      const videoSuccess = videoResult.success && videoResult.videoUrl;
       
-      if (videoResult.success && videoResult.videoUrl) {
+      if (videoSuccess) {
         // 成功: 生成された動画をテクスチャとして使用
         console.log(`✅ Video generated successfully: ${videoResult.videoUrl}`);
         
@@ -2927,7 +2931,9 @@ export class SceneManager {
         prompt: parsed.prompt,
         modelName: videoResult.modelName,
         videoUrl: videoResult.videoUrl,
-        success: true
+        success: true,
+        fallbackUsed: !videoSuccess,
+        error: !videoSuccess ? (videoResult?.error || '動画生成に失敗しました') : null
       };
       
     } catch (error) {
@@ -3107,6 +3113,11 @@ export class SceneManager {
       // VideoTextureを作成
       const videoTexture = new THREE.VideoTexture(video);
       videoTexture.colorSpace = THREE.SRGBColorSpace;
+      videoTexture.flipY = false;
+      videoTexture.minFilter = THREE.LinearFilter;
+      videoTexture.magFilter = THREE.LinearFilter;
+      videoTexture.generateMipmaps = false;
+      videoTexture.needsUpdate = true;
 
       // ビデオの読み込みとサイズ取得
       await new Promise((resolve, reject) => {
@@ -3150,14 +3161,14 @@ export class SceneManager {
         toneMapped: false
       });
       material.alphaTest = 0.01;
+      material.depthTest = true;
+      material.depthWrite = false;
       material.needsUpdate = true;
       
       const plane = new THREE.Mesh(geometry, material);
       
       // レンダリング順序を設定
-      plane.renderOrder = 1000;
-      material.depthTest = true;
-      material.depthWrite = true;
+      plane.renderOrder = 1001;
       
       // カメラ相対位置で配置
       if (this.camera) {
@@ -3169,6 +3180,7 @@ export class SceneManager {
       }
       
       plane.scale.setScalar(1.0);
+      plane.userData.videoTexture = videoTexture;
       
       // ファイル名からpromptを作成（拡張子を除去）
       const prompt = fileName ? fileName.replace(/\.[^/.]+$/, '') : 'imported_video';

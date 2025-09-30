@@ -2674,16 +2674,24 @@ export class CommandUIDemo {
         this.updateTaskCard(taskId, 'completed');
       }
       
+      if (result?.fallbackUsed) {
+        const warningMessage = result?.error
+          ? `⚠️ 生成に失敗したためプレースホルダーを表示しています: ${result.error}`
+          : '⚠️ 生成に失敗したためプレースホルダーを表示しています。';
+        this.showInputFeedback('生成に失敗したためプレースホルダーを表示しています。設定を確認してください。', 'error');
+        this.addOutput(warningMessage, 'error');
+      }
+      
       // 詳細情報表示
-      if (result.modelName) {
+      if (result?.modelName) {
         // デバッグ情報削除 - モーダル表示用に保存
       }
       
-      if (result.objectId) {
+      if (result?.objectId) {
         // オブジェクトID削除
       }
       
-      if (result.position) {
+      if (result?.position) {
         // 位置情報削除
       }
 
@@ -2702,8 +2710,12 @@ export class CommandUIDemo {
         this.serverHealthState.available = false;
         this.serverHealthState.lastError = error;
         this.showServerHealthModal(error);
+        this.showInputFeedback('サーバーに接続できません。`npm run dev` でローカルサーバーを起動してください。', 'error');
+        this.addOutput('📡 サーバーに接続できません。`npm run dev` でローカルサーバーを起動してください。', 'error');
       } else if (error?.code === 'MCP_CONFIG_MISSING') {
         this.showMcpConfigNotice(error);
+      } else {
+        this.showInputFeedback(error.message, 'error');
       }
       // タスクカードエラー
       if (taskId) {
