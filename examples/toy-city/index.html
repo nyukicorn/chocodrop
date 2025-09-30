@@ -1280,12 +1280,15 @@
         let cameraAngleX = 0;
         let cameraAngleY = 0;
         let cameraDistance = 35;
+        let cameraControlsEnabled = true;
 
         // マウスイベント
         renderer.domElement.addEventListener('mousedown', (event) => {
-            isMouseDown = true;
-            mouseX = event.clientX;
-            mouseY = event.clientY;
+            if (cameraControlsEnabled) {
+                isMouseDown = true;
+                mouseX = event.clientX;
+                mouseY = event.clientY;
+            }
         });
 
         renderer.domElement.addEventListener('mouseup', () => {
@@ -1293,7 +1296,7 @@
         });
 
         renderer.domElement.addEventListener('mousemove', (event) => {
-            if (isMouseDown) {
+            if (isMouseDown && cameraControlsEnabled) {
                 const deltaX = event.clientX - mouseX;
                 const deltaY = event.clientY - mouseY;
 
@@ -1536,7 +1539,10 @@
                 skipServiceDialog: true,
                 disableServerConnection: true,
                 sceneOptions: {
-                    enableMouseInteraction: false
+                    enableMouseInteraction: true
+                },
+                onControlsToggle: (disabled) => {
+                    cameraControlsEnabled = !disabled;
                 }
             });
         }

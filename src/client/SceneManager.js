@@ -3113,7 +3113,7 @@ export class SceneManager {
       // VideoTextureを作成
       const videoTexture = new THREE.VideoTexture(video);
       videoTexture.colorSpace = THREE.SRGBColorSpace;
-      videoTexture.flipY = false;
+      videoTexture.flipY = true;
       videoTexture.minFilter = THREE.LinearFilter;
       videoTexture.magFilter = THREE.LinearFilter;
       videoTexture.generateMipmaps = false;
