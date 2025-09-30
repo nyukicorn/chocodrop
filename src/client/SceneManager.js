@@ -4086,35 +4086,40 @@ export class SceneManager {
     }
 
     try {
-      // カメラの位置と方向を取得
-      const cameraPos = this.camera.position.clone();
-      const cameraDirection = new THREE.Vector3();
-      this.camera.getWorldDirection(cameraDirection);
-      
-      // カメラの右方向と上方向を計算
-      const cameraRight = new THREE.Vector3();
-      const cameraUp = new THREE.Vector3(0, 1, 0); // ワールドの上方向
-      cameraRight.crossVectors(cameraDirection, cameraUp).normalize();
-      const cameraUpActual = new THREE.Vector3();
-      cameraUpActual.crossVectors(cameraRight, cameraDirection).normalize();
+      const cameraPos = new THREE.Vector3();
+      this.camera.getWorldPosition(cameraPos);
 
-      // 相対位置をカメラ座標系で計算
+      const cameraDirection = new THREE.Vector3();
+      this.camera.getWorldDirection(cameraDirection).normalize();
+
+      let cameraUpActual = new THREE.Vector3();
+      cameraUpActual.copy(this.camera.up).applyQuaternion(this.camera.getWorldQuaternion(new THREE.Quaternion())).normalize();
+      if (cameraUpActual.lengthSq() === 0) {
+        cameraUpActual.set(0, 1, 0);
+      }
+
+      const cameraRight = new THREE.Vector3().crossVectors(cameraDirection, cameraUpActual).normalize();
+      if (cameraRight.lengthSq() === 0) {
+        cameraRight.set(1, 0, 0);
+      }
+
+      cameraUpActual = new THREE.Vector3().crossVectors(cameraRight, cameraDirection).normalize();
+
       const finalPosition = cameraPos.clone();
-      
-      // 前後方向（Z軸）: カメラの向きに沿って（正の値で前方、負の値で後方）
       finalPosition.add(cameraDirection.clone().multiplyScalar(relativePosition.z));
-      
-      // 左右方向（X軸）: カメラの右方向に沿って
       finalPosition.add(cameraRight.clone().multiplyScalar(relativePosition.x));
-      
-      // 上下方向（Y軸）: カメラの上方向に沿って
       finalPosition.add(cameraUpActual.clone().multiplyScalar(relativePosition.y));
 
-      this.logDebug(
-        `📍 Camera relative position calculated: (${finalPosition.x.toFixed(1)}, ${finalPosition.y.toFixed(1)}, ${finalPosition.z.toFixed(1)})`
-      );
+      const towardCamera = finalPosition.clone().sub(cameraPos);
+      if (cameraDirection.dot(towardCamera.normalize()) < 0.05) {
+        const safeDistance = Math.max(4, Math.abs(relativePosition.z)) || 6;
+        finalPosition.copy(cameraPos).add(cameraDirection.clone().multiplyScalar(safeDistance));
+        this.logDebug('⚠️ Adjusted object position to keep it in front of the camera');
+      }
+
+      this.logDebug(`📍 Camera relative position calculated: (${finalPosition.x.toFixed(1)}, ${finalPosition.y.toFixed(1)}, ${finalPosition.z.toFixed(1)})`);
       return finalPosition;
-      
+
     } catch (error) {
       console.error('❌ Camera relative position calculation failed:', error);
       return new THREE.Vector3(relativePosition.x, relativePosition.y, relativePosition.z);
@@ -4130,10 +4135,11 @@ export class SceneManager {
     }
 
     const forward = new THREE.Vector3();
-    this.camera.getWorldDirection(forward); // カメラの前方向（前方が負Z）
-    forward.negate(); // 平面の法線をカメラ側へ向ける
+    this.camera.getWorldDirection(forward);
+    forward.normalize().negate();
 
-    let up = new THREE.Vector3().copy(this.camera.up).applyQuaternion(this.camera.quaternion).normalize();
+    let up = new THREE.Vector3();
+    up.copy(this.camera.up).applyQuaternion(this.camera.getWorldQuaternion(new THREE.Quaternion())).normalize();
     if (Math.abs(forward.dot(up)) > 0.999) {
       up = new THREE.Vector3(0, 1, 0);
       if (Math.abs(forward.dot(up)) > 0.999) {
