@@ -1502,6 +1502,9 @@
      * @returns {object} 解析結果
      */
     parseCommand(command) {
+      // ⏎記号（Enterキーのヒント）を削除してからコマンド解析
+      command = command.replace(/\s*⏎\s*/g, '').trim();
+
       // プレフィックスでモードを判定
       if (command.startsWith('[変更] ')) {
         const actualCommand = command.replace('[変更] ', '');
@@ -2963,28 +2966,31 @@
      */
     parseDeleteCommand(command) {
       const cmd = command.toLowerCase().trim();
-      
+
       // 選択されたオブジェクトのみを削除するか、全削除かを判定
       if (cmd.includes('選択') || cmd.includes('これ') || cmd.includes('この')) {
         return {
           type: 'delete',
           target: 'selected',
-          requiresSelection: true
+          requiresSelection: true,
+          command: command  // 元のコマンドを保持
         };
       }
-      
+
       if (cmd.includes('全部') || cmd.includes('すべて') || cmd.includes('全て')) {
         return {
           type: 'delete',
-          target: 'all'
+          target: 'all',
+          command: command  // 元のコマンドを保持
         };
       }
-      
+
       // デフォルト: 選択されたオブジェクトを削除
       return {
         type: 'delete',
         target: 'selected',
-        requiresSelection: true
+        requiresSelection: true,
+        command: command  // 元のコマンドを保持
       };
     }
 
@@ -10248,6 +10254,10 @@
           name: file.name
         };
 
+        if (event?.target) {
+          event.target.value = '';
+        }
+
         this.selectMode('import', true);
 
         // 自動的にデフォルトプロンプトで実行
@@ -10416,8 +10426,11 @@
           URL.revokeObjectURL(importedUrl);
         }
 
-        // ファイル選択状態を維持（同じファイルの再インポートを可能にするため）
-        // this.selectedFile = null;
+        if (this.fileInput) {
+          this.fileInput.value = '';
+        }
+
+        this.selectedFile = null;
         this.selectMode('generate', false);
 
         return {
@@ -10430,6 +10443,9 @@
         // エラー時もファイル情報をクリーンアップ
         if (this.selectedFile?.url) {
           URL.revokeObjectURL(this.selectedFile.url);
+        }
+        if (this.fileInput) {
+          this.fileInput.value = '';
         }
         this.selectedFile = null;
         this.selectMode('generate', false);
@@ -11524,13 +11540,14 @@
           
           // deleteモードの場合は削除確認ダイアログを表示
           if (this.currentMode === 'delete' && this.input.value.trim()) {
-            this.showDeleteConfirmation(this.input.value.trim())
+            const originalCommand = this.input.value.trim();
+            this.showDeleteConfirmation(originalCommand)
               .then(confirmed => {
                 if (confirmed) {
                   // [削除]プレフィックスを追加してコマンド実行
-                  const deleteCommand = `[削除] ${this.input.value.trim()}`;
-                  this.input.value = deleteCommand;
-                  this.executeCommand();
+                  const deleteCommand = `[削除] ${originalCommand}`;
+                  // input.valueを変更せず、直接executeCommandに渡す（inputイベント発火を防ぐ）
+                  this.executeCommand(deleteCommand);
                 } else {
                   this.addOutput('❌ 削除をキャンセルしました', 'info');
                 }
@@ -13701,8 +13718,9 @@
     /**
      * コマンド実行
      */
-    async executeCommand() {
-      const command = this.input.value.trim();
+    async executeCommand(commandOverride = null) {
+      // ⏎記号（Enterキーのヒント）を削除してからコマンド処理
+      const command = commandOverride || this.input.value.replace(/\s*⏎\s*/g, '').trim();
       if (!command) return;
 
       // 事前バリデーション（2025年UX改善）
@@ -16652,6 +16670,12 @@
      * 削除モードが選択された時の処理
      */
     handleDeleteModeSelection() {
+      // selectedFileをクリア（削除モードではファイル選択状態を解除）
+      if (this.selectedFile?.url) {
+        URL.revokeObjectURL(this.selectedFile.url);
+      }
+      this.selectedFile = null;
+
       // SceneManagerから選択されたオブジェクトを取得
       const selectedObject = this.sceneManager?.selectedObject;
       
@@ -16681,6 +16705,12 @@
      * 修正モードが選択された時の処理
      */
     handleModifyModeSelection() {
+      // selectedFileをクリア（修正モードではファイル選択状態を解除）
+      if (this.selectedFile?.url) {
+        URL.revokeObjectURL(this.selectedFile.url);
+      }
+      this.selectedFile = null;
+
       // SceneManagerから選択されたオブジェクトを取得
       const selectedObject = this.sceneManager?.selectedObject;
       

@@ -802,6 +802,9 @@ export class SceneManager {
    * @returns {object} 解析結果
    */
   parseCommand(command) {
+    // ⏎記号（Enterキーのヒント）を削除してからコマンド解析
+    command = command.replace(/\s*⏎\s*/g, '').trim();
+
     // プレフィックスでモードを判定
     if (command.startsWith('[変更] ')) {
       const actualCommand = command.replace('[変更] ', '');
@@ -2263,28 +2266,31 @@ export class SceneManager {
    */
   parseDeleteCommand(command) {
     const cmd = command.toLowerCase().trim();
-    
+
     // 選択されたオブジェクトのみを削除するか、全削除かを判定
     if (cmd.includes('選択') || cmd.includes('これ') || cmd.includes('この')) {
       return {
         type: 'delete',
         target: 'selected',
-        requiresSelection: true
+        requiresSelection: true,
+        command: command  // 元のコマンドを保持
       };
     }
-    
+
     if (cmd.includes('全部') || cmd.includes('すべて') || cmd.includes('全て')) {
       return {
         type: 'delete',
-        target: 'all'
+        target: 'all',
+        command: command  // 元のコマンドを保持
       };
     }
-    
+
     // デフォルト: 選択されたオブジェクトを削除
     return {
       type: 'delete',
       target: 'selected',
-      requiresSelection: true
+      requiresSelection: true,
+      command: command  // 元のコマンドを保持
     };
   }
 

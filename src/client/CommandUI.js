@@ -432,13 +432,14 @@ export class CommandUI {
         
         // deleteモードの場合は削除確認ダイアログを表示
         if (this.currentMode === 'delete' && this.input.value.trim()) {
-          this.showDeleteConfirmation(this.input.value.trim())
+          const originalCommand = this.input.value.trim();
+          this.showDeleteConfirmation(originalCommand)
             .then(confirmed => {
               if (confirmed) {
                 // [削除]プレフィックスを追加してコマンド実行
-                const deleteCommand = `[削除] ${this.input.value.trim()}`;
-                this.input.value = deleteCommand;
-                this.executeCommand();
+                const deleteCommand = `[削除] ${originalCommand}`;
+                // input.valueを変更せず、直接executeCommandに渡す（inputイベント発火を防ぐ）
+                this.executeCommand(deleteCommand);
               } else {
                 this.addOutput('❌ 削除をキャンセルしました', 'info');
               }
@@ -2674,8 +2675,9 @@ export class CommandUI {
   /**
    * コマンド実行
    */
-  async executeCommand() {
-    const command = this.input.value.trim();
+  async executeCommand(commandOverride = null) {
+    // ⏎記号（Enterキーのヒント）を削除してからコマンド処理
+    const command = commandOverride || this.input.value.replace(/\s*⏎\s*/g, '').trim();
     if (!command) return;
 
     // 事前バリデーション（2025年UX改善）
@@ -5633,6 +5635,12 @@ export class CommandUI {
    * 削除モードが選択された時の処理
    */
   handleDeleteModeSelection() {
+    // selectedFileをクリア（削除モードではファイル選択状態を解除）
+    if (this.selectedFile?.url) {
+      URL.revokeObjectURL(this.selectedFile.url);
+    }
+    this.selectedFile = null;
+
     // SceneManagerから選択されたオブジェクトを取得
     const selectedObject = this.sceneManager?.selectedObject;
     
@@ -5662,6 +5670,12 @@ export class CommandUI {
    * 修正モードが選択された時の処理
    */
   handleModifyModeSelection() {
+    // selectedFileをクリア（修正モードではファイル選択状態を解除）
+    if (this.selectedFile?.url) {
+      URL.revokeObjectURL(this.selectedFile.url);
+    }
+    this.selectedFile = null;
+
     // SceneManagerから選択されたオブジェクトを取得
     const selectedObject = this.sceneManager?.selectedObject;
     
