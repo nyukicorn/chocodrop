@@ -469,61 +469,65 @@
             const flowerGroup = new THREE.Group();
 
             // パーティクルの総数（多いほど密度が高い）
-            const particleCount = 8000;
+            const particleCount = 15000;
             const positions = new Float32Array(particleCount * 3);
             const colors = new Float32Array(particleCount * 3);
             const sizes = new Float32Array(particleCount);
 
-            // バラのような層状の花びら構造
+            // バラのような滑らかな層状構造
             for (let i = 0; i < particleCount; i++) {
                 // どの層に属するか（0=中心、1=外側）
-                const layerProgress = Math.pow(Math.random(), 0.6);
+                const layerProgress = Math.pow(Math.random(), 0.5);
+
+                // 明確な層を作る（15層）
+                const layerIndex = Math.floor(layerProgress * 15);
+                const layerNormalized = layerIndex / 15;
 
                 // 層のサイズ
-                const layerRadius = layerProgress * 2.8 * scale;
+                const layerRadius = layerNormalized * 2.6 * scale;
 
                 // 層内での角度位置
                 const angle = Math.random() * Math.PI * 2;
 
-                // 層の中での半径位置（層の端に多く配置）
-                const radialPos = Math.pow(Math.random(), 0.3); // 端に多く
-                const radius = layerRadius * (0.7 + radialPos * 0.3);
+                // 層の中での半径位置（より均等に分散）
+                const radialPos = Math.pow(Math.random(), 0.5);
+                const innerRadius = layerRadius * 0.85;
+                const outerRadius = layerRadius * 1.05;
+                const radius = innerRadius + (outerRadius - innerRadius) * radialPos;
 
                 // 基本的なXY位置
                 let px = Math.cos(angle) * radius;
                 let py = Math.sin(angle) * radius;
 
-                // 花びらの波打ち（端が不規則に波打つ）
-                const waviness = Math.sin(angle * 8 + layerProgress * 10) * 0.15 * layerRadius;
-                const waveRadius = radius + waviness * radialPos;
-                px = Math.cos(angle) * waveRadius;
-                py = Math.sin(angle) * waveRadius;
+                // 花びらの波打ち（滑らかに6つの花びら）
+                const petalCount = 6;
+                const petalAngle = angle * petalCount;
+                const waviness = Math.sin(petalAngle) * 0.12 * layerRadius * radialPos;
+                px += Math.cos(angle) * waviness;
+                py += Math.sin(angle) * waviness;
 
-                // Z座標（カップ状の曲面）
-                // 内側の層は低く、外側は高く立ち上がる
-                const cupDepth = Math.pow(1 - radialPos, 2) * layerRadius * 0.3;
-                const layerHeight = layerProgress * 1.5 * scale;
+                // Z座標（滑らかなカップ状の曲面）
+                // 各層が内側に湾曲
+                const cupDepth = Math.pow(1 - radialPos, 3) * 0.4 * scale;
+                const layerHeight = layerNormalized * 1.2 * scale;
                 let pz = layerHeight - cupDepth;
 
-                // 層の厚み（ガウス分布）
-                const thicknessRandom = (Math.random() + Math.random() + Math.random()) / 3 - 0.5;
-                const thickness = thicknessRandom * 0.25 * scale;
+                // 層間の重なりを滑らかに
+                const layerTransition = (layerProgress * 15) - layerIndex;
+                const nextLayerHeight = ((layerIndex + 1) / 15) * 1.2 * scale;
+                pz = pz * (1 - layerTransition) + nextLayerHeight * layerTransition - cupDepth;
 
-                // 厚みは端ほど薄く
-                const edgeFactor = Math.pow(1 - radialPos, 1.5);
-                pz += thickness * edgeFactor;
-
-                // ランダムなノイズで自然な質感
-                px += (Math.random() - 0.5) * 0.08 * scale;
-                py += (Math.random() - 0.5) * 0.08 * scale;
-                pz += (Math.random() - 0.5) * 0.08 * scale;
+                // 非常に小さなノイズで滑らかさを保つ
+                px += (Math.random() - 0.5) * 0.03 * scale;
+                py += (Math.random() - 0.5) * 0.03 * scale;
+                pz += (Math.random() - 0.5) * 0.03 * scale;
 
                 positions[i * 3] = px;
                 positions[i * 3 + 1] = py;
                 positions[i * 3 + 2] = pz;
 
-                // 色は層の深さで決定（外側→内側のグラデーション保持）
-                const petalProgress = layerProgress;
+                // 色は層の深さで決定
+                const petalProgress = layerNormalized;
 
                 // 色のグラデーション（外側→内側）
                 let color;
@@ -548,10 +552,9 @@
                 colors[i * 3 + 1] = color.g;
                 colors[i * 3 + 2] = color.b;
 
-                // パーティクルのサイズ（層の端ほど大きく）
-                const sizeVariation = 0.8 + Math.random() * 0.4;
-                const edgeSize = 1.0 + radialPos * 0.3; // 端が少し大きい
-                sizes[i] = (0.08 + layerProgress * 0.06) * sizeVariation * edgeSize * scale;
+                // パーティクルのサイズ（大きめで滑らかに）
+                const sizeVariation = 0.9 + Math.random() * 0.2;
+                sizes[i] = 0.15 * sizeVariation * scale;
             }
 
             const geometry = new THREE.BufferGeometry();
@@ -560,10 +563,10 @@
             geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
 
             const material = new THREE.PointsMaterial({
-                size: 0.12 * scale,
+                size: 0.15 * scale,
                 vertexColors: true,
                 transparent: true,
-                opacity: 0.75,
+                opacity: 0.85,
                 blending: THREE.AdditiveBlending,
                 sizeAttenuation: true,
                 depthWrite: false,

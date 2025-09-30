@@ -429,7 +429,23 @@ export class CommandUI {
 
 
         e.preventDefault();
-        this.executeCommand();
+        
+        // deleteモードの場合は削除確認ダイアログを表示
+        if (this.currentMode === 'delete' && this.input.value.trim()) {
+          this.showDeleteConfirmation(this.input.value.trim())
+            .then(confirmed => {
+              if (confirmed) {
+                // [削除]プレフィックスを追加してコマンド実行
+                const deleteCommand = `[削除] ${this.input.value.trim()}`;
+                this.input.value = deleteCommand;
+                this.executeCommand();
+              } else {
+                this.addOutput('❌ 削除をキャンセルしました', 'info');
+              }
+            });
+        } else {
+          this.executeCommand();
+        }
       }
     });
     
@@ -2796,12 +2812,14 @@ export class CommandUI {
       // イベントリスナー
       dialog.querySelector('#cancel-btn').onclick = (e) => {
         e.stopPropagation();
+        e.preventDefault();
         this.closeModalWithAnimation(modal);
         resolve(false);
       };
 
       dialog.querySelector('#confirm-btn').onclick = (e) => {
         e.stopPropagation();
+        e.preventDefault();
         this.closeModalWithAnimation(modal);
         resolve(true);
       };
