@@ -17435,6 +17435,16 @@
       throw new Error('THREE.Scene インスタンスが必要です');
     }
 
+    // UI固有のオプションキーリスト（CommandUIDemo.jsのconfigと対応）
+    const UI_SPECIFIC_OPTIONS = [
+      'enableServerHealthCheck',
+      'skipServiceDialog',
+      'theme',
+      'showExamples',
+      'autoScroll',
+      'enableDebugLogging'
+    ];
+
     const {
       camera = null,
       renderer = null,
@@ -17443,16 +17453,33 @@
       onControlsToggle = () => {},
       sceneOptions = {},
       uiOptions = {},
-      ...otherSceneOptions
+      ...otherOptions  // UI設定とScene設定が混在している可能性
     } = options;
 
     const resolvedServerUrl = serverUrl || sceneOptions.serverUrl || null;
     const chocoDropClient = client || new ChocoDropClient(resolvedServerUrl);
 
-    // 旧APIとの互換のため、トップレベルに渡された追加オプションもSceneManagerへ伝搬させる
+    // otherOptionsからUI固有の設定を抽出して振り分け
+    const extractedUIOptions = {};
+    const extractedSceneOptions = {};
+
+    Object.keys(otherOptions).forEach(key => {
+      if (UI_SPECIFIC_OPTIONS.includes(key)) {
+        extractedUIOptions[key] = otherOptions[key];
+      } else {
+        extractedSceneOptions[key] = otherOptions[key];
+      }
+    });
+
+    // 明示的な設定を優先してマージ
+    const mergedUIOptions = {
+      ...extractedUIOptions,
+      ...uiOptions
+    };
+
     const mergedSceneOptions = {
       ...sceneOptions,
-      ...otherSceneOptions
+      ...extractedSceneOptions
     };
 
     const sceneManager = new SceneManager(scene, {
@@ -17468,7 +17495,7 @@
       sceneManager,
       client: chocoDropClient,
       onControlsToggle,
-      ...uiOptions
+      ...mergedUIOptions
     });
 
     sceneManager.ui = commandUI;
