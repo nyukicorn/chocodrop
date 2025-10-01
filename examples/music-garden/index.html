@@ -16,19 +16,21 @@
             position: fixed;
             top: 16px;
             left: 16px;
-            color: #f7fafc;
-            background: rgba(30, 40, 60, 0.85);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: rgba(255, 255, 255, 0.95);
+            background: rgba(255, 255, 255, 0.12);
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            border: 1px solid rgba(255, 255, 255, 0.25);
             padding: 14px 18px;
-            border-radius: 8px;
+            border-radius: 12px;
             font-size: 12px;
             font-weight: 400;
             z-index: 100;
             max-width: 280px;
             line-height: 1.5;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 4px 16px rgba(139, 92, 246, 0.15),
+                        inset 0 1px 2px rgba(255, 255, 255, 0.3);
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
             transition: opacity 0.3s ease, transform 0.3s ease;
         }
 
@@ -42,46 +44,54 @@
             position: absolute;
             top: 8px;
             right: 8px;
-            background: none;
-            border: none;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
             font-size: 16px;
-            color: #cbd5e0;
+            color: rgba(255, 255, 255, 0.9);
             cursor: pointer;
-            width: 20px;
-            height: 20px;
+            width: 22px;
+            height: 22px;
             display: flex;
             align-items: center;
             justify-content: center;
             border-radius: 50%;
-            transition: background-color 0.2s ease;
+            transition: all 0.2s ease;
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
         }
 
         .close-btn:hover {
-            background-color: rgba(255, 255, 255, 0.1);
+            background-color: rgba(255, 255, 255, 0.25);
+            border-color: rgba(255, 255, 255, 0.4);
+            transform: scale(1.1);
         }
 
         #hint-toggle {
             position: fixed;
             top: 16px;
             left: 16px;
-            background: rgba(139, 92, 246, 0.15);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            border: 1px solid rgba(139, 92, 246, 0.3);
-            color: #a78bfa;
-            padding: 4px 6px;
-            border-radius: 4px;
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(15px) saturate(180%);
+            -webkit-backdrop-filter: blur(15px) saturate(180%);
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            color: rgba(255, 255, 255, 0.95);
+            padding: 6px 10px;
+            border-radius: 8px;
             font-size: 12px;
+            font-weight: 500;
             cursor: pointer;
             z-index: 99;
             display: none;
             transition: all 0.2s ease;
-            box-shadow: 0 1px 4px rgba(139, 92, 246, 0.2);
+            box-shadow: 0 2px 8px rgba(139, 92, 246, 0.15),
+                        inset 0 1px 1px rgba(255, 255, 255, 0.3);
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
             animation: hint-sparkle 2.5s ease-in-out infinite;
         }
 
         #hint-toggle:hover {
-            background: rgba(139, 92, 246, 0.25);
+            background: rgba(255, 255, 255, 0.25);
+            border-color: rgba(255, 255, 255, 0.4);
             transform: translateY(-1px) scale(1.05);
             animation: hint-sparkle-fast 1s ease-in-out infinite;
         }
@@ -262,26 +272,33 @@
             right: 100px;
             z-index: 100;
             display: flex;
-            gap: 10px;
+            gap: 8px;
+            flex-wrap: wrap;
         }
 
         .demo-link {
-            padding: 12px 20px;
-            background: rgba(20, 30, 60, 0.9);
-            color: white;
+            padding: 8px 14px;
+            background: rgba(255, 255, 255, 0.15);
+            color: rgba(255, 255, 255, 0.95);
             text-decoration: none;
-            border-radius: 25px;
-            border: 2px solid rgba(139, 92, 246, 0.3);
-            font-size: 14px;
-            font-weight: bold;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            font-size: 11px;
+            font-weight: 500;
             transition: all 0.3s ease;
-            backdrop-filter: blur(10px);
+            backdrop-filter: blur(15px) saturate(180%);
+            -webkit-backdrop-filter: blur(15px) saturate(180%);
+            box-shadow: 0 2px 8px rgba(139, 92, 246, 0.15),
+                        inset 0 1px 1px rgba(255, 255, 255, 0.3);
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
         }
 
         .demo-link:hover {
-            background: rgba(139, 92, 246, 0.2);
-            border-color: rgba(139, 92, 246, 0.5);
+            background: rgba(255, 255, 255, 0.25);
+            border-color: rgba(255, 255, 255, 0.4);
             transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(139, 92, 246, 0.25),
+                        inset 0 1px 2px rgba(255, 255, 255, 0.4);
         }
 
         #audio-status {
@@ -341,44 +358,50 @@
         }
 
         #info strong {
-            font-size: 14px;
+            font-size: 13px;
             font-weight: 600;
-            color: #f7fafc;
+            color: rgba(255, 255, 255, 0.98);
             display: block;
             margin-bottom: 10px;
             text-align: center;
             letter-spacing: 0.5px;
+            text-shadow: 0 2px 4px rgba(139, 92, 246, 0.3);
         }
 
         #info code {
-            background: rgba(255, 255, 255, 0.08);
-            color: #f7fafc;
-            padding: 2px 5px;
-            border-radius: 3px;
+            background: rgba(255, 255, 255, 0.15);
+            color: rgba(255, 255, 255, 0.95);
+            padding: 3px 6px;
+            border-radius: 4px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
             font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
             font-size: 11px;
+            font-weight: 500;
         }
 
         .controls {
-            margin-top: 8px;
-            padding-top: 8px;
-            border-top: 1px solid rgba(255, 255, 255, 0.15);
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(255, 255, 255, 0.2);
             font-size: 11px;
         }
 
         .control-item {
-            margin: 4px 0;
+            margin: 5px 0;
             display: flex;
             align-items: center;
             gap: 8px;
         }
 
         .key {
-            background: rgba(255, 255, 255, 0.1);
-            padding: 2px 6px;
-            border-radius: 3px;
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            padding: 3px 8px;
+            border-radius: 5px;
             font-weight: 500;
             min-width: fit-content;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1),
+                        inset 0 1px 1px rgba(255, 255, 255, 0.3);
         }
 
         /* ChocoDrop 動画要素が花に埋もれないようにする */
@@ -408,11 +431,14 @@
         <button class="close-btn" onclick="hideInfoPanel()">×</button>
         <strong>🌸 硝子のかけらの花へようこそ</strong>
 
+        <div style="font-size: 11px; opacity: 0.9; margin-bottom: 12px; line-height: 1.6; text-align: center; font-style: italic;">
+            散らばった硝子のかけらたちが集まり寄り添い、新たな花をそっと咲かせる世界
+        </div>
+
         💡 基本操作:<br>
         1. 動画や画像をインポートしてみて！<br>
-        2. 🎵 音楽を鳴らすと花が広がり輝きます<br>
-        3. 視点操作: ChocoDrop / ちょこドロップを最小化してドラッグ<br>
-        4. ✨ キラキラが舞い、透明な花が呼吸します<br>
+        2. ✨ 音楽を鳴らすと硝子の花たちがキラキラと呼吸を始めます<br>
+        3. 視点操作: ChocoDrop を最小化してドラッグ<br>
 
         <div class="controls">
             <div class="control-item">
@@ -430,10 +456,10 @@
 
     <div class="demo-links">
         <a href="../basic/index.html" class="demo-link">🍫 はじまりの国</a>
-        <a href="../wabi-sabi/index.html" class="demo-link">🖤 侘び寂び</a>
-        <a href="../toy-city/index.html" class="demo-link">🎡 AI遊園地</a>
-        <a href="../space/index.html" class="demo-link">🌌 宇宙空間</a>
         <a href="../pixel-ocean/index.html" class="demo-link">🌊 海底世界</a>
+        <a href="../wabi-sabi/index.html" class="demo-link">🖤 侘び寂び</a>
+        <a href="../space/index.html" class="demo-link">🌌 宇宙空間</a>
+        <a href="../toy-city/index.html" class="demo-link">🎡 AI遊園地</a>
     </div>
 
     <!-- Three.js -->
