@@ -6,6 +6,9 @@
   "bugs": {
     "url": "https://github.com/nyukicorn/chocodrop/issues"
   },
+  "workspaces": [
+    "packages/*"
+  ],
   "main": "src/index.js",
   "type": "module",
   "exports": {

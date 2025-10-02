@@ -1,5 +1,5 @@
 # ChocoDrop
-ちょこっとDrop。  
+ちょこっとDrop。
 世界が咲く。
 
 Drop a little, bloom a lot.
@@ -8,7 +8,36 @@ Drop a little, bloom a lot.
 - 🎮 Demo: https://nyukicorn.github.io/chocodrop/examples/basic/
 - 📚 Docs: ./docs/GETTING_STARTED.md
 
-## ⚡ クイックスタート
+## 🆕 新アーキテクチャ（v2.0）
+
+ChocoDrop は常駐 daemon + ブラウザ SDK の新アーキテクチャに移行しました！
+
+### 🚀 超簡単クイックスタート
+
+**Step 1:** daemon を起動（1度だけ）
+```bash
+npx chocodropd
+```
+
+**Step 2:** どの Three.js ページでも1行で動く
+```html
+<script src="http://127.0.0.1:43110/sdk.js"></script>
+<script type="module">
+  await window.chocodrop.ready();
+  await window.chocodrop.attach(scene, { camera, renderer });
+</script>
+```
+
+**または：ブックマークレット**（既存ページに即追加）
+```javascript
+javascript:(()=>{const u='http://127.0.0.1:43110/sdk.js';if(document.getElementById('__chocodrop_sdk'))return;const s=document.createElement('script');s.id='__chocodrop_sdk';s.src=u;s.onload=async()=>{try{await window.chocodrop.ready();const scene=window.scene||document.querySelector('canvas')?.__scene__;if(scene){await window.chocodrop.attach(scene,{});}}catch(e){console.error('ChocoDrop:',e);}};document.head.appendChild(s);})();
+```
+
+[📖 ブックマークレットの使い方](examples/bookmarklet.html)
+
+---
+
+## ⚡ 旧API（v1.x - 非推奨）
 
 ```bash
 # npm/yarn
@@ -20,6 +49,8 @@ createChocoDrop(scene, { camera, renderer, enableMouseInteraction: true });
 import { createChocoDrop } from './src/index.js';
 createChocoDrop(scene, { camera, renderer, enableMouseInteraction: true });
 ```
+
+**⚠️ 注意:** 旧APIは v3.0 で削除予定です。新アーキテクチャへの移行を推奨します。
 
 **🎮 使い方:** `@`キー → 自然言語入力 → 完了
 **🖱️ 重要:** `enableMouseInteraction: true` でオブジェクト選択・移動・編集が可能に！

@@ -1,0 +1,30 @@
+{
+  "name": "chocodrop",
+  "version": "2.0.0",
+  "description": "ChocoDrop - compatibility layer (deprecated, use @chocodrop/sdk instead)",
+  "type": "module",
+  "main": "./src/index.js",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "keywords": [
+    "chocodrop",
+    "threejs",
+    "compatibility"
+  ],
+  "author": {
+    "name": "ChocoDrop Project",
+    "email": "chocodrop.dev@gmail.com"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@chocodrop/sdk": "^1.0.0"
+  },
+  "peerDependencies": {
+    "three": ">=0.170.0 <=0.180.0"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "deprecated": "Please use @chocodrop/sdk directly. This package will be removed in v3.0.0"
+}
