@@ -1,0 +1,34 @@
+{
+  "name": "@chocodrop/sdk",
+  "version": "1.0.0",
+  "description": "ChocoDrop browser SDK - client library for Three.js scene integration",
+  "type": "module",
+  "main": "./dist/chocodrop-sdk.esm.js",
+  "module": "./dist/chocodrop-sdk.esm.js",
+  "browser": "./dist/chocodrop-sdk.umd.js",
+  "exports": {
+    ".": {
+      "import": "./dist/chocodrop-sdk.esm.js",
+      "require": "./dist/chocodrop-sdk.umd.js"
+    }
+  },
+  "types": "./src/index.d.ts",
+  "keywords": [
+    "chocodrop",
+    "sdk",
+    "threejs",
+    "browser",
+    "3d"
+  ],
+  "author": {
+    "name": "ChocoDrop Project",
+    "email": "chocodrop.dev@gmail.com"
+  },
+  "license": "MIT",
+  "peerDependencies": {
+    "three": ">=0.170.0 <=0.180.0"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}

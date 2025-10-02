@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChocoDrop Bookmarklet</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 20px;
+            background: #0a0a0a;
+            color: #fff;
+        }
+        h1 {
+            color: #ff6ad5;
+        }
+        .bookmarklet {
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px dashed #ff6ad5;
+            padding: 20px;
+            border-radius: 12px;
+            margin: 20px 0;
+        }
+        .bookmarklet-link {
+            display: inline-block;
+            background: #ff6ad5;
+            color: #000;
+            padding: 12px 24px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            margin: 10px 0;
+        }
+        .bookmarklet-link:hover {
+            background: #ff4dc4;
+        }
+        code {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+        pre {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 15px;
+            border-radius: 8px;
+            overflow-x: auto;
+        }
+        .step {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 15px;
+            margin: 10px 0;
+            border-left: 4px solid #ff6ad5;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🍫 ChocoDrop Bookmarklet</h1>
+
+    <p>ChocoDrop をどんな Three.js ページにも1クリックで追加できます。</p>
+
+    <div class="bookmarklet">
+        <h2>📌 使い方</h2>
+
+        <div class="step">
+            <strong>Step 1:</strong> daemon を起動
+            <pre>npx chocodropd</pre>
+        </div>
+
+        <div class="step">
+            <strong>Step 2:</strong> このリンクをブックマークバーにドラッグ＆ドロップ
+            <div style="margin-top: 10px;">
+                <a href="javascript:(()=>{const u='http://127.0.0.1:43110/sdk.js';if(document.getElementById('__chocodrop_sdk'))return;const s=document.createElement('script');s.id='__chocodrop_sdk';s.src=u;s.onload=async()=>{try{await window.chocodrop.ready();const scene=window.scene||document.querySelector('canvas')?.__scene__;if(scene){await window.chocodrop.attach(scene,{});}}catch(e){console.error('ChocoDrop:',e);}};document.head.appendChild(s);})();" class="bookmarklet-link">
+                    🍫 ChocoDrop
+                </a>
+            </div>
+        </div>
+
+        <div class="step">
+            <strong>Step 3:</strong> Three.js ページでブックマークをクリック
+        </div>
+    </div>
+
+    <h2>📝 コード</h2>
+    <p>手動で使う場合は、このコードをコンソールに貼り付けてください：</p>
+    <pre><code>(() => {
+  const u = 'http://127.0.0.1:43110/sdk.js';
+  if (document.getElementById('__chocodrop_sdk')) return;
+
+  const s = document.createElement('script');
+  s.id = '__chocodrop_sdk';
+  s.src = u;
+
+  s.onload = async () => {
+    try {
+      await window.chocodrop.ready();
+
+      // Try to find scene object
+      const scene = window.scene ||
+                   document.querySelector('canvas')?.__scene__;
+
+      if (scene) {
+        await window.chocodrop.attach(scene, {});
+      } else {
+        console.warn('No Three.js scene found');
+      }
+    } catch (e) {
+      console.error('ChocoDrop:', e);
+    }
+  };
+
+  document.head.appendChild(s);
+})();</code></pre>
+
+    <h2>🔧 注意事項</h2>
+    <ul>
+        <li>daemon が起動していることを確認してください</li>
+        <li>CORS のため、ローカルサーバーで配信されているページで使用してください</li>
+        <li><code>file://</code> プロトコルでは動作しません</li>
+    </ul>
+
+    <h2>💡 対応ページの例</h2>
+    <ul>
+        <li><a href="../index.html" target="_blank">ChocoDrop デモページ</a></li>
+        <li><a href="./basic/index.html" target="_blank">Basic Example</a></li>
+        <li><a href="./test-new-sdk.html" target="_blank">New SDK Test</a></li>
+    </ul>
+</body>
+</html>
