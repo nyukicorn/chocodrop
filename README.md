@@ -16,7 +16,7 @@ ChocoDrop は常駐 daemon + ブラウザ SDK の新アーキテクチャに移�
 
 **Step 1:** daemon を起動（1度だけ）
 ```bash
-npx chocodropd
+npx @chocodrop/daemon@alpha
 ```
 
 **Step 2:** どの Three.js ページでも1行で動く
