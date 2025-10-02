@@ -15,14 +15,13 @@ import { startDaemon } from '../src/index.js';
 const PORT = process.env.CHOCODROP_PORT || 43110;
 const HOST = '127.0.0.1'; // Local only - security by default
 
-console.log('🍫 ChocoDrop Daemon starting...');
-console.log(`   Host: ${HOST}`);
-console.log(`   Port: ${PORT}`);
-console.log(`   Mode: ${process.env.NODE_ENV || 'development'}`);
+console.log('🍫 ChocoDrop Daemon');
+console.log(`   http://${HOST}:${PORT}`);
+console.log('');
 
 startDaemon({ host: HOST, port: PORT })
   .then(() => {
-    console.log('✅ ChocoDrop Daemon is ready!');
+    console.log('✅ Ready!');
     console.log(`   Health: http://${HOST}:${PORT}/v1/health`);
     console.log(`   SDK: http://${HOST}:${PORT}/sdk.js`);
     console.log('');

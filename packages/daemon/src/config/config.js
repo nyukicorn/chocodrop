@@ -20,14 +20,12 @@ class Config {
 
     for (const configPath of configPaths) {
       if (fs.existsSync(configPath)) {
-        console.log(`📁 Loading config from: ${configPath}`);
         const configData = fs.readFileSync(configPath, 'utf-8');
         return JSON.parse(configData);
       }
     }
 
     // デフォルト設定
-    console.log('⚠️ No config file found, using defaults');
     return {
       mcp: {
         provider: 'kamui-code',

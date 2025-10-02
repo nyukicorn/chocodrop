@@ -209,13 +209,6 @@ export class MCPClient {
     this.connected = false;
 
 
-
-    console.log('🌉 MCPClient initialized with translation support');
-    if (this.mcpConfigPath) {
-      console.log(`📄 MCP config path: ${this.mcpConfigPath}`);
-    } else {
-      console.warn('⚠️ AI生成サーバー（MCP）が未設定です。docs/SETUP.md を参照し、config.json もしくは MCP_CONFIG_PATH を更新してください。');
-    }
   }
 
   createMcpConfigError(detail = '') {
