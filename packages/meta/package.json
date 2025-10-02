@@ -1,6 +1,6 @@
 {
   "name": "chocodrop",
-  "version": "2.0.0",
+  "version": "2.0.1-alpha.0",
   "description": "ChocoDrop - compatibility layer (deprecated, use @chocodrop/sdk instead)",
   "type": "module",
   "main": "./src/index.js",
