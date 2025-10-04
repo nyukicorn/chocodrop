@@ -3732,9 +3732,9 @@ export class CommandUI {
   getHealthEndpoint() {
     const serverUrl = this.client?.serverUrl || this.sceneManager?.client?.serverUrl;
     if (serverUrl) {
-      return `${serverUrl.replace(/\/$/, '')}/health`;
+      return `${serverUrl.replace(/\/$/, '')}/v1/health`;
     }
-    return '/health';
+    return '/v1/health';
   }
 
   ensureServerHealthModal() {

@@ -184,50 +184,74 @@
   }
 
   /**
+   * Load THREE from CDN if not already available
+   */
+  async function ensureThreeAvailable() {
+    if (typeof window !== 'undefined' && window.THREE) {
+      return true; // Already available
+    }
+
+    try {
+      console.log('📦 Loading THREE from CDN...');
+      const mod = await import('https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.module.js');
+      if (typeof window !== 'undefined') {
+        window.THREE = mod;
+      }
+      console.log('✅ THREE loaded from CDN');
+      return true;
+    } catch (error) {
+      console.warn('Failed to load THREE from CDN:', error);
+      return false;
+    }
+  }
+
+  /**
    * Attach ChocoDrop to scene
    */
   async function attach(scene, opts = {}) {
     const root = getRootOverlay();
     let mounted = false;
 
-    // Try to load existing CommandUI from daemon
+    // Auto-detect environment and load appropriate bundle
     try {
-      // First, try to load CommandUI dependencies
-      const [CommandUIMod, SceneManagerMod, ClientMod] = await Promise.all([
-        import(`${BASE}/ui/CommandUI.js`),
-        import(`${BASE}/ui/SceneManager.js`),
-        import(`${BASE}/ui/LiveCommandClient.js`)
-      ]);
+      // Ensure THREE is available globally
+      await ensureThreeAvailable();
 
-      const CommandUI = CommandUIMod.CommandUI || CommandUIMod.default;
-      const SceneManager = SceneManagerMod.SceneManager || SceneManagerMod.default;
-      const LiveCommandClient = ClientMod.LiveCommandClient || ClientMod.default;
+      const hasGlobalThree = typeof window !== 'undefined' && window.THREE;
 
-      if (CommandUI && SceneManager && LiveCommandClient) {
-        // Initialize existing UI
-        const sceneManager = new SceneManager(scene, opts);
-        const client = new LiveCommandClient({ serverUrl: BASE });
-        const ui = new CommandUI({
-          sceneManager,
-          client,
-          onControlsToggle: opts.onControlsToggle,
-          ...opts.uiOptions
+      if (hasGlobalThree) {
+        // Load global.js (IIFE bundle) for external sites using <script> tag
+        console.log('🌐 Detected window.THREE - loading global bundle');
+
+        // Use script tag to load IIFE bundle (not import, which creates module scope)
+        await new Promise((resolve, reject) => {
+          const script = document.createElement('script');
+          script.src = `${BASE}/ui/ui.global.js`;
+          script.onload = resolve;
+          script.onerror = reject;
+          document.head.appendChild(script);
         });
 
-        ui.show();
-        mounted = true;
+        if (window.ChocoDropUI && window.ChocoDropUI.attach) {
+          const result = await window.ChocoDropUI.attach(scene, opts);
+          mounted = true;
+          console.log('✅ ChocoDrop UI loaded from global bundle');
+          return { ...result, reload };
+        }
+      } else {
+        // Load ESM bundle for bundler environments
+        console.log('📦 Loading ESM bundle');
+        const mod = await import(`${BASE}/ui/ui.esm.js`);
 
-        console.log('✅ ChocoDrop UI loaded from existing implementation');
-
-        return {
-          ui,
-          sceneManager,
-          client,
-          reload
-        };
+        if (mod.attach) {
+          const result = await mod.attach(scene, opts);
+          mounted = true;
+          console.log('✅ ChocoDrop UI loaded from ESM bundle');
+          return { ...result, reload };
+        }
       }
     } catch (error) {
-      console.warn('Could not load existing UI, using fallback:', error);
+      console.warn('Could not load UI bundle, using fallback:', error);
     }
 
     // Fallback: Simple placeholder UI

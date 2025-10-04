@@ -18,10 +18,6 @@ import { CommandUI } from './CommandUI.js';
  * @returns {Object} - 初期化済みのコンポーネント群と dispose ヘルパー
  */
 export function createChocoDrop(scene, options = {}) {
-  if (!scene) {
-    throw new Error('THREE.Scene インスタンスが必要です');
-  }
-
   const {
     camera = null,
     renderer = null,
@@ -37,14 +33,15 @@ export function createChocoDrop(scene, options = {}) {
   const resolvedServerUrl = serverUrl || sceneOptions.serverUrl || null;
   const chocoDropClient = client || new ChocoDropClient(resolvedServerUrl);
 
-  const sceneManager = new SceneManager(scene, {
+  // SceneManager is optional - can be created later when scene is available
+  const sceneManager = scene ? new SceneManager(scene, {
     camera,
     renderer,
     serverUrl: resolvedServerUrl,
     client: chocoDropClient,
     ...sceneOptions,
     ...otherSceneOptions
-  });
+  }) : null;
 
   const commandUI = new CommandUI({
     sceneManager,
@@ -61,7 +58,7 @@ export function createChocoDrop(scene, options = {}) {
     ui: commandUI,
     dispose() {
       commandUI.dispose?.();
-      sceneManager.dispose?.();
+      sceneManager?.dispose?.();
     }
   };
 }

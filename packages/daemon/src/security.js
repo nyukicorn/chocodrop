@@ -215,8 +215,19 @@ export class CSRFProtection {
   }
 }
 
+// Read-only endpoints that allow all origins (Phase 2a)
+const READ_ONLY_ENDPOINTS = new Set(['/v1/health', '/sdk.js']);
+
+// Check if path is read-only (includes static files)
+function isReadOnlyPath(path) {
+  return READ_ONLY_ENDPOINTS.has(path) ||
+         path.startsWith('/ui/') ||
+         path.startsWith('/generated/');
+}
+
 /**
  * CORS middleware with allowlist support
+ * Phase 2a: Read-only endpoints allow all origins for Bookmarklet support
  * @returns {Function} Express middleware
  */
 export async function corsWithAllowlist() {
@@ -224,7 +235,31 @@ export async function corsWithAllowlist() {
 
   return (req, res, next) => {
     const origin = req.headers.origin;
+    const isReadOnly = isReadOnlyPath(req.path);
 
+    // Common headers for all CORS requests
+    res.setHeader('Vary', 'Origin');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-CSRF-Token, x-chocodrop-origin, X-ChocoDrop-Nonce, X-Requested-With');
+
+    // Handle OPTIONS preflight
+    if (req.method === 'OPTIONS') {
+      // PNA (Private Network Access) support for https→localhost
+      if (req.headers['access-control-request-private-network'] === 'true') {
+        res.setHeader('Access-Control-Allow-Private-Network', 'true');
+      }
+      res.setHeader('Access-Control-Max-Age', '600'); // Cache preflight for 10 minutes
+      return res.sendStatus(200);
+    }
+
+    // Read-only endpoints: Allow all origins (Phase 2a)
+    if (isReadOnly) {
+      res.setHeader('Access-Control-Allow-Origin', origin || '*');
+      res.setHeader('Access-Control-Allow-Credentials', 'false');
+      return next();
+    }
+
+    // Write endpoints: Check allowlist (existing behavior)
     // No origin = same-origin request (allow)
     if (!origin) {
       return next();
@@ -243,14 +278,6 @@ export async function corsWithAllowlist() {
     if (isAllowed) {
       res.setHeader('Access-Control-Allow-Origin', origin);
       res.setHeader('Access-Control-Allow-Credentials', 'true');
-      res.setHeader('Access-Control-Allow-Methods', 'GET, POST');
-      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-CSRF-Token, x-chocodrop-origin');
-
-      // Handle preflight
-      if (req.method === 'OPTIONS') {
-        return res.sendStatus(200);
-      }
-
       return next();
     }
 

@@ -137,7 +137,9 @@ export async function startDaemon({ host = '127.0.0.1', port = 43110 } = {}) {
       const sdkPath = join(__dirname, '../../sdk/src/index.js');
       const sdkContent = await readFile(sdkPath, 'utf-8');
 
-      res.type('application/javascript');
+      // Phase 2a: Cache-Control for sdk.js (prevent update issues)
+      res.type('application/javascript; charset=utf-8');
+      res.setHeader('Cache-Control', 'no-store, max-age=0');
       res.send(sdkContent);
     } catch (error) {
       console.error('Failed to load SDK:', error);
@@ -145,9 +147,13 @@ export async function startDaemon({ host = '127.0.0.1', port = 43110 } = {}) {
     }
   });
 
-  // Serve existing UI files from src/client
+  // Serve UI bundles from dist/ (Rollup output)
+  const distPath = join(__dirname, '../../../dist');
+  app.use('/ui', express.static(distPath));
+
+  // Also serve original source files (fallback for dev)
   const srcClientPath = join(__dirname, '../../../src/client');
-  app.use('/ui', express.static(srcClientPath));
+  app.use('/ui/src', express.static(srcClientPath));
 
   // Serve generated files
   const generatedPath = join(publicDir, 'generated');
