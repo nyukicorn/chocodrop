@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChocoDrop Bookmarklet v2（修正版）</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 20px;
+            background: #0a0a0a;
+            color: #fff;
+        }
+        h1 {
+            color: #ff6ad5;
+        }
+        .info {
+            background: rgba(255, 106, 213, 0.1);
+            border: 2px solid #ff6ad5;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .bookmarklet {
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px dashed #ff6ad5;
+            padding: 20px;
+            border-radius: 12px;
+            margin: 20px 0;
+        }
+        .bookmarklet-link {
+            display: inline-block;
+            background: #ff6ad5;
+            color: #000;
+            padding: 12px 24px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            margin: 10px 0;
+        }
+        .bookmarklet-link:hover {
+            background: #ff4dc4;
+        }
+        code {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+        pre {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 15px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-size: 11px;
+            line-height: 1.4;
+        }
+        .step {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 15px;
+            margin: 10px 0;
+            border-left: 4px solid #ff6ad5;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🍫 ChocoDrop Bookmarklet v2（修正版）</h1>
+
+    <div class="info">
+        <strong>✨ 修正点:</strong> デーモンが停止していても、トーストUIが正常に表示されるようになりました！
+    </div>
+
+    <div class="bookmarklet">
+        <h2>📌 使い方</h2>
+
+        <div class="step">
+            <strong>Step 1:</strong> このリンクをブックマークバーにドラッグ＆ドロップ
+            <div style="margin-top: 10px;">
+                <a href="javascript:(async()=>{const b='http://127.0.0.1:43110';async function check(){try{const r=await fetch(b+'/v1/health');return r.ok}catch{return false}}async function showToast(){if(document.getElementById('__cd_toast__'))return;const t=document.createElement('div');t.id='__cd_toast__';Object.assign(t.style,{position:'fixed',right:'16px',bottom:'16px',zIndex:'2147483647',width:'min(380px,calc(100vw-32px))',fontFamily:'ui-sans-serif,system-ui,-apple-system,sans-serif'});t.innerHTML=`<div style='background:#18181c;color:#fff;padding:14px 16px;border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.35)'><div style='font-weight:700;display:flex;gap:8px;align-items:center'><span>🍫 ChocoDrop が起動していません</span><span id='cd-dot' style='margin-left:auto;width:8px;height:8px;border-radius:50%;background:#f43'></span></div><div style='font-size:12px;opacity:.85;margin-top:6px'>ローカル(127.0.0.1)のみで動作・外部送信なし。起動すると自動で接続します。</div><div style='display:grid;gap:8px;margin-top:12px'><button id='cd-guide' style='padding:10px 12px;border:0;border-radius:10px;cursor:pointer;background:#fff;color:#111;font-weight:600'>起動ガイドを開く</button><button id='cd-retry' style='padding:10px 12px;border:1px solid #444;border-radius:10px;cursor:pointer;background:transparent;color:#fff'>再試行</button></div></div>`;document.body.appendChild(t);const d=t.querySelector('#cd-dot'),g=document.createElement('dialog');g.style.border='0';g.style.borderRadius='14px';g.style.padding='0';g.style.maxWidth='560px';g.style.width='calc(100vw-40px)';g.innerHTML=`<div style='background:#161618;color:#fff;padding:16px;border-radius:14px'><div style='font-weight:700;margin-bottom:8px'>起動ガイド</div><pre id='cd-code' style='background:#0e0e10;color:#eaeaea;padding:12px;border-radius:10px;overflow:auto;margin:0;font-size:13px'>npx --yes @chocodrop/daemon@alpha</pre><div style='display:flex;gap:8px;justify-content:flex-end;margin-top:12px'><button id='cd-copy' style='padding:8px 10px;border-radius:8px;border:0;cursor:pointer;background:#444;color:#fff'>コピー</button><button id='cd-done' style='padding:8px 10px;border-radius:8px;border:0;cursor:pointer;background:#fff;color:#111'>OK</button></div></div>`;document.body.appendChild(g);t.querySelector('#cd-guide').onclick=()=>g.showModal();g.querySelector('#cd-done').onclick=()=>g.close();g.querySelector('#cd-copy').onclick=async()=>{try{await navigator.clipboard.writeText('npx --yes @chocodrop/daemon@alpha');const btn=g.querySelector('#cd-copy');btn.textContent='コピー完了！';setTimeout(()=>{btn.textContent='コピー'},1000)}catch{}};t.querySelector('#cd-retry').onclick=poll;async function poll(){const ok=await check();d.style.background=ok?'#0f6':'#f43';if(ok){t.querySelector('span').textContent='🍫 接続できました';setTimeout(()=>{t.remove();loadSDK()},700)}else{setTimeout(poll,2500)}}poll()}function loadSDK(){if(document.getElementById('__chocodrop_sdk'))return;const s=document.createElement('script');s.id='__chocodrop_sdk';s.src=b+'/sdk.js';s.onload=()=>window.chocodrop?.ready?.().then(()=>window.chocodrop.attach(window.scene||null,{camera:window.camera,renderer:window.renderer})).catch(e=>console.warn('ChocoDrop:',e));document.head.appendChild(s)}const isRunning=await check();if(isRunning){loadSDK()}else{showToast()}})();" class="bookmarklet-link">
+                    🍫 ChocoDrop v2
+                </a>
+            </div>
+        </div>
+
+        <div class="step">
+            <strong>Step 2:</strong> Three.js ページでブックマークをクリック
+            <ul>
+                <li>デーモン起動中 → 即座に ChocoDrop UI が表示</li>
+                <li>デーモン停止中 → トーストUIが表示され、起動を案内</li>
+            </ul>
+        </div>
+    </div>
+
+    <h2>📝 動作フロー</h2>
+    <pre><code>ブックマークレットクリック
+    ↓
+デーモン起動確認
+    ↓
+┌─────────────────┬─────────────────┐
+│ 起動している     │ 停止している     │
+├─────────────────┼─────────────────┤
+│ SDK読み込み      │ トーストUI表示   │
+│ ↓               │ ↓               │
+│ UI表示          │ 起動案内         │
+│                 │ ↓               │
+│                 │ 自動ポーリング   │
+│                 │ ↓               │
+│                 │ 接続成功         │
+│                 │ ↓               │
+│                 │ SDK読み込み      │
+└─────────────────┴─────────────────┘</code></pre>
+
+    <h2>🔧 技術詳細</h2>
+    <ul>
+        <li>トーストUIコードをブックマークレット内に埋め込み</li>
+        <li>デーモンの状態を先にチェック</li>
+        <li>停止時でもトーストUIが表示可能</li>
+        <li>接続成功後に自動的にSDKを読み込み</li>
+    </ul>
+
+    <h2>📋 コード（手動実行用）</h2>
+    <p>手動で使う場合は、このコードをコンソールに貼り付けてください：</p>
+    <pre><code>// 読みやすい整形版（実際には1行に圧縮されています）
+(async () => {
+  const b = 'http://127.0.0.1:43110';
+
+  async function check() {
+    try {
+      const r = await fetch(b + '/v1/health');
+      return r.ok;
+    } catch {
+      return false;
+    }
+  }
+
+  const isRunning = await check();
+
+  if (isRunning) {
+    // SDKを直接読み込み
+    loadSDK();
+  } else {
+    // トーストUIを表示
+    showToast();
+  }
+
+  function loadSDK() { /* SDK読み込みロジック */ }
+  function showToast() { /* トーストUI表示ロジック */ }
+})();</code></pre>
+</body>
+</html>

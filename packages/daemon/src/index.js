@@ -2,6 +2,7 @@ import express from 'express';
 import { createServer } from 'http';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { readFileSync } from 'fs';
 import {
   ensureConfigDir,
   loadConfig,
@@ -15,6 +16,11 @@ import config from './config/config.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+
+// Load version from package.json
+const packageJsonPath = join(__dirname, '../package.json');
+const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf-8'));
+const VERSION = packageJson.version;
 
 /**
  * Start ChocoDrop Daemon
@@ -82,7 +88,7 @@ export async function startDaemon({ host = '127.0.0.1', port = 43110 } = {}) {
   app.get('/v1/health', (req, res) => {
     res.json({
       ok: true,
-      version: '1.0.0',
+      version: VERSION,
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
       security: {

@@ -67,13 +67,13 @@
 
         <div class="step">
             <strong>Step 1:</strong> daemon を起動
-            <pre>npx chocodropd</pre>
+            <pre>npx --yes @chocodrop/daemon@alpha</pre>
         </div>
 
         <div class="step">
             <strong>Step 2:</strong> このリンクをブックマークバーにドラッグ＆ドロップ
             <div style="margin-top: 10px;">
-                <a href="javascript:(()=>{const u='http://127.0.0.1:43110/sdk.js';if(document.getElementById('__chocodrop_sdk'))return;const s=document.createElement('script');s.id='__chocodrop_sdk';s.src=u;s.onload=async()=>{try{await window.chocodrop.ready();const scene=window.scene||document.querySelector('canvas')?.__scene__;if(scene){await window.chocodrop.attach(scene,{});}}catch(e){console.error('ChocoDrop:',e);}};document.head.appendChild(s);})();" class="bookmarklet-link">
+                <a href="javascript:(()=>{const b='http://127.0.0.1:43110';if(document.getElementById('__chocodrop_sdk'))return;const s=document.createElement('script');s.id='__chocodrop_sdk';s.src=b+'/sdk.js';s.onload=()=>window.chocodrop?.ready?.().then(()=>window.chocodrop.attach(window.scene||null,{camera:window.camera,renderer:window.renderer})).catch(e=>console.warn('ChocoDrop:',e));document.head.appendChild(s);})();" class="bookmarklet-link">
                     🍫 ChocoDrop
                 </a>
             </div>
@@ -87,29 +87,23 @@
     <h2>📝 コード</h2>
     <p>手動で使う場合は、このコードをコンソールに貼り付けてください：</p>
     <pre><code>(() => {
-  const u = 'http://127.0.0.1:43110/sdk.js';
+  const b = 'http://127.0.0.1:43110';
   if (document.getElementById('__chocodrop_sdk')) return;
 
   const s = document.createElement('script');
   s.id = '__chocodrop_sdk';
-  s.src = u;
+  s.src = b + '/sdk.js';
 
-  s.onload = async () => {
-    try {
-      await window.chocodrop.ready();
-
-      // Try to find scene object
-      const scene = window.scene ||
-                   document.querySelector('canvas')?.__scene__;
-
-      if (scene) {
-        await window.chocodrop.attach(scene, {});
-      } else {
-        console.warn('No Three.js scene found');
-      }
-    } catch (e) {
-      console.error('ChocoDrop:', e);
-    }
+  s.onload = () => {
+    window.chocodrop?.ready?.()
+      .then(() => window.chocodrop.attach(
+        window.scene || null,
+        {
+          camera: window.camera,
+          renderer: window.renderer
+        }
+      ))
+      .catch(e => console.warn('ChocoDrop:', e));
   };
 
   document.head.appendChild(s);

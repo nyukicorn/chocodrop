@@ -244,7 +244,7 @@ export async function corsWithAllowlist() {
       res.setHeader('Access-Control-Allow-Origin', origin);
       res.setHeader('Access-Control-Allow-Credentials', 'true');
       res.setHeader('Access-Control-Allow-Methods', 'GET, POST');
-      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-CSRF-Token');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-CSRF-Token, x-chocodrop-origin');
 
       // Handle preflight
       if (req.method === 'OPTIONS') {
