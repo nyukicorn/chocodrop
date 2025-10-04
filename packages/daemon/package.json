@@ -28,5 +28,13 @@
   },
   "engines": {
     "node": ">=16.0.0"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "supertest": "^6.3.3",
+    "vitest": "^1.0.0"
   }
 }
