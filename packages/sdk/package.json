@@ -1,6 +1,6 @@
 {
   "name": "@chocodrop/sdk",
-  "version": "1.0.1-alpha.0",
+  "version": "1.0.2-alpha.0",
   "description": "ChocoDrop browser SDK - client library for Three.js scene integration",
   "type": "module",
   "main": "./dist/chocodrop-sdk.esm.js",

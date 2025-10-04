@@ -1,6 +1,6 @@
 {
   "name": "@chocodrop/daemon",
-  "version": "1.0.1-alpha.1",
+  "version": "1.0.2-alpha.0",
   "description": "ChocoDrop daemon - local server for SDK distribution and MCP bridging",
   "type": "module",
   "bin": {

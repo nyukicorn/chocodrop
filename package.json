@@ -1,6 +1,6 @@
 {
   "name": "chocodrop",
-  "version": "1.0.0",
+  "version": "1.0.2-alpha.0",
   "description": "ChocoDrop: real-time AI image drops for 3D scenes via Model Context Protocol (MCP)",
   "homepage": "https://nyukicorn.github.io/chocodrop/",
   "bugs": {
