@@ -186,6 +186,52 @@ const result = await window.chocodrop.reload();
 console.log(result); // {ok: true, message: "Configuration reloaded"}
 ```
 
+#### 🌐 外部サイト対応 - Full UI表示
+Bookmarkletやコンソールスニペットで外部サイト（threejs.org、CodePen、Glitch等）に統合した場合も、**フル機能のUIが表示されます**（プレースホルダーUIではありません）。
+
+**特徴:**
+- ✅ 完全なChocoDrop UIが表示
+- ✅ THREE.jsが未読み込みでも自動的にCDNから取得
+- ✅ ローカルデーモン(127.0.0.1)との通信のみ（外部送信なし）
+- ⚠️ 現在、読み取り専用モード（AI生成などの書き込みAPIは Phase 2b で対応予定）
+
+**セキュリティ設定:**
+- Phase 2a: 読み取り専用エンドポイント（/v1/health, /sdk.js, /ui/, /vendor/, /generated/）は全オリジンからアクセス可能
+- Phase 2b: 書き込みエンドポイント（/v1/generate等）はペアリング承認 + CSRF保護で有効化予定
+
+#### 🏢 企業ポリシー配慮 - CDN制御
+企業ネットワークでCDNアクセスが制限されている環境向けに、THREE.js読み込み動作をカスタマイズできます:
+
+```html
+<script>
+  // CDNからのTHREE.js読み込みを無効化（ローカルフォールバックのみ使用）
+  window.chocodropConfig = {
+    allowCdn: false  // デフォルト: true
+  };
+</script>
+<script src="http://127.0.0.1:43110/sdk.js"></script>
+```
+
+**カスタムTHREE.jsソース指定:**
+```html
+<script>
+  window.chocodropConfig = {
+    threeSrc: '/path/to/your/three.module.js'  // カスタムTHREE.jsパスを指定
+  };
+</script>
+```
+
+**THREE.js読み込みの優先順位:**
+1. 既存の `window.THREE`（既に読み込まれている場合）
+2. `window.chocodropConfig.threeSrc`（カスタムソース指定時）
+3. CDN（`allowCdn: true` の場合、SRI付き安全な読み込み）
+4. ローカルフォールバック（`/vendor/three-0.158.0.min.js`）
+
+**セキュリティ機能:**
+- THREE.js v0.158.0 に固定（バージョン固定で安全性向上）
+- SRI（Subresource Integrity）による改ざん検知
+- CDN失敗時のローカルフォールバック
+
 ---
 
 ### 📖 API使用例

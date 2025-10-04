@@ -149,15 +149,42 @@ export async function startDaemon({ host = '127.0.0.1', port = 43110 } = {}) {
 
   // Serve UI bundles from dist/ (Rollup output)
   const distPath = join(__dirname, '../../../dist');
-  app.use('/ui', express.static(distPath));
+  app.use('/ui', express.static(distPath, {
+    setHeaders: (res, path) => {
+      // UI bundles: short cache (5 minutes) as they may update frequently during development
+      res.setHeader('Cache-Control', 'public, max-age=300');
+    }
+  }));
 
   // Also serve original source files (fallback for dev)
   const srcClientPath = join(__dirname, '../../../src/client');
-  app.use('/ui/src', express.static(srcClientPath));
+  app.use('/ui/src', express.static(srcClientPath, {
+    setHeaders: (res) => {
+      // Dev source files: no cache
+      res.setHeader('Cache-Control', 'no-store, max-age=0');
+    }
+  }));
 
-  // Serve generated files
+  // Serve vendor files (THREE.js local fallback)
+  const vendorPath = join(__dirname, '../../../vendor');
+  app.use('/vendor', express.static(vendorPath, {
+    setHeaders: (res, path) => {
+      // Cache vendor files for 1 hour (they're versioned)
+      res.setHeader('Cache-Control', 'public, max-age=3600');
+      res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+    }
+  }));
+
+  // Serve generated files (images, videos)
   const generatedPath = join(publicDir, 'generated');
-  app.use('/generated', express.static(generatedPath));
+  app.use('/generated', express.static(generatedPath, {
+    setHeaders: (res, path) => {
+      // Generated media: longer cache (1 day) as filenames are timestamped
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+      // Content-Type is auto-set by express.static based on file extension
+      // Only PNG, JPG, MP4 files are expected (verified safe static assets)
+    }
+  }));
 
   // Settings page endpoint (will implement in next phase)
   app.get('/settings', (req, res) => {

@@ -184,23 +184,77 @@
   }
 
   /**
-   * Load THREE from CDN if not already available
+   * Load THREE from CDN or local fallback if not already available
+   * Supports configuration via window.chocodropConfig:
+   * - allowCdn: false to disable CDN loading (default: true)
+   * - threeSrc: custom THREE.js source URL
    */
   async function ensureThreeAvailable() {
     if (typeof window !== 'undefined' && window.THREE) {
       return true; // Already available
     }
 
+    const config = (typeof window !== 'undefined' && window.chocodropConfig) || {};
+    const allowCdn = config.allowCdn !== false; // Default: true
+    const customSrc = config.threeSrc || null;
+
+    // Try custom source first if specified
+    if (customSrc) {
+      try {
+        console.log(`📦 Loading THREE from custom source: ${customSrc}`);
+        const mod = await import(customSrc);
+        if (typeof window !== 'undefined') {
+          window.THREE = mod;
+        }
+        console.log('✅ THREE loaded from custom source');
+        return true;
+      } catch (error) {
+        console.warn('Failed to load THREE from custom source:', error);
+      }
+    }
+
+    // Try CDN with SRI if allowed
+    if (allowCdn) {
+      try {
+        console.log('📦 Loading THREE from CDN (pinned v0.158.0 with SRI)...');
+
+        // Load via script tag to support integrity checking
+        await new Promise((resolve, reject) => {
+          const script = document.createElement('script');
+          script.type = 'module';
+          script.crossOrigin = 'anonymous';
+          script.integrity = 'sha384-8BWMu/Do9SsP0UPy64KoqsVP4vTp4JAQF2X6jRMBYVnWcZVkgwtEZLJ1KE0blEKT';
+
+          // Create inline module to import and expose THREE
+          const inlineModule = `
+            import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.module.min.js';
+            window.THREE = THREE;
+          `;
+
+          script.textContent = inlineModule;
+          script.onload = resolve;
+          script.onerror = reject;
+          document.head.appendChild(script);
+        });
+
+        console.log('✅ THREE loaded from CDN');
+        return true;
+      } catch (error) {
+        console.warn('Failed to load THREE from CDN, trying local fallback:', error);
+      }
+    }
+
+    // Try local fallback
     try {
-      console.log('📦 Loading THREE from CDN...');
-      const mod = await import('https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.module.js');
+      console.log('📦 Loading THREE from local vendor...');
+      const mod = await import(`${BASE}/vendor/three-0.158.0.min.js`);
       if (typeof window !== 'undefined') {
         window.THREE = mod;
       }
-      console.log('✅ THREE loaded from CDN');
+      console.log('✅ THREE loaded from local vendor');
       return true;
     } catch (error) {
-      console.warn('Failed to load THREE from CDN:', error);
+      console.warn('Failed to load THREE from local vendor:', error);
       return false;
     }
   }

@@ -222,6 +222,7 @@ const READ_ONLY_ENDPOINTS = new Set(['/v1/health', '/sdk.js']);
 function isReadOnlyPath(path) {
   return READ_ONLY_ENDPOINTS.has(path) ||
          path.startsWith('/ui/') ||
+         path.startsWith('/vendor/') ||
          path.startsWith('/generated/');
 }
 
