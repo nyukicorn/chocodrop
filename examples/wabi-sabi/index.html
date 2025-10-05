@@ -128,30 +128,31 @@
         }
 
         .menu-toggle {
-            background: rgba(250, 250, 250, 0.85);
-            backdrop-filter: blur(12px) saturate(180%);
-            -webkit-backdrop-filter: blur(12px) saturate(180%);
-            border: 1px solid rgba(255, 255, 255, 0.4);
+            background: rgba(99, 102, 241, 0.15);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
             color: #2d3748;
             padding: 10px 14px;
             border-radius: 8px;
             font-size: 18px;
             cursor: pointer;
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04);
-            border: none;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2), 0 2px 6px rgba(0, 0, 0, 0.05);
             width: 44px;
             height: 44px;
             display: flex;
             align-items: center;
             justify-content: center;
+            opacity: 0.8;
         }
 
         .menu-toggle:hover {
-            background: rgba(255, 255, 255, 0.95);
-            border-color: rgba(255, 255, 255, 0.6);
-            transform: translateY(-2px);
-            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12), 0 3px 6px rgba(0, 0, 0, 0.06);
+            background: rgba(99, 102, 241, 0.2);
+            border-color: rgba(255, 255, 255, 0.3);
+            transform: scale(1.1) translateY(-2px);
+            box-shadow: 0 6px 16px rgba(99, 102, 241, 0.3), 0 3px 8px rgba(0, 0, 0, 0.1);
+            opacity: 1;
         }
 
         .menu-dropdown {
@@ -159,12 +160,12 @@
             top: 56px;
             right: 0;
             min-width: 220px;
-            background: rgba(255, 255, 255, 0.92);
-            backdrop-filter: blur(16px) saturate(180%);
-            -webkit-backdrop-filter: blur(16px) saturate(180%);
-            border: 1px solid rgba(255, 255, 255, 0.5);
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(99, 102, 241, 0.2);
             border-radius: 12px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.04);
+            box-shadow: 0 8px 24px rgba(99, 102, 241, 0.15), 0 4px 12px rgba(0, 0, 0, 0.08);
             opacity: 0;
             visibility: hidden;
             transform: translateY(-10px);
@@ -200,8 +201,9 @@
         }
 
         .menu-item:hover {
-            background: rgba(255, 255, 255, 0.6);
+            background: rgba(99, 102, 241, 0.08);
             padding-left: 20px;
+            border-left: 2px solid rgba(99, 102, 241, 0.4);
         }
 
         .menu-item.has-submenu {
@@ -225,14 +227,15 @@
         }
 
         .submenu-toggle:hover {
-            background: rgba(255, 255, 255, 0.6);
+            background: rgba(99, 102, 241, 0.08);
             padding-left: 20px;
+            border-left: 2px solid rgba(99, 102, 241, 0.4);
         }
 
         .submenu {
             display: none;
-            background: rgba(245, 245, 245, 0.95);
-            border-top: 1px solid rgba(0, 0, 0, 0.06);
+            background: rgba(99, 102, 241, 0.03);
+            border-top: 1px solid rgba(99, 102, 241, 0.1);
         }
 
         .submenu.active {
@@ -246,6 +249,7 @@
 
         .submenu .menu-item:hover {
             padding-left: 36px;
+            background: rgba(99, 102, 241, 0.12);
         }
 
         #info strong {
