@@ -616,9 +616,19 @@
             }
 
             // 情報パネル表示ボタン
-            if (showInfoBtn && infoPanel) {
+            if (showInfoBtn) {
                 showInfoBtn.addEventListener('click', () => {
-                    infoPanel.style.display = 'block';
+                    // グローバルに定義された showInfoPanel() を呼び出す
+                    if (typeof showInfoPanel === 'function') {
+                        showInfoPanel();
+                    } else {
+                        // フォールバック: 直接表示
+                        const panel = document.getElementById('info');
+                        if (panel) {
+                            panel.style.display = 'block';
+                            panel.classList.remove('hidden');
+                        }
+                    }
                     menuDropdown.classList.remove('active');
                 });
             }
