@@ -240,34 +240,99 @@
             filter: none !important;
         }
 
-        .demo-links {
+        /* 世界選択ドロップダウン */
+        .world-selector {
             position: fixed;
             bottom: 20px;
-            right: 100px;
+            right: 20px;
             z-index: 100;
-            display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
         }
 
-        .demo-link {
+        .world-toggle-btn {
             background: rgba(250, 250, 250, 0.9);
             backdrop-filter: blur(10px);
             -webkit-backdrop-filter: blur(10px);
-            border: 1px solid rgba(139, 92, 246, 0.3);
+            border: 1px solid rgba(30, 30, 30, 0.2);
             color: #2d3748;
-            text-decoration: none;
-            padding: 8px 12px;
-            border-radius: 6px;
-            font-size: 12px;
+            padding: 10px 16px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
             transition: all 0.2s ease;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            display: flex;
+            align-items: center;
+            gap: 6px;
         }
 
-        .demo-link:hover {
-            background: rgba(139, 92, 246, 0.1);
-            border-color: rgba(139, 92, 246, 0.5);
+        .world-toggle-btn:hover {
+            background: rgba(250, 250, 250, 1);
+            border-color: rgba(30, 30, 30, 0.4);
             transform: translateY(-1px);
+        }
+
+        .world-dropdown {
+            position: absolute;
+            bottom: 100%;
+            right: 0;
+            margin-bottom: 8px;
+            background: rgba(250, 250, 250, 0.95);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(30, 30, 30, 0.2);
+            border-radius: 8px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+            min-width: 180px;
+            max-height: 400px;
+            overflow-y: auto;
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(10px);
+            transition: all 0.2s ease;
+        }
+
+        .world-dropdown.active {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+        }
+
+        .world-item {
+            display: block;
+            padding: 12px 16px;
+            color: #2d3748;
+            text-decoration: none;
+            font-size: 13px;
+            transition: all 0.15s ease;
+            border-bottom: 1px solid rgba(30, 30, 30, 0.1);
+        }
+
+        .world-item:last-child {
+            border-bottom: none;
+        }
+
+        .world-item:hover {
+            background: rgba(30, 30, 30, 0.05);
+            padding-left: 20px;
+        }
+
+        .world-dropdown::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .world-dropdown::-webkit-scrollbar-track {
+            background: rgba(30, 30, 30, 0.05);
+            border-radius: 4px;
+        }
+
+        .world-dropdown::-webkit-scrollbar-thumb {
+            background: rgba(30, 30, 30, 0.2);
+            border-radius: 4px;
+        }
+
+        .world-dropdown::-webkit-scrollbar-thumb:hover {
+            background: rgba(30, 30, 30, 0.3);
         }
         
         /* より限定的なスタイル上書き */
@@ -329,13 +394,50 @@
         </div>
     </div>
 
-    <div class="demo-links">
-        <a href="../basic/index.html" class="demo-link">🍫 はじまりの国</a>
-        <a href="../pixel-ocean/index.html" class="demo-link">🌊 海底世界</a>
-        <a href="../music-garden/index.html" class="demo-link">🌸 硝子の花</a>
-        <a href="../space/index.html" class="demo-link">🌌 宇宙空間</a>
-        <a href="../toy-city/index.html" class="demo-link">🎡 AI遊園地</a>
+    <!-- 世界選択ドロップダウン -->
+    <div class="world-selector">
+        <button class="world-toggle-btn" id="worldToggle">
+            <span>🌍</span>
+            <span>世界一覧</span>
+            <span style="font-size: 10px; margin-left: 2px;">▼</span>
+        </button>
+        <div class="world-dropdown" id="worldDropdown">
+            <a href="../basic/index.html" class="world-item">🍫 はじまりの国</a>
+            <a href="../pixel-ocean/index.html" class="world-item">🌊 海底世界</a>
+            <a href="../music-garden/index.html" class="world-item">🌸 硝子の花</a>
+            <a href="../space/index.html" class="world-item">🌌 宇宙空間</a>
+            <a href="../toy-city/index.html" class="world-item">🎡 AI遊園地</a>
+        </div>
     </div>
+
+    <script>
+        // 世界選択ドロップダウンの制御
+        (function() {
+            const toggleBtn = document.getElementById('worldToggle');
+            const dropdown = document.getElementById('worldDropdown');
+
+            if (toggleBtn && dropdown) {
+                toggleBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    dropdown.classList.toggle('active');
+                });
+
+                // 外側クリックで閉じる
+                document.addEventListener('click', (e) => {
+                    if (!toggleBtn.contains(e.target) && !dropdown.contains(e.target)) {
+                        dropdown.classList.remove('active');
+                    }
+                });
+
+                // Escキーで閉じる
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'Escape') {
+                        dropdown.classList.remove('active');
+                    }
+                });
+            }
+        })();
+    </script>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
@@ -1471,9 +1573,11 @@
         }
 
         // 🎛️ 音楽データのリアルタイム表示
+        let musicDebugVisible = false; // デフォルトで非表示
+
         function updateMusicDebugDisplay() {
             let debugPanel = document.getElementById('music-debug');
-            
+
             if (!debugPanel) {
                 debugPanel = document.createElement('div');
                 debugPanel.id = 'music-debug';
@@ -1491,14 +1595,24 @@
                     min-width: 200px;
                     backdrop-filter: blur(10px);
                     border: 1px solid rgba(0, 255, 136, 0.3);
+                    display: none;
                 `;
                 document.body.appendChild(debugPanel);
 
-                // クリックで表示/非表示切り替え
+                // クリックで非表示
                 debugPanel.addEventListener('click', () => {
-                    debugPanel.style.display = debugPanel.style.display === 'none' ? 'block' : 'none';
+                    musicDebugVisible = false;
+                    debugPanel.style.display = 'none';
                 });
             }
+
+            // 非表示の時は更新をスキップ（パフォーマンス向上）
+            if (!musicDebugVisible) {
+                debugPanel.style.display = 'none';
+                return;
+            }
+
+            debugPanel.style.display = 'block';
 
             if (musicData.isPlaying) {
                 debugPanel.innerHTML = `
@@ -1509,16 +1623,25 @@
                     <div>Treble: ${'█'.repeat(Math.floor(musicData.treble * 20))} ${(musicData.treble * 100).toFixed(0)}%</div>
                     <div>BPM: ${musicData.bpm ? musicData.bpm.toFixed(0) : '--'}</div>
                     <div>${musicData.beatDetected ? '🥁 BEAT!' : '⚪ ----'}</div>
-                    <div style="font-size: 8px; color: #666; margin-top: 5px;">Click to hide</div>
+                    <div style="font-size: 8px; color: #666; margin-top: 5px;">Press M or Click to hide</div>
                 `;
             } else {
                 debugPanel.innerHTML = `
                     <div style="color: #ff6666;">🔇 NO MUSIC</div>
                     <div style="font-size: 8px; color: #666;">Video with audio needed</div>
-                    <div style="font-size: 8px; color: #666; margin-top: 5px;">Click to hide</div>
+                    <div style="font-size: 8px; color: #666; margin-top: 5px;">Press M or Click to hide</div>
                 `;
             }
         }
+
+        // Mキーで音楽デバッグパネルを切り替え
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'm' || e.key === 'M') {
+                musicDebugVisible = !musicDebugVisible;
+                updateMusicDebugDisplay();
+                console.log(`🎵 Music debug panel ${musicDebugVisible ? 'shown' : 'hidden'}`);
+            }
+        });
 
         // ChocoDrop の動画要素を監視
         function observeVideoElements() {
