@@ -2383,10 +2383,10 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
         });
 
-        // 🎯 ヒントパネル管理システム
+        // 🎯 ヒントパネル管理システム（グローバル関数として定義）
         let autoHideTimer = null;
 
-        function hideInfoPanel() {
+        window.hideInfoPanel = function() {
             const infoPanel = document.getElementById('info');
 
             infoPanel.classList.add('hidden');
@@ -2397,9 +2397,9 @@
             if (autoHideTimer) {
                 clearTimeout(autoHideTimer);
             }
-        }
+        };
 
-        function showInfoPanel() {
+        window.showInfoPanel = function() {
             const infoPanel = document.getElementById('info');
 
             infoPanel.style.display = 'block';
@@ -2408,14 +2408,14 @@
             }, 10);
 
             // 30秒後に自動非表示
-            autoHideTimer = setTimeout(hideInfoPanel, 30000);
-        }
+            autoHideTimer = setTimeout(window.hideInfoPanel, 30000);
+        };
 
         // 30秒後の自動非表示タイマー開始（初回訪問時のみ表示されるため）
         if (localStorage.getItem('wabisabi_visited')) {
             // 2回目以降は自動非表示タイマーは不要
         } else {
-            autoHideTimer = setTimeout(hideInfoPanel, 30000);
+            autoHideTimer = setTimeout(window.hideInfoPanel, 30000);
         }
 
         console.log('✅ 侘寂の世界が準備完了！🎨 音楽入り動画で墨絵に魂を宿らせましょう');
