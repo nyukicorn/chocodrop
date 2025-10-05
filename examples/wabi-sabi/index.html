@@ -119,34 +119,133 @@
             }
         }
 
-        .navigation {
+        /* 統合メニュー */
+        .unified-menu {
             position: fixed;
             top: 16px;
             right: 20px;
-            z-index: 100;
-            display: flex;
-            gap: 8px;
+            z-index: 1000;
         }
 
-        .nav-link {
+        .menu-toggle {
             background: rgba(250, 250, 250, 0.85);
             backdrop-filter: blur(12px) saturate(180%);
             -webkit-backdrop-filter: blur(12px) saturate(180%);
             border: 1px solid rgba(255, 255, 255, 0.4);
             color: #2d3748;
-            text-decoration: none;
-            padding: 8px 12px;
+            padding: 10px 14px;
             border-radius: 8px;
-            font-size: 12px;
+            font-size: 18px;
+            cursor: pointer;
             transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04);
+            border: none;
+            width: 44px;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
-        .nav-link:hover {
+        .menu-toggle:hover {
             background: rgba(255, 255, 255, 0.95);
             border-color: rgba(255, 255, 255, 0.6);
             transform: translateY(-2px);
             box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12), 0 3px 6px rgba(0, 0, 0, 0.06);
+        }
+
+        .menu-dropdown {
+            position: absolute;
+            top: 56px;
+            right: 0;
+            min-width: 220px;
+            background: rgba(255, 255, 255, 0.92);
+            backdrop-filter: blur(16px) saturate(180%);
+            -webkit-backdrop-filter: blur(16px) saturate(180%);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.04);
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(-10px);
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            overflow: hidden;
+        }
+
+        .menu-dropdown.active {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+        }
+
+        .menu-item {
+            display: block;
+            padding: 12px 16px;
+            color: #2d3748;
+            text-decoration: none;
+            font-size: 13px;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+            cursor: pointer;
+            background: none;
+            border-left: none;
+            border-right: none;
+            border-top: none;
+            width: 100%;
+            text-align: left;
+        }
+
+        .menu-item:last-child {
+            border-bottom: none;
+        }
+
+        .menu-item:hover {
+            background: rgba(255, 255, 255, 0.6);
+            padding-left: 20px;
+        }
+
+        .menu-item.has-submenu {
+            position: relative;
+            padding: 0;
+            border: none;
+        }
+
+        .submenu-toggle {
+            display: block;
+            padding: 12px 16px;
+            color: #2d3748;
+            font-size: 13px;
+            background: none;
+            border: none;
+            width: 100%;
+            text-align: left;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+        }
+
+        .submenu-toggle:hover {
+            background: rgba(255, 255, 255, 0.6);
+            padding-left: 20px;
+        }
+
+        .submenu {
+            display: none;
+            background: rgba(245, 245, 245, 0.95);
+            border-top: 1px solid rgba(0, 0, 0, 0.06);
+        }
+
+        .submenu.active {
+            display: block;
+        }
+
+        .submenu .menu-item {
+            padding-left: 32px;
+            font-size: 12px;
+        }
+
+        .submenu .menu-item:hover {
+            padding-left: 36px;
         }
 
         #info strong {
@@ -371,8 +470,8 @@
     </style>
 </head>
 <body>
-    <!-- Navigation Links -->
-    <div class="navigation">
+    <!-- Navigation Links (hidden - now in unified menu) -->
+    <div class="navigation" style="display: none;">
         <a href="../../index.html" class="nav-link">🏠 Home</a>
         <a href="https://github.com/nyukicorn/chocodrop" class="nav-link" target="_blank">📦 GitHub</a>
     </div>
@@ -407,8 +506,8 @@
         </div>
     </div>
 
-    <!-- 世界選択ドロップダウン -->
-    <div class="world-selector">
+    <!-- 世界選択ドロップダウン (hidden - now in unified menu) -->
+    <div class="world-selector" style="display: none;">
         <button class="world-toggle-btn" id="worldToggle">
             <span>🌍</span>
             <span>世界一覧</span>
@@ -423,32 +522,107 @@
         </div>
     </div>
 
-    <script>
-        // 世界選択ドロップダウンの制御
-        (function() {
-            const toggleBtn = document.getElementById('worldToggle');
-            const dropdown = document.getElementById('worldDropdown');
+    <!-- 統合メニュー -->
+    <div class="unified-menu">
+        <button class="menu-toggle" id="unifiedMenuToggle" aria-label="Menu">☰</button>
+        <div class="menu-dropdown" id="unifiedMenuDropdown">
+            <button class="menu-item" id="showInfoBtn">📖 このワールドについて</button>
 
-            if (toggleBtn && dropdown) {
-                toggleBtn.addEventListener('click', (e) => {
+            <div class="menu-item has-submenu">
+                <button class="submenu-toggle" id="worldsMenuToggle">🌍 世界選択 <span style="font-size: 10px;">▼</span></button>
+                <div class="submenu" id="worldsSubmenu">
+                    <a href="../basic/index.html" class="menu-item">🍫 はじまりの国</a>
+                    <a href="../pixel-ocean/index.html" class="menu-item">🌊 海底世界</a>
+                    <a href="../music-garden/index.html" class="menu-item">🌸 硝子の花</a>
+                    <a href="../space/index.html" class="menu-item">🌌 宇宙空間</a>
+                    <a href="../toy-city/index.html" class="menu-item">🎡 AI遊園地</a>
+                    <a href="index.html" class="menu-item">🖤 侘び寂びの世界（現在地）</a>
+                </div>
+            </div>
+
+            <a href="https://github.com/nyukicorn/chocodrop" class="menu-item" target="_blank">🔗 GitHub</a>
+
+            <button class="menu-item" id="vrMenuButton">🥽 VR</button>
+            <button class="menu-item" id="arMenuButton">🥽 AR</button>
+        </div>
+    </div>
+
+    <script>
+        // 統合メニューの制御
+        (function() {
+            const menuToggle = document.getElementById('unifiedMenuToggle');
+            const menuDropdown = document.getElementById('unifiedMenuDropdown');
+            const worldsMenuToggle = document.getElementById('worldsMenuToggle');
+            const worldsSubmenu = document.getElementById('worldsSubmenu');
+            const showInfoBtn = document.getElementById('showInfoBtn');
+            const infoPanel = document.getElementById('info');
+
+            // 初回訪問チェック - localStorage使用
+            const FIRST_VISIT_KEY = 'wabisabi_visited';
+            const hasVisited = localStorage.getItem(FIRST_VISIT_KEY);
+
+            if (!hasVisited) {
+                // 初回訪問時は情報パネルを表示
+                if (infoPanel) {
+                    infoPanel.style.display = 'block';
+                }
+                localStorage.setItem(FIRST_VISIT_KEY, 'true');
+            } else {
+                // 2回目以降は非表示
+                if (infoPanel) {
+                    infoPanel.style.display = 'none';
+                }
+            }
+
+            // 統合メニューのトグル
+            if (menuToggle && menuDropdown) {
+                menuToggle.addEventListener('click', (e) => {
                     e.stopPropagation();
-                    dropdown.classList.toggle('active');
+                    menuDropdown.classList.toggle('active');
                 });
 
                 // 外側クリックで閉じる
                 document.addEventListener('click', (e) => {
-                    if (!toggleBtn.contains(e.target) && !dropdown.contains(e.target)) {
-                        dropdown.classList.remove('active');
+                    if (!menuToggle.contains(e.target) && !menuDropdown.contains(e.target)) {
+                        menuDropdown.classList.remove('active');
+                        // サブメニューも閉じる
+                        if (worldsSubmenu) {
+                            worldsSubmenu.classList.remove('active');
+                        }
                     }
                 });
 
                 // Escキーで閉じる
                 document.addEventListener('keydown', (e) => {
                     if (e.key === 'Escape') {
-                        dropdown.classList.remove('active');
+                        menuDropdown.classList.remove('active');
+                        if (worldsSubmenu) {
+                            worldsSubmenu.classList.remove('active');
+                        }
                     }
                 });
             }
+
+            // 世界選択サブメニューのトグル
+            if (worldsMenuToggle && worldsSubmenu) {
+                worldsMenuToggle.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    worldsSubmenu.classList.toggle('active');
+                });
+            }
+
+            // 情報パネル表示ボタン
+            if (showInfoBtn && infoPanel) {
+                showInfoBtn.addEventListener('click', () => {
+                    infoPanel.style.display = 'block';
+                    menuDropdown.classList.remove('active');
+                });
+            }
+
+            // VR/ARボタンは後でThree.jsのrendererと連携
+            // グローバル変数として保存
+            window.unifiedMenuVRButton = document.getElementById('vrMenuButton');
+            window.unifiedMenuARButton = document.getElementById('arMenuButton');
         })();
     </script>
 
@@ -642,27 +816,93 @@
             });
         }
 
-        // ★ VR/ARボタン追加（グローバル変数として利用可能）
-        if (typeof VRButton !== 'undefined') {
-            console.log('✅ VRButton script loaded');
-            const vrButton = VRButton.createButton(renderer);
-            document.body.appendChild(vrButton);
-            console.log('VR button element:', vrButton);
+        // ★ VR/ARボタンを統合メニューと連携（bodyには追加しない）
+        if (typeof VRButton !== 'undefined' && window.unifiedMenuVRButton) {
+            console.log('✅ VRButton script loaded - connecting to unified menu');
+
+            // VRセッション開始関数を作成
+            function startVRSession() {
+                if ('xr' in navigator) {
+                    navigator.xr.isSessionSupported('immersive-vr').then(supported => {
+                        if (supported) {
+                            const sessionInit = { optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking', 'layers'] };
+                            navigator.xr.requestSession('immersive-vr', sessionInit).then(session => {
+                                session.addEventListener('end', () => {
+                                    renderer.xr.setSession(null);
+                                });
+                                renderer.xr.setSession(session);
+                            });
+                        } else {
+                            console.log('VR not supported on this device');
+                            // NOT SUPPORTEDメッセージは表示しない（静かに失敗）
+                        }
+                    });
+                }
+            }
+
+            window.unifiedMenuVRButton.onclick = startVRSession;
+
+            // サポートチェック - 未サポートの場合はボタンを非表示に
+            if ('xr' in navigator) {
+                navigator.xr.isSessionSupported('immersive-vr').then(supported => {
+                    if (!supported) {
+                        window.unifiedMenuVRButton.style.display = 'none';
+                    }
+                });
+            } else {
+                window.unifiedMenuVRButton.style.display = 'none';
+            }
         } else {
-            console.log('❌ VRButton script not loaded');
+            console.log('❌ VRButton script not loaded or menu button not found');
+            if (window.unifiedMenuVRButton) {
+                window.unifiedMenuVRButton.style.display = 'none';
+            }
         }
 
-        if (typeof ARButton !== 'undefined') {
-            console.log('✅ ARButton script loaded');
-            const arButton = ARButton.createButton(renderer, {
-                requiredFeatures: ['hit-test'],
-                optionalFeatures: ['dom-overlay'],
-                domOverlay: { root: document.body }
-            });
-            document.body.appendChild(arButton);
-            console.log('AR button element:', arButton);
+        if (typeof ARButton !== 'undefined' && window.unifiedMenuARButton) {
+            console.log('✅ ARButton script loaded - connecting to unified menu');
+
+            // ARセッション開始関数を作成
+            function startARSession() {
+                if ('xr' in navigator) {
+                    navigator.xr.isSessionSupported('immersive-ar').then(supported => {
+                        if (supported) {
+                            const sessionInit = {
+                                requiredFeatures: ['hit-test'],
+                                optionalFeatures: ['dom-overlay'],
+                                domOverlay: { root: document.body }
+                            };
+                            navigator.xr.requestSession('immersive-ar', sessionInit).then(session => {
+                                session.addEventListener('end', () => {
+                                    renderer.xr.setSession(null);
+                                });
+                                renderer.xr.setSession(session);
+                            });
+                        } else {
+                            console.log('AR not supported on this device');
+                            // NOT SUPPORTEDメッセージは表示しない（静かに失敗）
+                        }
+                    });
+                }
+            }
+
+            window.unifiedMenuARButton.onclick = startARSession;
+
+            // サポートチェック - 未サポートの場合はボタンを非表示に
+            if ('xr' in navigator) {
+                navigator.xr.isSessionSupported('immersive-ar').then(supported => {
+                    if (!supported) {
+                        window.unifiedMenuARButton.style.display = 'none';
+                    }
+                });
+            } else {
+                window.unifiedMenuARButton.style.display = 'none';
+            }
         } else {
-            console.log('❌ ARButton script not loaded');
+            console.log('❌ ARButton script not loaded or menu button not found');
+            if (window.unifiedMenuARButton) {
+                window.unifiedMenuARButton.style.display = 'none';
+            }
         }
 
         // 🎨 シンプルな白い空間（霧なし）
