@@ -12,6 +12,16 @@ Drop a little, bloom a lot.
 
 ChocoDrop は常駐 daemon + ブラウザ SDK の新アーキテクチャに移行しました！
 
+### 🌐 推奨ブラウザ
+
+**Chrome（推奨・動作確認済み）**
+- ✅ Private Network Access (PNA) 完全サポート
+- ✅ localStorage persistence 実装
+- ✅ すべての機能が安定動作
+
+**⚠️ 他のブラウザについて:**
+Safari/Firefox/Edgeは現在サポートしていません。Chromeの使用を強く推奨します。
+
 ### 🚀 クイックスタート
 
 #### Step 1: デーモンを起動
