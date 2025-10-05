@@ -196,13 +196,6 @@
             background: rgba(99, 102, 241, 0.12);
         }
 
-        /* アイコンを紫系に統一 */
-        .menu-item-icon {
-            filter: hue-rotate(240deg) saturate(0.8) brightness(1.1);
-            display: inline-block;
-            margin-right: 4px;
-        }
-
         #info strong {
             font-size: 14px;
             font-weight: 600;
@@ -478,25 +471,25 @@
     <div class="unified-menu">
         <button class="menu-toggle" id="unifiedMenuToggle" aria-label="Menu">☰</button>
         <div class="menu-dropdown" id="unifiedMenuDropdown">
-            <button class="menu-item" id="showInfoBtn"><span class="menu-item-icon">📖</span> このワールドについて</button>
+            <button class="menu-item" id="showInfoBtn">📖 このワールドについて</button>
 
             <div class="menu-item has-submenu">
-                <button class="submenu-toggle" id="worldsMenuToggle"><span class="menu-item-icon">🌍</span> 世界選択 <span style="font-size: 10px;">▼</span></button>
+                <button class="submenu-toggle" id="worldsMenuToggle">🌍 世界選択 <span style="font-size: 10px;">▼</span></button>
                 <div class="submenu" id="worldsSubmenu">
-                    <a href="../basic/index.html" class="menu-item"><span class="menu-item-icon">🍫</span> はじまりの国</a>
-                    <a href="../pixel-ocean/index.html" class="menu-item"><span class="menu-item-icon">🌊</span> 海底世界</a>
-                    <a href="../music-garden/index.html" class="menu-item"><span class="menu-item-icon">🌸</span> 硝子の花</a>
-                    <a href="../space/index.html" class="menu-item"><span class="menu-item-icon">🌌</span> 宇宙空間</a>
-                    <a href="../toy-city/index.html" class="menu-item"><span class="menu-item-icon">🎡</span> AI遊園地</a>
-                    <a href="index.html" class="menu-item"><span class="menu-item-icon">🖤</span> 侘び寂びの世界（現在地）</a>
+                    <a href="../basic/index.html" class="menu-item">🍫 はじまりの国</a>
+                    <a href="../pixel-ocean/index.html" class="menu-item">🌊 海底世界</a>
+                    <a href="../music-garden/index.html" class="menu-item">🌸 硝子の花</a>
+                    <a href="../space/index.html" class="menu-item">🌌 宇宙空間</a>
+                    <a href="../toy-city/index.html" class="menu-item">🎡 AI遊園地</a>
+                    <a href="index.html" class="menu-item">🖤 侘び寂びの世界（現在地）</a>
                 </div>
             </div>
 
-            <a href="../../index.html" class="menu-item"><span class="menu-item-icon">🏠</span> Home</a>
-            <a href="https://github.com/nyukicorn/chocodrop" class="menu-item" target="_blank"><span class="menu-item-icon">🔗</span> GitHub</a>
+            <a href="../../index.html" class="menu-item">🏠 Home</a>
+            <a href="https://github.com/nyukicorn/chocodrop" class="menu-item" target="_blank">🔗 GitHub</a>
 
-            <button class="menu-item" id="vrMenuButton"><span class="menu-item-icon">🥽</span> VR</button>
-            <button class="menu-item" id="arMenuButton"><span class="menu-item-icon">🥽</span> AR</button>
+            <button class="menu-item" id="vrMenuButton">🥽 VR</button>
+            <button class="menu-item" id="arMenuButton">🥽 AR</button>
         </div>
     </div>
 
