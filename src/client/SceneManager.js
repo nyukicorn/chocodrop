@@ -378,7 +378,7 @@ export class SceneManager {
       const indicator = this.selectedObject.getObjectByName('selectionIndicator');
       if (indicator) {
         this.selectedObject.remove(indicator);
-        
+
         // メモリリークを防ぐためにリソースを破棄
         indicator.traverse((child) => {
           if (child.geometry) child.geometry.dispose();
@@ -390,6 +390,16 @@ export class SceneManager {
             }
           }
         });
+      }
+
+      // 透明度を元に戻す（ユーザーが意図的に透明にしていない場合のみ）
+      if (this.selectedObject.material &&
+          this.selectedObject.userData &&
+          !this.selectedObject.userData.hasOpacityEffect &&
+          this.selectedObject.userData.originalOpacity !== undefined) {
+        this.selectedObject.material.opacity = this.selectedObject.userData.originalOpacity;
+        this.selectedObject.material.needsUpdate = true;
+        console.log(`🔄 Restored opacity to ${this.selectedObject.userData.originalOpacity}`);
       }
 
       console.log(`✅ Deselected: ${this.selectedObject.name}`);
@@ -2739,12 +2749,13 @@ export class SceneManager {
       const material = new THREE.MeshBasicMaterial({
         map: texture,
         transparent: true,
+        opacity: 1.0,  // 明示的に不透明を設定
         side: THREE.DoubleSide, // 両面表示
         toneMapped: false    // トーンマッピングを無効化（より鮮やかな色彩）
       });
-      
+
       const plane = new THREE.Mesh(geometry, material);
-      
+
       // レンダリング順序を設定（画像も前面に表示）
       plane.renderOrder = 1000;  // 高い値で前面に表示
       material.depthTest = true;  // 深度テストは有効に
@@ -2775,7 +2786,8 @@ export class SceneManager {
         type: 'generated_image',
         source: 'generated_image',
         modelName: imageResult?.modelName || this.selectedImageService || null,
-        keywords: this.buildObjectKeywordHints({ prompt: parsed.prompt, baseType: 'image' })
+        keywords: this.buildObjectKeywordHints({ prompt: parsed.prompt, baseType: 'image' }),
+        originalOpacity: 1.0  // 元の透明度を保存
       };
       
       this.experimentGroup.add(plane);
@@ -2878,6 +2890,7 @@ export class SceneManager {
       const material = new THREE.MeshBasicMaterial({
         map: videoTexture,
         transparent: false,
+        opacity: 1.0,  // 明示的に不透明を設定
         side: THREE.DoubleSide,
         toneMapped: false
       });
@@ -2915,7 +2928,8 @@ export class SceneManager {
         width: requestedWidth,
         height: requestedHeight,
         videoElement: video,
-        keywords: this.buildObjectKeywordHints({ prompt: parsed.prompt, baseType: 'video' })
+        keywords: this.buildObjectKeywordHints({ prompt: parsed.prompt, baseType: 'video' }),
+        originalOpacity: 1.0  // 元の透明度を保存
       };
 
       // 音声制御UIを作成
@@ -2988,7 +3002,8 @@ export class SceneManager {
         height: 512,
         videoElement: null,
         error: error.message,
-        keywords: this.buildObjectKeywordHints({ prompt: parsed.prompt, baseType: 'video' })
+        keywords: this.buildObjectKeywordHints({ prompt: parsed.prompt, baseType: 'video' }),
+        originalOpacity: 1.0  // 元の透明度を保存
       };
 
       // シーンに追加
@@ -3038,6 +3053,7 @@ export class SceneManager {
       const material = new THREE.MeshBasicMaterial({
         map: texture,
         transparent: true,
+        opacity: 1.0,  // 明示的に不透明を設定
         side: THREE.DoubleSide,
         toneMapped: false
       });
@@ -3076,7 +3092,8 @@ export class SceneManager {
         prompt: prompt, // ファイル名をpromptとして設定
         fileName: fileName, // 元のファイル名も保存
         importOrder: this.objectCounter, // インポート順序を記録
-        keywords: this.buildObjectKeywordHints({ prompt, fileName, baseType: 'image' })
+        keywords: this.buildObjectKeywordHints({ prompt, fileName, baseType: 'image' }),
+        originalOpacity: 1.0  // 元の透明度を保存
       };
       
       this.experimentGroup.add(plane);
@@ -3163,12 +3180,13 @@ export class SceneManager {
       const material = new THREE.MeshBasicMaterial({
         map: videoTexture,
         transparent: true,
+        opacity: 1.0,  // 明示的に不透明を設定
         side: THREE.DoubleSide,
         toneMapped: false
       });
       material.alphaTest = 0.01;
       material.depthTest = true;
-      material.depthWrite = false;
+      material.depthWrite = true;  // 透明度の問題を防ぐため true に変更
       material.needsUpdate = true;
       
       const plane = new THREE.Mesh(geometry, material);
@@ -3204,7 +3222,8 @@ export class SceneManager {
         prompt: prompt, // ファイル名をpromptとして設定
         fileName: fileName, // 元のファイル名も保存
         importOrder: this.objectCounter, // インポート順序を記録
-        keywords: this.buildObjectKeywordHints({ prompt, fileName, baseType: 'video' })
+        keywords: this.buildObjectKeywordHints({ prompt, fileName, baseType: 'video' }),
+        originalOpacity: 1.0  // 元の透明度を保存
       };
 
       // 音声制御UIを作成
