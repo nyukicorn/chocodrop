@@ -809,9 +809,17 @@
                     <div style="background: rgba(139, 92, 246, 0.15); border: 1px solid rgba(139, 92, 246, 0.3); border-radius: var(--r-l); padding: 24px; margin-bottom: 20px;">
                         <p style="font-size: 1.1rem; font-weight: 700; margin-bottom: 16px; color: var(--accent-plum);">ステップ 2️⃣: デーモンを起動</p>
                         <p style="font-size: 0.95rem; margin-bottom: 12px; opacity: 0.9;">ターミナル（コマンドプロンプト）を開いて、このコマンドを実行:</p>
-                        <div style="background: rgba(0,0,0,0.4); padding: 16px; border-radius: 8px; margin-bottom: 12px;">
+
+                        <div style="background: rgba(0,0,0,0.4); padding: 16px; border-radius: 8px; margin-bottom: 8px;">
+                            <p style="font-size: 0.85rem; opacity: 0.7; margin-bottom: 8px;">npm（推奨・標準）:</p>
                             <code style="color: var(--ok-mint); font-family: monospace; font-size: 0.95rem;">npx --yes @chocodrop/daemon@alpha</code>
                         </div>
+
+                        <div style="background: rgba(0,0,0,0.4); padding: 16px; border-radius: 8px; margin-bottom: 12px;">
+                            <p style="font-size: 0.85rem; opacity: 0.7; margin-bottom: 8px;">pnpm（高速・開発者向け）:</p>
+                            <code style="color: var(--ok-mint); font-family: monospace; font-size: 0.95rem;">pnpm dlx @chocodrop/daemon@alpha</code>
+                        </div>
+
                         <p style="font-size: 0.85rem; opacity: 0.7;">💡 Node.jsがない場合: <a href="https://nodejs.org/" target="_blank" rel="noopener" style="color: var(--accent-plum); text-decoration: underline;">nodejs.org</a> からインストール（推奨: LTS版）</p>
                     </div>
 
