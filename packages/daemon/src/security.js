@@ -38,7 +38,11 @@ export async function loadAllowlist() {
     return data.origins || [];
   } catch (error) {
     // File doesn't exist or is invalid - return default
-    return ['http://localhost:3000', 'http://127.0.0.1:3000'];
+    return [
+      'http://localhost:*',      // All localhost ports
+      'http://127.0.0.1:*',      // All 127.0.0.1 ports
+      'https://threejs.org'      // Bookmarklet support
+    ];
   }
 }
 
@@ -80,7 +84,7 @@ export async function loadConfig() {
           maxRequests: 100, // 100 requests per minute
         },
         csrfEnabled: true,
-        safeMode: true, // No external requests by default
+        safeMode: false, // Allow generation by default (user has explicitly configured kamuicode)
       },
     };
   }

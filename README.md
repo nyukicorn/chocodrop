@@ -22,6 +22,34 @@ ChocoDrop は常駐 daemon + ブラウザ SDK の新アーキテクチャに移�
 **⚠️ 他のブラウザについて:**
 Safari/Firefox/Edgeは現在サポートしていません。Chromeの使用を強く推奨します。
 
+### 🔒 Origin許可設定
+
+ChocoDrop は CORS allowlist でアクセスを制御しています。
+
+**デフォルトで許可されているOrigin:**
+- `http://localhost:*`（全ポート）- 開発環境
+- `http://127.0.0.1:*`（全ポート）- 開発環境
+- `https://threejs.org` - ブックマークレット用
+
+**自分のサイトで使う場合:**
+
+`~/.config/chocodrop/allowlist.json` を作成・編集:
+
+```json
+{
+  "origins": [
+    "http://localhost:*",
+    "http://127.0.0.1:*",
+    "https://threejs.org",
+    "https://your-site.com"
+  ]
+}
+```
+
+Daemon を再起動すると反映されます。
+
+⚠️ **信頼できるサイトのみ追加してください**
+
 ### 🚀 クイックスタート
 
 #### Step 1: デーモンを起動
