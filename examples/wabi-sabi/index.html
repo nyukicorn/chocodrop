@@ -63,62 +63,6 @@
             background-color: rgba(30, 30, 30, 0.1);
         }
 
-        #hint-toggle {
-            position: fixed;
-            top: 16px;
-            left: 16px;
-            background: rgba(139, 92, 246, 0.15);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            border: 1px solid rgba(139, 92, 246, 0.3);
-            color: #6366f1;
-            padding: 4px 6px;
-            border-radius: 4px;
-            font-size: 12px;
-            cursor: pointer;
-            z-index: 99;
-            display: none;
-            transition: all 0.2s ease;
-            box-shadow: 0 1px 4px rgba(139, 92, 246, 0.2);
-            animation: hint-sparkle 2.5s ease-in-out infinite;
-        }
-
-        #hint-toggle:hover {
-            background: rgba(139, 92, 246, 0.25);
-            transform: translateY(-1px) scale(1.05);
-            animation: hint-sparkle-fast 1s ease-in-out infinite;
-        }
-
-        @keyframes hint-sparkle {
-            0%, 100% {
-                filter: brightness(1) drop-shadow(0 0 3px rgba(139, 92, 246, 0.3));
-                transform: scale(1) rotate(0deg);
-            }
-            25% {
-                filter: brightness(1.1) drop-shadow(0 0 6px rgba(139, 92, 246, 0.5));
-                transform: scale(1.02) rotate(2deg);
-            }
-            50% {
-                filter: brightness(1.2) drop-shadow(0 0 8px rgba(139, 92, 246, 0.7));
-                transform: scale(1.05) rotate(0deg);
-            }
-            75% {
-                filter: brightness(1.1) drop-shadow(0 0 6px rgba(139, 92, 246, 0.5));
-                transform: scale(1.02) rotate(-2deg);
-            }
-        }
-
-        @keyframes hint-sparkle-fast {
-            0%, 100% {
-                filter: brightness(1.1) drop-shadow(0 0 5px rgba(139, 92, 246, 0.6));
-                transform: scale(1.05) rotate(0deg);
-            }
-            50% {
-                filter: brightness(1.3) drop-shadow(0 0 10px rgba(139, 92, 246, 0.8));
-                transform: scale(1.1) rotate(5deg);
-            }
-        }
-
         /* 統合メニュー */
         .unified-menu {
             position: fixed;
@@ -479,9 +423,6 @@
         <a href="../../index.html" class="nav-link">🏠 Home</a>
         <a href="https://github.com/nyukicorn/chocodrop" class="nav-link" target="_blank">📦 GitHub</a>
     </div>
-
-    <!-- Hint Toggle Button (initially hidden) -->
-    <button id="hint-toggle">💡</button>
 
     <!-- Main Info Panel -->
     <div id="info">
@@ -2447,12 +2388,10 @@
 
         function hideInfoPanel() {
             const infoPanel = document.getElementById('info');
-            const hintToggle = document.getElementById('hint-toggle');
 
             infoPanel.classList.add('hidden');
             setTimeout(() => {
                 infoPanel.style.display = 'none';
-                hintToggle.style.display = 'block';
             }, 300);
 
             if (autoHideTimer) {
@@ -2462,9 +2401,7 @@
 
         function showInfoPanel() {
             const infoPanel = document.getElementById('info');
-            const hintToggle = document.getElementById('hint-toggle');
 
-            hintToggle.style.display = 'none';
             infoPanel.style.display = 'block';
             setTimeout(() => {
                 infoPanel.classList.remove('hidden');
@@ -2474,11 +2411,12 @@
             autoHideTimer = setTimeout(hideInfoPanel, 30000);
         }
 
-        // ヒントトグルボタンのクリックイベント
-        document.getElementById('hint-toggle').onclick = showInfoPanel;
-
-        // 30秒後の自動非表示タイマー開始
-        autoHideTimer = setTimeout(hideInfoPanel, 30000);
+        // 30秒後の自動非表示タイマー開始（初回訪問時のみ表示されるため）
+        if (localStorage.getItem('wabisabi_visited')) {
+            // 2回目以降は自動非表示タイマーは不要
+        } else {
+            autoHideTimer = setTimeout(hideInfoPanel, 30000);
+        }
 
         console.log('✅ 侘寂の世界が準備完了！🎨 音楽入り動画で墨絵に魂を宿らせましょう');
 
