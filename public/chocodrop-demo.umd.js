@@ -1082,7 +1082,7 @@
         const indicator = this.selectedObject.getObjectByName('selectionIndicator');
         if (indicator) {
           this.selectedObject.remove(indicator);
-          
+
           // メモリリークを防ぐためにリソースを破棄
           indicator.traverse((child) => {
             if (child.geometry) child.geometry.dispose();
@@ -1096,6 +1096,16 @@
           });
         }
 
+        // 透明度を元に戻す（ユーザーが意図的に透明にしていない場合のみ）
+        if (this.selectedObject.material &&
+            this.selectedObject.userData &&
+            !this.selectedObject.userData.hasOpacityEffect &&
+            this.selectedObject.userData.originalOpacity !== undefined) {
+          this.selectedObject.material.opacity = this.selectedObject.userData.originalOpacity;
+          this.selectedObject.material.needsUpdate = true;
+          console.log(`🔄 Restored opacity to ${this.selectedObject.userData.originalOpacity}`);
+        }
+
         console.log(`✅ Deselected: ${this.selectedObject.name}`);
         this.selectedObject = null;
       }
@@ -1106,7 +1116,7 @@
      */
     setupObjectDragging() {
       if (!this.renderer) return;
-      
+
       const canvas = this.renderer.domElement;
       let isDragging = false;
       let dragObject = null;
@@ -1114,6 +1124,8 @@
       let mouseStart = new THREE.Vector2();
       let dragMode = 'move'; // 'move', 'resize', 'rotate'
       let originalScale = new THREE.Vector3();
+      let dragPlane = new THREE.Plane();
+      let intersection = new THREE.Vector3();
       
       canvas.addEventListener('mousedown', (event) => {
         if (event.button !== 0) return; // 左クリックのみ
@@ -1186,14 +1198,18 @@
             isDragging = true;
             dragObject = object;
             dragMode = 'move';
-            dragOffset.copy(intersects[0].point).sub(object.position);
-            mouseStart.set(event.clientX, event.clientY);
 
-            // 高品質な視覚フィードバック
-            if (object.material) ;
-            // スケール変更を削除（大きくなる原因）
+            // カメラに平行な平面を設定（スムーズな移動のため）
+            const normal = new THREE.Vector3(0, 0, 1);
+            normal.applyQuaternion(this.camera.quaternion);
+            dragPlane.setFromNormalAndCoplanarPoint(normal, object.position);
 
-            canvas.style.cursor = 'move';
+            // マウス位置での交点を計算
+            this.raycaster.setFromCamera(this.mouse, this.camera);
+            this.raycaster.ray.intersectPlane(dragPlane, intersection);
+            dragOffset.copy(intersection).sub(object.position);
+
+            canvas.style.cursor = 'grabbing';
             console.log(`🔄 Started moving: ${object.name} (Shift-free interaction)`);
 
             // 選択状態も更新
@@ -1260,30 +1276,24 @@
           this.updateSelectionIndicatorScale(dragObject);
 
         } else if (dragMode === 'move') {
-          // 移動モード（シンプルで直感的な平面移動）
-          const moveScale = 0.01;
+          // 移動モード（平面との交点を使ったスムーズな移動）
+          const rect = canvas.getBoundingClientRect();
+          this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+          this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
-          // 直感的な移動：右にドラッグ→右に移動、上にドラッグ→上に移動
-          dragObject.position.x += deltaX * moveScale;
-          dragObject.position.y -= deltaY * moveScale; // Y軸は画面上下と逆なので反転
+          this.raycaster.setFromCamera(this.mouse, this.camera);
 
-          mouseStart.set(event.clientX, event.clientY);
+          // 平面との交点を計算
+          if (this.raycaster.ray.intersectPlane(dragPlane, intersection)) {
+            // オフセットを考慮して位置を更新（intersection を変更しないように注意）
+            dragObject.position.copy(intersection).sub(dragOffset);
+          }
         }
       });
       
-      canvas.addEventListener('mouseup', () => {
+      // ドラッグ終了処理を共通化
+      const endDragging = () => {
         if (isDragging && dragObject) {
-          // ドラッグ終了の処理
-          // 注意: マテリアルの透明度は復元しない（エフェクトを保持）
-          // ドラッグ中の一時的な透明度変更があった場合のみ復元
-          if (dragObject.material && dragObject.userData && !dragObject.userData.hasOpacityEffect) {
-            dragObject.material.opacity = 1.0;
-            dragObject.material.transparent = false;
-          }
-
-          // スケールを元に戻す（移動開始時に変更した場合）
-          // 現在は移動開始時のスケール変更を削除したので、この処理は不要
-
           console.log(`✅ Finished dragging: ${dragObject.name} to (${dragObject.position.x.toFixed(1)}, ${dragObject.position.y.toFixed(1)}, ${dragObject.position.z.toFixed(1)})`);
 
           isDragging = false;
@@ -1291,6 +1301,20 @@
           dragMode = 'move'; // リセット
           this.resizeHandleInfo = null; // リサイズハンドル情報をクリーンアップ
           canvas.style.cursor = 'default';
+        }
+      };
+
+      // キャンバス上でマウスを離した時
+      canvas.addEventListener('mouseup', endDragging);
+
+      // キャンバス外でマウスを離した時も検出（重要！）
+      document.addEventListener('mouseup', endDragging);
+
+      // キャンバスからマウスが出た時もドラッグ終了
+      canvas.addEventListener('mouseleave', () => {
+        if (isDragging) {
+          console.log(`⚠️ Mouse left canvas while dragging`);
+          endDragging();
         }
       });
       
@@ -1442,9 +1466,9 @@
         }
         
         // 通常のオブジェクトにホバーした場合
-        if (object.userData && (object.userData.type === 'generated_image' || object.userData.type === 'generated_video')) {
+        if (object.userData && (object.userData.type === 'generated_image' || object.userData.type === 'generated_video' || object.userData.source === 'imported_file')) {
           // 移動可能なオブジェクトの場合はカーソルを変更
-          canvas.style.cursor = 'move';
+          canvas.style.cursor = 'grab';
 
           this.lastHoveredObject = { onHoverExit: () => { canvas.style.cursor = 'default'; } };
           return;
@@ -3438,12 +3462,13 @@
         const material = new THREE.MeshBasicMaterial({
           map: texture,
           transparent: true,
+          opacity: 1.0,  // 明示的に不透明を設定
           side: THREE.DoubleSide, // 両面表示
           toneMapped: false    // トーンマッピングを無効化（より鮮やかな色彩）
         });
-        
+
         const plane = new THREE.Mesh(geometry, material);
-        
+
         // レンダリング順序を設定（画像も前面に表示）
         plane.renderOrder = 1000;  // 高い値で前面に表示
         material.depthTest = true;  // 深度テストは有効に
@@ -3474,7 +3499,8 @@
           type: 'generated_image',
           source: 'generated_image',
           modelName: imageResult?.modelName || this.selectedImageService || null,
-          keywords: this.buildObjectKeywordHints({ prompt: parsed.prompt, baseType: 'image' })
+          keywords: this.buildObjectKeywordHints({ prompt: parsed.prompt, baseType: 'image' }),
+          originalOpacity: 1.0  // 元の透明度を保存
         };
         
         this.experimentGroup.add(plane);
@@ -3577,6 +3603,7 @@
         const material = new THREE.MeshBasicMaterial({
           map: videoTexture,
           transparent: false,
+          opacity: 1.0,  // 明示的に不透明を設定
           side: THREE.DoubleSide,
           toneMapped: false
         });
@@ -3614,7 +3641,8 @@
           width: requestedWidth,
           height: requestedHeight,
           videoElement: video,
-          keywords: this.buildObjectKeywordHints({ prompt: parsed.prompt, baseType: 'video' })
+          keywords: this.buildObjectKeywordHints({ prompt: parsed.prompt, baseType: 'video' }),
+          originalOpacity: 1.0  // 元の透明度を保存
         };
 
         // 音声制御UIを作成
@@ -3687,7 +3715,8 @@
           height: 512,
           videoElement: null,
           error: error.message,
-          keywords: this.buildObjectKeywordHints({ prompt: parsed.prompt, baseType: 'video' })
+          keywords: this.buildObjectKeywordHints({ prompt: parsed.prompt, baseType: 'video' }),
+          originalOpacity: 1.0  // 元の透明度を保存
         };
 
         // シーンに追加
@@ -3737,6 +3766,7 @@
         const material = new THREE.MeshBasicMaterial({
           map: texture,
           transparent: true,
+          opacity: 1.0,  // 明示的に不透明を設定
           side: THREE.DoubleSide,
           toneMapped: false
         });
@@ -3775,7 +3805,8 @@
           prompt: prompt, // ファイル名をpromptとして設定
           fileName: fileName, // 元のファイル名も保存
           importOrder: this.objectCounter, // インポート順序を記録
-          keywords: this.buildObjectKeywordHints({ prompt, fileName, baseType: 'image' })
+          keywords: this.buildObjectKeywordHints({ prompt, fileName, baseType: 'image' }),
+          originalOpacity: 1.0  // 元の透明度を保存
         };
         
         this.experimentGroup.add(plane);
@@ -3862,12 +3893,13 @@
         const material = new THREE.MeshBasicMaterial({
           map: videoTexture,
           transparent: true,
+          opacity: 1.0,  // 明示的に不透明を設定
           side: THREE.DoubleSide,
           toneMapped: false
         });
         material.alphaTest = 0.01;
         material.depthTest = true;
-        material.depthWrite = false;
+        material.depthWrite = true;  // 透明度の問題を防ぐため true に変更
         material.needsUpdate = true;
         
         const plane = new THREE.Mesh(geometry, material);
@@ -3903,7 +3935,8 @@
           prompt: prompt, // ファイル名をpromptとして設定
           fileName: fileName, // 元のファイル名も保存
           importOrder: this.objectCounter, // インポート順序を記録
-          keywords: this.buildObjectKeywordHints({ prompt, fileName, baseType: 'video' })
+          keywords: this.buildObjectKeywordHints({ prompt, fileName, baseType: 'video' }),
+          originalOpacity: 1.0  // 元の透明度を保存
         };
 
         // 音声制御UIを作成
@@ -14767,9 +14800,9 @@
     getHealthEndpoint() {
       const serverUrl = this.client?.serverUrl || this.sceneManager?.client?.serverUrl;
       if (serverUrl) {
-        return `${serverUrl.replace(/\/$/, '')}/health`;
+        return `${serverUrl.replace(/\/$/, '')}/v1/health`;
       }
-      return '/health';
+      return '/v1/health';
     }
 
     ensureServerHealthModal() {
@@ -17374,10 +17407,6 @@
    * @returns {Object} - 初期化済みのコンポーネント群と dispose ヘルパー
    */
   function createChocoDrop(scene, options = {}) {
-    if (!scene) {
-      throw new Error('THREE.Scene インスタンスが必要です');
-    }
-
     const {
       camera = null,
       renderer = null,
@@ -17393,14 +17422,15 @@
     const resolvedServerUrl = serverUrl || sceneOptions.serverUrl || null;
     const chocoDropClient = client || new ChocoDropClient(resolvedServerUrl);
 
-    const sceneManager = new SceneManager(scene, {
+    // SceneManager is optional - can be created later when scene is available
+    const sceneManager = scene ? new SceneManager(scene, {
       camera,
       renderer,
       serverUrl: resolvedServerUrl,
       client: chocoDropClient,
       ...sceneOptions,
       ...otherSceneOptions
-    });
+    }) : null;
 
     const commandUI = new CommandUI({
       sceneManager,
@@ -17417,7 +17447,7 @@
       ui: commandUI,
       dispose() {
         commandUI.dispose?.();
-        sceneManager.dispose?.();
+        sceneManager?.dispose?.();
       }
     };
   }
@@ -17435,6 +17465,16 @@
       throw new Error('THREE.Scene インスタンスが必要です');
     }
 
+    // UI固有のオプションキーリスト（CommandUIDemo.jsのconfigと対応）
+    const UI_SPECIFIC_OPTIONS = [
+      'enableServerHealthCheck',
+      'skipServiceDialog',
+      'theme',
+      'showExamples',
+      'autoScroll',
+      'enableDebugLogging'
+    ];
+
     const {
       camera = null,
       renderer = null,
@@ -17443,16 +17483,33 @@
       onControlsToggle = () => {},
       sceneOptions = {},
       uiOptions = {},
-      ...otherSceneOptions
+      ...otherOptions  // UI設定とScene設定が混在している可能性
     } = options;
 
     const resolvedServerUrl = serverUrl || sceneOptions.serverUrl || null;
     const chocoDropClient = client || new ChocoDropClient(resolvedServerUrl);
 
-    // 旧APIとの互換のため、トップレベルに渡された追加オプションもSceneManagerへ伝搬させる
+    // otherOptionsからUI固有の設定を抽出して振り分け
+    const extractedUIOptions = {};
+    const extractedSceneOptions = {};
+
+    Object.keys(otherOptions).forEach(key => {
+      if (UI_SPECIFIC_OPTIONS.includes(key)) {
+        extractedUIOptions[key] = otherOptions[key];
+      } else {
+        extractedSceneOptions[key] = otherOptions[key];
+      }
+    });
+
+    // 明示的な設定を優先してマージ
+    const mergedUIOptions = {
+      ...extractedUIOptions,
+      ...uiOptions
+    };
+
     const mergedSceneOptions = {
       ...sceneOptions,
-      ...otherSceneOptions
+      ...extractedSceneOptions
     };
 
     const sceneManager = new SceneManager(scene, {
@@ -17468,7 +17525,7 @@
       sceneManager,
       client: chocoDropClient,
       onControlsToggle,
-      ...uiOptions
+      ...mergedUIOptions
     });
 
     sceneManager.ui = commandUI;
