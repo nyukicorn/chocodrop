@@ -412,7 +412,7 @@ export class SceneManager {
    */
   setupObjectDragging() {
     if (!this.renderer) return;
-    
+
     const canvas = this.renderer.domElement;
     let isDragging = false;
     let dragObject = null;
@@ -420,6 +420,8 @@ export class SceneManager {
     let mouseStart = new THREE.Vector2();
     let dragMode = 'move'; // 'move', 'resize', 'rotate'
     let originalScale = new THREE.Vector3();
+    let dragPlane = new THREE.Plane();
+    let intersection = new THREE.Vector3();
     
     canvas.addEventListener('mousedown', (event) => {
       if (event.button !== 0) return; // 左クリックのみ
@@ -492,18 +494,18 @@ export class SceneManager {
           isDragging = true;
           dragObject = object;
           dragMode = 'move';
-          dragOffset.copy(intersects[0].point).sub(object.position);
-          mouseStart.set(event.clientX, event.clientY);
 
-          // 高品質な視覚フィードバック
-          if (object.material) {
-            // 移動中の透明度変更（オプション）
-            // object.material.opacity = 0.8;
-            // object.material.transparent = true;
-          }
-          // スケール変更を削除（大きくなる原因）
+          // カメラに平行な平面を設定（スムーズな移動のため）
+          const normal = new THREE.Vector3(0, 0, 1);
+          normal.applyQuaternion(this.camera.quaternion);
+          dragPlane.setFromNormalAndCoplanarPoint(normal, object.position);
 
-          canvas.style.cursor = 'move';
+          // マウス位置での交点を計算
+          this.raycaster.setFromCamera(this.mouse, this.camera);
+          this.raycaster.ray.intersectPlane(dragPlane, intersection);
+          dragOffset.copy(intersection).sub(object.position);
+
+          canvas.style.cursor = 'grabbing';
           console.log(`🔄 Started moving: ${object.name} (Shift-free interaction)`);
 
           // 選択状態も更新
@@ -570,30 +572,24 @@ export class SceneManager {
         this.updateSelectionIndicatorScale(dragObject);
 
       } else if (dragMode === 'move') {
-        // 移動モード（シンプルで直感的な平面移動）
-        const moveScale = 0.01;
+        // 移動モード（平面との交点を使ったスムーズな移動）
+        const rect = canvas.getBoundingClientRect();
+        this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+        this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
-        // 直感的な移動：右にドラッグ→右に移動、上にドラッグ→上に移動
-        dragObject.position.x += deltaX * moveScale;
-        dragObject.position.y -= deltaY * moveScale; // Y軸は画面上下と逆なので反転
+        this.raycaster.setFromCamera(this.mouse, this.camera);
 
-        mouseStart.set(event.clientX, event.clientY);
+        // 平面との交点を計算
+        if (this.raycaster.ray.intersectPlane(dragPlane, intersection)) {
+          // オフセットを考慮して位置を更新
+          dragObject.position.copy(intersection.sub(dragOffset));
+        }
       }
     });
     
-    canvas.addEventListener('mouseup', () => {
+    // ドラッグ終了処理を共通化
+    const endDragging = () => {
       if (isDragging && dragObject) {
-        // ドラッグ終了の処理
-        // 注意: マテリアルの透明度は復元しない（エフェクトを保持）
-        // ドラッグ中の一時的な透明度変更があった場合のみ復元
-        if (dragObject.material && dragObject.userData && !dragObject.userData.hasOpacityEffect) {
-          dragObject.material.opacity = 1.0;
-          dragObject.material.transparent = false;
-        }
-
-        // スケールを元に戻す（移動開始時に変更した場合）
-        // 現在は移動開始時のスケール変更を削除したので、この処理は不要
-
         console.log(`✅ Finished dragging: ${dragObject.name} to (${dragObject.position.x.toFixed(1)}, ${dragObject.position.y.toFixed(1)}, ${dragObject.position.z.toFixed(1)})`);
 
         isDragging = false;
@@ -601,6 +597,20 @@ export class SceneManager {
         dragMode = 'move'; // リセット
         this.resizeHandleInfo = null; // リサイズハンドル情報をクリーンアップ
         canvas.style.cursor = 'default';
+      }
+    };
+
+    // キャンバス上でマウスを離した時
+    canvas.addEventListener('mouseup', endDragging);
+
+    // キャンバス外でマウスを離した時も検出（重要！）
+    document.addEventListener('mouseup', endDragging);
+
+    // キャンバスからマウスが出た時もドラッグ終了
+    canvas.addEventListener('mouseleave', () => {
+      if (isDragging) {
+        console.log(`⚠️ Mouse left canvas while dragging`);
+        endDragging();
       }
     });
     
@@ -752,9 +762,9 @@ export class SceneManager {
       }
       
       // 通常のオブジェクトにホバーした場合
-      if (object.userData && (object.userData.type === 'generated_image' || object.userData.type === 'generated_video')) {
+      if (object.userData && (object.userData.type === 'generated_image' || object.userData.type === 'generated_video' || object.userData.source === 'imported_file')) {
         // 移動可能なオブジェクトの場合はカーソルを変更
-        canvas.style.cursor = 'move';
+        canvas.style.cursor = 'grab';
 
         this.lastHoveredObject = { onHoverExit: () => { canvas.style.cursor = 'default'; } };
         return;
