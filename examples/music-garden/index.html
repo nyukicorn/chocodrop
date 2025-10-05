@@ -404,6 +404,139 @@
                         inset 0 1px 1px rgba(255, 255, 255, 0.3);
         }
 
+        /* 統合メニュー */
+        .unified-menu {
+            position: fixed;
+            top: 16px;
+            right: 20px;
+            z-index: 1000;
+        }
+
+        .menu-toggle {
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #2d3748;
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-size: 18px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 4px 12px rgba(139, 92, 246, 0.2), 0 2px 6px rgba(0, 0, 0, 0.05);
+            width: 44px;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0.8;
+        }
+
+        .menu-toggle:hover {
+            background: rgba(255, 255, 255, 0.25);
+            border-color: rgba(255, 255, 255, 0.3);
+            transform: scale(1.1) translateY(-2px);
+            box-shadow: 0 6px 16px rgba(139, 92, 246, 0.3), 0 3px 8px rgba(0, 0, 0, 0.1);
+            opacity: 1;
+        }
+
+        .menu-dropdown {
+            position: absolute;
+            top: 56px;
+            right: 0;
+            min-width: 220px;
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(16px) saturate(180%);
+            -webkit-backdrop-filter: blur(16px) saturate(180%);
+            border: 1px solid rgba(139, 92, 246, 0.2);
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(139, 92, 246, 0.15), 0 4px 12px rgba(0, 0, 0, 0.08);
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(-10px);
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            overflow: hidden;
+        }
+
+        .menu-dropdown.active {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+        }
+
+        .menu-item {
+            display: block;
+            padding: 12px 16px;
+            color: #2d3748;
+            text-decoration: none;
+            font-size: 13px;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+            cursor: pointer;
+            background: none;
+            border-left: none;
+            border-right: none;
+            border-top: none;
+            width: 100%;
+            text-align: left;
+        }
+
+        .menu-item:last-child {
+            border-bottom: none;
+        }
+
+        .menu-item:hover {
+            background: rgba(139, 92, 246, 0.08);
+            padding-left: 20px;
+            border-left: 2px solid rgba(139, 92, 246, 0.4);
+        }
+
+        .menu-item.has-submenu {
+            position: relative;
+            padding: 0;
+            border: none;
+        }
+
+        .submenu-toggle {
+            display: block;
+            padding: 12px 16px;
+            color: #2d3748;
+            font-size: 13px;
+            background: none;
+            border: none;
+            width: 100%;
+            text-align: left;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+        }
+
+        .submenu-toggle:hover {
+            background: rgba(139, 92, 246, 0.08);
+            padding-left: 20px;
+            border-left: 2px solid rgba(139, 92, 246, 0.4);
+        }
+
+        .submenu {
+            display: none;
+            background: rgba(139, 92, 246, 0.03);
+            border-top: 1px solid rgba(139, 92, 246, 0.1);
+        }
+
+        .submenu.active {
+            display: block;
+        }
+
+        .submenu .menu-item {
+            padding-left: 32px;
+            font-size: 12px;
+        }
+
+        .submenu .menu-item:hover {
+            padding-left: 36px;
+            background: rgba(139, 92, 246, 0.12);
+        }
+
         /* ChocoDrop 動画要素が花に埋もれないようにする */
         video {
             z-index: 20 !important;
@@ -417,8 +550,34 @@
     </style>
 </head>
 <body>
-    <!-- Navigation Links -->
-    <div class="navigation">
+    <!-- 統合メニュー -->
+    <div class="unified-menu">
+        <button class="menu-toggle" id="unifiedMenuToggle" aria-label="Menu">☰</button>
+        <div class="menu-dropdown" id="unifiedMenuDropdown">
+            <button class="menu-item" id="showInfoBtn">📖 このワールドについて</button>
+
+            <div class="menu-item has-submenu">
+                <button class="submenu-toggle" id="worldsMenuToggle">🌍 世界選択 <span style="font-size: 10px;">▼</span></button>
+                <div class="submenu" id="worldsSubmenu">
+                    <a href="../basic/index.html" class="menu-item">🍫 はじまりの国</a>
+                    <a href="../pixel-ocean/index.html" class="menu-item">🌊 海底世界</a>
+                    <a href="../wabi-sabi/index.html" class="menu-item">🖤 侘び寂びの世界</a>
+                    <a href="../space/index.html" class="menu-item">🌌 宇宙空間</a>
+                    <a href="../toy-city/index.html" class="menu-item">🎡 AI遊園地</a>
+                    <a href="index.html" class="menu-item">🌸 硝子の花（現在地）</a>
+                </div>
+            </div>
+
+            <a href="../../index.html" class="menu-item">🏠 Home</a>
+            <a href="https://github.com/nyukicorn/chocodrop" class="menu-item" target="_blank">🔗 GitHub</a>
+
+            <button class="menu-item" id="vrMenuButton">🥽 VR</button>
+            <button class="menu-item" id="arMenuButton">🥽 AR</button>
+        </div>
+    </div>
+
+    <!-- Navigation Links (hidden - replaced by unified menu) -->
+    <div class="navigation" style="display: none;">
         <a href="../../index.html" class="nav-link">🏠 Home</a>
         <a href="https://github.com/nyukicorn/chocodrop" class="nav-link" target="_blank">📦 GitHub</a>
     </div>
@@ -454,7 +613,8 @@
 
     <div id="audio-status" class="audio-inactive">🎤 音声待機中...</div>
 
-    <div class="demo-links">
+    <!-- Demo Links (hidden - replaced by unified menu) -->
+    <div class="demo-links" style="display: none;">
         <a href="../basic/index.html" class="demo-link">🍫 はじまりの国</a>
         <a href="../pixel-ocean/index.html" class="demo-link">🌊 海底世界</a>
         <a href="../wabi-sabi/index.html" class="demo-link">🖤 侘び寂び</a>
@@ -469,6 +629,242 @@
     <!-- ChocoDrop Demo UMD -->
     <script src="../basic/chocodrop-demo.umd.min.js?v=20250930233000"></script>
 
+    <!-- 統合メニューの制御 -->
+    <script>
+        (function() {
+            const menuToggle = document.getElementById('unifiedMenuToggle');
+            const menuDropdown = document.getElementById('unifiedMenuDropdown');
+            const worldsMenuToggle = document.getElementById('worldsMenuToggle');
+            const worldsSubmenu = document.getElementById('worldsSubmenu');
+            const showInfoBtn = document.getElementById('showInfoBtn');
+            const infoPanel = document.getElementById('info');
+
+            // 初回訪問チェック - localStorage使用
+            const FIRST_VISIT_KEY = 'music_garden_visited';
+            const hasVisited = localStorage.getItem(FIRST_VISIT_KEY);
+
+            if (!hasVisited) {
+                // 初回訪問時は情報パネルを表示
+                if (infoPanel) {
+                    infoPanel.style.display = 'block';
+                }
+                localStorage.setItem(FIRST_VISIT_KEY, 'true');
+            } else {
+                // 2回目以降は非表示
+                if (infoPanel) {
+                    infoPanel.style.display = 'none';
+                }
+            }
+
+            // 統合メニューのトグル
+            if (menuToggle && menuDropdown) {
+                menuToggle.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    menuDropdown.classList.toggle('active');
+                });
+
+                // 外側クリックで閉じる
+                document.addEventListener('click', (e) => {
+                    if (!menuToggle.contains(e.target) && !menuDropdown.contains(e.target)) {
+                        menuDropdown.classList.remove('active');
+                        // サブメニューも閉じる
+                        if (worldsSubmenu) {
+                            worldsSubmenu.classList.remove('active');
+                        }
+                    }
+                });
+
+                // Escキーで閉じる
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'Escape') {
+                        menuDropdown.classList.remove('active');
+                        if (worldsSubmenu) {
+                            worldsSubmenu.classList.remove('active');
+                        }
+                    }
+                });
+            }
+
+            // 世界選択サブメニューのトグル
+            if (worldsMenuToggle && worldsSubmenu) {
+                worldsMenuToggle.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    worldsSubmenu.classList.toggle('active');
+                });
+            }
+
+            // 情報パネル表示ボタン
+            if (showInfoBtn) {
+                showInfoBtn.addEventListener('click', () => {
+                    // グローバルに定義された showInfoPanel() を呼び出す
+                    if (typeof showInfoPanel === 'function') {
+                        showInfoPanel();
+                    } else {
+                        // フォールバック: 直接表示
+                        const panel = document.getElementById('info');
+                        if (panel) {
+                            panel.style.display = 'block';
+                            panel.classList.remove('hidden');
+                        }
+                    }
+                    menuDropdown.classList.remove('active');
+                });
+            }
+
+            // VR/ARボタンは後でThree.jsのrendererと連携
+            // グローバル変数として保存
+            window.unifiedMenuVRButton = document.getElementById('vrMenuButton');
+            window.unifiedMenuARButton = document.getElementById('arMenuButton');
+        })();
+    </script>
+
+    <!-- VR/AR Button inline implementation -->
+    <script>
+        // VRButton implementation
+        const VRButton = {
+            createButton: function(renderer) {
+                const button = document.createElement('button');
+
+                function showEnterVR() {
+                    button.style.display = '';
+                    button.style.cursor = 'pointer';
+                    button.style.left = 'calc(50% - 50px)';
+                    button.style.width = '100px';
+                    button.textContent = 'ENTER VR';
+                    button.onmouseenter = function() { button.style.opacity = '1.0'; };
+                    button.onmouseleave = function() { button.style.opacity = '0.5'; };
+                    button.onclick = function() {
+                        const session = renderer.xr.getSession();
+                        if (session) {
+                            session.end();
+                        } else {
+                            navigator.xr.requestSession('immersive-vr', {
+                                optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking']
+                            }).then(session => {
+                                renderer.xr.setSession(session);
+                                button.textContent = 'EXIT VR';
+
+                                session.addEventListener('end', () => {
+                                    button.textContent = 'ENTER VR';
+                                });
+                            }).catch(err => {
+                                console.error('VR session failed:', err);
+                            });
+                        }
+                    };
+                }
+
+                function showWebXRNotFound() {
+                    button.style.display = '';
+                    button.style.cursor = 'auto';
+                    button.style.left = 'calc(50% - 75px)';
+                    button.style.width = '150px';
+                    button.textContent = 'VR NOT SUPPORTED';
+                    button.onmouseenter = null;
+                    button.onmouseleave = null;
+                    button.onclick = null;
+                }
+
+                button.style.position = 'absolute';
+                button.style.bottom = '20px';
+                button.style.padding = '12px 6px';
+                button.style.border = '1px solid #fff';
+                button.style.borderRadius = '4px';
+                button.style.background = 'rgba(0,0,0,0.1)';
+                button.style.color = '#fff';
+                button.style.font = 'normal 13px sans-serif';
+                button.style.textAlign = 'center';
+                button.style.opacity = '0.5';
+                button.style.outline = 'none';
+                button.style.zIndex = '999';
+
+                if ('xr' in navigator) {
+                    navigator.xr.isSessionSupported('immersive-vr').then(supported => {
+                        supported ? showEnterVR() : showWebXRNotFound();
+                    });
+                } else {
+                    showWebXRNotFound();
+                }
+
+                return button;
+            }
+        };
+
+        // ARButton implementation
+        const ARButton = {
+            createButton: function(renderer, options) {
+                const button = document.createElement('button');
+
+                function showEnterAR() {
+                    button.style.display = '';
+                    button.style.cursor = 'pointer';
+                    button.style.left = 'calc(50% - 50px)';
+                    button.style.width = '100px';
+                    button.textContent = 'ENTER AR';
+                    button.onmouseenter = function() { button.style.opacity = '1.0'; };
+                    button.onmouseleave = function() { button.style.opacity = '0.5'; };
+                    button.onclick = function() {
+                        const session = renderer.xr.getSession();
+                        if (session) {
+                            session.end();
+                        } else {
+                            navigator.xr.requestSession('immersive-ar', {
+                                optionalFeatures: ['hit-test', 'dom-overlay', 'local-floor'],
+                                domOverlay: options?.domOverlay || { root: document.body }
+                            }).then(session => {
+                                renderer.xr.setSession(session);
+                                button.textContent = 'EXIT AR';
+
+                                session.addEventListener('end', () => {
+                                    button.textContent = 'ENTER AR';
+                                });
+                            }).catch(err => {
+                                console.error('AR session failed:', err);
+                                alert('AR not supported: ' + err.message);
+                            });
+                        }
+                    };
+                }
+
+                function showWebXRNotFound() {
+                    button.style.display = '';
+                    button.style.cursor = 'auto';
+                    button.style.left = 'calc(50% - 75px)';
+                    button.style.width = '150px';
+                    button.textContent = 'AR NOT SUPPORTED';
+                    button.onmouseenter = null;
+                    button.onmouseleave = null;
+                    button.onclick = null;
+                }
+
+                button.style.position = 'absolute';
+                button.style.bottom = '70px';
+                button.style.padding = '12px 6px';
+                button.style.border = '1px solid #fff';
+                button.style.borderRadius = '4px';
+                button.style.background = 'rgba(0,0,0,0.1)';
+                button.style.color = '#fff';
+                button.style.font = 'normal 13px sans-serif';
+                button.style.textAlign = 'center';
+                button.style.opacity = '0.5';
+                button.style.outline = 'none';
+                button.style.zIndex = '999';
+
+                if ('xr' in navigator) {
+                    navigator.xr.isSessionSupported('immersive-ar').then(supported => {
+                        supported ? showEnterAR() : showWebXRNotFound();
+                    });
+                } else {
+                    showWebXRNotFound();
+                }
+
+                return button;
+            }
+        };
+
+        console.log('✅ VRButton/ARButton inline implementation loaded');
+    </script>
+
     <script>
         console.log('🌸 Music Garden Loading...');
         console.log('THREE loaded:', typeof THREE !== 'undefined');
@@ -481,6 +877,7 @@
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         renderer.setClearColor(0x0a0f1e, 1);  // 深い青紫の背景
+        renderer.xr.enabled = true; // VR/AR有効化
 
         // Three.js キャンバスのz-indexを設定（動画より背景に配置）
         renderer.domElement.style.position = 'fixed';
@@ -489,6 +886,93 @@
         renderer.domElement.style.zIndex = '1';
 
         document.body.appendChild(renderer.domElement);
+
+        // VR/ARボタンを統合メニューと連携（bodyには追加しない）
+        if (typeof VRButton !== 'undefined' && window.unifiedMenuVRButton) {
+            console.log('✅ VRButton script loaded - connecting to unified menu');
+
+            // VRセッション開始関数を作成
+            function startVRSession() {
+                if ('xr' in navigator) {
+                    navigator.xr.isSessionSupported('immersive-vr').then(supported => {
+                        if (supported) {
+                            const sessionInit = { optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking', 'layers'] };
+                            navigator.xr.requestSession('immersive-vr', sessionInit).then(session => {
+                                session.addEventListener('end', () => {
+                                    renderer.xr.setSession(null);
+                                });
+                                renderer.xr.setSession(session);
+                            });
+                        } else {
+                            console.log('VR not supported on this device');
+                        }
+                    });
+                }
+            }
+
+            window.unifiedMenuVRButton.onclick = startVRSession;
+
+            // サポートチェック - 未サポートの場合はボタンを非表示に
+            if ('xr' in navigator) {
+                navigator.xr.isSessionSupported('immersive-vr').then(supported => {
+                    if (!supported) {
+                        window.unifiedMenuVRButton.style.display = 'none';
+                    }
+                });
+            } else {
+                window.unifiedMenuVRButton.style.display = 'none';
+            }
+        } else {
+            console.log('❌ VRButton script not loaded or menu button not found');
+            if (window.unifiedMenuVRButton) {
+                window.unifiedMenuVRButton.style.display = 'none';
+            }
+        }
+
+        if (typeof ARButton !== 'undefined' && window.unifiedMenuARButton) {
+            console.log('✅ ARButton script loaded - connecting to unified menu');
+
+            // ARセッション開始関数を作成
+            function startARSession() {
+                if ('xr' in navigator) {
+                    navigator.xr.isSessionSupported('immersive-ar').then(supported => {
+                        if (supported) {
+                            const sessionInit = {
+                                requiredFeatures: ['hit-test'],
+                                optionalFeatures: ['dom-overlay'],
+                                domOverlay: { root: document.body }
+                            };
+                            navigator.xr.requestSession('immersive-ar', sessionInit).then(session => {
+                                session.addEventListener('end', () => {
+                                    renderer.xr.setSession(null);
+                                });
+                                renderer.xr.setSession(session);
+                            });
+                        } else {
+                            console.log('AR not supported on this device');
+                        }
+                    });
+                }
+            }
+
+            window.unifiedMenuARButton.onclick = startARSession;
+
+            // サポートチェック - 未サポートの場合はボタンを非表示に
+            if ('xr' in navigator) {
+                navigator.xr.isSessionSupported('immersive-ar').then(supported => {
+                    if (!supported) {
+                        window.unifiedMenuARButton.style.display = 'none';
+                    }
+                });
+            } else {
+                window.unifiedMenuARButton.style.display = 'none';
+            }
+        } else {
+            console.log('❌ ARButton script not loaded or menu button not found');
+            if (window.unifiedMenuARButton) {
+                window.unifiedMenuARButton.style.display = 'none';
+            }
+        }
 
         // 🌸 音楽に反応する花を作成（パーティクルで構成された花）
         function createMusicFlower(x, y, z, scale = 1) {
@@ -1540,7 +2024,8 @@
         // 🎯 ヒントパネル管理システム
         let autoHideTimer = null;
 
-        function hideInfoPanel() {
+        // グローバル関数として定義
+        window.hideInfoPanel = function() {
             const infoPanel = document.getElementById('info');
             const hintToggle = document.getElementById('hint-toggle');
 
@@ -1553,9 +2038,9 @@
             if (autoHideTimer) {
                 clearTimeout(autoHideTimer);
             }
-        }
+        };
 
-        function showInfoPanel() {
+        window.showInfoPanel = function() {
             const infoPanel = document.getElementById('info');
             const hintToggle = document.getElementById('hint-toggle');
 
@@ -1566,14 +2051,18 @@
             }, 10);
 
             // 30秒後に自動非表示
-            autoHideTimer = setTimeout(hideInfoPanel, 30000);
-        }
+            autoHideTimer = setTimeout(window.hideInfoPanel, 30000);
+        };
 
         // ヒントトグルボタンのクリックイベント
-        document.getElementById('hint-toggle').onclick = showInfoPanel;
+        document.getElementById('hint-toggle').onclick = window.showInfoPanel;
 
-        // 30秒後の自動非表示タイマー開始
-        autoHideTimer = setTimeout(hideInfoPanel, 30000);
+        // 30秒後の自動非表示タイマー開始（初回訪問時のみ表示されるため）
+        if (localStorage.getItem('music_garden_visited')) {
+            // 2回目以降は自動非表示タイマーは不要
+        } else {
+            autoHideTimer = setTimeout(window.hideInfoPanel, 30000);
+        }
 
         console.log('✅ 音楽の花園が準備完了！🎵 歌ってお花を咲かせましょう');
 
