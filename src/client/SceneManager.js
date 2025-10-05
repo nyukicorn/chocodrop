@@ -581,8 +581,8 @@ export class SceneManager {
 
         // 平面との交点を計算
         if (this.raycaster.ray.intersectPlane(dragPlane, intersection)) {
-          // オフセットを考慮して位置を更新
-          dragObject.position.copy(intersection.sub(dragOffset));
+          // オフセットを考慮して位置を更新（intersection を変更しないように注意）
+          dragObject.position.copy(intersection).sub(dragOffset);
         }
       }
     });
