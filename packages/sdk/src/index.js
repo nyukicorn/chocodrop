@@ -7,6 +7,29 @@
   const ORIGIN = typeof location !== 'undefined' ? location.origin : '';
 
   /**
+   * Restore and persist chocodropConfig across page reloads
+   * Fixes Issue #3: allowCdn: false not persisting
+   */
+  if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
+    try {
+      // Restore from localStorage
+      const stored = localStorage.getItem('chocodropConfig');
+      const storedConfig = stored ? JSON.parse(stored) : {};
+
+      // Merge with window config (window takes precedence)
+      window.chocodropConfig = {
+        ...storedConfig,
+        ...(window.chocodropConfig || {})
+      };
+
+      // Save merged config back to localStorage
+      localStorage.setItem('chocodropConfig', JSON.stringify(window.chocodropConfig));
+    } catch (err) {
+      console.warn('Failed to restore chocodropConfig:', err);
+    }
+  }
+
+  /**
    * Timeout helper
    */
   function timeout(ms) {
