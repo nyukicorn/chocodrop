@@ -6232,7 +6232,7 @@
       // Shift+ホイールでリサイズ機能を追加
       canvas.addEventListener('wheel', (event) => {
         event.preventDefault();
-        
+
         const rect = canvas.getBoundingClientRect();
         const mouse = new THREE.Vector2();
         mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
