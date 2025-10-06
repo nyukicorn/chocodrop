@@ -68,25 +68,35 @@ function createChocoDropDemo(scene, options = {}) {
   });
 
   // Use CommandUIDemo instead of CommandUI
-  const commandUI = new CommandUIDemo({
-    sceneManager,
-    client: chocoDropClient,
-    onControlsToggle,
-    ...mergedUIOptions
-  });
+const commandUI = new CommandUIDemo({
+  sceneManager,
+  client: chocoDropClient,
+  onControlsToggle,
+  ...mergedUIOptions
+});
 
-  sceneManager.ui = commandUI;
-  commandUI.setSceneManager(sceneManager);
-
-  return {
-    sceneManager,
-    ui: commandUI,
-    client: chocoDropClient,
-    dispose: () => {
-      if (commandUI) commandUI.dispose();
-      if (sceneManager) sceneManager.dispose();
+if (typeof commandUI.showInputFeedback !== 'function') {
+  commandUI.showInputFeedback = function(message, type = 'error') {
+    if (type === 'error') {
+      this.addOutput(`⚠️ ${message}`, 'error');
+    } else {
+      this.addOutput(`💡 ${message}`, 'system');
     }
   };
+}
+
+sceneManager.ui = commandUI;
+commandUI.setSceneManager(sceneManager);
+
+return {
+  sceneManager,
+  ui: commandUI,
+  client: chocoDropClient,
+  dispose: () => {
+    if (commandUI) commandUI.dispose();
+    if (sceneManager) sceneManager.dispose();
+  }
+};
 }
 
 // Export everything for demo UMD

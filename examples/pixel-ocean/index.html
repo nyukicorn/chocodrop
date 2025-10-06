@@ -287,6 +287,84 @@
             font-size: 12px;
         }
 
+        /* 🎵 音響ステータス表示 */
+        #audio-status {
+            position: fixed;
+            top: 70px;
+            right: 20px;
+            z-index: 100;
+            background: linear-gradient(135deg, rgba(0, 102, 204, 0.9) 0%, rgba(0, 34, 102, 0.95) 100%);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            padding: 10px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+            border: 2px solid rgba(102, 204, 255, 0.6);
+            box-shadow: 0 0 25px rgba(102, 204, 255, 0.4);
+            color: #ffffff;
+            display: none;
+            transition: opacity 0.3s ease;
+        }
+
+        #audio-status.active {
+            display: block;
+        }
+
+        #audio-status .status-icon {
+            display: inline-block;
+            margin-right: 5px;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.8; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.1); }
+        }
+
+        /* メニューアイコンのバウンスアニメーション */
+        .menu-icon {
+            display: inline-block;
+            animation: menu-bounce 2s ease-in-out infinite;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+            text-shadow: 0 0 10px currentColor;
+        }
+
+        .menu-icon:hover {
+            transform: scale(1.4);
+            animation: menu-bounce-fast 0.8s ease-in-out infinite;
+        }
+
+        @keyframes menu-bounce {
+            0%, 100% {
+                filter: brightness(1) drop-shadow(0 0 8px currentColor);
+                transform: scale(1) translateY(0px);
+            }
+            25% {
+                filter: brightness(1.3) drop-shadow(0 0 15px currentColor);
+                transform: scale(1.1) translateY(-4px);
+            }
+            50% {
+                filter: brightness(1.5) drop-shadow(0 0 20px currentColor);
+                transform: scale(1.15) translateY(-8px);
+            }
+            75% {
+                filter: brightness(1.3) drop-shadow(0 0 15px currentColor);
+                transform: scale(1.1) translateY(-4px);
+            }
+        }
+
+        @keyframes menu-bounce-fast {
+            0%, 100% {
+                filter: brightness(1.4) drop-shadow(0 0 15px currentColor);
+                transform: translateY(0px);
+            }
+            50% {
+                filter: brightness(1.8) drop-shadow(0 0 25px currentColor);
+                transform: translateY(-12px);
+            }
+        }
+
         .demo-links {
             display: none; /* 統合メニューに移動したため非表示 */
         }
@@ -318,6 +396,11 @@
     </style>
 </head>
 <body>
+    <!-- 🎵 音響ステータス表示 -->
+    <div id="audio-status">
+        <span class="status-icon">🎤</span><span id="audio-text">音声待機中...</span>
+    </div>
+
     <div id="info">
         <button class="close-btn" onclick="hideInfoPanel()">×</button>
         <strong><span class="ocean-title">🌊 ピクセル海底世界</span></strong>
@@ -341,25 +424,25 @@
     <div class="unified-menu">
         <button class="menu-toggle" id="unifiedMenuToggle" aria-label="Menu">☰</button>
         <div class="menu-dropdown" id="unifiedMenuDropdown">
-            <button class="menu-item" id="showInfoBtn">📖 このワールドについて</button>
+            <button class="menu-item" id="showInfoBtn"><span class="menu-icon">📖</span> このワールドについて</button>
 
             <div class="menu-item has-submenu">
-                <button class="submenu-toggle" id="worldsMenuToggle">🌍 世界選択 <span style="font-size: 10px;">▼</span></button>
+                <button class="submenu-toggle" id="worldsMenuToggle"><span class="menu-icon">🌍</span> 世界選択 <span style="font-size: 10px;">▼</span></button>
                 <div class="submenu" id="worldsSubmenu">
-                    <a href="../basic/index.html" class="menu-item">🍫 はじまりの国</a>
-                    <a href="index.html" class="menu-item">🌊 海底世界（現在地）</a>
-                    <a href="../music-garden/index.html" class="menu-item">🌸 硝子の花</a>
-                    <a href="../space/index.html" class="menu-item">🌌 宇宙空間</a>
-                    <a href="../toy-city/index.html" class="menu-item">🎡 AI遊園地</a>
-                    <a href="../wabi-sabi/index.html" class="menu-item">🖤 侘び寂びの世界</a>
+                    <a href="../basic/index.html" class="menu-item"><span class="menu-icon">🍫</span> はじまりの国</a>
+                    <a href="index.html" class="menu-item"><span class="menu-icon">🌊</span> 海底世界（現在地）</a>
+                    <a href="../music-garden/index.html" class="menu-item"><span class="menu-icon">🌸</span> 硝子の花</a>
+                    <a href="../space/index.html" class="menu-item"><span class="menu-icon">🌌</span> 宇宙空間</a>
+                    <a href="../toy-city/index.html" class="menu-item"><span class="menu-icon">🎡</span> AI遊園地</a>
+                    <a href="../wabi-sabi/index.html" class="menu-item"><span class="menu-icon">🖤</span> 侘び寂びの世界</a>
                 </div>
             </div>
 
-            <a href="../../index.html" class="menu-item">🏠 Home</a>
-            <a href="https://github.com/nyukicorn/chocodrop" class="menu-item" target="_blank">🔗 GitHub</a>
+            <a href="../../index.html" class="menu-item"><span class="menu-icon">🏠</span> Home</a>
+            <a href="https://github.com/nyukicorn/chocodrop" class="menu-item" target="_blank"><span class="menu-icon">🔗</span> GitHub</a>
 
-            <button class="menu-item" id="vrMenuButton">🥽 VR</button>
-            <button class="menu-item" id="arMenuButton">🥽 AR</button>
+            <button class="menu-item" id="vrMenuButton"><span class="menu-icon">🥽</span> VR</button>
+            <button class="menu-item" id="arMenuButton"><span class="menu-icon">🥽</span> AR</button>
         </div>
     </div>
 
@@ -1286,6 +1369,165 @@
         controls.maxDistance = 50;
         controls.maxPolarAngle = Math.PI;
 
+        // 🎵 高度な音響システムの初期化（wabi-sabi方式）
+        let audioContext = null;
+        let analyser = null;
+        let dataArray = null;
+        let beatDetectionHistory = [];
+        let lastBeatTime = 0;
+        let musicData = {
+            volume: 0,
+            bass: 0,
+            mid: 0,
+            treble: 0,
+            tempo: 0,
+            bpm: 0,
+            beatDetected: false,
+            isPlaying: false
+        };
+        const audioStatusEl = document.getElementById('audio-status');
+        const audioTextEl = document.getElementById('audio-text');
+
+        function setupAudioAnalysis() {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                analyser = audioContext.createAnalyser();
+                analyser.fftSize = 256;
+                dataArray = new Uint8Array(analyser.frequencyBinCount);
+                console.log('🎵 Advanced audio analysis initialized');
+            }
+        }
+
+        // 動画要素を音響分析に接続
+        function connectVideoToAudio(videoElement) {
+            if (!audioContext || !analyser) {
+                setupAudioAnalysis();
+            }
+
+            try {
+                // AudioContextがsuspended状態の場合は再開
+                if (audioContext.state === 'suspended') {
+                    audioContext.resume();
+                }
+
+                const source = audioContext.createMediaElementSource(videoElement);
+                source.connect(analyser);
+                analyser.connect(audioContext.destination);
+
+                musicData.isPlaying = true;
+                if (audioStatusEl) {
+                    audioStatusEl.classList.add('active');
+                    if (audioTextEl) {
+                        audioTextEl.textContent = '音響連動中 ♪ (BPM検出中)';
+                    }
+                }
+                console.log('🎵 Video connected to advanced audio analyser');
+            } catch (error) {
+                console.warn('Audio connection error:', error);
+            }
+        }
+
+        // 音楽データの詳細解析
+        function analyzeMusicData() {
+            if (!analyser || !dataArray) return;
+
+            analyser.getByteFrequencyData(dataArray);
+
+            // 音量計算
+            let sum = 0;
+            for (let i = 0; i < dataArray.length; i++) {
+                sum += dataArray[i];
+            }
+            musicData.volume = sum / dataArray.length / 255;
+
+            // 周波数帯域分析
+            const bassRange = Math.floor(dataArray.length * 0.1);
+            const midRange = Math.floor(dataArray.length * 0.5);
+
+            let bassSum = 0, midSum = 0, trebleSum = 0;
+
+            for (let i = 0; i < bassRange; i++) {
+                bassSum += dataArray[i];
+            }
+            for (let i = bassRange; i < midRange; i++) {
+                midSum += dataArray[i];
+            }
+            for (let i = midRange; i < dataArray.length; i++) {
+                trebleSum += dataArray[i];
+            }
+
+            musicData.bass = bassSum / bassRange / 255;
+            musicData.mid = midSum / (midRange - bassRange) / 255;
+            musicData.treble = trebleSum / (dataArray.length - midRange) / 255;
+
+            // 🥁 ビート検出とBPM計算
+            const currentTime = performance.now();
+            const bassThreshold = 0.3;
+            const volumeThreshold = 0.2;
+
+            musicData.beatDetected = false;
+
+            // ビート検出（ベース音量の急激な変化）
+            if (musicData.bass > bassThreshold && musicData.volume > volumeThreshold) {
+                if (currentTime - lastBeatTime > 300) { // 最小300ms間隔
+                    musicData.beatDetected = true;
+                    lastBeatTime = currentTime;
+
+                    // BPM計算用履歴更新
+                    beatDetectionHistory.push(currentTime);
+                    if (beatDetectionHistory.length > 8) {
+                        beatDetectionHistory.shift();
+                    }
+
+                    // BPM計算
+                    if (beatDetectionHistory.length >= 4) {
+                        const intervals = [];
+                        for (let i = 1; i < beatDetectionHistory.length; i++) {
+                            intervals.push(beatDetectionHistory[i] - beatDetectionHistory[i-1]);
+                        }
+                        const avgInterval = intervals.reduce((a, b) => a + b) / intervals.length;
+                        musicData.bpm = Math.round(60000 / avgInterval);
+
+                        // ステータス更新
+                        if (audioTextEl && musicData.bpm > 0) {
+                            audioTextEl.textContent = `音響連動中 ♪ (${musicData.bpm} BPM)`;
+                        }
+                    }
+                }
+            }
+        }
+
+        // ChocoDrop のビデオ要素を監視して自動接続
+        function observeVideoElements() {
+            const videoObserver = new MutationObserver((mutations) => {
+                mutations.forEach((mutation) => {
+                    mutation.addedNodes.forEach((node) => {
+                        if (node.nodeName === 'VIDEO') {
+                            console.log('🎬 Video element detected, connecting to audio...');
+                            connectVideoToAudio(node);
+                        }
+                    });
+                });
+            });
+
+            videoObserver.observe(document.body, {
+                childList: true,
+                subtree: true
+            });
+
+            // 既存のビデオ要素もチェック
+            const existingVideos = document.querySelectorAll('video');
+            existingVideos.forEach(video => {
+                connectVideoToAudio(video);
+            });
+        }
+
+        // 初期化
+        if (audioStatusEl) {
+            audioStatusEl.classList.add('active');
+        }
+        observeVideoElements();
+
         // 🍫 ChocoDrop初期化
         let chocoDrop;
 
@@ -1329,56 +1571,77 @@
 
             const time = Date.now() * 0.001;
 
-            // 魚の泳ぎアニメーション
+            // 🎵 高度な音響データ解析
+            if (musicData.isPlaying) {
+                analyzeMusicData();
+            }
+
+            // 音響連動の強度（海底世界は中程度の反応 + ビート反応）
+            const audioIntensity = musicData.volume * 0.8;
+            const bassBoost = musicData.bass * 1.5;
+            const midBoost = musicData.mid * 1.2;
+            const trebleBoost = musicData.treble * 1.0;
+            const beatPulse = musicData.beatDetected ? 1.3 : 1.0; // ビート時に反応
+
+            // 魚の泳ぎアニメーション + 音響連動 + ビート反応
             fishes.forEach(fish => {
                 if (fish.userData) {
                     const data = fish.userData;
-                    fish.position.x = data.originalX + Math.sin(time * data.swimSpeed + data.swimPhase) * data.swimRadius;
-                    fish.position.y = data.originalY + Math.sin(time * data.swimSpeed * 0.5) * 2;
-                    fish.position.z = data.originalZ + Math.cos(time * data.swimSpeed + data.swimPhase) * data.swimRadius * 0.5;
+                    const swimSpeedMultiplier = (1 + audioIntensity * 0.7) * beatPulse; // 音楽で泳ぎ速度up + ビート時にダッシュ
+                    fish.position.x = data.originalX + Math.sin(time * data.swimSpeed * swimSpeedMultiplier + data.swimPhase) * data.swimRadius * (1 + bassBoost * 0.2);
+                    fish.position.y = data.originalY + Math.sin(time * data.swimSpeed * 0.5 * swimSpeedMultiplier) * 2 * (1 + midBoost * 0.3) * beatPulse;
+                    fish.position.z = data.originalZ + Math.cos(time * data.swimSpeed * swimSpeedMultiplier + data.swimPhase) * data.swimRadius * 0.5;
 
                     // 向きを進行方向に
-                    const dx = Math.cos(time * data.swimSpeed + data.swimPhase) * data.swimRadius;
+                    const dx = Math.cos(time * data.swimSpeed * swimSpeedMultiplier + data.swimPhase) * data.swimRadius;
                     fish.rotation.y = Math.atan2(dx, 0) + Math.PI / 2;
                 }
             });
 
-            // 海藻の揺らぎ
+            // 海藻の揺らぎ + 音響連動 + ビート反応
             seaweeds.forEach(seaweed => {
                 seaweed.children.forEach(segment => {
                     if (segment.userData) {
                         const data = segment.userData;
-                        const sway = Math.sin(time * data.swaySpeed + data.swayPhase) * 0.3;
+                        const swayIntensity = (1 + bassBoost * 0.8) * beatPulse; // 低音で大きく揺れる + ビート時に激しく
+                        const sway = Math.sin(time * data.swaySpeed * (1 + audioIntensity * 0.5) + data.swayPhase) * 0.3 * swayIntensity;
                         segment.rotation.z = data.swayAmount * 0.3 + sway;
                     }
                 });
             });
 
-            // 光粒子のキラキラアニメーション
+            // 光粒子のキラキラアニメーション + 音響連動 + ビート反応
             if (lightParticles) {
                 const time2 = time * 2;
                 const sizes = lightParticles.geometry.attributes.size.array;
                 const twinkleSpeed = lightParticles.userData.twinkleSpeed;
-                
+
                 for (let i = 0; i < sizes.length; i++) {
-                    // サイズを変化させてキラキラ感を演出（控えめに）
-                    sizes[i] = (Math.sin(time2 * twinkleSpeed[i]) * 0.5 + 0.5) * 0.4 + 0.1;
+                    // サイズを変化させてキラキラ感を演出 + 音響で強化 + ビート時に光る
+                    const baseSize = (Math.sin(time2 * twinkleSpeed[i] * (1 + trebleBoost * 0.5)) * 0.5 + 0.5) * 0.4 + 0.1;
+                    sizes[i] = baseSize * (1 + trebleBoost * 0.8) * beatPulse; // 高音で光粒子が大きく輝く + ビート時にさらに輝く
                 }
                 lightParticles.geometry.attributes.size.needsUpdate = true;
-                
-                // ゆっくり回転
-                lightParticles.rotation.y += 0.0001;
+
+                // ゆっくり回転 + 音響連動 + ビート時に速く
+                lightParticles.rotation.y += 0.0001 * (1 + audioIntensity * 2) * beatPulse;
+
+                // 音楽に合わせて明るさ変化 + ビート時に明るく
+                if (lightParticles.material && lightParticles.material.opacity !== undefined) {
+                    lightParticles.material.opacity = (0.3 + trebleBoost * 0.4) * beatPulse;
+                }
             }
 
-            // 泡の上昇アニメーション
+            // 泡の上昇アニメーション + 音響連動 + ビート反応
             if (bubbles && bubbles.userData.velocities) {
                 const positions = bubbles.geometry.attributes.position.array;
                 const velocities = bubbles.userData.velocities;
+                const bubbleSpeedMultiplier = (1 + midBoost * 1.5) * beatPulse; // 中音で泡の上昇速度up + ビート時に急上昇
 
                 for (let i = 0; i < positions.length; i += 3) {
-                    positions[i] += velocities[i];     // x
-                    positions[i + 1] += velocities[i + 1]; // y
-                    positions[i + 2] += velocities[i + 2]; // z
+                    positions[i] += velocities[i] * bubbleSpeedMultiplier;     // x
+                    positions[i + 1] += velocities[i + 1] * bubbleSpeedMultiplier; // y
+                    positions[i + 2] += velocities[i + 2] * bubbleSpeedMultiplier; // z
 
                     // 泡が水面に達したらリセット
                     if (positions[i + 1] > 25) {
@@ -1388,6 +1651,11 @@
                     }
                 }
                 bubbles.geometry.attributes.position.needsUpdate = true;
+
+                // 音楽に合わせて明るさ変化 + ビート時に明るく
+                if (bubbles.material && bubbles.material.opacity !== undefined) {
+                    bubbles.material.opacity = (0.8 + audioIntensity * 0.2) * beatPulse;
+                }
             }
 
             controls.update();

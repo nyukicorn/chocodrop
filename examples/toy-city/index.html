@@ -237,7 +237,7 @@
             }
         }
 
-        .toy-icon {
+        .menu-icon {
             display: inline-block;
             animation: toy-bounce 2s ease-in-out infinite;
             cursor: pointer;
@@ -245,7 +245,7 @@
             text-shadow: 0 0 10px currentColor;
         }
 
-        .toy-icon:hover {
+        .menu-icon:hover {
             transform: scale(1.4);
             animation: toy-bounce-fast 0.8s ease-in-out infinite;
         }
@@ -375,9 +375,49 @@
                 filter: drop-shadow(0 12px 24px rgba(138, 43, 226, 0.3));
             }
         }
+
+        /* 🎵 音響ステータス表示 */
+        #audio-status {
+            position: fixed;
+            top: 70px;
+            right: 20px;
+            z-index: 100;
+            background: linear-gradient(135deg, rgba(255, 105, 180, 0.9) 0%, rgba(255, 215, 0, 0.9) 100%);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            padding: 10px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+            border: 2px solid rgba(255, 255, 255, 0.5);
+            box-shadow: 0 0 20px rgba(255, 105, 180, 0.5);
+            color: #ffffff;
+            font-weight: 600;
+            display: none;
+            transition: opacity 0.3s ease;
+        }
+
+        #audio-status.active {
+            display: block;
+        }
+
+        #audio-status .status-icon {
+            display: inline-block;
+            margin-right: 5px;
+            animation: audioPulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes audioPulse {
+            0%, 100% { opacity: 0.8; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.1); }
+        }
     </style>
 </head>
 <body>
+    <!-- 🎵 音響ステータス表示 -->
+    <div id="audio-status">
+        <span class="status-icon">🎤</span><span id="audio-text">音声待機中...</span>
+    </div>
+
     <!-- Navigation Links (非表示) -->
     <div class="navigation" style="display: none;">
         <a href="../../index.html" class="nav-link">🏠 Home</a>
@@ -388,32 +428,32 @@
     <div class="unified-menu">
         <button class="menu-toggle" id="unifiedMenuToggle" aria-label="Menu">☰</button>
         <div class="menu-dropdown" id="unifiedMenuDropdown">
-            <button class="menu-item" id="showInfoBtn">📖 このワールドについて</button>
+            <button class="menu-item" id="showInfoBtn"><span class="menu-icon">📖</span> このワールドについて</button>
 
             <div class="menu-item has-submenu">
-                <button class="submenu-toggle" id="worldsMenuToggle">🌍 世界選択 <span style="font-size: 10px;">▼</span></button>
+                <button class="submenu-toggle" id="worldsMenuToggle"><span class="menu-icon">🌍</span> 世界選択 <span style="font-size: 10px;">▼</span></button>
                 <div class="submenu" id="worldsSubmenu">
-                    <a href="../basic/index.html" class="menu-item">🍫 はじまりの国</a>
-                    <a href="../pixel-ocean/index.html" class="menu-item">🌊 海底世界</a>
-                    <a href="../music-garden/index.html" class="menu-item">🌸 硝子の花</a>
-                    <a href="../wabi-sabi/index.html" class="menu-item">🖤 侘び寂びの世界</a>
-                    <a href="../space/index.html" class="menu-item">🌌 宇宙空間</a>
-                    <a href="index.html" class="menu-item">🎡 AI遊園地（現在地）</a>
+                    <a href="../basic/index.html" class="menu-item"><span class="menu-icon">🍫</span> はじまりの国</a>
+                    <a href="../pixel-ocean/index.html" class="menu-item"><span class="menu-icon">🌊</span> 海底世界</a>
+                    <a href="../music-garden/index.html" class="menu-item"><span class="menu-icon">🌸</span> 硝子の花</a>
+                    <a href="../wabi-sabi/index.html" class="menu-item"><span class="menu-icon">🖤</span> 侘び寂びの世界</a>
+                    <a href="../space/index.html" class="menu-item"><span class="menu-icon">🌌</span> 宇宙空間</a>
+                    <a href="index.html" class="menu-item"><span class="menu-icon">🎡</span> AI遊園地（現在地）</a>
                 </div>
             </div>
 
-            <a href="../../index.html" class="menu-item">🏠 Home</a>
-            <a href="https://github.com/nyukicorn/chocodrop" class="menu-item" target="_blank">🔗 GitHub</a>
+            <a href="../../index.html" class="menu-item"><span class="menu-icon">🏠</span> Home</a>
+            <a href="https://github.com/nyukicorn/chocodrop" class="menu-item" target="_blank"><span class="menu-icon">🔗</span> GitHub</a>
 
-            <button class="menu-item" id="vrMenuButton">🥽 VR</button>
-            <button class="menu-item" id="arMenuButton">🥽 AR</button>
+            <button class="menu-item" id="vrMenuButton"><span class="menu-icon">🥽</span> VR</button>
+            <button class="menu-item" id="arMenuButton"><span class="menu-icon">🥽</span> AR</button>
         </div>
     </div>
 
     <div id="hint-toggle" style="display: none;">💡 ヒント</div>
 
     <div id="info">
-        <button class="close-btn" onclick="hideInfoPanel()">&times;</button>
+        <button class="close-btn" onclick="window.hideInfoPanel()">&times;</button>
         <strong class="toy-title">🧸 <span class="toy-icon">🎪</span> AI遊園地 <span class="toy-icon">🎠</span> 🧸</strong>
 
         <div style="font-size: 11px; opacity: 0.9; margin: 10px 0 12px 0; line-height: 1.6; text-align: center; font-style: italic;">
@@ -1699,53 +1739,225 @@
             updateThemeButtonStyle(); // テーマ変更時にボタンスタイルも更新
         });
 
+        // 🎵 高度な音響システムの初期化（wabi-sabi方式）
+        let audioContext = null;
+        let analyser = null;
+        let dataArray = null;
+        let beatDetectionHistory = [];
+        let lastBeatTime = 0;
+        let musicData = {
+            volume: 0,
+            bass: 0,
+            mid: 0,
+            treble: 0,
+            tempo: 0,
+            bpm: 0,
+            beatDetected: false,
+            isPlaying: false
+        };
+        const audioStatusEl = document.getElementById('audio-status');
+        const audioTextEl = document.getElementById('audio-text');
+
+        function setupAudioAnalysis() {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                analyser = audioContext.createAnalyser();
+                analyser.fftSize = 256;
+                dataArray = new Uint8Array(analyser.frequencyBinCount);
+                console.log('🎵 Advanced audio analysis initialized');
+            }
+        }
+
+        // 動画要素を音響分析に接続
+        function connectVideoToAudio(videoElement) {
+            if (!audioContext || !analyser) {
+                setupAudioAnalysis();
+            }
+
+            try {
+                if (audioContext.state === 'suspended') {
+                    audioContext.resume();
+                }
+
+                const source = audioContext.createMediaElementSource(videoElement);
+                source.connect(analyser);
+                analyser.connect(audioContext.destination);
+
+                musicData.isPlaying = true;
+                if (audioStatusEl) {
+                    audioStatusEl.classList.add('active');
+                    if (audioTextEl) {
+                        audioTextEl.textContent = '音響連動中 ♪ (BPM検出中)';
+                    }
+                }
+                console.log('🎵 Video connected to advanced audio analyser');
+            } catch (error) {
+                console.warn('Audio connection error:', error);
+            }
+        }
+
+        // 音楽データの詳細解析
+        function analyzeMusicData() {
+            if (!analyser || !dataArray) return;
+
+            analyser.getByteFrequencyData(dataArray);
+
+            let sum = 0;
+            for (let i = 0; i < dataArray.length; i++) {
+                sum += dataArray[i];
+            }
+            musicData.volume = sum / dataArray.length / 255;
+
+            const bassRange = Math.floor(dataArray.length * 0.1);
+            const midRange = Math.floor(dataArray.length * 0.5);
+
+            let bassSum = 0, midSum = 0, trebleSum = 0;
+
+            for (let i = 0; i < bassRange; i++) {
+                bassSum += dataArray[i];
+            }
+            for (let i = bassRange; i < midRange; i++) {
+                midSum += dataArray[i];
+            }
+            for (let i = midRange; i < dataArray.length; i++) {
+                trebleSum += dataArray[i];
+            }
+
+            musicData.bass = bassSum / bassRange / 255;
+            musicData.mid = midSum / (midRange - bassRange) / 255;
+            musicData.treble = trebleSum / (dataArray.length - midRange) / 255;
+
+            const currentTime = performance.now();
+            const bassThreshold = 0.3;
+            const volumeThreshold = 0.2;
+
+            musicData.beatDetected = false;
+
+            if (musicData.bass > bassThreshold && musicData.volume > volumeThreshold) {
+                if (currentTime - lastBeatTime > 300) {
+                    musicData.beatDetected = true;
+                    lastBeatTime = currentTime;
+
+                    beatDetectionHistory.push(currentTime);
+                    if (beatDetectionHistory.length > 8) {
+                        beatDetectionHistory.shift();
+                    }
+
+                    if (beatDetectionHistory.length >= 4) {
+                        const intervals = [];
+                        for (let i = 1; i < beatDetectionHistory.length; i++) {
+                            intervals.push(beatDetectionHistory[i] - beatDetectionHistory[i-1]);
+                        }
+                        const avgInterval = intervals.reduce((a, b) => a + b) / intervals.length;
+                        musicData.bpm = Math.round(60000 / avgInterval);
+
+                        if (audioTextEl && musicData.bpm > 0) {
+                            audioTextEl.textContent = `音響連動中 ♪ (${musicData.bpm} BPM)`;
+                        }
+                    }
+                }
+            }
+        }
+
+        // ビデオ要素を監視して自動接続
+        function observeVideoElements() {
+            const videoObserver = new MutationObserver((mutations) => {
+                mutations.forEach((mutation) => {
+                    mutation.addedNodes.forEach((node) => {
+                        if (node.nodeName === 'VIDEO') {
+                            console.log('🎬 Video element detected, connecting to audio...');
+                            connectVideoToAudio(node);
+                        }
+                    });
+                });
+            });
+
+            videoObserver.observe(document.body, {
+                childList: true,
+                subtree: true
+            });
+
+            const existingVideos = document.querySelectorAll('video');
+            existingVideos.forEach(video => {
+                connectVideoToAudio(video);
+            });
+        }
+
+        if (audioStatusEl) {
+            audioStatusEl.classList.add('active');
+        }
+        observeVideoElements();
+
         // アニメーションループ
         function animate() {
             requestAnimationFrame(animate);
 
             const t = Date.now() * 0.001;
 
+            // 🎵 高度な音響データ解析
+            if (musicData.isPlaying) {
+                analyzeMusicData();
+            }
+
+            // 音響連動の強度（遊園地は楽しげな反応 + ビート反応 + 昼夜モード対応）
+            const audioIntensity = musicData.volume * 0.9;
+            const bassBoost = musicData.bass * 1.8;
+            const midBoost = musicData.mid * 1.4;
+            const trebleBoost = musicData.treble * 1.3;
+            // 昼モード: 元気よく跳ねる、夜モード: ネオンが激しく光る
+            const beatPulse = musicData.beatDetected ? (isNightMode ? 2.5 : 1.8) : 1.0;
+
+            // メリーゴーランドのクリーチャー + 音響連動 + ビート反応
             carouselCreatures.forEach((entry, idx) => {
-                entry.group.position.y = entry.baseY + Math.sin(t * 1.8 + entry.phase) * 0.7;
-                entry.group.rotation.y = Math.sin(t * 0.9 + entry.phase) * 0.4;
+                entry.group.position.y = entry.baseY + Math.sin(t * 1.8 * (1 + audioIntensity * 0.5) + entry.phase) * 0.7 * (1 + bassBoost * 0.4) * beatPulse;
+                entry.group.rotation.y = Math.sin(t * 0.9 + entry.phase) * 0.4 * (1 + midBoost * 0.3);
             });
 
+            // ホバリングドローン + 音響連動 + ビート反応
             hoverDrones.forEach(entry => {
-                entry.pivot.rotation.y += entry.speed;
+                entry.pivot.rotation.y += entry.speed * (1 + audioIntensity * 0.6);
                 if (entry.arm) {
-                    entry.arm.position.y = entry.baseY + Math.sin(t * 2.4 + entry.phase) * entry.amplitude;
+                    entry.arm.position.y = entry.baseY + Math.sin(t * 2.4 * (1 + trebleBoost * 0.8) + entry.phase) * entry.amplitude * (1 + audioIntensity * 0.5) * beatPulse;
                 }
             });
 
+            // サービスボット + 音響連動 + ビート反応
             serviceBots.forEach(bot => {
-                const angle = t * bot.speed + bot.offset;
+                const speedMultiplier = 1 + audioIntensity * 0.7;
+                const angle = t * bot.speed * speedMultiplier + bot.offset;
                 bot.mesh.position.x = bot.center.x + Math.cos(angle) * bot.radius;
                 bot.mesh.position.z = bot.center.z + Math.sin(angle) * bot.radius;
-                bot.mesh.position.y = bot.baseY + 0.25 * Math.sin(t * 3 + bot.offset);
+                bot.mesh.position.y = bot.baseY + 0.25 * Math.sin(t * 3 + bot.offset) * (1 + bassBoost * 0.5) * beatPulse;
                 bot.mesh.rotation.y = -angle + Math.PI / 2;
             });
 
+            // ネオンエフェクト + 音響連動 + ビート反応（夜モードで強調）
             neonElements.forEach(entry => {
+                const neonAudioBoost = isNightMode ? (1 + audioIntensity * 1.2) * beatPulse : (1 + audioIntensity * 0.3);
                 if (entry.type === 'rotateY') {
-                    entry.mesh.rotation.y += entry.speed;
+                    entry.mesh.rotation.y += entry.speed * neonAudioBoost;
                 } else if (entry.type === 'rotateZ') {
-                    entry.mesh.rotation.z += entry.speed;
+                    entry.mesh.rotation.z += entry.speed * neonAudioBoost;
                 } else if (entry.type === 'pulse') {
-                    const pulse = entry.baseOpacity * (0.5 * neonModeBoost + 0.4 * Math.sin(t * entry.speed + entry.phase) * neonModeBoost);
+                    const pulse = entry.baseOpacity * (0.5 * neonModeBoost + 0.4 * Math.sin(t * entry.speed * (1 + trebleBoost) + entry.phase) * neonModeBoost * neonAudioBoost);
                     entry.mesh.material.opacity = pulse;
                 }
             });
 
+            // パーティクルエミッター + 音響連動 + ビート反応（夜モードでキラキラ）
             particleEmitters.forEach(emitter => {
-                emitter.points.rotation.y += 0.0006;
-                emitter.points.position.y = emitter.baseY + 0.25 * Math.sin(t * 1.6 + emitter.start * 0.001);
+                const particleAudioBoost = isNightMode ? (1 + trebleBoost * 1.5) * beatPulse : (1 + audioIntensity * 0.4);
+                emitter.points.rotation.y += 0.0006 * particleAudioBoost;
+                emitter.points.position.y = emitter.baseY + 0.25 * Math.sin(t * 1.6 * (1 + midBoost * 0.6) + emitter.start * 0.001) * beatPulse;
                 if (emitter.nightOnly) {
                     emitter.points.visible = isNightMode;
                 }
             });
 
+            // ジェットコースター + 音響連動 + ビート反応
             trainMovers.forEach(mover => {
-                mover.offset = (mover.offset + mover.speed) % 1;
+                const trainSpeedMultiplier = 1 + audioIntensity * 0.8;
+                mover.offset = (mover.offset + mover.speed * trainSpeedMultiplier) % 1;
                 const normalizedSpacing = mover.spacing / mover.length;
                 mover.cars.forEach((car, idx) => {
                     let tCar = mover.offset - normalizedSpacing * idx;
@@ -1760,11 +1972,11 @@
                 });
             });
 
-            // おもちゃたちの微細なアニメーション
+            // おもちゃたちの微細なアニメーション + 音響連動 + ビート反応
             toyCity.children.forEach((child, index) => {
                 if (child !== merryGoRound && !child.userData?.skipWiggle) {
-                    child.rotation.y = Math.sin(Date.now() * 0.001 + index) * 0.02;
-                    child.position.y = Math.sin(Date.now() * 0.002 + index) * 0.2;
+                    child.rotation.y = Math.sin(Date.now() * 0.001 * (1 + audioIntensity * 0.4) + index) * 0.02 * (1 + midBoost * 0.5);
+                    child.position.y = Math.sin(Date.now() * 0.002 + index) * 0.2 * (1 + bassBoost * 0.4) * beatPulse;
                 }
             });
 

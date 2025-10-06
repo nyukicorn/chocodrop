@@ -11,6 +11,16 @@ export class CommandUIDemo {
     this.client = options.client || null;
     this.onControlsToggle = options.onControlsToggle || (() => {});
     
+    if (typeof this.showInputFeedback !== 'function') {
+      this.showInputFeedback = (message, type = 'error') => {
+        if (type === 'error') {
+          this.addOutput(`⚠️ ${message}`, 'error');
+        } else {
+          this.addOutput(`💡 ${message}`, 'system');
+        }
+      };
+    }
+
     this.isVisible = false;
     this.container = null;
     this.input = null;
@@ -4918,6 +4928,7 @@ export class CommandUIDemo {
             result = await this.sceneManager.load3DModel(this.selectedFile.url, {
               position: position,
               // scale: 自動調整に任せる
+              fileName: this.selectedFile.name
             });
           } else {
             throw new Error('SceneManager が利用できません');

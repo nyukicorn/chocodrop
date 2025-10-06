@@ -68,149 +68,23 @@ pnpm dlx @chocodrop/daemon@alpha
 
 #### Step 2: Three.jsページで統合（2つの方法）
 
-##### 方法A: Bookmarklet（推奨 - ワンクリック統合）
+##### 方法A: ブックマークレット（推奨 - ワンクリック統合）
 
-このリンクをブックマークバーにドラッグ＆ドロップ:
+1. [https://nyukicorn.github.io/chocodrop/examples/bookmarklet-v2.html](https://nyukicorn.github.io/chocodrop/examples/bookmarklet-v2.html) を開く（ローカルの場合は `examples/bookmarklet-v2.html` をブラウザで開いてください）
+2. ページ内の「🍫 ChocoDrop v2」ボタンをブックマークバーへドラッグ
+3. Three.jsのページ（例: https://threejs.org/examples/）でブックマークをクリック
+   - デーモン起動中 → 即座にUIが表示
+   - 停止中 → 右下のトーストが起動方法を案内
 
-**[🍫 ChocoDrop v2](javascript:(async()=>{const b='http://127.0.0.1:43110';async function check(){try{const r=await fetch(b+'/v1/health');return r.ok}catch{return false}}async function showToast(){if(document.getElementById('__cd_toast__'))return;const t=document.createElement('div');t.id='__cd_toast__';Object.assign(t.style,{position:'fixed',right:'16px',bottom:'16px',zIndex:'2147483647',width:'min(380px,calc(100vw-32px))',fontFamily:'ui-sans-serif,system-ui,-apple-system,sans-serif'});t.innerHTML=`<div style='background:#18181c;color:#fff;padding:14px 16px;border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.35)'><div style='font-weight:700;display:flex;gap:8px;align-items:center'><span>🍫 ChocoDrop が起動していません</span><span id='cd-dot' style='margin-left:auto;width:8px;height:8px;border-radius:50%;background:#f43'></span></div><div style='font-size:12px;opacity:.85;margin-top:6px'>ローカル(127.0.0.1)のみで動作・外部送信なし。起動すると自動で接続します。</div><div style='display:grid;gap:8px;margin-top:12px'><button id='cd-guide' style='padding:10px 12px;border:0;border-radius:10px;cursor:pointer;background:#fff;color:#111;font-weight:600'>起動ガイドを開く</button><button id='cd-retry' style='padding:10px 12px;border:1px solid #444;border-radius:10px;cursor:pointer;background:transparent;color:#fff'>再試行</button></div></div>`;document.body.appendChild(t);const d=t.querySelector('#cd-dot'),g=document.createElement('dialog');g.style.border='0';g.style.borderRadius='14px';g.style.padding='0';g.style.maxWidth='560px';g.style.width='calc(100vw-40px)';g.innerHTML=`<div style='background:#161618;color:#fff;padding:16px;border-radius:14px'><div style='font-weight:700;margin-bottom:8px'>起動ガイド</div><pre id='cd-code' style='background:#0e0e10;color:#eaeaea;padding:12px;border-radius:10px;overflow:auto;margin:0;font-size:13px'>npx --yes @chocodrop/daemon@alpha</pre><div style='display:flex;gap:8px;justify-content:flex-end;margin-top:12px'><button id='cd-copy' style='padding:8px 10px;border-radius:8px;border:0;cursor:pointer;background:#444;color:#fff'>コピー</button><button id='cd-done' style='padding:8px 10px;border-radius:8px;border:0;cursor:pointer;background:#fff;color:#111'>OK</button></div></div>`;document.body.appendChild(g);t.querySelector('#cd-guide').onclick=()=>g.showModal();g.querySelector('#cd-done').onclick=()=>g.close();g.querySelector('#cd-copy').onclick=async()=>{try{await navigator.clipboard.writeText('npx --yes @chocodrop/daemon@alpha');const btn=g.querySelector('#cd-copy');btn.textContent='コピー完了！';setTimeout(()=>{btn.textContent='コピー'},1000)}catch{}};t.querySelector('#cd-retry').onclick=poll;async function poll(){const ok=await check();d.style.background=ok?'#0f6':'#f43';if(ok){t.querySelector('span').textContent='🍫 接続できました';setTimeout(()=>{t.remove();loadSDK()},700)}else{setTimeout(poll,2500)}}poll()}function loadSDK(){if(document.getElementById('__chocodrop_sdk'))return;const s=document.createElement('script');s.id='__chocodrop_sdk';s.src=b+'/sdk.js';s.onload=()=>window.chocodrop?.ready?.().then(()=>window.chocodrop.attach(window.scene||null,{camera:window.camera,renderer:window.renderer})).catch(e=>console.warn('ChocoDrop:',e));document.head.appendChild(s)}const isRunning=await check();if(isRunning){loadSDK()}else{showToast()}})();)**
+> ブックマークバーが見えない場合: Chrome の「表示」>「常にブックマークバーを表示」を有効化してください。
 
-> **HTMLファイルで試す場合**: [examples/bookmarklet-v2.html](examples/bookmarklet-v2.html) を開いてブックマークバーに追加
+##### 方法B: DevToolsスニペット（開発者モード向け）
 
-**使い方:**
-1. Three.jsのページ（例: https://threejs.org/examples/）を開く
-2. ブックマークレットをクリック
-3. デーモン起動中なら即座にChocoDrop UI表示
-4. デーモン停止中なら右下にToast UIが表示され、起動を案内
+1. Chromeで F12（または Ctrl+Shift+I / Cmd+Opt+I）を押し、Sources → Snippets を開く
+2. 新規スニペットを作成し、`bookmarklet-code.js` の内容を貼り付けて保存
+3. 実行するとブックマークレットと同じトーストUIが表示され、デーモン状態に応じてSDKを読み込みます
 
-##### 方法B: DevToolsスニペット（コンソールから実行）
-
-ブラウザのコンソール（F12）を開いて、以下のコードを貼り付け:
-
-```javascript
-(async () => {
-  const b = 'http://127.0.0.1:43110';
-
-  async function check() {
-    try {
-      const r = await fetch(b + '/v1/health');
-      return r.ok;
-    } catch {
-      return false;
-    }
-  }
-
-  async function showToast() {
-    if (document.getElementById('__cd_toast__')) return;
-
-    const t = document.createElement('div');
-    t.id = '__cd_toast__';
-    Object.assign(t.style, {
-      position: 'fixed',
-      right: '16px',
-      bottom: '16px',
-      zIndex: '2147483647',
-      width: 'min(380px, calc(100vw - 32px))',
-      fontFamily: 'ui-sans-serif, system-ui, -apple-system, sans-serif'
-    });
-
-    t.innerHTML = `
-      <div style="background:#18181c; color:#fff; padding:14px 16px; border-radius:14px; box-shadow:0 10px 30px rgba(0,0,0,.35)">
-        <div style="font-weight:700; display:flex; gap:8px; align-items:center">
-          <span>🍫 ChocoDrop が起動していません</span>
-          <span id="cd-dot" style="margin-left:auto;width:8px;height:8px;border-radius:50%;background:#f43"></span>
-        </div>
-        <div style="font-size:12px; opacity:.85; margin-top:6px">ローカル(127.0.0.1)のみで動作・外部送信なし。起動すると自動で接続します。</div>
-        <div style="display:grid; gap:8px; margin-top:12px">
-          <button id="cd-guide" style="padding:10px 12px; border:0; border-radius:10px; cursor:pointer; background:#fff; color:#111; font-weight:600;">起動ガイドを開く</button>
-          <button id="cd-retry" style="padding:10px 12px; border:1px solid #444; border-radius:10px; cursor:pointer; background:transparent; color:#fff;">再試行</button>
-        </div>
-      </div>`;
-
-    document.body.appendChild(t);
-
-    const d = t.querySelector('#cd-dot');
-    const g = document.createElement('dialog');
-    g.style.border = '0';
-    g.style.borderRadius = '14px';
-    g.style.padding = '0';
-    g.style.maxWidth = '560px';
-    g.style.width = 'calc(100vw - 40px)';
-    g.innerHTML = `
-      <div style="background:#161618; color:#fff; padding:16px; border-radius:14px">
-        <div style="font-weight:700; margin-bottom:8px">起動ガイド</div>
-        <pre id="cd-code" style="background:#0e0e10; color:#eaeaea; padding:12px; border-radius:10px; overflow:auto; margin:0; font-size:13px">npx --yes @chocodrop/daemon@alpha</pre>
-        <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:12px">
-          <button id="cd-copy" style="padding:8px 10px; border-radius:8px; border:0; cursor:pointer; background:#444; color:#fff">コピー</button>
-          <button id="cd-done" style="padding:8px 10px; border-radius:8px; border:0; cursor:pointer; background:#fff; color:#111">OK</button>
-        </div>
-      </div>`;
-
-    document.body.appendChild(g);
-
-    t.querySelector('#cd-guide').onclick = () => g.showModal();
-    g.querySelector('#cd-done').onclick = () => g.close();
-    g.querySelector('#cd-copy').onclick = async () => {
-      try {
-        await navigator.clipboard.writeText('npx --yes @chocodrop/daemon@alpha');
-        const btn = g.querySelector('#cd-copy');
-        btn.textContent = 'コピー完了！';
-        setTimeout(() => { btn.textContent = 'コピー'; }, 1000);
-      } catch (e) {
-        console.error('Clipboard error:', e);
-      }
-    };
-
-    t.querySelector('#cd-retry').onclick = poll;
-
-    async function poll() {
-      const ok = await check();
-      d.style.background = ok ? '#0f6' : '#f43';
-      if (ok) {
-        t.querySelector('span').textContent = '🍫 接続できました';
-        setTimeout(() => {
-          t.remove();
-          loadSDK();
-        }, 700);
-      } else {
-        setTimeout(poll, 2500);
-      }
-    }
-
-    poll();
-  }
-
-  function loadSDK() {
-    if (document.getElementById('__chocodrop_sdk')) return;
-
-    const s = document.createElement('script');
-    s.id = '__chocodrop_sdk';
-    s.src = b + '/sdk.js';
-    s.onload = () => {
-      console.log('✅ SDK loaded');
-      window.chocodrop?.ready?.()
-        .then(() => window.chocodrop.attach(window.scene || null, {
-          camera: window.camera,
-          renderer: window.renderer
-        }))
-        .catch(e => console.warn('ChocoDrop:', e));
-    };
-    s.onerror = () => console.error('❌ SDK load failed');
-    document.head.appendChild(s);
-  }
-
-  console.log('🍫 ChocoDrop Bookmarklet v2');
-  const isRunning = await check();
-  console.log('Daemon status:', isRunning ? '✅ Running' : '❌ Stopped');
-
-  if (isRunning) {
-    loadSDK();
-  } else {
-    showToast();
-  }
-})();
-```
-
-> **Tip**: Chromeでスニペットとして登録すると、毎回コピペせずに実行できます（DevTools > Sources > Snippets）
+> ソースはリポジトリ直下の [bookmarklet-code.js](bookmarklet-code.js)。このファイルが常に最新の本番コードです。
 
 ---
 

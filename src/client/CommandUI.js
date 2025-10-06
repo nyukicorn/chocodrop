@@ -5568,6 +5568,7 @@ export class CommandUI {
             result = await this.sceneManager.load3DModel(this.selectedFile.url, {
               position: position,
               // scale: 自動調整に任せる
+              fileName: this.selectedFile.name
             });
           } else {
             throw new Error('SceneManager が利用できません');

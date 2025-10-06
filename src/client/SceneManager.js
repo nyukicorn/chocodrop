@@ -40,6 +40,8 @@ export class SceneManager {
     this.audioControls = new Map();
     this.audioControlUpdateInterval = null;
     this.audioControlUpdateListener = null;
+    this.animationMixers = new Set();
+    this.gltfLoader = null;
 
     // Animation管理（UI要素用）
     this.clock = new THREE.Clock();
@@ -57,6 +59,8 @@ export class SceneManager {
       enableObjectSelection: options.enableObjectSelection !== false,
       enableMouseInteraction: options.enableMouseInteraction,
       enableDebugLogging: options.enableDebugLogging === true,
+      defaultModelSize: options.defaultModelSize || 6,
+      dracoDecoderPath: options.dracoDecoderPath || null,
       ...options.config
     };
     
@@ -1965,8 +1969,14 @@ export class SceneManager {
     this.animationLoopRunning = true;
 
     const animate = () => {
-      if (this.animations && this.animations.size > 0) {
+      const hasCustomAnimations = this.animations && this.animations.size > 0;
+      const hasMixers = this.animationMixers && this.animationMixers.size > 0;
+
+      if (hasCustomAnimations || hasMixers) {
         this.updateAnimations();
+      } else {
+        this.animationLoopRunning = false;
+        return;
       }
 
       if (this.animationLoopRunning) {
@@ -1982,6 +1992,17 @@ export class SceneManager {
    * アニメーション更新
    */
   updateAnimations() {
+    const delta = this.clock.getDelta();
+    if (this.animationMixers && this.animationMixers.size > 0) {
+      for (const mixer of this.animationMixers) {
+        mixer.update(delta);
+      }
+    }
+
+    if (!this.animations || this.animations.size === 0) {
+      return;
+    }
+
     const currentTime = Date.now();
 
     for (const [id, animation] of this.animations.entries()) {
@@ -2013,6 +2034,146 @@ export class SceneManager {
           this.updateWatercolorAnimation(animation, elapsed);
           break;
       }
+    }
+  }
+
+  async ensureGLTFLoader() {
+    if (this.gltfLoader) {
+      return this.gltfLoader;
+    }
+
+    let LoaderClass = null;
+
+    if (globalThis && globalThis.GLTFLoader) {
+      LoaderClass = globalThis.GLTFLoader;
+    } else {
+      try {
+        // ブラウザ環境では CDN を優先
+        if (typeof window !== 'undefined') {
+          const module = await import('https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/GLTFLoader.js');
+          LoaderClass = module.GLTFLoader || module.default;
+        } else {
+          const module = await import('three/examples/jsm/loaders/GLTFLoader.js');
+          LoaderClass = module.GLTFLoader || module.default;
+        }
+      } catch (error) {
+        console.error('⚠️ Failed to load GLTFLoader dynamically:', error);
+        throw new Error('GLTFLoader を読み込めませんでした。環境に応じて手動で読み込んでください。');
+      }
+    }
+
+    if (!LoaderClass) {
+      throw new Error('GLTFLoader が利用できない構成です。');
+    }
+
+    this.gltfLoader = new LoaderClass();
+    this.gltfLoader.setCrossOrigin('anonymous');
+    return this.gltfLoader;
+  }
+
+  async load3DModel(modelUrl, options = {}) {
+    if (!modelUrl) {
+      throw new Error('3DモデルのURLが指定されていません');
+    }
+
+    const { position = { x: 0, y: 3, z: 12 }, rotation = null, scale = null, fileName = null, onProgress = null } = options;
+
+    try {
+      const loader = await this.ensureGLTFLoader();
+      const gltf = await loader.loadAsync(modelUrl, onProgress || undefined);
+
+      const modelRoot = gltf.scene || (gltf.scenes && gltf.scenes[0]);
+      if (!modelRoot) {
+        throw new Error('GLBファイルにシーンデータが含まれていません');
+      }
+
+      // 名前とメタデータ設定
+      const objectId = `imported_model_${++this.objectCounter}`;
+      modelRoot.name = objectId;
+
+      // マテリアル調整・影設定
+      modelRoot.traverse(node => {
+        if (node.isMesh) {
+          node.castShadow = true;
+          node.receiveShadow = true;
+          if (node.material) {
+            node.material.needsUpdate = true;
+          }
+        }
+      });
+
+      // スケール調整
+      modelRoot.updateMatrixWorld(true);
+      const box = new THREE.Box3().setFromObject(modelRoot);
+      const size = box.getSize(new THREE.Vector3(1, 1, 1));
+      const maxDimension = Math.max(size.x, size.y, size.z);
+      const targetSize = this.config.defaultModelSize || 6;
+      if (!scale && isFinite(maxDimension) && maxDimension > 0) {
+        const scaleFactor = targetSize / maxDimension;
+        modelRoot.scale.multiplyScalar(scaleFactor);
+      } else if (scale) {
+        if (typeof scale === 'number') {
+          modelRoot.scale.setScalar(scale);
+        } else if (Array.isArray(scale) && scale.length === 3) {
+          modelRoot.scale.set(scale[0], scale[1], scale[2]);
+        }
+      }
+
+      // 位置決め
+      const finalPosition = this.camera
+        ? this.calculateCameraRelativePosition(position)
+        : position;
+      modelRoot.position.set(finalPosition.x, finalPosition.y, finalPosition.z);
+
+      if (rotation) {
+        modelRoot.rotation.set(rotation.x || 0, rotation.y || 0, rotation.z || 0);
+      }
+
+      // アニメーション再生
+      if (gltf.animations && gltf.animations.length > 0) {
+        const mixer = new THREE.AnimationMixer(modelRoot);
+        gltf.animations.forEach(clip => {
+          const action = mixer.clipAction(clip);
+          action.play();
+        });
+        this.animationMixers.add(mixer);
+        modelRoot.userData.animationMixer = mixer;
+        modelRoot.userData.animationClips = gltf.animations;
+        this.startAnimationLoop();
+      }
+
+      const promptBase = fileName ? fileName.replace(/\.[^/.]+$/, '') : 'imported_model';
+
+      modelRoot.userData = {
+        ...(modelRoot.userData || {}),
+        id: objectId,
+        source: 'imported_file',
+        type: 'generated_3d_model',
+        createdAt: Date.now(),
+        fileName: fileName || null,
+        fileUrl: modelUrl,
+        keywords: this.buildObjectKeywordHints({ prompt: promptBase, fileName, baseType: '3d' }),
+        originalScale: modelRoot.scale.clone()
+      };
+
+      this.experimentGroup.add(modelRoot);
+      this.spawnedObjects.set(objectId, modelRoot);
+
+      if (this.config.showLocationIndicator) {
+        this.createLocationIndicator(position);
+      }
+
+      console.log(`✅ Imported 3D model: ${objectId}`);
+
+      return {
+        objectId,
+        position: finalPosition,
+        success: true,
+        hasAnimations: !!(gltf.animations && gltf.animations.length > 0)
+      };
+    } catch (error) {
+      console.error('📦 3D model loading failed:', error);
+      throw error;
     }
   }
 
@@ -3979,19 +4140,39 @@ export class SceneManager {
         }
       }
 
+      if (object.userData?.animationMixer) {
+        this.animationMixers.delete(object.userData.animationMixer);
+      }
+
       this.experimentGroup.remove(object);
       this.spawnedObjects.delete(objectId);
-      
+
       // ジオメトリとマテリアルのメモリ解放
-      if (object.geometry) object.geometry.dispose();
-      if (object.material) {
-        const materials = Array.isArray(object.material) ? object.material : [object.material];
-        materials.forEach(mat => {
-          if (mat.map && typeof mat.map.dispose === 'function') {
-            mat.map.dispose();
+      const disposeMeshResources = mesh => {
+        if (mesh.geometry && typeof mesh.geometry.dispose === 'function') {
+          mesh.geometry.dispose();
+        }
+        if (mesh.material) {
+          const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+          materials.forEach(mat => {
+            if (mat.map && typeof mat.map.dispose === 'function') {
+              mat.map.dispose();
+            }
+            if (typeof mat.dispose === 'function') {
+              mat.dispose();
+            }
+          });
+        }
+      };
+
+      if (object.traverse) {
+        object.traverse(child => {
+          if (child.isMesh) {
+            disposeMeshResources(child);
           }
-          mat.dispose();
         });
+      } else {
+        disposeMeshResources(object);
       }
       
       console.log(`🗑️ Removed object: ${objectId}`);

@@ -197,6 +197,84 @@
             background: rgba(100, 200, 255, 0.15);
         }
 
+        /* 🎵 音響ステータス表示 */
+        #audio-status {
+            position: fixed;
+            top: 70px;
+            right: 20px;
+            z-index: 100;
+            background: linear-gradient(135deg, rgba(0, 17, 82, 0.85) 0%, rgba(0, 0, 0, 0.95) 100%);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            padding: 10px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+            border: 1px solid rgba(100, 200, 255, 0.3);
+            box-shadow: 0 8px 32px rgba(0, 100, 255, 0.15), 0 0 40px rgba(100, 200, 255, 0.1);
+            color: #ffffff;
+            display: none;
+            transition: opacity 0.3s ease;
+        }
+
+        #audio-status.active {
+            display: block;
+        }
+
+        #audio-status .status-icon {
+            display: inline-block;
+            margin-right: 5px;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.8; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.1); }
+        }
+
+        /* メニューアイコンのバウンスアニメーション */
+        .menu-icon {
+            display: inline-block;
+            animation: menu-bounce 2s ease-in-out infinite;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+            text-shadow: 0 0 10px currentColor;
+        }
+
+        .menu-icon:hover {
+            transform: scale(1.4);
+            animation: menu-bounce-fast 0.8s ease-in-out infinite;
+        }
+
+        @keyframes menu-bounce {
+            0%, 100% {
+                filter: brightness(1) drop-shadow(0 0 8px currentColor);
+                transform: scale(1) translateY(0px);
+            }
+            25% {
+                filter: brightness(1.3) drop-shadow(0 0 15px currentColor);
+                transform: scale(1.1) translateY(-4px);
+            }
+            50% {
+                filter: brightness(1.5) drop-shadow(0 0 20px currentColor);
+                transform: scale(1.15) translateY(-8px);
+            }
+            75% {
+                filter: brightness(1.3) drop-shadow(0 0 15px currentColor);
+                transform: scale(1.1) translateY(-4px);
+            }
+        }
+
+        @keyframes menu-bounce-fast {
+            0%, 100% {
+                filter: brightness(1.4) drop-shadow(0 0 15px currentColor);
+                transform: translateY(0px);
+            }
+            50% {
+                filter: brightness(1.8) drop-shadow(0 0 25px currentColor);
+                transform: translateY(-12px);
+            }
+        }
+
         #hint-toggle {
             position: fixed;
             top: 16px;
@@ -433,6 +511,11 @@
     </style>
 </head>
 <body>
+    <!-- 🎵 音響ステータス表示 -->
+    <div id="audio-status">
+        <span class="status-icon">🎤</span><span id="audio-text">音声待機中...</span>
+    </div>
+
     <!-- Navigation Links -->
     <div class="navigation">
         <a href="../../index.html" class="nav-link">🏠 Home</a>
@@ -481,25 +564,25 @@
     <div class="unified-menu">
         <button class="menu-toggle" id="unifiedMenuToggle" aria-label="Menu">☰</button>
         <div class="menu-dropdown" id="unifiedMenuDropdown">
-            <button class="menu-item" id="showInfoBtn">📖 このワールドについて</button>
+            <button class="menu-item" id="showInfoBtn"><span class="menu-icon">📖</span> このワールドについて</button>
 
             <div class="menu-item has-submenu">
-                <button class="submenu-toggle" id="worldsMenuToggle">🌍 世界選択 <span style="font-size: 10px;">▼</span></button>
+                <button class="submenu-toggle" id="worldsMenuToggle"><span class="menu-icon">🌍</span> 世界選択 <span style="font-size: 10px;">▼</span></button>
                 <div class="submenu" id="worldsSubmenu">
-                    <a href="../basic/index.html" class="menu-item">🍫 はじまりの国</a>
-                    <a href="../pixel-ocean/index.html" class="menu-item">🌊 海底世界</a>
-                    <a href="../music-garden/index.html" class="menu-item">🌸 硝子の花</a>
-                    <a href="../wabi-sabi/index.html" class="menu-item">🖤 侘び寂びの世界</a>
-                    <a href="../toy-city/index.html" class="menu-item">🎡 AI遊園地</a>
-                    <a href="index.html" class="menu-item">🌌 宇宙空間（現在地）</a>
+                    <a href="../basic/index.html" class="menu-item"><span class="menu-icon">🍫</span> はじまりの国</a>
+                    <a href="../pixel-ocean/index.html" class="menu-item"><span class="menu-icon">🌊</span> 海底世界</a>
+                    <a href="../music-garden/index.html" class="menu-item"><span class="menu-icon">🌸</span> 硝子の花</a>
+                    <a href="../wabi-sabi/index.html" class="menu-item"><span class="menu-icon">🖤</span> 侘び寂びの世界</a>
+                    <a href="../toy-city/index.html" class="menu-item"><span class="menu-icon">🎡</span> AI遊園地</a>
+                    <a href="index.html" class="menu-item"><span class="menu-icon">🌌</span> 宇宙空間（現在地）</a>
                 </div>
             </div>
 
-            <a href="../../index.html" class="menu-item">🏠 Home</a>
-            <a href="https://github.com/nyukicorn/chocodrop" class="menu-item" target="_blank">🔗 GitHub</a>
+            <a href="../../index.html" class="menu-item"><span class="menu-icon">🏠</span> Home</a>
+            <a href="https://github.com/nyukicorn/chocodrop" class="menu-item" target="_blank"><span class="menu-icon">🔗</span> GitHub</a>
 
-            <button class="menu-item" id="vrMenuButton">🥽 VR</button>
-            <button class="menu-item" id="arMenuButton">🥽 AR</button>
+            <button class="menu-item" id="vrMenuButton"><span class="menu-icon">🥽</span> VR</button>
+            <button class="menu-item" id="arMenuButton"><span class="menu-icon">🥽</span> AR</button>
         </div>
     </div>
 
@@ -1347,6 +1430,165 @@
         controls.minDistance = 10;
         controls.maxDistance = 500;
 
+        // 🎵 高度な音響システムの初期化（wabi-sabi方式）
+        let audioContext = null;
+        let analyser = null;
+        let dataArray = null;
+        let beatDetectionHistory = [];
+        let lastBeatTime = 0;
+        let musicData = {
+            volume: 0,
+            bass: 0,
+            mid: 0,
+            treble: 0,
+            tempo: 0,
+            bpm: 0,
+            beatDetected: false,
+            isPlaying: false
+        };
+        const audioStatusEl = document.getElementById('audio-status');
+        const audioTextEl = document.getElementById('audio-text');
+
+        function setupAudioAnalysis() {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                analyser = audioContext.createAnalyser();
+                analyser.fftSize = 256;
+                dataArray = new Uint8Array(analyser.frequencyBinCount);
+                console.log('🎵 Advanced audio analysis initialized');
+            }
+        }
+
+        // 動画要素を音響分析に接続
+        function connectVideoToAudio(videoElement) {
+            if (!audioContext || !analyser) {
+                setupAudioAnalysis();
+            }
+
+            try {
+                // AudioContextがsuspended状態の場合は再開
+                if (audioContext.state === 'suspended') {
+                    audioContext.resume();
+                }
+
+                const source = audioContext.createMediaElementSource(videoElement);
+                source.connect(analyser);
+                analyser.connect(audioContext.destination);
+
+                musicData.isPlaying = true;
+                if (audioStatusEl) {
+                    audioStatusEl.classList.add('active');
+                    if (audioTextEl) {
+                        audioTextEl.textContent = '音響連動中 ♪ (BPM検出中)';
+                    }
+                }
+                console.log('🎵 Video connected to advanced audio analyser');
+            } catch (error) {
+                console.warn('Audio connection error:', error);
+            }
+        }
+
+        // 音楽データの詳細解析
+        function analyzeMusicData() {
+            if (!analyser || !dataArray) return;
+
+            analyser.getByteFrequencyData(dataArray);
+
+            // 音量計算
+            let sum = 0;
+            for (let i = 0; i < dataArray.length; i++) {
+                sum += dataArray[i];
+            }
+            musicData.volume = sum / dataArray.length / 255;
+
+            // 周波数帯域分析
+            const bassRange = Math.floor(dataArray.length * 0.1);
+            const midRange = Math.floor(dataArray.length * 0.5);
+
+            let bassSum = 0, midSum = 0, trebleSum = 0;
+
+            for (let i = 0; i < bassRange; i++) {
+                bassSum += dataArray[i];
+            }
+            for (let i = bassRange; i < midRange; i++) {
+                midSum += dataArray[i];
+            }
+            for (let i = midRange; i < dataArray.length; i++) {
+                trebleSum += dataArray[i];
+            }
+
+            musicData.bass = bassSum / bassRange / 255;
+            musicData.mid = midSum / (midRange - bassRange) / 255;
+            musicData.treble = trebleSum / (dataArray.length - midRange) / 255;
+
+            // 🥁 ビート検出とBPM計算
+            const currentTime = performance.now();
+            const bassThreshold = 0.3;
+            const volumeThreshold = 0.2;
+
+            musicData.beatDetected = false;
+
+            // ビート検出（ベース音量の急激な変化）
+            if (musicData.bass > bassThreshold && musicData.volume > volumeThreshold) {
+                if (currentTime - lastBeatTime > 300) { // 最小300ms間隔
+                    musicData.beatDetected = true;
+                    lastBeatTime = currentTime;
+
+                    // BPM計算用履歴更新
+                    beatDetectionHistory.push(currentTime);
+                    if (beatDetectionHistory.length > 8) {
+                        beatDetectionHistory.shift();
+                    }
+
+                    // BPM計算
+                    if (beatDetectionHistory.length >= 4) {
+                        const intervals = [];
+                        for (let i = 1; i < beatDetectionHistory.length; i++) {
+                            intervals.push(beatDetectionHistory[i] - beatDetectionHistory[i-1]);
+                        }
+                        const avgInterval = intervals.reduce((a, b) => a + b) / intervals.length;
+                        musicData.bpm = Math.round(60000 / avgInterval);
+
+                        // ステータス更新
+                        if (audioTextEl && musicData.bpm > 0) {
+                            audioTextEl.textContent = `音響連動中 ♪ (${musicData.bpm} BPM)`;
+                        }
+                    }
+                }
+            }
+        }
+
+        // ChocoDrop のビデオ要素を監視して自動接続
+        function observeVideoElements() {
+            const videoObserver = new MutationObserver((mutations) => {
+                mutations.forEach((mutation) => {
+                    mutation.addedNodes.forEach((node) => {
+                        if (node.nodeName === 'VIDEO') {
+                            console.log('🎬 Video element detected, connecting to audio...');
+                            connectVideoToAudio(node);
+                        }
+                    });
+                });
+            });
+
+            videoObserver.observe(document.body, {
+                childList: true,
+                subtree: true
+            });
+
+            // 既存のビデオ要素もチェック
+            const existingVideos = document.querySelectorAll('video');
+            existingVideos.forEach(video => {
+                connectVideoToAudio(video);
+            });
+        }
+
+        // 初期化
+        if (audioStatusEl) {
+            audioStatusEl.classList.add('active');
+        }
+        observeVideoElements();
+
         // 🍫 ChocoDrop初期化
         let chocoDrop;
 
@@ -1477,100 +1719,147 @@
         function animate() {
             requestAnimationFrame(animate);
 
-            // 銀河のゆっくり回転
+            // 🎵 高度な音響データ解析
+            if (musicData.isPlaying) {
+                analyzeMusicData();
+            }
+
+            // 🎵 8バンド周波数解析（惑星の個別反応用）
+            let frequencies = new Array(8).fill(0);
+            if (analyser && dataArray) {
+                const bands = 8;
+                const bandSize = Math.floor(dataArray.length / bands);
+                for (let i = 0; i < bands; i++) {
+                    let sum = 0;
+                    for (let j = 0; j < bandSize; j++) {
+                        sum += dataArray[i * bandSize + j];
+                    }
+                    frequencies[i] = sum / bandSize / 255;
+                }
+            }
+
+            // 音響連動の強度（宇宙空間は迫力ある反応 + ビート反応）
+            const audioIntensity = musicData.volume * 1.0;
+            const bassBoost = musicData.bass * 2.0;
+            const midBoost = musicData.mid * 1.5;
+            const trebleBoost = musicData.treble * 1.2;
+            const beatPulse = musicData.beatDetected ? 2.0 : 1.0; // ビート時に大きく反応（宇宙空間は派手に）
+
+            // 銀河のゆっくり回転 + 音響連動 + ビート反応
             // 銀河の動的アニメーション（時計回り、内側ほど速く）
             if (galaxy && galaxy.userData.rotationSpeed) {
                 const time = performance.now() * 0.001;
                 galaxy.userData.time = time;
-                
-                // 全体をゆっくり時計回りに回転
-                galaxy.rotation.y += galaxy.userData.rotationSpeed;
-                
-                // 各星の個別動き（内側ほど速く回転）
+
+                // 全体をゆっくり時計回りに回転 + 音楽で速度アップ + ビート時に加速
+                const rotationSpeedMultiplier = (1 + audioIntensity * 2) * beatPulse;
+                galaxy.rotation.y += galaxy.userData.rotationSpeed * rotationSpeedMultiplier;
+
+                // 各星の個別動き（内側ほど速く回転）+ 音響連動 + ビート反応
                 const positions = galaxy.geometry.attributes.position.array;
                 const initialPositions = galaxy.userData.initialPositions;
-                
+
                 for (let i = 0; i < positions.length; i += 3) {
                     const x = initialPositions[i];
                     const z = initialPositions[i + 2];
                     const radius = Math.sqrt(x * x + z * z);
-                    
-                    // 内側ほど速く回転（実際の銀河のように）
-                    const speedMultiplier = Math.max(0.3, 1 - (radius / 150) * 0.6);
+
+                    // 内側ほど速く回転（実際の銀河のように）+ 音響連動 + ビート時に加速
+                    const speedMultiplier = Math.max(0.3, 1 - (radius / 150) * 0.6) * (1 + bassBoost * 0.8) * beatPulse;
                     const angle = time * speedMultiplier * 0.2;
-                    
+
                     // 時計回りの回転を適用
                     const cosAngle = Math.cos(angle);
                     const sinAngle = Math.sin(angle);
-                    
+
                     positions[i] = x * cosAngle - z * sinAngle;
                     positions[i + 2] = x * sinAngle + z * cosAngle;
-                    
-                    // Y軸にも微細な波打つような動き
-                    positions[i + 1] = initialPositions[i + 1] + Math.sin(time * 0.5 + i * 0.01) * 0.5;
+
+                    // Y軸にも微細な波打つような動き + 音響連動 + ビート時に激しく
+                    positions[i + 1] = initialPositions[i + 1] + Math.sin(time * 0.5 * (1 + midBoost) + i * 0.01) * 0.5 * (1 + trebleBoost * 0.5) * beatPulse;
                 }
-                
+
                 galaxy.geometry.attributes.position.needsUpdate = true;
+
+                // 音楽に合わせて銀河の明るさ変化 + ビート時に輝く
+                if (galaxy.material && galaxy.material.opacity !== undefined) {
+                    galaxy.material.opacity = (0.8 + audioIntensity * 0.2) * Math.min(1.5, beatPulse);
+                }
             }
 
-            // 惑星の自転
-            planets.forEach(planet => {
+            // 惑星の自転 + 音響連動 + ビート反応
+            planets.forEach((planet, planetIndex) => {
                 if (planet.userData && planet.userData.rotationSpeed) {
-                    // 惑星本体の自転
-                    planet.rotation.x += planet.userData.rotationSpeed.x;
-                    planet.rotation.y += planet.userData.rotationSpeed.y;
-                    planet.rotation.z += planet.userData.rotationSpeed.z;
-                    
-                    // 🪐 リングの回転（ガス惑星）
-                    if (planet.userData.ring) {
-                        planet.userData.ring.rotation.z += planet.userData.ring.userData.rotationSpeed;
+                    // 惑星本体の自転 + 音楽で速度アップ + ビート時に加速
+                    const planetAudioBoost = (1 + frequencies[planetIndex % 8] * 1.5) * beatPulse; // 各惑星が異なる周波数に反応
+                    planet.rotation.x += planet.userData.rotationSpeed.x * planetAudioBoost;
+                    planet.rotation.y += planet.userData.rotationSpeed.y * planetAudioBoost;
+                    planet.rotation.z += planet.userData.rotationSpeed.z * planetAudioBoost;
+
+                    // 音楽に合わせて惑星の輝き変化 + ビート時に強く光る
+                    if (planet.material && planet.material.emissiveIntensity !== undefined) {
+                        planet.material.emissiveIntensity = (0.3 + frequencies[planetIndex % 8] * 0.7) * Math.min(1.5, beatPulse);
                     }
-                    
-                    // 🌙 衛星の公転（月型惑星）
+
+                    // 🪐 リングの回転（ガス惑星）+ 音響連動 + ビート反応
+                    if (planet.userData.ring) {
+                        planet.userData.ring.rotation.z += planet.userData.ring.userData.rotationSpeed * (1 + midBoost * 1.2) * beatPulse;
+                    }
+
+                    // 🌙 衛星の公転（月型惑星）+ 音響連動 + ビート反応
                     if (planet.userData.moon) {
                         const moon = planet.userData.moon;
-                        moon.userData.angle += moon.userData.orbitSpeed;
+                        moon.userData.angle += moon.userData.orbitSpeed * (1 + trebleBoost * 0.8) * beatPulse;
                         moon.position.x = Math.cos(moon.userData.angle) * moon.userData.orbitRadius;
                         moon.position.z = Math.sin(moon.userData.angle) * moon.userData.orbitRadius;
-                        
-                        // 衛星の自転
-                        moon.rotation.y += 0.05;
+
+                        // 衛星の自転 + 音響連動 + ビート時に高速回転
+                        moon.rotation.y += 0.05 * (1 + audioIntensity) * beatPulse;
                     }
                 }
             });
 
-            // スペースステーションの回転と点滅ライト
+            // スペースステーションの回転と点滅ライト + 音響連動 + ビート反応
             if (spaceStation && spaceStation.userData.rotationSpeed) {
-                spaceStation.rotation.y += spaceStation.userData.rotationSpeed;
-                
-                // 点滅ライトアニメーション
+                spaceStation.rotation.y += spaceStation.userData.rotationSpeed * (1 + audioIntensity * 0.5) * beatPulse;
+
+                // 点滅ライトアニメーション + 音響連動 + ビート時に激しく点滅
                 const time = performance.now() * 0.001;
                 spaceStation.userData.blinkTime = time;
-                
+
                 spaceStation.userData.lights.forEach((light, index) => {
-                    // 各ライトが異なるタイミングで点滅
-                    const blinkSpeed = 2 + index * 0.5;
+                    // 各ライトが異なるタイミングで点滅 + 音楽に同期 + ビート時に明るく
+                    const blinkSpeed = (2 + index * 0.5) * (1 + trebleBoost * 2) * beatPulse;
                     const intensity = Math.sin(time * blinkSpeed) * 0.5 + 0.5;
-                    light.material.opacity = 0.3 + intensity * 0.7;
+                    light.material.opacity = (0.3 + intensity * 0.7) * (1 + audioIntensity * 0.3) * Math.min(1.5, beatPulse);
                 });
             }
 
-            // ネビュラのゆっくりした動き
+            // ネビュラのゆっくりした動き + 音響連動 + ビート反応
             nebulas.forEach((nebula, index) => {
                 if (nebula.userData && nebula.userData.rotationSpeed) {
-                    // 全体のゆっくりした回転
-                    nebula.rotation.y += nebula.userData.rotationSpeed;
-                    nebula.rotation.z += nebula.userData.rotationSpeed * 0.5;
-                    
-                    // 脈動効果（呼吸するような）
+                    // 全体のゆっくりした回転 + 音響連動 + ビート時に加速
+                    const nebulaAudioBoost = (1 + frequencies[(index * 2) % 8] * 1.0) * beatPulse;
+                    nebula.rotation.y += nebula.userData.rotationSpeed * nebulaAudioBoost;
+                    nebula.rotation.z += nebula.userData.rotationSpeed * 0.5 * nebulaAudioBoost;
+
+                    // 脈動効果（呼吸するような）+ 音響連動で膨張 + ビート時に大きく膨張
                     const time = performance.now() * 0.001;
-                    const pulse = Math.sin(time * nebula.userData.pulseSpeed) * 0.1 + 1;
-                    nebula.scale.setScalar(pulse);
-                    
-                    // レイヤーごとに異なる回転速度
+                    const pulse = Math.sin(time * nebula.userData.pulseSpeed * (1 + bassBoost * 0.5)) * 0.1 + 1;
+                    const audioPulse = pulse * (1 + bassBoost * 0.3) * beatPulse; // 低音でネビュラが膨張 + ビート時にさらに膨張
+                    nebula.scale.setScalar(audioPulse);
+
+                    // レイヤーごとに異なる回転速度 + 音響連動 + ビート反応
                     nebula.children.forEach((layer, layerIndex) => {
                         if (layer.children) {
-                            layer.rotation.y += nebula.userData.rotationSpeed * (layerIndex + 1) * 0.3;
+                            layer.rotation.y += nebula.userData.rotationSpeed * (layerIndex + 1) * 0.3 * (1 + midBoost * 0.8) * beatPulse;
+                        }
+                    });
+
+                    // 音楽に合わせてネビュラの明るさ変化 + ビート時に輝く
+                    nebula.children.forEach((layer) => {
+                        if (layer.material && layer.material.opacity !== undefined) {
+                            layer.material.opacity = Math.min(1.0, layer.material.opacity * (1 + audioIntensity * 0.2) * Math.min(1.3, beatPulse));
                         }
                     });
                 }
