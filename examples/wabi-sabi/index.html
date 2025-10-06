@@ -626,15 +626,8 @@
         })();
     </script>
 
-    <script type="module">
-    import ensureChocoDrop from '../../public/load-chocodrop.js';
-
-    await ensureChocoDrop();
-
-    const THREE = window.THREE;
-    const ChocoDrop = window.ChocoDrop;
-
-    // VR/AR Button inline implementation
+    <!-- VR/AR Button inline implementation -->
+    <script>
         // VRButton implementation
         const VRButton = {
             createButton: function(renderer) {

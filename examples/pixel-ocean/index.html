@@ -551,157 +551,8 @@
             window.unifiedMenuVRButton = document.getElementById('vrMenuButton');
             window.unifiedMenuARButton = document.getElementById('arMenuButton');
         })();
-    })();
-    </script>
 
-    <!-- VR/AR Button inline implementation -->
-    <script>
-        // VRButton implementation
-        const VRButton = {
-            createButton: function(renderer) {
-                const button = document.createElement('button');
-
-                function showEnterVR() {
-                    button.style.display = '';
-                    button.style.cursor = 'pointer';
-                    button.style.left = 'calc(50% - 50px)';
-                    button.style.width = '100px';
-                    button.textContent = 'ENTER VR';
-                    button.onmouseenter = function() { button.style.opacity = '1.0'; };
-                    button.onmouseleave = function() { button.style.opacity = '0.5'; };
-                    button.onclick = function() {
-                        const session = renderer.xr.getSession();
-                        if (session) {
-                            session.end();
-                        } else {
-                            navigator.xr.requestSession('immersive-vr', {
-                                optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking']
-                            }).then(session => {
-                                renderer.xr.setSession(session);
-                                button.textContent = 'EXIT VR';
-
-                                session.addEventListener('end', () => {
-                                    button.textContent = 'ENTER VR';
-                                });
-                            }).catch(err => {
-                                console.error('VR session failed:', err);
-                            });
-                        }
-                    };
-                }
-
-                function showWebXRNotFound() {
-                    button.style.display = '';
-                    button.style.cursor = 'auto';
-                    button.style.left = 'calc(50% - 75px)';
-                    button.style.width = '150px';
-                    button.textContent = 'VR NOT SUPPORTED';
-                    button.onmouseenter = null;
-                    button.onmouseleave = null;
-                    button.onclick = null;
-                }
-
-                button.style.position = 'absolute';
-                button.style.bottom = '20px';
-                button.style.padding = '12px 6px';
-                button.style.border = '1px solid #fff';
-                button.style.borderRadius = '4px';
-                button.style.background = 'rgba(0,0,0,0.1)';
-                button.style.color = '#fff';
-                button.style.font = 'normal 13px sans-serif';
-                button.style.textAlign = 'center';
-                button.style.opacity = '0.5';
-                button.style.outline = 'none';
-                button.style.zIndex = '999';
-
-                if ('xr' in navigator) {
-                    navigator.xr.isSessionSupported('immersive-vr').then(supported => {
-                        supported ? showEnterVR() : showWebXRNotFound();
-                    });
-                } else {
-                    showWebXRNotFound();
-                }
-
-                return button;
-            }
-        };
-
-        // ARButton implementation
-        const ARButton = {
-            createButton: function(renderer, options) {
-                const button = document.createElement('button');
-
-                function showEnterAR() {
-                    button.style.display = '';
-                    button.style.cursor = 'pointer';
-                    button.style.left = 'calc(50% - 50px)';
-                    button.style.width = '100px';
-                    button.textContent = 'ENTER AR';
-                    button.onmouseenter = function() { button.style.opacity = '1.0'; };
-                    button.onmouseleave = function() { button.style.opacity = '0.5'; };
-                    button.onclick = function() {
-                        const session = renderer.xr.getSession();
-                        if (session) {
-                            session.end();
-                        } else {
-                            navigator.xr.requestSession('immersive-ar', {
-                                optionalFeatures: ['hit-test', 'dom-overlay', 'local-floor'],
-                                domOverlay: options?.domOverlay || { root: document.body }
-                            }).then(session => {
-                                renderer.xr.setSession(session);
-                                button.textContent = 'EXIT AR';
-
-                                session.addEventListener('end', () => {
-                                    button.textContent = 'ENTER AR';
-                                });
-                            }).catch(err => {
-                                console.error('AR session failed:', err);
-                                alert('AR not supported: ' + err.message);
-                            });
-                        }
-                    };
-                }
-
-                function showWebXRNotFound() {
-                    button.style.display = '';
-                    button.style.cursor = 'auto';
-                    button.style.left = 'calc(50% - 75px)';
-                    button.style.width = '150px';
-                    button.textContent = 'AR NOT SUPPORTED';
-                    button.onmouseenter = null;
-                    button.onmouseleave = null;
-                    button.onclick = null;
-                }
-
-                button.style.position = 'absolute';
-                button.style.bottom = '70px';
-                button.style.padding = '12px 6px';
-                button.style.border = '1px solid #fff';
-                button.style.borderRadius = '4px';
-                button.style.background = 'rgba(0,0,0,0.1)';
-                button.style.color = '#fff';
-                button.style.font = 'normal 13px sans-serif';
-                button.style.textAlign = 'center';
-                button.style.opacity = '0.5';
-                button.style.outline = 'none';
-                button.style.zIndex = '999';
-
-                if ('xr' in navigator) {
-                    navigator.xr.isSessionSupported('immersive-ar').then(supported => {
-                        supported ? showEnterAR() : showWebXRNotFound();
-                    });
-                } else {
-                    showWebXRNotFound();
-                }
-
-                return button;
-            }
-        };
-
-        console.log('✅ VRButton/ARButton inline implementation loaded');
-    </script>
-
-    <script>
+        // THREE.js main scene code (moved from global scope to module scope)
         console.log('🌊 Pixel Ocean Loading...');
         console.log('THREE loaded:', typeof THREE !== 'undefined');
 
@@ -928,16 +779,16 @@
             // 使用するパターンを選択
             const pattern = fishPatterns[fishType] || fishPatterns.small;
             const pixelSize = 0.15 * scale;
-            
+
             // カラーパレット設定（4番目は控えめなうろこ模様）
             const colors = {
                 dolphin: [0x4A90E2, 0x5BA3F5, 0x000000, 0x6BB6FF], // 青系＋薄い青のうろこ
                 medium: [0x40E0D0, 0x48CAE4, 0x000000, 0x66D9EF],  // ターコイズ系＋薄いターコイズ
                 small: [0x6BB6FF, 0x87CEEB, 0x000000, 0x9ACD32]    // スカイブルー系＋淡い青緑
             };
-            
+
             const palette = colors[fishType] || colors.small;
-            
+
             // InstancedMesh用のジオメトリとマテリアル
             const pixelGeometry = new THREE.BoxGeometry(pixelSize, pixelSize, pixelSize * 0.8);
             const pixelMaterial = new THREE.MeshLambertMaterial({
@@ -972,14 +823,14 @@
                         const px = (col - pattern[row].length / 2) * pixelSize;
                         const py = (pattern.length / 2 - row) * pixelSize;
                         const pz = 0;
-                        
+
                         matrix.makeTranslation(px, py, pz);
                         instancedMesh.setMatrixAt(instanceIndex, matrix);
-                        
+
                         // 色を設定（1=体、2=ひれ、3=目）
                         pixelColor.setHex(palette[pixel - 1]);
                         instancedMesh.setColorAt(instanceIndex, pixelColor);
-                        
+
                         instanceIndex++;
                     }
                 }
@@ -987,7 +838,7 @@
 
             instancedMesh.instanceMatrix.needsUpdate = true;
             instancedMesh.instanceColor.needsUpdate = true;
-            
+
             fishGroup.add(instancedMesh);
 
             fishGroup.position.set(x, y, z);
@@ -1007,12 +858,12 @@
             return fishGroup;
         }
 
-        
+
 
         // 🪸 ピクセルアートサンゴ礁（InstancedMesh）
         function createPixelCoral(x, z, scale = 1, type = 'coral1') {
             const coralGroup = new THREE.Group();
-            
+
             // サンゴのピクセルパターン
             const coralPatterns = {
                 coral1: [
@@ -1040,16 +891,16 @@
                     [1,1,1,1,1]
                 ]
             };
-            
+
             const pattern = coralPatterns[type] || coralPatterns.coral1;
             const pixelSize = 0.2 * scale;
-            
+
             // サンゴの色パレット（海らしい色）
             const colors = [
                 0x40E0D0, // ターコイズ（体）
                 0x7FFFD4  // アクアマリン（先端・より明るく）
             ];
-            
+
             // ピクセル数カウント
             let pixelCount = 0;
             pattern.forEach(row => {
@@ -1057,24 +908,24 @@
                     if (pixel > 0) pixelCount++;
                 });
             });
-            
+
             // InstancedMesh作成
             const pixelGeometry = new THREE.BoxGeometry(pixelSize, pixelSize, pixelSize);
             const pixelMaterial = new THREE.MeshLambertMaterial({
                 flatShading: true
             });
-            
+
             const instancedMesh = new THREE.InstancedMesh(
                 pixelGeometry,
                 pixelMaterial,
                 pixelCount
             );
-            
+
             // 各ピクセルの配置
             let instanceIndex = 0;
             const matrix = new THREE.Matrix4();
             const pixelColor = new THREE.Color();
-            
+
             for (let row = 0; row < pattern.length; row++) {
                 for (let col = 0; col < pattern[row].length; col++) {
                     const pixel = pattern[row][col];
@@ -1082,24 +933,24 @@
                         const px = (col - pattern[row].length / 2) * pixelSize;
                         const py = (pattern.length - row - 1) * pixelSize - 8; // 海底に配置
                         const pz = 0;
-                        
+
                         matrix.makeTranslation(px, py, pz);
                         instancedMesh.setMatrixAt(instanceIndex, matrix);
-                        
+
                         pixelColor.setHex(colors[pixel - 1]);
                         instancedMesh.setColorAt(instanceIndex, pixelColor);
-                        
+
                         instanceIndex++;
                     }
                 }
             }
-            
+
             instancedMesh.instanceMatrix.needsUpdate = true;
             instancedMesh.instanceColor.needsUpdate = true;
-            
+
             coralGroup.add(instancedMesh);
             coralGroup.position.set(x, 0, z);
-            
+
             scene.add(coralGroup);
             return coralGroup;
         }
@@ -1107,7 +958,7 @@
         // 🌿 ピクセルアート海藻
         function createPixelSeaweed(x, z, height = 4) {
             const seaweedGroup = new THREE.Group();
-            
+
             // 海藻のピクセルパターン（縦長）
             const seaweedPattern = [
                 [0,1,0],
@@ -1119,21 +970,21 @@
                 [0,1,0],
                 [1,1,0]
             ];
-            
+
             const pixelSize = 0.3;
             const pixelGeometry = new THREE.BoxGeometry(pixelSize, pixelSize * 1.5, pixelSize * 0.5);
-            
+
             // 海藻の色（緑系のグラデーション）
             const colors = [0x2E8B57, 0x3CB371, 0x228B22];
             const selectedColor = colors[Math.floor(Math.random() * colors.length)];
-            
+
             const material = new THREE.MeshLambertMaterial({
                 color: selectedColor,
                 flatShading: true,
                 transparent: true,
                 opacity: 0.8
             });
-            
+
             // ピクセル配置
             seaweedPattern.forEach((row, rowIndex) => {
                 row.forEach((pixel, colIndex) => {
@@ -1144,25 +995,25 @@
                             rowIndex * pixelSize * 1.2 - 8 + height,
                             0
                         );
-                        
+
                         // 少し揺れるような傾き
                         mesh.rotation.z = Math.sin(rowIndex * 0.5) * 0.1;
-                        
+
                         seaweedGroup.add(mesh);
                     }
                 });
             });
-            
+
             seaweedGroup.position.set(x, 0, z);
             seaweedGroup.rotation.y = Math.random() * Math.PI * 2;
-            
+
             // アニメーション用データ
             seaweedGroup.userData = {
                 swaySpeed: 0.001 + Math.random() * 0.002,
                 swayAmount: 0.05 + Math.random() * 0.05,
                 originalRotation: seaweedGroup.rotation.z
             };
-            
+
             scene.add(seaweedGroup);
             return seaweedGroup;
         }
@@ -1219,18 +1070,18 @@
                     transparent: true,
                     opacity: 0.7
                 });
-                
+
                 const rock = new THREE.Mesh(rockGeometry, rockMaterial);
                 rock.position.set(x, y, z);
-                
+
                 // ランダムに回転させて自然な見た目に
                 rock.rotation.x = Math.random() * Math.PI;
                 rock.rotation.y = Math.random() * Math.PI;
                 rock.scale.y = 0.5 + Math.random() * 0.5; // 高さをランダムに
-                
+
                 return rock;
             }
-            
+
             // 複数の岩を配置
             const rockPositions = [
                 {x: -60, y: -5, z: -40, size: 8},
@@ -1241,7 +1092,7 @@
                 {x: -30, y: -6, z: -42, size: 7},
                 {x: 50, y: -5, z: -48, size: 9}
             ];
-            
+
             rockPositions.forEach(rock => {
                 scene.add(createRock(rock.x, rock.y, rock.z, rock.size));
             });
@@ -1303,7 +1154,7 @@
 
         // 泡パーティクル
         const bubbles = createBubbleParticles();
-        
+
         // ✨ 水中の光粒子（キラキラエフェクト）
         function createLightParticles() {
             const particleCount = 200;
@@ -1311,36 +1162,36 @@
             const positions = new Float32Array(particleCount * 3);
             const colors = new Float32Array(particleCount * 3);
             const sizes = new Float32Array(particleCount);
-            
+
             const lightColors = [
                 new THREE.Color(0xFFFFFF), // 純白
                 new THREE.Color(0xE0FFFF), // 水色
                 new THREE.Color(0xF0F8FF), // アリスブルー
                 new THREE.Color(0xFFF8DC)  // コーンシルク（暖かい白）
             ];
-            
+
             for (let i = 0; i < particleCount; i++) {
                 const i3 = i * 3;
-                
+
                 // ランダムな位置
                 positions[i3] = (Math.random() - 0.5) * 60;
                 positions[i3 + 1] = Math.random() * 30 - 10;
                 positions[i3 + 2] = (Math.random() - 0.5) * 60;
-                
+
                 // ランダムな色
                 const color = lightColors[Math.floor(Math.random() * lightColors.length)];
                 colors[i3] = color.r;
                 colors[i3 + 1] = color.g;
                 colors[i3 + 2] = color.b;
-                
+
                 // サイズ（もっと小さく控えめに）
                 sizes[i] = Math.random() * 0.3 + 0.1;
             }
-            
+
             geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
             geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
             geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
-            
+
             const material = new THREE.PointsMaterial({
                 size: 1,  // 3から1に縮小
                 sizeAttenuation: true,
@@ -1349,16 +1200,16 @@
                 opacity: 0.3,  // 0.9から0.3に減少
                 blending: THREE.AdditiveBlending
             });
-            
+
             const lightParticles = new THREE.Points(geometry, material);
             lightParticles.userData = {
                 twinkleSpeed: new Float32Array(particleCount).map(() => Math.random() * 0.05 + 0.01)
             };
-            
+
             scene.add(lightParticles);
             return lightParticles;
         }
-        
+
         const lightParticles = createLightParticles();
 
         // 📷 カメラ位置（水中感を演出）
@@ -1714,5 +1565,150 @@
 
     })();
     </script>
-</body>
-</html>
+
+    <!-- VR/AR Button inline implementation -->
+    <script>
+        // VRButton implementation
+        const VRButton = {
+            createButton: function(renderer) {
+                const button = document.createElement('button');
+
+                function showEnterVR() {
+                    button.style.display = '';
+                    button.style.cursor = 'pointer';
+                    button.style.left = 'calc(50% - 50px)';
+                    button.style.width = '100px';
+                    button.textContent = 'ENTER VR';
+                    button.onmouseenter = function() { button.style.opacity = '1.0'; };
+                    button.onmouseleave = function() { button.style.opacity = '0.5'; };
+                    button.onclick = function() {
+                        const session = renderer.xr.getSession();
+                        if (session) {
+                            session.end();
+                        } else {
+                            navigator.xr.requestSession('immersive-vr', {
+                                optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking']
+                            }).then(session => {
+                                renderer.xr.setSession(session);
+                                button.textContent = 'EXIT VR';
+
+                                session.addEventListener('end', () => {
+                                    button.textContent = 'ENTER VR';
+                                });
+                            }).catch(err => {
+                                console.error('VR session failed:', err);
+                            });
+                        }
+                    };
+                }
+
+                function showWebXRNotFound() {
+                    button.style.display = '';
+                    button.style.cursor = 'auto';
+                    button.style.left = 'calc(50% - 75px)';
+                    button.style.width = '150px';
+                    button.textContent = 'VR NOT SUPPORTED';
+                    button.onmouseenter = null;
+                    button.onmouseleave = null;
+                    button.onclick = null;
+                }
+
+                button.style.position = 'absolute';
+                button.style.bottom = '20px';
+                button.style.padding = '12px 6px';
+                button.style.border = '1px solid #fff';
+                button.style.borderRadius = '4px';
+                button.style.background = 'rgba(0,0,0,0.1)';
+                button.style.color = '#fff';
+                button.style.font = 'normal 13px sans-serif';
+                button.style.textAlign = 'center';
+                button.style.opacity = '0.5';
+                button.style.outline = 'none';
+                button.style.zIndex = '999';
+
+                if ('xr' in navigator) {
+                    navigator.xr.isSessionSupported('immersive-vr').then(supported => {
+                        supported ? showEnterVR() : showWebXRNotFound();
+                    });
+                } else {
+                    showWebXRNotFound();
+                }
+
+                return button;
+            }
+        };
+
+        // ARButton implementation
+        const ARButton = {
+            createButton: function(renderer, options) {
+                const button = document.createElement('button');
+
+                function showEnterAR() {
+                    button.style.display = '';
+                    button.style.cursor = 'pointer';
+                    button.style.left = 'calc(50% - 50px)';
+                    button.style.width = '100px';
+                    button.textContent = 'ENTER AR';
+                    button.onmouseenter = function() { button.style.opacity = '1.0'; };
+                    button.onmouseleave = function() { button.style.opacity = '0.5'; };
+                    button.onclick = function() {
+                        const session = renderer.xr.getSession();
+                        if (session) {
+                            session.end();
+                        } else {
+                            navigator.xr.requestSession('immersive-ar', {
+                                optionalFeatures: ['hit-test', 'dom-overlay', 'local-floor'],
+                                domOverlay: options?.domOverlay || { root: document.body }
+                            }).then(session => {
+                                renderer.xr.setSession(session);
+                                button.textContent = 'EXIT AR';
+
+                                session.addEventListener('end', () => {
+                                    button.textContent = 'ENTER AR';
+                                });
+                            }).catch(err => {
+                                console.error('AR session failed:', err);
+                                alert('AR not supported: ' + err.message);
+                            });
+                        }
+                    };
+                }
+
+                function showWebXRNotFound() {
+                    button.style.display = '';
+                    button.style.cursor = 'auto';
+                    button.style.left = 'calc(50% - 75px)';
+                    button.style.width = '150px';
+                    button.textContent = 'AR NOT SUPPORTED';
+                    button.onmouseenter = null;
+                    button.onmouseleave = null;
+                    button.onclick = null;
+                }
+
+                button.style.position = 'absolute';
+                button.style.bottom = '70px';
+                button.style.padding = '12px 6px';
+                button.style.border = '1px solid #fff';
+                button.style.borderRadius = '4px';
+                button.style.background = 'rgba(0,0,0,0.1)';
+                button.style.color = '#fff';
+                button.style.font = 'normal 13px sans-serif';
+                button.style.textAlign = 'center';
+                button.style.opacity = '0.5';
+                button.style.outline = 'none';
+                button.style.zIndex = '999';
+
+                if ('xr' in navigator) {
+                    navigator.xr.isSessionSupported('immersive-ar').then(supported => {
+                        supported ? showEnterAR() : showWebXRNotFound();
+                    });
+                } else {
+                    showWebXRNotFound();
+                }
+
+                return button;
+            }
+        };
+
+        console.log('✅ VRButton/ARButton inline implementation loaded');
+    </script>
