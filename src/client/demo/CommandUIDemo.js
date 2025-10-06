@@ -2559,7 +2559,11 @@ export class CommandUIDemo {
     // コマンド表示（メディアタイプ付き）
     const mediaIcon = commandType.mediaType === 'video' ? '🎬' : '🖼️';
     // タスクカード作成
-    const taskId = this.addTaskCard(command, { status: 'processing' });
+    const selectedFileType = this.selectedFile?.type;
+    const taskId = this.addTaskCard(command, {
+      status: 'processing',
+      contentType: this.getContentTypeLabel(selectedFileType || commandType.mediaType)
+    });
 
     // コマンド実行前の状態を履歴に保存
     this.saveCommandToHistory({
@@ -2588,7 +2592,7 @@ export class CommandUIDemo {
         if (!this.selectedFile) {
           throw new Error('ファイルが選択されていません。まずファイルを選択してください。');
         }
-        result = await this.handleImportCommand(command);
+        result = await this.handleImportCommand(command, { selectedFileType });
       } else if (this.sceneManager) {
         if (this.currentMode === 'modify') {
           const orientationResult = this.handleDemoOrientationCommand(command);
@@ -2681,7 +2685,9 @@ export class CommandUIDemo {
       
       // タスクカード完了
       if (taskId) {
-        this.updateTaskCard(taskId, 'completed');
+        this.updateTaskCard(taskId, 'completed', {
+          contentType: this.getContentTypeLabel(result?.contentType || selectedFileType || commandType.mediaType)
+        });
       }
       
       if (result?.fallbackUsed) {
@@ -2729,7 +2735,9 @@ export class CommandUIDemo {
       }
       // タスクカードエラー
       if (taskId) {
-        this.updateTaskCard(taskId, 'error');
+        this.updateTaskCard(taskId, 'error', {
+          contentType: this.getContentTypeLabel(selectedFileType || commandType.mediaType)
+        });
       }
 
       this.addOutput(`${errorMessages[this.currentMode]}: ${error.message}`, 'error');
@@ -3249,7 +3257,7 @@ export class CommandUIDemo {
       startTime: Date.now(),
       endTime: null,
       error: null,
-      contentType: 'image', // 'image', 'video', etc.
+      contentType: this.getContentTypeLabel(options.contentType),
       model: null,
       settings: null
     });
@@ -3273,6 +3281,9 @@ export class CommandUIDemo {
 
     // ステータス更新
     taskData.status = status;
+    if (options.contentType) {
+      taskData.contentType = this.getContentTypeLabel(options.contentType);
+    }
 
     const iconMap = {
       pending: '⏳',
@@ -3295,6 +3306,21 @@ export class CommandUIDemo {
     } else if (status === 'error') {
       this.animateCardError(card, taskId);
     }
+  }
+
+  getContentTypeLabel(rawType) {
+    if (!rawType) return '画像';
+    const type = String(rawType).toLowerCase();
+    if (type === '3d' || type === '3dモデル' || type === 'model') {
+      return '3Dモデル';
+    }
+    if (type === 'video' || type === '動画') {
+      return '動画';
+    }
+    if (type === 'image' || type === '画像' || type === 'img') {
+      return '画像';
+    }
+    return rawType;
   }
 
   /**
@@ -4910,7 +4936,8 @@ export class CommandUIDemo {
   /**
    * Importコマンド処理
    */
-  async handleImportCommand(command) {
+  async handleImportCommand(command, options = {}) {
+    const importType = options.selectedFileType || this.selectedFile?.type;
     if (!this.selectedFile) {
       throw new Error('ファイルが選択されていません');
     }
@@ -4982,7 +5009,8 @@ export class CommandUIDemo {
       return {
         success: true,
         message: `${processedFileName || 'ファイル'} を ${position.x}, ${position.y}, ${position.z} に配置しました`,
-        objectId: result.objectId
+        objectId: result.objectId,
+        contentType: importType
       };
 
     } catch (error) {
