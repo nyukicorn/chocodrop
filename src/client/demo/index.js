@@ -75,16 +75,6 @@ const commandUI = new CommandUIDemo({
   ...mergedUIOptions
 });
 
-if (typeof commandUI.showInputFeedback !== 'function') {
-  commandUI.showInputFeedback = function(message, type = 'error') {
-    if (type === 'error') {
-      this.addOutput(`⚠️ ${message}`, 'error');
-    } else {
-      this.addOutput(`💡 ${message}`, 'system');
-    }
-  };
-}
-
 sceneManager.ui = commandUI;
 commandUI.setSceneManager(sceneManager);
 
@@ -97,16 +87,6 @@ return {
     if (sceneManager) sceneManager.dispose();
   }
 };
-}
-
-if (typeof CommandUIDemo !== 'undefined' && typeof CommandUIDemo.prototype.showInputFeedback !== 'function') {
-  CommandUIDemo.prototype.showInputFeedback = function(message, type = 'error') {
-    if (type === 'error') {
-      this.addOutput(`⚠️ ${message}`, 'error');
-    } else {
-      this.addOutput(`💡 ${message}`, 'system');
-    }
-  };
 }
 
 // Export everything for demo UMD

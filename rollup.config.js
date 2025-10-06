@@ -15,7 +15,8 @@ const demoConfig = {
       globals: {
         'three': 'THREE'
       },
-      sourcemap: true
+      sourcemap: true,
+      inlineDynamicImports: true
     },
     {
       file: 'dist/chocodrop-demo.umd.min.js',
@@ -26,7 +27,8 @@ const demoConfig = {
         'three': 'THREE'
       },
       plugins: [terser()],
-      sourcemap: true
+      sourcemap: true,
+      inlineDynamicImports: true
     }
   ],
   plugins: [

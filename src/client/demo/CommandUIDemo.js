@@ -10,16 +10,15 @@ export class CommandUIDemo {
     this.sceneManager = options.sceneManager || null;
     this.client = options.client || null;
     this.onControlsToggle = options.onControlsToggle || (() => {});
-    
-    if (typeof this.showInputFeedback !== 'function') {
-      this.showInputFeedback = (message, type = 'error') => {
-        if (type === 'error') {
-          this.addOutput(`⚠️ ${message}`, 'error');
-        } else {
-          this.addOutput(`💡 ${message}`, 'system');
-        }
-      };
-    }
+
+    // showInputFeedback メソッドを無条件に定義（3Dファイル読み込みエラー対策）
+    this.showInputFeedback = (message, type = 'error') => {
+      if (type === 'error') {
+        this.addOutput(`⚠️ ${message}`, 'error');
+      } else {
+        this.addOutput(`💡 ${message}`, 'system');
+      }
+    };
 
     this.isVisible = false;
     this.container = null;
