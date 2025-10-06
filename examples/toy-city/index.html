@@ -498,11 +498,14 @@
         <a href="../space/index.html" class="demo-link">🌌 宇宙空間</a>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.170.0/examples/js/loaders/GLTFLoader.js"></script>
-    <script src="https://nyukicorn.github.io/chocodrop/public/chocodrop-demo.umd.min.js?v=20251006212000"></script>
+    <script type="module">
+    import ensureChocoDrop from '../../public/load-chocodrop.js';
 
-    <script>
+    await ensureChocoDrop();
+
+    const THREE = window.THREE;
+    const ChocoDrop = window.ChocoDrop;
+
         // 統合メニューの制御
         (function() {
             const menuToggle = document.getElementById('unifiedMenuToggle');
@@ -2060,16 +2063,33 @@
                 window.unifiedMenuARButton.style.display = 'none';
             }
         }
-    </script>
 
-    <script>
         const context = window.toyCityContext;
         if (context && context.scene && context.camera && context.renderer) {
             ChocoDrop.createChocoDrop(context.scene, {
                 camera: context.camera,
                 renderer: context.renderer,
                 serverUrl: null,
-                enableServerHealthCheck: false,  // サーバーレス環境なのでヘルスチェック無効
+                enableServerHealthCheck: false,
+                skipServiceDialog: true,
+                sceneOptions: {
+                    enableMouseInteraction: true
+                },
+                onControlsToggle: (disabled) => {
+                    cameraControlsEnabled = !disabled;
+                }
+            });
+        }
+
+        })();
+
+        const context = window.toyCityContext;
+        if (context && context.scene && context.camera && context.renderer) {
+            ChocoDrop.createChocoDrop(context.scene, {
+                camera: context.camera,
+                renderer: context.renderer,
+                serverUrl: null,
+                enableServerHealthCheck: false,
                 skipServiceDialog: true,
                 sceneOptions: {
                     enableMouseInteraction: true

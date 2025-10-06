@@ -626,11 +626,15 @@
         })();
     </script>
 
-    <script src="https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.170.0/examples/js/controls/OrbitControls.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.170.0/examples/js/loaders/GLTFLoader.js"></script>
-    <!-- VR/AR Button inline implementation -->
-    <script>
+    <script type="module">
+    import ensureChocoDrop from '../../public/load-chocodrop.js';
+
+    await ensureChocoDrop();
+
+    const THREE = window.THREE;
+    const ChocoDrop = window.ChocoDrop;
+
+    // VR/AR Button inline implementation
         // VRButton implementation
         const VRButton = {
             createButton: function(renderer) {
@@ -775,8 +779,6 @@
 
         console.log('✅ VRButton/ARButton inline implementation loaded');
     </script>
-    <script src="https://nyukicorn.github.io/chocodrop/public/chocodrop-demo.umd.min.js?v=20251006212000"></script>
-
     <script>
         // 🍵 侘び寂びの世界 - Wabi-Sabi Space
 

@@ -586,13 +586,16 @@
         </div>
     </div>
 
-    <!-- Three.js -->
-    <script src="https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.170.0/examples/js/controls/OrbitControls.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.170.0/examples/js/loaders/GLTFLoader.js"></script>
+    <!-- Three.js + ChocoDrop (module preload) -->
+    <script type="module">
+    import ensureChocoDrop from '../../public/load-chocodrop.js';
 
-    <!-- VR/AR Button inline implementation -->
-    <script>
+    await ensureChocoDrop();
+
+    const THREE = window.THREE;
+    const ChocoDrop = window.ChocoDrop;
+
+    // VR/AR Button inline implementation
         // VRButton implementation
         const VRButton = {
             createButton: function(renderer) {
@@ -739,9 +742,6 @@
             }
         };
     </script>
-
-    <!-- ChocoDrop Demo UMD -->
-    <script src="https://nyukicorn.github.io/chocodrop/public/chocodrop-demo.umd.min.js?v=20251006212000"></script>
 
     <script>
         // 統合メニューの制御
