@@ -1,6 +1,7 @@
 // UMDビルド対応: グローバルのTHREEを優先し、なければES moduleのimportを使用
 import * as THREEModule from 'three';
 const THREE = globalThis.THREE || THREEModule;
+import { GLTFLoader as GLTFLoaderModule } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { ChocoDropClient, ChocoDroClient, LiveCommandClient } from './LiveCommandClient.js';
 import { createObjectKeywords, matchKeywordWithFilename } from '../common/translation-dictionary.js';
 
@@ -2044,22 +2045,14 @@ export class SceneManager {
 
     let LoaderClass = null;
 
-    if (globalThis && globalThis.GLTFLoader) {
+    // ブラウザのグローバル THREE.GLTFLoader を優先（UMD形式で読み込まれた場合）
+    if (typeof window !== 'undefined' && window.THREE && window.THREE.GLTFLoader) {
+      LoaderClass = window.THREE.GLTFLoader;
+    } else if (globalThis && globalThis.GLTFLoader) {
       LoaderClass = globalThis.GLTFLoader;
     } else {
-      try {
-        // ブラウザ環境では CDN を優先
-        if (typeof window !== 'undefined') {
-          const module = await import('https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/GLTFLoader.js');
-          LoaderClass = module.GLTFLoader || module.default;
-        } else {
-          const module = await import('three/examples/jsm/loaders/GLTFLoader.js');
-          LoaderClass = module.GLTFLoader || module.default;
-        }
-      } catch (error) {
-        console.error('⚠️ Failed to load GLTFLoader dynamically:', error);
-        throw new Error('GLTFLoader を読み込めませんでした。環境に応じて手動で読み込んでください。');
-      }
+      // 静的インポートされたGLTFLoaderを使用（バンドルに含まれる）
+      LoaderClass = GLTFLoaderModule;
     }
 
     if (!LoaderClass) {

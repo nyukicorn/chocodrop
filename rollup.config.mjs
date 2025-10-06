@@ -1,8 +1,12 @@
+import { nodeResolve } from '@rollup/plugin-node-resolve';
+
 /**
  * Rollup configuration for ChocoDrop UI
  * Creates two bundles:
  * 1. ESM version (for bundlers, keep 'three' as external)
  * 2. IIFE/Global version (for external sites with window.THREE)
+ *
+ * Note: GLTFLoader is bundled in both versions for convenience
  */
 export default [
   // ESM version (for bundlers)
@@ -12,7 +16,13 @@ export default [
       file: 'dist/ui.esm.js',
       format: 'esm',
     },
-    external: ['three'], // Don't bundle three
+    plugins: [
+      nodeResolve({
+        browser: true,
+        preferBuiltins: false
+      })
+    ],
+    external: ['three'], // Only three is external, GLTFLoader will be bundled
   },
 
   // IIFE/Global version (for external sites)
@@ -26,6 +36,12 @@ export default [
         three: 'THREE', // Map 'three' import to window.THREE
       },
     },
-    external: ['three'], // Don't bundle three, use window.THREE
+    plugins: [
+      nodeResolve({
+        browser: true,
+        preferBuiltins: false
+      })
+    ],
+    external: ['three'], // Only three is external, GLTFLoader will be bundled
   },
 ];
