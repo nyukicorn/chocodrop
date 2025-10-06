@@ -2048,19 +2048,35 @@ export class SceneManager {
     // ブラウザのグローバル THREE.GLTFLoader を優先（UMD形式で読み込まれた場合）
     if (typeof window !== 'undefined' && window.THREE && window.THREE.GLTFLoader) {
       LoaderClass = window.THREE.GLTFLoader;
-    } else if (globalThis && globalThis.GLTFLoader) {
+    } else if (typeof globalThis !== 'undefined' && globalThis.GLTFLoader) {
       LoaderClass = globalThis.GLTFLoader;
-    } else {
-      // 静的インポートされたGLTFLoaderを使用（バンドルに含まれる）
+    } else if (typeof GLTFLoaderModule !== 'undefined') {
       LoaderClass = GLTFLoaderModule;
     }
 
     if (!LoaderClass) {
-      throw new Error('GLTFLoader が利用できない構成です。');
+      try {
+        if (typeof window !== 'undefined') {
+          const module = await import('https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/GLTFLoader.js');
+          LoaderClass = module.GLTFLoader || module.default || null;
+        } else {
+          const module = await import('three/examples/jsm/loaders/GLTFLoader.js');
+          LoaderClass = module.GLTFLoader || module.default || null;
+        }
+      } catch (error) {
+        console.error('⚠️ Failed to load GLTFLoader dynamically:', error);
+        LoaderClass = null;
+      }
+    }
+
+    if (!LoaderClass) {
+      throw new Error('GLTFLoader が利用できない構成です。three/examples/jsm/loaders/GLTFLoader.js を読み込んでください。');
     }
 
     this.gltfLoader = new LoaderClass();
-    this.gltfLoader.setCrossOrigin('anonymous');
+    if (typeof this.gltfLoader.setCrossOrigin === 'function') {
+      this.gltfLoader.setCrossOrigin('anonymous');
+    }
     return this.gltfLoader;
   }
 
