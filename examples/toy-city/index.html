@@ -593,9 +593,7 @@
             window.unifiedMenuVRButton = document.getElementById('vrMenuButton');
             window.unifiedMenuARButton = document.getElementById('arMenuButton');
         })();
-    </script>
 
-    <script>
         // Basic Three.js setup
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -2085,6 +2083,153 @@
         })();
 
     })();
+    </script>
+
+    <!-- VR/AR Button inline implementation -->
+    <script>
+        // VRButton implementation
+        const VRButton = {
+            createButton: function(renderer) {
+                const button = document.createElement('button');
+
+                function showEnterVR() {
+                    button.style.display = '';
+                    button.style.cursor = 'pointer';
+                    button.style.left = 'calc(50% - 50px)';
+                    button.style.width = '100px';
+                    button.textContent = 'ENTER VR';
+                    button.onmouseenter = function() { button.style.opacity = '1.0'; };
+                    button.onmouseleave = function() { button.style.opacity = '0.5'; };
+                    button.onclick = function() {
+                        const session = renderer.xr.getSession();
+                        if (session) {
+                            session.end();
+                        } else {
+                            navigator.xr.requestSession('immersive-vr', {
+                                optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking']
+                            }).then(session => {
+                                renderer.xr.setSession(session);
+                                button.textContent = 'EXIT VR';
+
+                                session.addEventListener('end', () => {
+                                    button.textContent = 'ENTER VR';
+                                });
+                            }).catch(err => {
+                                console.error('VR session failed:', err);
+                            });
+                        }
+                    };
+                }
+
+                function showWebXRNotFound() {
+                    button.style.display = '';
+                    button.style.cursor = 'auto';
+                    button.style.left = 'calc(50% - 75px)';
+                    button.style.width = '150px';
+                    button.textContent = 'VR NOT SUPPORTED';
+                    button.onmouseenter = null;
+                    button.onmouseleave = null;
+                    button.onclick = null;
+                }
+
+                button.style.position = 'absolute';
+                button.style.bottom = '20px';
+                button.style.padding = '12px 6px';
+                button.style.border = '1px solid #fff';
+                button.style.borderRadius = '4px';
+                button.style.background = 'rgba(0,0,0,0.1)';
+                button.style.color = '#fff';
+                button.style.font = 'normal 13px sans-serif';
+                button.style.textAlign = 'center';
+                button.style.opacity = '0.5';
+                button.style.outline = 'none';
+                button.style.zIndex = '999';
+
+                if ('xr' in navigator) {
+                    navigator.xr.isSessionSupported('immersive-vr').then(supported => {
+                        supported ? showEnterVR() : showWebXRNotFound();
+                    });
+                } else {
+                    showWebXRNotFound();
+                }
+
+                return button;
+            }
+        };
+
+        // ARButton implementation
+        const ARButton = {
+            createButton: function(renderer, options) {
+                const button = document.createElement('button');
+
+                function showEnterAR() {
+                    button.style.display = '';
+                    button.style.cursor = 'pointer';
+                    button.style.left = 'calc(50% - 50px)';
+                    button.style.width = '100px';
+                    button.textContent = 'ENTER AR';
+                    button.onmouseenter = function() { button.style.opacity = '1.0'; };
+                    button.onmouseleave = function() { button.style.opacity = '0.5'; };
+                    button.onclick = function() {
+                        const session = renderer.xr.getSession();
+                        if (session) {
+                            session.end();
+                        } else {
+                            navigator.xr.requestSession('immersive-ar', {
+                                optionalFeatures: ['hit-test', 'dom-overlay', 'local-floor'],
+                                domOverlay: options?.domOverlay || { root: document.body }
+                            }).then(session => {
+                                renderer.xr.setSession(session);
+                                button.textContent = 'EXIT AR';
+
+                                session.addEventListener('end', () => {
+                                    button.textContent = 'ENTER AR';
+                                });
+                            }).catch(err => {
+                                console.error('AR session failed:', err);
+                                alert('AR not supported: ' + err.message);
+                            });
+                        }
+                    };
+                }
+
+                function showWebXRNotFound() {
+                    button.style.display = '';
+                    button.style.cursor = 'auto';
+                    button.style.left = 'calc(50% - 75px)';
+                    button.style.width = '150px';
+                    button.textContent = 'AR NOT SUPPORTED';
+                    button.onmouseenter = null;
+                    button.onmouseleave = null;
+                    button.onclick = null;
+                }
+
+                button.style.position = 'absolute';
+                button.style.bottom = '70px';
+                button.style.padding = '12px 6px';
+                button.style.border = '1px solid #fff';
+                button.style.borderRadius = '4px';
+                button.style.background = 'rgba(0,0,0,0.1)';
+                button.style.color = '#fff';
+                button.style.font = 'normal 13px sans-serif';
+                button.style.textAlign = 'center';
+                button.style.opacity = '0.5';
+                button.style.outline = 'none';
+                button.style.zIndex = '999';
+
+                if ('xr' in navigator) {
+                    navigator.xr.isSessionSupported('immersive-ar').then(supported => {
+                        supported ? showEnterAR() : showWebXRNotFound();
+                    });
+                } else {
+                    showWebXRNotFound();
+                }
+
+                return button;
+            }
+        };
+
+        console.log('✅ VRButton/ARButton inline implementation loaded');
     </script>
 </body>
 </html>
