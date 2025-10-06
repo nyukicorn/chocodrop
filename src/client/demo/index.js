@@ -99,6 +99,16 @@ return {
 };
 }
 
+if (typeof CommandUIDemo !== 'undefined' && typeof CommandUIDemo.prototype.showInputFeedback !== 'function') {
+  CommandUIDemo.prototype.showInputFeedback = function(message, type = 'error') {
+    if (type === 'error') {
+      this.addOutput(`⚠️ ${message}`, 'error');
+    } else {
+      this.addOutput(`💡 ${message}`, 'system');
+    }
+  };
+}
+
 // Export everything for demo UMD
 export {
   ChocoDropClient,
