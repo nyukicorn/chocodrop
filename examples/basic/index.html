@@ -538,6 +538,7 @@
     <script type="module">
     import ensureChocoDrop from '../../public/load-chocodrop.js';
 
+    (async () => {
     await ensureChocoDrop();
 
     const THREE = window.THREE;
@@ -1506,6 +1507,8 @@
         }
 
         console.log('✅ ベーシックな世界が準備完了！🍫 ChocoDrop でコンテンツを配置しましょう');
+
+    })();
     </script>
 </body>
 </html>

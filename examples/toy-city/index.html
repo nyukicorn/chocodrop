@@ -501,6 +501,7 @@
     <script type="module">
     import ensureChocoDrop from '../../public/load-chocodrop.js';
 
+    (async () => {
     await ensureChocoDrop();
 
     const THREE = window.THREE;
@@ -2083,22 +2084,7 @@
 
         })();
 
-        const context = window.toyCityContext;
-        if (context && context.scene && context.camera && context.renderer) {
-            ChocoDrop.createChocoDrop(context.scene, {
-                camera: context.camera,
-                renderer: context.renderer,
-                serverUrl: null,
-                enableServerHealthCheck: false,
-                skipServiceDialog: true,
-                sceneOptions: {
-                    enableMouseInteraction: true
-                },
-                onControlsToggle: (disabled) => {
-                    cameraControlsEnabled = !disabled;
-                }
-            });
-        }
+    })();
     </script>
 </body>
 </html>

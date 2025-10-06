@@ -670,6 +670,7 @@
     <script type="module">
     import ensureChocoDrop from '../../public/load-chocodrop.js';
 
+    (async () => {
     await ensureChocoDrop();
 
     const THREE = window.THREE;
@@ -762,6 +763,7 @@
             window.unifiedMenuVRButton = document.getElementById('vrMenuButton');
             window.unifiedMenuARButton = document.getElementById('arMenuButton');
         })();
+    })();
     </script>
 
     <!-- VR/AR Button inline implementation -->
@@ -2112,6 +2114,7 @@
 
         console.log('✅ 音楽の花園が準備完了！🎵 歌ってお花を咲かせましょう');
 
+    })();
     </script>
 </body>
 </html>

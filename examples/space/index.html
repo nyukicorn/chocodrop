@@ -590,6 +590,7 @@
     <script type="module">
     import ensureChocoDrop from '../../public/load-chocodrop.js';
 
+    (async () => {
     await ensureChocoDrop();
 
     const THREE = window.THREE;
@@ -741,6 +742,7 @@
                 return button;
             }
         };
+    })();
     </script>
 
     <script>
@@ -1930,6 +1932,7 @@
 
         console.log('✅ コズミック空間が準備完了！🌌 宇宙で創造しましょう');
 
+    })();
     </script>
 </body>
 </html>
