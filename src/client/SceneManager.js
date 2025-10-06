@@ -1,7 +1,6 @@
 // UMDビルド対応: グローバルのTHREEを優先し、なければES moduleのimportを使用
 import * as THREEModule from 'three';
 const THREE = globalThis.THREE || THREEModule;
-import { GLTFLoader as GLTFLoaderModule } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { ChocoDropClient, ChocoDroClient, LiveCommandClient } from './LiveCommandClient.js';
 import { createObjectKeywords, matchKeywordWithFilename } from '../common/translation-dictionary.js';
 
@@ -2050,8 +2049,6 @@ export class SceneManager {
       LoaderClass = window.THREE.GLTFLoader;
     } else if (typeof globalThis !== 'undefined' && globalThis.GLTFLoader) {
       LoaderClass = globalThis.GLTFLoader;
-    } else if (typeof GLTFLoaderModule !== 'undefined') {
-      LoaderClass = GLTFLoaderModule;
     }
 
     if (!LoaderClass) {
