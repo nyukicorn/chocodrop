@@ -6,15 +6,18 @@ if (!window.__chocodropThreePromise) {
       return window.THREE;
     }
 
-    const THREE = await import(`https://cdn.jsdelivr.net/npm/three@${THREE_VERSION}/build/three.module.js`);
+    const THREE_MODULE = await import(`https://cdn.jsdelivr.net/npm/three@${THREE_VERSION}/build/three.module.js`);
     const [{ OrbitControls }, { GLTFLoader }] = await Promise.all([
       import(`https://cdn.jsdelivr.net/npm/three@${THREE_VERSION}/examples/jsm/controls/OrbitControls.js`),
       import(`https://cdn.jsdelivr.net/npm/three@${THREE_VERSION}/examples/jsm/loaders/GLTFLoader.js`)
     ]);
 
-    window.THREE = THREE;
-    window.THREE.OrbitControls = OrbitControls;
-    window.THREE.GLTFLoader = GLTFLoader;
+    // Create extensible THREE object with all exports
+    window.THREE = {
+      ...THREE_MODULE,
+      OrbitControls,
+      GLTFLoader
+    };
 
     return window.THREE;
   })();
