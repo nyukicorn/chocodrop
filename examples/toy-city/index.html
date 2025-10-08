@@ -603,6 +603,9 @@
         })();
 
         // Basic Three.js setup
+        // Disable ColorManagement for legacy color behavior (required with ambientLight intensity fix)
+        THREE.ColorManagement.enabled = false;
+
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
         const renderer = new THREE.WebGLRenderer({
@@ -636,7 +639,7 @@
         scene.fog = new THREE.Fog(0xFFF8DC, 20, 80);
 
         // 🌈 おもちゃの街のライティング - 暖かく明るく
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        const ambientLight = new THREE.AmbientLight(0xffffff, 2.2);
         scene.add(ambientLight);
 
         // メインライト（太陽）
@@ -906,7 +909,7 @@
             scene.fog.far = night ? 85 : 80;
 
             ambientLight.color.set(night ? 0xC3D2FF : 0xFFFFFF);
-            ambientLight.intensity = night ? 0.38 : 0.6;
+            ambientLight.intensity = night ? 1.8 : 2.2;
 
             sunLight.visible = !night;
             sunLight.intensity = night ? 0.18 : 1.0;

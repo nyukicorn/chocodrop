@@ -545,7 +545,15 @@
         </div>
     </div>
 
-    <script>
+    <script type="module">
+    import ensureChocoDrop from '../../public/load-chocodrop.js';
+
+    (async () => {
+        await ensureChocoDrop();
+
+        const THREE = window.THREE;
+        const ChocoDrop = window.ChocoDrop;
+
         // 統合メニューの制御
         (function() {
             const menuToggle = document.getElementById('unifiedMenuToggle');
@@ -632,6 +640,7 @@
             window.unifiedMenuVRButton = document.getElementById('vrMenuButton');
             window.unifiedMenuARButton = document.getElementById('arMenuButton');
         })();
+    })(); // Close async IIFE
     </script>
 
     <!-- VR/AR Button inline implementation -->
@@ -780,16 +789,10 @@
 
         console.log('✅ VRButton/ARButton inline implementation loaded');
     </script>
-    <script>
-        // 🍵 侘び寂びの世界 - Wabi-Sabi Space
+    <script type="module">
+        const THREE = window.THREE;
+        const ChocoDrop = window.ChocoDrop;
 
-        // スクリプトの読み込みを待つ
-        window.addEventListener('load', () => {
-            console.log('🔄 Page loaded, checking WebXR scripts...');
-            setTimeout(initializeScene, 500); // 少し待ってから初期化
-        });
-
-        function initializeScene() {
         // Three.js 基本設定
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -2476,7 +2479,6 @@
         console.log('navigator.xr available:', !!navigator.xr);
         console.log('Window location:', window.location.href);
         console.log('Is HTTPS:', window.location.protocol === 'https:');
-        } // initializeScene終了
 
     </script>
 </body>
