@@ -677,8 +677,8 @@ export class SceneManager {
       if (!this.selectedObject) return;
       
       const object = this.selectedObject;
-      // 生成された画像・動画のみ角度調整可能
-      if (!object.userData || (object.userData.type !== 'generated_image' && object.userData.type !== 'generated_video')) {
+      // 生成された画像・動画・3Dモデルのみ角度調整可能
+      if (!object.userData || (object.userData.type !== 'generated_image' && object.userData.type !== 'generated_video' && object.userData.type !== 'generated_3d_model')) {
         return;
       }
       
@@ -2124,6 +2124,10 @@ export class SceneManager {
           node.castShadow = true;
           node.receiveShadow = true;
           if (node.material) {
+            // metalness = 0にして照明なしでも見えるようにする
+            if (node.material.metalness !== undefined) {
+              node.material.metalness = 0;
+            }
             node.material.needsUpdate = true;
           }
         }
