@@ -2,19 +2,25 @@
  * ChocoDrop Client - サーバーとの通信クライアント
  */
 export class ChocoDropClient {
-  constructor(serverUrl = null, sceneManager = null) {
+  constructor(serverUrl = null, sceneManager = null, options = {}) {
     this.serverUrl = null;
     this.sceneManager = sceneManager;
     this.initialized = false;
     this.initPromise = null;
+    this.enableServerHealthCheck = options.enableServerHealthCheck !== false; // デフォルトtrue
 
     if (serverUrl) {
       this.serverUrl = serverUrl;
       this.initialized = true;
       console.log('🍫 ChocoDropClient initialized:', serverUrl);
-    } else {
-      // 設定取得を遅延実行（Promiseを保存）
+    } else if (this.enableServerHealthCheck) {
+      // サーバーヘルスチェックが有効な場合のみ設定取得を試みる
       this.initPromise = this.initializeWithConfig();
+    } else {
+      // サーバーヘルスチェック無効の場合はnullのまま（静的サイト用）
+      this.serverUrl = null;
+      this.initialized = true;
+      console.log('🍫 ChocoDropClient initialized without server (static site mode)');
     }
   }
 

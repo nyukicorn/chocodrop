@@ -34,7 +34,13 @@ function createChocoDropDemo(scene, options = {}) {
   } = options;
 
   const resolvedServerUrl = serverUrl || sceneOptions.serverUrl || null;
-  const chocoDropClient = client || new ChocoDropClient(resolvedServerUrl);
+
+  // enableServerHealthCheckを早期に解決（otherOptions, uiOptions, デフォルトの優先順位）
+  const enableServerHealthCheck = uiOptions.enableServerHealthCheck ?? otherOptions.enableServerHealthCheck ?? true;
+
+  const chocoDropClient = client || new ChocoDropClient(resolvedServerUrl, null, {
+    enableServerHealthCheck
+  });
 
   // otherOptionsからUI固有の設定を抽出して振り分け
   const extractedUIOptions = {};
