@@ -15,6 +15,7 @@ export default [
     output: {
       file: 'dist/ui.esm.js',
       format: 'esm',
+      inlineDynamicImports: true,
     },
     plugins: [
       nodeResolve({
@@ -22,7 +23,7 @@ export default [
         preferBuiltins: false
       })
     ],
-    external: ['three'], // Only three is external, GLTFLoader will be bundled
+    external: ['three', 'https://cdn.skypack.dev/three@0.158.0/examples/jsm/renderers/CSS2DRenderer.js', 'https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/GLTFLoader.js'],
   },
 
   // IIFE/Global version (for external sites)
@@ -35,6 +36,7 @@ export default [
       globals: {
         three: 'THREE', // Map 'three' import to window.THREE
       },
+      inlineDynamicImports: true,
     },
     plugins: [
       nodeResolve({
@@ -42,6 +44,6 @@ export default [
         preferBuiltins: false
       })
     ],
-    external: ['three'], // Only three is external, GLTFLoader will be bundled
+    external: ['three', 'https://cdn.skypack.dev/three@0.158.0/examples/jsm/renderers/CSS2DRenderer.js', 'https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/GLTFLoader.js'],
   },
 ];

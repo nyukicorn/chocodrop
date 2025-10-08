@@ -572,23 +572,29 @@ export class SceneManager {
 
         case '+':
         case '=': // Shiftなしの=キーも+として扱う
-          // リサイズ：拡大（2025年トレンド：キーボード操作）
+          // リサイズ：拡大（2025年トレンド：キーボード操作 + Shift微調整）
           {
             const currentScale = object.scale.x;
-            const newScale = Math.min(5.0, currentScale * 1.1);
+            const factor = event.shiftKey ? 1.01 : 1.1; // Shift: 1%, 通常: 10%
+            const newScale = Math.min(5.0, currentScale * factor);
             object.scale.setScalar(newScale);
-            console.log(`📐 Resized ${object.userData.type || 'object'}: ${object.name} to ${(newScale * 100).toFixed(0)}%`);
+            const increment = event.shiftKey ? '1%' : '10%';
+            console.log(`📐 Resized ${object.userData.type || 'object'}: ${object.name} to ${(newScale * 100).toFixed(0)}% (+${increment})`);
+            this.showScaleToast(newScale);
             event.preventDefault();
           }
           break;
         case '-':
         case '_':
-          // リサイズ：縮小（2025年トレンド：キーボード操作）
+          // リサイズ：縮小（2025年トレンド：キーボード操作 + Shift微調整）
           {
             const currentScale = object.scale.x;
-            const newScale = Math.max(0.2, currentScale * 0.9);
+            const factor = event.shiftKey ? 0.99 : 0.9; // Shift: 1%, 通常: 10%
+            const newScale = Math.max(0.2, currentScale * factor);
             object.scale.setScalar(newScale);
-            console.log(`📐 Resized ${object.userData.type || 'object'}: ${object.name} to ${(newScale * 100).toFixed(0)}%`);
+            const increment = event.shiftKey ? '1%' : '10%';
+            console.log(`📐 Resized ${object.userData.type || 'object'}: ${object.name} to ${(newScale * 100).toFixed(0)}% (-${increment})`);
+            this.showScaleToast(newScale);
             event.preventDefault();
           }
           break;
@@ -597,6 +603,13 @@ export class SceneManager {
           // デバッグ情報表示
           this.debugSceneInfo();
           event.preventDefault();
+          break;
+        default:
+          // 数字キー(0-9)が押されたら、スケール入力モードに入る
+          if (/^[0-9]$/.test(event.key)) {
+            this.showScaleInput(object, event.key);
+            event.preventDefault();
+          }
           break;
       }
 
@@ -4810,6 +4823,210 @@ export class SceneManager {
     if (this.labelRenderer && this.scene && this.camera) {
       this.labelRenderer.render(this.scene, this.camera);
     }
+  }
+
+  /**
+   * スケール変更のトースト通知を表示（2025年トレンド：Zero UI）
+   * @param {number} scale - スケール値（0.2 = 20%, 1.0 = 100%, 5.0 = 500%）
+   */
+  showScaleToast(scale) {
+    // 既存のトーストや入力UIを削除
+    const existingToast = document.getElementById('chocodrop-scale-toast');
+    if (existingToast) {
+      existingToast.remove();
+    }
+    const existingInput = document.getElementById('chocodrop-scale-input-container');
+    if (existingInput) {
+      existingInput.remove();
+    }
+
+    // トースト要素を作成
+    const toast = document.createElement('div');
+    toast.id = 'chocodrop-scale-toast';
+    const percentage = Math.round(scale * 100);
+    toast.textContent = `${percentage}%`;
+
+    // 2025年ゲームUIトレンド：画面中央下部、シンプル、読みやすい
+    toast.style.cssText = `
+      position: fixed !important;
+      bottom: 80px !important;
+      left: 50% !important;
+      transform: translateX(-50%) !important;
+      background: rgba(0, 0, 0, 0.85) !important;
+      backdrop-filter: blur(12px) !important;
+      -webkit-backdrop-filter: blur(12px) !important;
+      border: 1px solid rgba(255, 255, 255, 0.15) !important;
+      border-radius: 12px !important;
+      padding: 12px 24px !important;
+      color: white !important;
+      font-size: 18px !important;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'SF Pro', sans-serif !important;
+      font-weight: 600 !important;
+      font-variant-numeric: tabular-nums !important;
+      z-index: 999999 !important;
+      pointer-events: none !important;
+      opacity: 0 !important;
+      transition: opacity 0.2s ease !important;
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4) !important;
+      letter-spacing: 0.5px !important;
+    `;
+
+    document.body.appendChild(toast);
+
+    // フェードイン
+    requestAnimationFrame(() => {
+      toast.style.opacity = '1';
+    });
+
+    // 3秒後にフェードアウトして削除
+    setTimeout(() => {
+      toast.style.opacity = '0';
+      setTimeout(() => {
+        if (toast.parentNode) {
+          toast.remove();
+        }
+      }, 200); // フェードアウト完了後に削除
+    }, 3000);
+  }
+
+  /**
+   * スケール入力UI を表示（数字直接入力）
+   * @param {THREE.Object3D} object - 対象オブジェクト
+   * @param {string} initialDigit - 最初に押された数字キー
+   */
+  showScaleInput(object, initialDigit) {
+    // 既存のトーストや入力UIを削除
+    const existingToast = document.getElementById('chocodrop-scale-toast');
+    if (existingToast) {
+      existingToast.remove();
+    }
+    const existingInput = document.getElementById('chocodrop-scale-input-container');
+    if (existingInput) {
+      existingInput.remove();
+    }
+
+    // 現在のスケール値を保存（Escでキャンセル時に戻す）
+    const originalScale = object.scale.x;
+
+    // コンテナ作成
+    const container = document.createElement('div');
+    container.id = 'chocodrop-scale-input-container';
+    container.style.cssText = `
+      position: fixed !important;
+      bottom: 80px !important;
+      left: 50% !important;
+      transform: translateX(-50%) !important;
+      background: rgba(0, 0, 0, 0.9) !important;
+      backdrop-filter: blur(12px) !important;
+      -webkit-backdrop-filter: blur(12px) !important;
+      border: 2px solid rgba(139, 92, 246, 0.6) !important;
+      border-radius: 12px !important;
+      padding: 12px 16px !important;
+      z-index: 999999 !important;
+      opacity: 0 !important;
+      transition: opacity 0.2s ease !important;
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5), 0 0 20px rgba(139, 92, 246, 0.3) !important;
+      display: flex !important;
+      align-items: center !important;
+      gap: 8px !important;
+    `;
+
+    // ラベル
+    const label = document.createElement('span');
+    label.textContent = 'Size:';
+    label.style.cssText = `
+      color: rgba(255, 255, 255, 0.7) !important;
+      font-size: 14px !important;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+      font-weight: 500 !important;
+    `;
+
+    // 入力フィールド
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = initialDigit;
+    input.style.cssText = `
+      background: rgba(255, 255, 255, 0.1) !important;
+      border: 1px solid rgba(255, 255, 255, 0.2) !important;
+      border-radius: 6px !important;
+      padding: 6px 10px !important;
+      color: white !important;
+      font-size: 18px !important;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'SF Pro', monospace !important;
+      font-weight: 600 !important;
+      font-variant-numeric: tabular-nums !important;
+      width: 70px !important;
+      text-align: center !important;
+      outline: none !important;
+    `;
+
+    // %記号
+    const percent = document.createElement('span');
+    percent.textContent = '%';
+    percent.style.cssText = `
+      color: white !important;
+      font-size: 18px !important;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+      font-weight: 600 !important;
+    `;
+
+    container.appendChild(label);
+    container.appendChild(input);
+    container.appendChild(percent);
+    document.body.appendChild(container);
+
+    // フェードイン
+    requestAnimationFrame(() => {
+      container.style.opacity = '1';
+      input.focus();
+      input.select();
+    });
+
+    // Enter/Escハンドリング
+    const handleKeyDown = (e) => {
+      if (e.key === 'Enter') {
+        // 確定
+        const value = parseInt(input.value, 10);
+        if (!isNaN(value) && value >= 20 && value <= 500) {
+          const newScale = value / 100;
+          object.scale.setScalar(newScale);
+          console.log(`📐 Scale set to ${value}% via direct input`);
+          this.showScaleToast(newScale);
+        } else {
+          console.warn(`⚠️ Invalid scale value: ${input.value}% (range: 20-500%)`);
+          // 無効な値の場合は元に戻す
+          object.scale.setScalar(originalScale);
+        }
+        cleanup();
+      } else if (e.key === 'Escape') {
+        // キャンセル：元の値に戻す
+        object.scale.setScalar(originalScale);
+        console.log(`📐 Scale input cancelled, restored to ${Math.round(originalScale * 100)}%`);
+        cleanup();
+      }
+    };
+
+    // 数字以外の入力を防ぐ
+    const handleInput = (e) => {
+      input.value = input.value.replace(/[^0-9]/g, '');
+    };
+
+    // クリーンアップ関数
+    const cleanup = () => {
+      input.removeEventListener('keydown', handleKeyDown);
+      input.removeEventListener('input', handleInput);
+      if (container.parentNode) {
+        container.style.opacity = '0';
+        setTimeout(() => {
+          if (container.parentNode) {
+            container.remove();
+          }
+        }, 200);
+      }
+    };
+
+    input.addEventListener('keydown', handleKeyDown);
+    input.addEventListener('input', handleInput);
   }
 
   logDebug(...args) {
