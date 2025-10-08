@@ -426,9 +426,21 @@ export class SceneManager {
       this.raycaster.setFromCamera(this.mouse, this.camera);
       // オブジェクトとその子（選択インジケーター含む）を検出対象に
       const intersects = this.raycaster.intersectObjects(this.experimentGroup.children, true);
-      
+
       if (intersects.length > 0) {
-        const object = intersects[0].object;
+        let object = intersects[0].object;
+
+        // 3Dモデルの子メッシュがヒットした場合、親を辿ってuserDataを持つオブジェクトを探す
+        let targetObject = object;
+        while (targetObject && !targetObject.userData?.type && !targetObject.userData?.source && targetObject.parent) {
+          targetObject = targetObject.parent;
+          if (targetObject === this.scene || targetObject === this.experimentGroup) break;
+        }
+
+        // userDataを持つ親が見つかった場合はそれを使用
+        if (targetObject && (targetObject.userData?.type || targetObject.userData?.source)) {
+          object = targetObject;
+        }
 
         // リサイズハンドルがクリックされた場合 - Shiftキー不要
         if (object.userData && object.userData.isResizeHandle) {
@@ -617,9 +629,20 @@ export class SceneManager {
       
       this.raycaster.setFromCamera(mouse, this.camera);
       const intersects = this.raycaster.intersectObjects(this.experimentGroup.children, true);
-      
+
       if (intersects.length > 0) {
-        const obj = intersects[0].object;
+        let obj = intersects[0].object;
+
+        // 3Dモデルの子メッシュがヒットした場合、親を辿る
+        let targetObj = obj;
+        while (targetObj && !targetObj.userData?.type && !targetObj.userData?.source && targetObj.parent) {
+          targetObj = targetObj.parent;
+          if (targetObj === this.scene || targetObj === this.experimentGroup) break;
+        }
+        if (targetObj && (targetObj.userData?.type || targetObj.userData?.source)) {
+          obj = targetObj;
+        }
+
         // 生成された画像・動画・3Dモデル対象（Shift不要の直感的操作）
         if (obj.userData && (obj.userData.type === 'generated_image' || obj.userData.type === 'generated_video' || obj.userData.type === 'generated_3d_model')) {
           const scaleFactor = event.deltaY > 0 ? 0.9 : 1.1;
@@ -735,16 +758,26 @@ export class SceneManager {
 
     // オブジェクトとその子（選択インジケーター含む）を検出対象に
     const intersects = this.raycaster.intersectObjects(this.experimentGroup.children, true);
-    
+
     // 前回ホバーしていたオブジェクトのエフェクトをリセット
     if (this.lastHoveredObject && this.lastHoveredObject.onHoverExit) {
       this.lastHoveredObject.onHoverExit();
       this.lastHoveredObject = null;
     }
-    
+
     // 新しいホバー対象を検出
     if (intersects.length > 0) {
-      const object = intersects[0].object;
+      let object = intersects[0].object;
+
+      // 3Dモデルの子メッシュがヒットした場合、親を辿る
+      let targetObject = object;
+      while (targetObject && !targetObject.userData?.type && !targetObject.userData?.source && targetObject.parent) {
+        targetObject = targetObject.parent;
+        if (targetObject === this.scene || targetObject === this.experimentGroup) break;
+      }
+      if (targetObject && (targetObject.userData?.type || targetObject.userData?.source)) {
+        object = targetObject;
+      }
       
       // リサイズハンドルにホバーした場合
       if (object.userData && object.userData.isResizeHandle && object.onHover) {
