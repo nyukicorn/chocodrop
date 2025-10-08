@@ -265,8 +265,10 @@ export class SceneManager {
     object.add(indicatorGroup);
     indicatorGroup.position.set(0, 0, 0); // 親からの相対位置は0
 
-    // リサイズハンドルを追加（親オブジェクトを直接渡す）
-    this.addResizeHandles(indicatorGroup, adjustedSize, center, object);
+    // リサイズハンドルを追加（PlaneGeometry（画像/動画）の場合のみ）
+    if (object.geometry && object.geometry.type === 'PlaneGeometry') {
+      this.addResizeHandles(indicatorGroup, adjustedSize, center, object);
+    }
   }
 
   /**
@@ -274,24 +276,10 @@ export class SceneManager {
    */
   addResizeHandles(indicatorGroup, size, center, parentObject) {
     // PlaneGeometryオブジェクト用のリサイズハンドル
-    console.log('🔧 addResizeHandles called');
-
-    if (!parentObject) {
-      console.log('❌ No parent object provided');
+    // 既に呼び出し元でPlaneGeometryチェック済みなので、ここでは最小限のチェックのみ
+    if (!parentObject || !parentObject.geometry || parentObject.geometry.type !== 'PlaneGeometry') {
       return;
     }
-
-    if (!parentObject.geometry) {
-      console.log('❌ Parent has no geometry');
-      return;
-    }
-
-    if (parentObject.geometry.type !== 'PlaneGeometry') {
-      console.log(`❌ Geometry type is ${parentObject.geometry.type}, not PlaneGeometry`);
-      return;
-    }
-
-    console.log('✅ PlaneGeometry detected, creating handles');
 
     const handleSize = 0.15; // 2025年トレンド: より小さく洗練された
     const handleGeometry = new THREE.BoxGeometry(handleSize, handleSize, handleSize);

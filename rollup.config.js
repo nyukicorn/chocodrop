@@ -1,23 +1,7 @@
 import { nodeResolve } from '@rollup/plugin-node-resolve';
 import terser from '@rollup/plugin-terser';
 
-// UI Bundle for SDK distribution
-const uiConfig = {
-  input: 'src/client/ui-bundle.js',
-  output: {
-    dir: 'dist/ui',
-    format: 'esm',
-    sourcemap: true,
-    entryFileNames: 'ui.esm.js'
-  },
-  plugins: [
-    nodeResolve({
-      browser: true,
-      preferBuiltins: false
-    })
-  ],
-  external: ['three', 'https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/GLTFLoader.js', 'https://cdn.skypack.dev/three@0.158.0/examples/jsm/renderers/CSS2DRenderer.js']
-};
+// Production build removed - ES Modules only
 
 // Demo build (restricted functionality)
 const demoConfig = {
@@ -56,4 +40,4 @@ const demoConfig = {
   external: ['three', 'https://cdn.skypack.dev/three@0.158.0/examples/jsm/renderers/CSS2DRenderer.js']
 };
 
-export default [uiConfig, demoConfig];
+export default [demoConfig];
