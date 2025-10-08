@@ -265,100 +265,9 @@ export class SceneManager {
     object.add(indicatorGroup);
     indicatorGroup.position.set(0, 0, 0); // 親からの相対位置は0
 
-    // リサイズハンドルを追加（PlaneGeometry（画像/動画）の場合のみ）
-    if (object.geometry && object.geometry.type === 'PlaneGeometry') {
-      this.addResizeHandles(indicatorGroup, adjustedSize, center, object);
-    }
+    // 2025年トレンド：四隅ハンドルを廃止し、浮遊コントロールバーに統一
   }
-
-  /**
-   * リサイズハンドルを追加
-   */
-  addResizeHandles(indicatorGroup, size, center, parentObject) {
-    // PlaneGeometryオブジェクト用のリサイズハンドル
-    // 既に呼び出し元でPlaneGeometryチェック済みなので、ここでは最小限のチェックのみ
-    if (!parentObject || !parentObject.geometry || parentObject.geometry.type !== 'PlaneGeometry') {
-      return;
-    }
-
-    const handleSize = 0.15; // 2025年トレンド: より小さく洗練された
-    const handleGeometry = new THREE.BoxGeometry(handleSize, handleSize, handleSize);
-    // 角を丸くするため、後でroundedBoxを使用
-
-    // 常に前面に表示されるマテリアル
-    // 2025年トレンド: アダプティブリサイズハンドル
-    const adaptiveColor = this.getAdaptiveSelectionColor();
-    const handleMaterial = new THREE.MeshBasicMaterial({
-      color: adaptiveColor,
-      transparent: true,
-      opacity: 0.8,
-      depthTest: false,
-      depthWrite: false
-    });
-
-    const handleHoverMaterial = new THREE.MeshBasicMaterial({
-      color: this.getAdaptiveHoverColor(),
-      transparent: true,
-      opacity: 1.0,
-      depthTest: false,
-      depthWrite: false
-    });
-
-    // 四隅の位置を計算（親オブジェクトのジオメトリサイズに基づく）
-    const width = parentObject.geometry.parameters.width;
-    const height = parentObject.geometry.parameters.height;
-
-    const positions = [
-      { x: width/2, y: height/2, z: 0.1, corner: 'top-right' },
-      { x: -width/2, y: height/2, z: 0.1, corner: 'top-left' },
-      { x: width/2, y: -height/2, z: 0.1, corner: 'bottom-right' },
-      { x: -width/2, y: -height/2, z: 0.1, corner: 'bottom-left' }
-    ];
-
-    positions.forEach((pos, index) => {
-      const handle = new THREE.Mesh(handleGeometry, handleMaterial.clone());
-      handle.position.set(pos.x, pos.y, pos.z); // 親からの相対位置
-      handle.userData = { 
-        isResizeHandle: true, 
-        handleIndex: index,
-        corner: pos.corner,
-        defaultMaterial: handle.material,
-        hoverMaterial: handleHoverMaterial.clone()
-      };
-      
-      // ホバーエフェクトを追加
-      // レンダリング順序を高く設定（常に前面）
-      handle.renderOrder = 1001;
-
-      handle.onHover = () => {
-        handle.material = handle.userData.hoverMaterial;
-        handle.scale.setScalar(1.5);
-        document.body.style.cursor = 'nw-resize';
-      };
-
-      handle.onHoverExit = () => {
-        handle.material = handle.userData.defaultMaterial;
-        handle.scale.setScalar(1.0);
-        document.body.style.cursor = 'default';
-      };
-
-      indicatorGroup.add(handle);
-
-      // デバッグ用にハンドルが見えることを確認
-      console.log(`🔴 Added resize handle at ${pos.corner}`);
-    });
-  }
-
-  /**
-   * 選択インジケーターのスケールをリアルタイム更新（パフォーマンス最適化版）
-   */
-  updateSelectionIndicatorScale(object) {
-    // リサイズ中はインジケーターの更新をスキップ（パフォーマンス最適化）
-    // 枠線はオブジェクトと一緒にスケールされるので、特別な更新は不要
-
-    // ハンドル位置のみ更新が必要な場合は、ここで処理
-    // 現在は自動的にオブジェクトと一緒にスケールされるので処理不要
-  }
+  // 2025年トレンド：四隅ハンドル廃止（浮遊コントロールバー + キーボードに統一）
 
   /**
    * オブジェクト選択解除
@@ -442,27 +351,7 @@ export class SceneManager {
           object = targetObject;
         }
 
-        // リサイズハンドルがクリックされた場合 - Shiftキー不要
-        if (object.userData && object.userData.isResizeHandle) {
-          // リサイズモード開始
-          isDragging = true;
-          dragObject = this.selectedObject; // リサイズする実際のオブジェクト
-          dragMode = 'resize';
-          
-          // ハンドル情報を保存
-          this.resizeHandleInfo = {
-            corner: object.userData.corner,
-            handleIndex: object.userData.handleIndex
-          };
-          
-          originalScale.copy(dragObject.scale);
-          mouseStart.set(event.clientX, event.clientY);
-          canvas.style.cursor = 'nw-resize';
-          console.log(`🔄 Started resizing: ${dragObject.name} from ${object.userData.corner}`);
-          return;
-        }
-
-        // 回転ハンドルがクリックされた場合
+        // 回転ハンドルがクリックされた場合（将来実装）
         if (object.userData && object.userData.isRotateHandle) {
           // 回転モード開始（今後実装）
           console.log(`🔄 Rotation handle clicked for: ${this.selectedObject.name}`);
@@ -533,49 +422,7 @@ export class SceneManager {
       // ドラッグ中の処理
       if (!dragObject) return;
       
-      // マウスの移動量を計算
-      const deltaX = event.clientX - mouseStart.x;
-      const deltaY = event.clientY - mouseStart.y;
-
-      if (dragMode === 'resize') {
-        // リサイズモード: より直感的な方向計算
-        if (!this.resizeHandleInfo) {
-          console.error('❌ Resize handle info missing');
-          return;
-        }
-        
-        const corner = this.resizeHandleInfo.corner;
-        let scaleMultiplier = 1;
-        
-        // 各ハンドルの位置に応じた直感的な方向計算
-        switch(corner) {
-          case 'top-right': 
-            // 右上ハンドル: 右上方向に引っ張ると拡大
-            scaleMultiplier = (deltaX > 0 && deltaY < 0) ? 1 + (Math.abs(deltaX) + Math.abs(deltaY)) * 0.001 : 1 - (Math.abs(deltaX) + Math.abs(deltaY)) * 0.001;
-            break;
-          case 'top-left':
-            // 左上ハンドル: 左上方向に引っ張ると拡大
-            scaleMultiplier = (deltaX < 0 && deltaY < 0) ? 1 + (Math.abs(deltaX) + Math.abs(deltaY)) * 0.001 : 1 - (Math.abs(deltaX) + Math.abs(deltaY)) * 0.001;
-            break;
-          case 'bottom-right':
-            // 右下ハンドル: 右下方向に引っ張ると拡大
-            scaleMultiplier = (deltaX > 0 && deltaY > 0) ? 1 + (Math.abs(deltaX) + Math.abs(deltaY)) * 0.001 : 1 - (Math.abs(deltaX) + Math.abs(deltaY)) * 0.001;
-            break;
-          case 'bottom-left':
-            // 左下ハンドル: 左下方向に引っ張ると拡大
-            scaleMultiplier = (deltaX < 0 && deltaY > 0) ? 1 + (Math.abs(deltaX) + Math.abs(deltaY)) * 0.001 : 1 - (Math.abs(deltaX) + Math.abs(deltaY)) * 0.001;
-            break;
-          default:
-            scaleMultiplier = 1 + (deltaX + deltaY) * 0.001; // フォールバック
-        }
-        
-        const newScale = Math.max(0.1, Math.min(5.0, originalScale.x * scaleMultiplier));
-        dragObject.scale.setScalar(newScale);
-
-        // 選択インジケーターも更新（パフォーマンス最適化）
-        this.updateSelectionIndicatorScale(dragObject);
-
-      } else if (dragMode === 'move') {
+      if (dragMode === 'move') {
         // 移動モード（平面との交点を使ったスムーズな移動）
         const rect = canvas.getBoundingClientRect();
         this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
@@ -599,7 +446,6 @@ export class SceneManager {
         isDragging = false;
         dragObject = null;
         dragMode = 'move'; // リセット
-        this.resizeHandleInfo = null; // リサイズハンドル情報をクリーンアップ
         canvas.style.cursor = 'default';
       }
     };
@@ -724,6 +570,28 @@ export class SceneManager {
           console.log(`🔄 Reset rotation for: ${object.name}`);
           break;
 
+        case '+':
+        case '=': // Shiftなしの=キーも+として扱う
+          // リサイズ：拡大（2025年トレンド：キーボード操作）
+          {
+            const currentScale = object.scale.x;
+            const newScale = Math.min(5.0, currentScale * 1.1);
+            object.scale.setScalar(newScale);
+            console.log(`📐 Resized ${object.userData.type || 'object'}: ${object.name} to ${(newScale * 100).toFixed(0)}%`);
+            event.preventDefault();
+          }
+          break;
+        case '-':
+        case '_':
+          // リサイズ：縮小（2025年トレンド：キーボード操作）
+          {
+            const currentScale = object.scale.x;
+            const newScale = Math.max(0.2, currentScale * 0.9);
+            object.scale.setScalar(newScale);
+            console.log(`📐 Resized ${object.userData.type || 'object'}: ${object.name} to ${(newScale * 100).toFixed(0)}%`);
+            event.preventDefault();
+          }
+          break;
         case 'i':
         case 'I':
           // デバッグ情報表示
@@ -731,7 +599,7 @@ export class SceneManager {
           event.preventDefault();
           break;
       }
-      
+
       if (rotated) {
         event.preventDefault();
         const angles = {
@@ -744,8 +612,9 @@ export class SceneManager {
     });
 
     console.log('🖱️ Object dragging system enabled (Drag to move objects - Shift-free interaction)');
-    console.log('🔄 Object resizing system enabled (Scroll to resize images/videos - Shift-free interaction)');
+    console.log('🔄 Object resizing system enabled (Scroll to resize - Shift-free interaction)');
     console.log('🎯 Angle adjustment enabled (Select object + Arrow keys to rotate, R to reset)');
+    console.log('📐 Keyboard resize enabled (Select object + +/- keys to resize)');
   }
 
   handleHoverEffects(event, canvas) {
@@ -778,15 +647,8 @@ export class SceneManager {
       if (targetObject && (targetObject.userData?.type || targetObject.userData?.source)) {
         object = targetObject;
       }
-      
-      // リサイズハンドルにホバーした場合
-      if (object.userData && object.userData.isResizeHandle && object.onHover) {
-        object.onHover();
-        this.lastHoveredObject = object;
-        return;
-      }
-      
-      // 通常のオブジェクトにホバーした場合
+
+      // オブジェクトにホバーした場合
       if (object.userData && (object.userData.type === 'generated_image' || object.userData.type === 'generated_video' || object.userData.source === 'imported_file')) {
         // 移動可能なオブジェクトの場合はカーソルを変更
         canvas.style.cursor = 'grab';
