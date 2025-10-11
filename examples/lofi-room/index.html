@@ -1,0 +1,2541 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChocoDrop - Lo-fi Room</title>
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+        }
+    }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap');
+
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 100%);
+        }
+
+        #info {
+            position: fixed;
+            top: 16px;
+            left: 16px;
+            color: #4a4a6a;
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 2px solid rgba(142, 197, 252, 0.4);
+            padding: 14px 18px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 400;
+            z-index: 100;
+            max-width: 280px;
+            line-height: 1.6;
+            box-shadow: 0 8px 20px rgba(142, 197, 252, 0.3);
+            transition: opacity 0.3s ease, transform 0.3s ease;
+        }
+
+        #info.hidden {
+            opacity: 0;
+            transform: translateY(-10px);
+            pointer-events: none;
+        }
+
+        .close-btn {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: none;
+            border: none;
+            font-size: 16px;
+            color: #8ec5fc;
+            cursor: pointer;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: background-color 0.2s ease;
+        }
+
+        .close-btn:hover {
+            background-color: rgba(142, 197, 252, 0.2);
+        }
+
+        /* 統合メニュー */
+        .unified-menu {
+            position: fixed;
+            top: 16px;
+            right: 20px;
+            z-index: 1000;
+        }
+
+        .menu-toggle {
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #2d3748;
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-size: 18px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 4px 12px rgba(142, 197, 252, 0.2), 0 2px 6px rgba(0, 0, 0, 0.05);
+            width: 44px;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0.8;
+        }
+
+        .menu-toggle:hover {
+            background: rgba(255, 255, 255, 0.25);
+            border-color: rgba(255, 255, 255, 0.3);
+            transform: scale(1.1) translateY(-2px);
+            box-shadow: 0 6px 16px rgba(142, 197, 252, 0.3), 0 3px 8px rgba(0, 0, 0, 0.1);
+            opacity: 1;
+        }
+
+        .menu-dropdown {
+            position: absolute;
+            top: 56px;
+            right: 0;
+            min-width: 220px;
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(16px) saturate(180%);
+            -webkit-backdrop-filter: blur(16px) saturate(180%);
+            border: 1px solid rgba(142, 197, 252, 0.2);
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(142, 197, 252, 0.15), 0 4px 12px rgba(0, 0, 0, 0.08);
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(-10px);
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            overflow: hidden;
+        }
+
+        .menu-dropdown.active {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+        }
+
+        .menu-item {
+            display: block;
+            padding: 12px 16px;
+            color: #2d3748;
+            text-decoration: none;
+            font-size: 13px;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+            cursor: pointer;
+            background: none;
+            border-left: none;
+            border-right: none;
+            border-top: none;
+            width: 100%;
+            text-align: left;
+        }
+
+        .menu-item:last-child {
+            border-bottom: none;
+        }
+
+        .menu-item:hover {
+            background: rgba(142, 197, 252, 0.08);
+            padding-left: 20px;
+            border-left: 2px solid rgba(142, 197, 252, 0.4);
+        }
+
+        .menu-item.has-submenu {
+            position: relative;
+            padding: 0;
+            border: none;
+        }
+
+        .submenu-toggle {
+            display: block;
+            padding: 12px 16px;
+            color: #2d3748;
+            font-size: 13px;
+            background: none;
+            border: none;
+            width: 100%;
+            text-align: left;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+        }
+
+        .submenu-toggle:hover {
+            background: rgba(142, 197, 252, 0.08);
+            padding-left: 20px;
+            border-left: 2px solid rgba(142, 197, 252, 0.4);
+        }
+
+        .submenu {
+            display: none;
+            background: rgba(142, 197, 252, 0.03);
+            border-top: 1px solid rgba(142, 197, 252, 0.1);
+        }
+
+        .submenu.active {
+            display: block;
+        }
+
+        .submenu .menu-item {
+            padding-left: 32px;
+            font-size: 12px;
+        }
+
+        .submenu .menu-item:hover {
+            padding-left: 36px;
+            background: rgba(142, 197, 252, 0.12);
+        }
+
+        #info strong {
+            font-size: 15px;
+            font-weight: 600;
+            color: #8ec5fc;
+            display: block;
+            margin-bottom: 10px;
+            text-align: center;
+            letter-spacing: 0.5px;
+        }
+
+        .controls {
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid rgba(142, 197, 252, 0.3);
+            font-size: 11px;
+        }
+
+        .control-item {
+            margin: 4px 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .key {
+            background: rgba(142, 197, 252, 0.2);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: 500;
+            min-width: fit-content;
+        }
+
+        canvas {
+            display: block;
+        }
+
+        /* 音響ステータス表示 */
+        #audio-status {
+            position: fixed;
+            top: 70px;
+            right: 20px;
+            z-index: 100;
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            padding: 10px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+            border: 2px solid rgba(142, 197, 252, 0.4);
+            box-shadow: 0 4px 12px rgba(142, 197, 252, 0.3);
+            color: #4a4a6a;
+            display: none;
+            transition: opacity 0.3s ease;
+        }
+
+        #audio-status.active {
+            display: block;
+        }
+
+        #audio-status .status-icon {
+            display: inline-block;
+            margin-right: 5px;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.8; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.1); }
+        }
+
+        /* メニューアイコン */
+        .menu-icon {
+            display: inline-block;
+            margin-right: 8px;
+            animation: menu-bounce 2s ease-in-out infinite;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+            text-shadow: 0 0 10px currentColor;
+        }
+
+        .menu-icon:hover {
+            transform: scale(1.4);
+            animation: menu-bounce-fast 0.8s ease-in-out infinite;
+        }
+
+        @keyframes menu-bounce {
+            0%, 100% {
+                filter: brightness(1) drop-shadow(0 0 8px currentColor);
+                transform: scale(1) translateY(0px);
+            }
+            25% {
+                filter: brightness(1.3) drop-shadow(0 0 15px currentColor);
+                transform: scale(1.1) translateY(-4px);
+            }
+            50% {
+                filter: brightness(1.5) drop-shadow(0 0 20px currentColor);
+                transform: scale(1.15) translateY(-8px);
+            }
+            75% {
+                filter: brightness(1.3) drop-shadow(0 0 15px currentColor);
+                transform: scale(1.1) translateY(-4px);
+            }
+        }
+
+        @keyframes menu-bounce-fast {
+            0%, 100% {
+                filter: brightness(1.4) drop-shadow(0 0 15px currentColor);
+                transform: translateY(0px);
+            }
+            50% {
+                filter: brightness(1.8) drop-shadow(0 0 25px currentColor);
+                transform: translateY(-12px);
+            }
+        }
+
+        .subtitle {
+            color: #6b7280;
+            font-size: 11px;
+            margin-top: 6px;
+            font-style: italic;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <!-- 音響ステータス表示 -->
+    <div id="audio-status">
+        <span class="status-icon">🎵</span><span id="audio-text">音声待機中...</span>
+    </div>
+
+    <!-- Main Info Panel -->
+    <div id="info">
+        <button class="close-btn" onclick="hideInfoPanel()">×</button>
+        <strong>🎧 Lo-fi Room</strong>
+
+        <div class="subtitle">
+            自分だけの小さな癒しの空間
+        </div>
+
+        💡 基本操作:<br>
+        1. 思い出の写真や動画をインポート<br>
+        2. 壁やデスクに配置してみよう<br>
+        3. Lo-fi音楽と一緒にリラックス<br>
+
+        <div class="controls">
+            <div class="control-item">
+                <span class="key">@</span>
+                <span>ChocoDrop起動</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- 統合メニュー -->
+    <div class="unified-menu">
+        <button class="menu-toggle" id="unifiedMenuToggle" aria-label="Menu">☰</button>
+        <div class="menu-dropdown" id="unifiedMenuDropdown">
+            <button class="menu-item" id="showInfoBtn"><span class="menu-icon">📖</span> このワールドについて</button>
+
+            <div class="menu-item has-submenu">
+                <button class="submenu-toggle" id="worldsMenuToggle"><span class="menu-icon">🌍</span> 世界選択 <span style="font-size: 10px;">▼</span></button>
+                <div class="submenu" id="worldsSubmenu">
+                    <a href="../basic/index.html" class="menu-item"><span class="menu-icon">🍫</span> はじまりの国</a>
+                    <a href="../pixel-ocean/index.html" class="menu-item"><span class="menu-icon">🌊</span> 海底世界</a>
+                    <a href="../music-garden/index.html" class="menu-item"><span class="menu-icon">🌸</span> 硝子の花</a>
+                    <a href="../space/index.html" class="menu-item"><span class="menu-icon">🌌</span> 宇宙空間</a>
+                    <a href="../toy-city/index.html" class="menu-item"><span class="menu-icon">🎡</span> AI遊園地</a>
+                    <a href="../wabi-sabi/index.html" class="menu-item"><span class="menu-icon">🖤</span> 侘び寂びの世界</a>
+                    <a href="../classic-cinema/index.html" class="menu-item"><span class="menu-icon">🎬</span> クラシックシネマ</a>
+                    <a href="index.html" class="menu-item"><span class="menu-icon">🎧</span> Lo-fiルーム（現在地）</a>
+                </div>
+            </div>
+
+            <a href="../../index.html" class="menu-item"><span class="menu-icon">🏠</span> Home</a>
+            <a href="https://github.com/nyukicorn/chocodrop" class="menu-item" target="_blank"><span class="menu-icon">🔗</span> GitHub</a>
+
+            <button class="menu-item" id="vrMenuButton"><span class="menu-icon">🥽</span> VR</button>
+            <button class="menu-item" id="arMenuButton"><span class="menu-icon">🥽</span> AR</button>
+        </div>
+    </div>
+
+    <!-- Three.js + ChocoDrop (module preload) -->
+    <script type="module">
+    import ensureChocoDrop from '../../public/load-chocodrop.js';
+
+    (async () => {
+    await ensureChocoDrop();
+
+    const THREE = window.THREE;
+    const ChocoDrop = window.ChocoDrop;
+
+        // 統合メニューの制御
+        (function() {
+            const menuToggle = document.getElementById('unifiedMenuToggle');
+            const menuDropdown = document.getElementById('unifiedMenuDropdown');
+            const worldsMenuToggle = document.getElementById('worldsMenuToggle');
+            const worldsSubmenu = document.getElementById('worldsSubmenu');
+            const showInfoBtn = document.getElementById('showInfoBtn');
+            const infoPanel = document.getElementById('info');
+
+            // 初回訪問チェック
+            const FIRST_VISIT_KEY = 'lofi_room_visited';
+            const hasVisited = localStorage.getItem(FIRST_VISIT_KEY);
+
+            if (!hasVisited) {
+                if (infoPanel) {
+                    infoPanel.style.display = 'block';
+                }
+                localStorage.setItem(FIRST_VISIT_KEY, 'true');
+            } else {
+                if (infoPanel) {
+                    infoPanel.style.display = 'none';
+                }
+            }
+
+            if (menuToggle && menuDropdown) {
+                menuToggle.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    menuDropdown.classList.toggle('active');
+                });
+
+                document.addEventListener('click', (e) => {
+                    if (!menuToggle.contains(e.target) && !menuDropdown.contains(e.target)) {
+                        menuDropdown.classList.remove('active');
+                        if (worldsSubmenu) {
+                            worldsSubmenu.classList.remove('active');
+                        }
+                    }
+                });
+
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'Escape') {
+                        menuDropdown.classList.remove('active');
+                        if (worldsSubmenu) {
+                            worldsSubmenu.classList.remove('active');
+                        }
+                    }
+                });
+            }
+
+            if (worldsMenuToggle && worldsSubmenu) {
+                worldsMenuToggle.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    worldsSubmenu.classList.toggle('active');
+                });
+            }
+
+            if (showInfoBtn) {
+                showInfoBtn.addEventListener('click', () => {
+                    if (typeof showInfoPanel === 'function') {
+                        showInfoPanel();
+                    } else {
+                        const panel = document.getElementById('info');
+                        if (panel) {
+                            panel.style.display = 'block';
+                            panel.classList.remove('hidden');
+                        }
+                    }
+                    menuDropdown.classList.remove('active');
+                });
+            }
+
+            window.unifiedMenuVRButton = document.getElementById('vrMenuButton');
+            window.unifiedMenuARButton = document.getElementById('arMenuButton');
+        })();
+
+        console.log('THREE loaded:', typeof THREE !== 'undefined');
+
+        // Basic Three.js setup
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.xr.enabled = true;
+        document.body.appendChild(renderer.domElement);
+
+        // VR/AR設定
+        if (typeof VRButton !== 'undefined' && window.unifiedMenuVRButton) {
+            function startVRSession() {
+                if ('xr' in navigator) {
+                    navigator.xr.isSessionSupported('immersive-vr').then(supported => {
+                        if (supported) {
+                            const sessionInit = { optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking', 'layers'] };
+                            navigator.xr.requestSession('immersive-vr', sessionInit).then(session => {
+                                session.addEventListener('end', () => {
+                                    renderer.xr.setSession(null);
+                                });
+                                renderer.xr.setSession(session);
+                            });
+                        }
+                    });
+                }
+            }
+            window.unifiedMenuVRButton.onclick = startVRSession;
+            if ('xr' in navigator) {
+                navigator.xr.isSessionSupported('immersive-vr').then(supported => {
+                    if (!supported) window.unifiedMenuVRButton.style.display = 'none';
+                });
+            } else {
+                window.unifiedMenuVRButton.style.display = 'none';
+            }
+        }
+
+        if (typeof ARButton !== 'undefined' && window.unifiedMenuARButton) {
+            function startARSession() {
+                if ('xr' in navigator) {
+                    navigator.xr.isSessionSupported('immersive-ar').then(supported => {
+                        if (supported) {
+                            const sessionInit = {
+                                requiredFeatures: ['hit-test'],
+                                optionalFeatures: ['dom-overlay'],
+                                domOverlay: { root: document.body }
+                            };
+                            navigator.xr.requestSession('immersive-ar', sessionInit).then(session => {
+                                session.addEventListener('end', () => {
+                                    renderer.xr.setSession(null);
+                                });
+                                renderer.xr.setSession(session);
+                            });
+                        }
+                    });
+                }
+            }
+            window.unifiedMenuARButton.onclick = startARSession;
+            if ('xr' in navigator) {
+                navigator.xr.isSessionSupported('immersive-ar').then(supported => {
+                    if (!supported) window.unifiedMenuARButton.style.display = 'none';
+                });
+            } else {
+                window.unifiedMenuARButton.style.display = 'none';
+            }
+        }
+
+        // Lo-fi Room の世界
+        scene.background = new THREE.Color(0xe8d5f2);
+        scene.fog = new THREE.Fog(0xe8d5f2, 10, 50);
+
+        // 柔らかい環境光
+        const ambientLight = new THREE.AmbientLight(0xfff5f0, 0.8);
+        scene.add(ambientLight);
+
+        // メインライト（窓からの光）
+        const directionalLight1 = new THREE.DirectionalLight(0xfff5e6, 0.7);
+        directionalLight1.position.set(10, 15, 8);
+        directionalLight1.castShadow = true;
+        directionalLight1.shadow.mapSize.width = 2048;
+        directionalLight1.shadow.mapSize.height = 2048;
+        scene.add(directionalLight1);
+
+        // フィルライト
+        const directionalLight2 = new THREE.DirectionalLight(0xe0c3fc, 0.4);
+        directionalLight2.position.set(-8, 10, -5);
+        scene.add(directionalLight2);
+
+        // 床
+        const floorGeometry = new THREE.PlaneGeometry(20, 20);
+        const floorMaterial = new THREE.MeshStandardMaterial({
+            color: 0xf5e6ff,
+            metalness: 0.1,
+            roughness: 0.9
+        });
+        const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+        floor.rotation.x = -Math.PI / 2;
+        floor.position.y = 0;
+        floor.receiveShadow = true;
+        scene.add(floor);
+
+        // 壁（3面）
+        function createWall(width, height, x, y, z, rotationY) {
+            const wallGeometry = new THREE.PlaneGeometry(width, height);
+            const wallMaterial = new THREE.MeshStandardMaterial({
+                color: 0xffd4e5,
+                metalness: 0.1,
+                roughness: 0.8
+            });
+            const wall = new THREE.Mesh(wallGeometry, wallMaterial);
+            wall.position.set(x, y, z);
+            wall.rotation.y = rotationY;
+            wall.receiveShadow = true;
+            scene.add(wall);
+            return wall;
+        }
+
+        // 背面の壁
+        const backWall = createWall(12, 8, 0, 4, -6, 0);
+        // 左の壁
+        const leftWall = createWall(12, 8, -6, 4, 0, Math.PI / 2);
+        // 右の壁
+        const rightWall = createWall(12, 8, 6, 4, 0, -Math.PI / 2);
+
+        // ラグ
+        const rugGeometry = new THREE.PlaneGeometry(5, 4);
+        const rugMaterial = new THREE.MeshStandardMaterial({
+            color: 0xb4d5fe,
+            metalness: 0.1,
+            roughness: 1
+        });
+        const rug = new THREE.Mesh(rugGeometry, rugMaterial);
+        rug.rotation.x = -Math.PI / 2;
+        rug.position.set(0, 0.01, 0.5);
+        rug.receiveShadow = true;
+        scene.add(rug);
+
+        // ベッド
+        function createBed() {
+            const bedGroup = new THREE.Group();
+
+            // ベッドフレーム
+            const frameGeometry = new THREE.BoxGeometry(3.5, 0.3, 2);
+            const frameMaterial = new THREE.MeshStandardMaterial({
+                color: 0xffd4a3,
+                metalness: 0.2,
+                roughness: 0.7
+            });
+            const frame = new THREE.Mesh(frameGeometry, frameMaterial);
+            frame.position.y = 0.15;
+            frame.castShadow = true;
+            bedGroup.add(frame);
+
+            // マットレス
+            const mattressGeometry = new THREE.BoxGeometry(3.3, 0.4, 1.8);
+            const mattressMaterial = new THREE.MeshStandardMaterial({
+                color: 0xffeef8,
+                metalness: 0.1,
+                roughness: 0.9
+            });
+            const mattress = new THREE.Mesh(mattressGeometry, mattressMaterial);
+            mattress.position.y = 0.5;
+            mattress.castShadow = true;
+            bedGroup.add(mattress);
+
+            // ブランケット
+            const blanketGeometry = new THREE.BoxGeometry(3, 0.2, 1.5);
+            const blanketMaterial = new THREE.MeshStandardMaterial({
+                color: 0xb4d5fe,
+                metalness: 0.1,
+                roughness: 0.8
+            });
+            const blanket = new THREE.Mesh(blanketGeometry, blanketMaterial);
+            blanket.position.set(0, 0.8, -0.2);
+            blanket.castShadow = true;
+            bedGroup.add(blanket);
+
+            // 枕
+            const pillowGeometry = new THREE.BoxGeometry(0.8, 0.3, 0.6);
+            const pillowMaterial = new THREE.MeshStandardMaterial({
+                color: 0xfff5f0,
+                metalness: 0.1,
+                roughness: 0.9
+            });
+            const pillow = new THREE.Mesh(pillowGeometry, pillowMaterial);
+            pillow.position.set(0, 0.85, 0.7);
+            pillow.castShadow = true;
+            bedGroup.add(pillow);
+
+            bedGroup.position.set(-3, 0, -3);
+            scene.add(bedGroup);
+            return bedGroup;
+        }
+
+        const bed = createBed();
+
+        // デスク
+        function createDesk() {
+            const deskGroup = new THREE.Group();
+
+            // 天板
+            const topGeometry = new THREE.BoxGeometry(3, 0.1, 1.5);
+            const topMaterial = new THREE.MeshStandardMaterial({
+                color: 0xffd4a3,
+                metalness: 0.2,
+                roughness: 0.6
+            });
+            const top = new THREE.Mesh(topGeometry, topMaterial);
+            top.position.y = 1.2;
+            top.castShadow = true;
+            deskGroup.add(top);
+
+            // 脚（4本）
+            const legGeometry = new THREE.BoxGeometry(0.1, 1.2, 0.1);
+            const legMaterial = new THREE.MeshStandardMaterial({
+                color: 0xe8c896,
+                metalness: 0.2,
+                roughness: 0.7
+            });
+
+            const legPositions = [
+                [-1.4, 0.6, -0.7],
+                [1.4, 0.6, -0.7],
+                [-1.4, 0.6, 0.7],
+                [1.4, 0.6, 0.7]
+            ];
+
+            legPositions.forEach(pos => {
+                const leg = new THREE.Mesh(legGeometry, legMaterial);
+                leg.position.set(pos[0], pos[1], pos[2]);
+                leg.castShadow = true;
+                deskGroup.add(leg);
+            });
+
+            deskGroup.position.set(2, 0, 2);
+            scene.add(deskGroup);
+            return deskGroup;
+        }
+
+        const desk = createDesk();
+
+        // ノートPC
+        function createLaptop() {
+            const laptopGroup = new THREE.Group();
+
+            // 画面
+            const screenGeometry = new THREE.BoxGeometry(1.2, 0.02, 0.8);
+            const screenMaterial = new THREE.MeshStandardMaterial({
+                color: 0x2d3748,
+                metalness: 0.6,
+                roughness: 0.3,
+                emissive: 0x6366f1,
+                emissiveIntensity: 0.3
+            });
+            const screen = new THREE.Mesh(screenGeometry, screenMaterial);
+            screen.position.set(0, 0.4, 0);
+            screen.rotation.x = -Math.PI / 6;
+            screen.castShadow = true;
+            laptopGroup.add(screen);
+
+            // キーボード
+            const keyboardGeometry = new THREE.BoxGeometry(1.2, 0.05, 0.8);
+            const keyboardMaterial = new THREE.MeshStandardMaterial({
+                color: 0x4a5568,
+                metalness: 0.5,
+                roughness: 0.4
+            });
+            const keyboard = new THREE.Mesh(keyboardGeometry, keyboardMaterial);
+            keyboard.position.y = 0.025;
+            keyboard.castShadow = true;
+            laptopGroup.add(keyboard);
+
+            laptopGroup.position.set(2, 1.25, 2.3);
+            scene.add(laptopGroup);
+            return laptopGroup;
+        }
+
+        const laptop = createLaptop();
+
+        // 椅子
+        function createChair() {
+            const chairGroup = new THREE.Group();
+
+            // 座面
+            const seatGeometry = new THREE.CylinderGeometry(0.5, 0.5, 0.1, 32);
+            const seatMaterial = new THREE.MeshStandardMaterial({
+                color: 0xffc4d6,
+                metalness: 0.2,
+                roughness: 0.7
+            });
+            const seat = new THREE.Mesh(seatGeometry, seatMaterial);
+            seat.position.y = 0.8;
+            seat.castShadow = true;
+            chairGroup.add(seat);
+
+            // 背もたれ
+            const backrestGeometry = new THREE.BoxGeometry(0.8, 0.8, 0.1);
+            const backrestMaterial = new THREE.MeshStandardMaterial({
+                color: 0xffc4d6,
+                metalness: 0.2,
+                roughness: 0.7
+            });
+            const backrest = new THREE.Mesh(backrestGeometry, backrestMaterial);
+            backrest.position.set(0, 1.2, -0.4);
+            backrest.castShadow = true;
+            chairGroup.add(backrest);
+
+            // ポール
+            const poleGeometry = new THREE.CylinderGeometry(0.08, 0.08, 0.8, 16);
+            const poleMaterial = new THREE.MeshStandardMaterial({
+                color: 0xe8c896,
+                metalness: 0.5,
+                roughness: 0.4
+            });
+            const pole = new THREE.Mesh(poleGeometry, poleMaterial);
+            pole.position.y = 0.4;
+            pole.castShadow = true;
+            chairGroup.add(pole);
+
+            // ベース
+            const baseGeometry = new THREE.CylinderGeometry(0.6, 0.6, 0.05, 32);
+            const baseMaterial = new THREE.MeshStandardMaterial({
+                color: 0xe8c896,
+                metalness: 0.5,
+                roughness: 0.4
+            });
+            const base = new THREE.Mesh(baseGeometry, baseMaterial);
+            base.position.y = 0.025;
+            base.castShadow = true;
+            chairGroup.add(base);
+
+            chairGroup.position.set(2, 0, 0.5);
+            scene.add(chairGroup);
+            return chairGroup;
+        }
+
+        const chair = createChair();
+
+        // 本棚
+        function createBookshelf() {
+            const shelfGroup = new THREE.Group();
+
+            // 背板
+            const backGeometry = new THREE.BoxGeometry(2, 3, 0.1);
+            const backMaterial = new THREE.MeshStandardMaterial({
+                color: 0xffd4a3,
+                metalness: 0.2,
+                roughness: 0.7
+            });
+            const back = new THREE.Mesh(backGeometry, backMaterial);
+            back.castShadow = true;
+            shelfGroup.add(back);
+
+            // 棚板（3段）
+            const shelfGeometry = new THREE.BoxGeometry(2, 0.1, 0.4);
+            const shelfMaterial = new THREE.MeshStandardMaterial({
+                color: 0xe8c896,
+                metalness: 0.2,
+                roughness: 0.6
+            });
+
+            for (let i = 0; i < 3; i++) {
+                const shelf = new THREE.Mesh(shelfGeometry, shelfMaterial);
+                shelf.position.set(0, -1 + i * 1, 0.15);
+                shelf.castShadow = true;
+                shelfGroup.add(shelf);
+            }
+
+            // カラフルな本を追加（各棚に）
+            const bookColors = [
+                0xff99cc, 0x99ccff, 0xccff99, 0xffcc99, 0xff99ff,
+                0x99ffcc, 0xffccff, 0xccccff, 0xffffcc, 0xffcccc
+            ];
+
+            for (let shelfIndex = 0; shelfIndex < 3; shelfIndex++) {
+                const numBooks = 8 + Math.floor(Math.random() * 4);
+                for (let bookIndex = 0; bookIndex < numBooks; bookIndex++) {
+                    const bookWidth = 0.08 + Math.random() * 0.06;
+                    const bookHeight = 0.3 + Math.random() * 0.15;
+                    const bookDepth = 0.25;
+
+                    const bookGeometry = new THREE.BoxGeometry(bookWidth, bookHeight, bookDepth);
+                    const bookColor = bookColors[Math.floor(Math.random() * bookColors.length)];
+                    const bookMaterial = new THREE.MeshStandardMaterial({
+                        color: bookColor,
+                        metalness: 0.1,
+                        roughness: 0.8
+                    });
+
+                    const book = new THREE.Mesh(bookGeometry, bookMaterial);
+                    const xOffset = -0.9 + (bookIndex / numBooks) * 1.8;
+                    book.position.set(
+                        xOffset,
+                        -1 + shelfIndex * 1 + 0.05 + bookHeight / 2,
+                        0.2
+                    );
+                    book.castShadow = true;
+
+                    // ランダムに少し傾ける
+                    book.rotation.z = (Math.random() - 0.5) * 0.1;
+                    shelfGroup.add(book);
+                }
+            }
+
+            shelfGroup.position.set(-5, 1.5, -5);
+            scene.add(shelfGroup);
+            return shelfGroup;
+        }
+
+        const bookshelf = createBookshelf();
+
+        // 観葉植物（サボテン）
+        function createCactus(x, y, z) {
+            const cactusGroup = new THREE.Group();
+
+            // 鉢
+            const potGeometry = new THREE.CylinderGeometry(0.25, 0.2, 0.3, 16);
+            const potMaterial = new THREE.MeshStandardMaterial({
+                color: 0xd4a574,
+                metalness: 0.2,
+                roughness: 0.8
+            });
+            const pot = new THREE.Mesh(potGeometry, potMaterial);
+            pot.position.y = 0.15;
+            pot.castShadow = true;
+            cactusGroup.add(pot);
+
+            // サボテン本体
+            const cactusGeometry = new THREE.CylinderGeometry(0.15, 0.2, 0.8, 8);
+            const cactusMaterial = new THREE.MeshStandardMaterial({
+                color: 0x7cb342,
+                metalness: 0.1,
+                roughness: 0.7
+            });
+            const cactus = new THREE.Mesh(cactusGeometry, cactusMaterial);
+            cactus.position.y = 0.7;
+            cactus.castShadow = true;
+            cactusGroup.add(cactus);
+
+            cactusGroup.position.set(x, y, z);
+            scene.add(cactusGroup);
+            return cactusGroup;
+        }
+
+        const cactus1 = createCactus(4.5, 0, 2);
+        const cactus2 = createCactus(-5.5, 3, -5);
+
+        // 吊り下げ植物
+        function createHangingPlant(x, y, z) {
+            const plantGroup = new THREE.Group();
+
+            // 鉢
+            const potGeometry = new THREE.SphereGeometry(0.25, 16, 16);
+            const potMaterial = new THREE.MeshStandardMaterial({
+                color: 0xd4a574,
+                metalness: 0.2,
+                roughness: 0.8
+            });
+            const pot = new THREE.Mesh(potGeometry, potMaterial);
+            pot.castShadow = true;
+            plantGroup.add(pot);
+
+            // 吊り紐
+            const ropeGeometry = new THREE.CylinderGeometry(0.02, 0.02, 1.5, 8);
+            const ropeMaterial = new THREE.MeshStandardMaterial({
+                color: 0xa0826d,
+                metalness: 0.1,
+                roughness: 0.9
+            });
+            const rope = new THREE.Mesh(ropeGeometry, ropeMaterial);
+            rope.position.y = 0.75;
+            plantGroup.add(rope);
+
+            // 葉っぱ（複数）
+            for (let i = 0; i < 8; i++) {
+                const leafGeometry = new THREE.SphereGeometry(0.15, 8, 8);
+                const leafMaterial = new THREE.MeshStandardMaterial({
+                    color: 0x7cb342,
+                    metalness: 0.1,
+                    roughness: 0.7
+                });
+                const leaf = new THREE.Mesh(leafGeometry, leafMaterial);
+                const angle = (i / 8) * Math.PI * 2;
+                leaf.position.set(
+                    Math.cos(angle) * 0.3,
+                    -0.3 - Math.random() * 0.5,
+                    Math.sin(angle) * 0.3
+                );
+                leaf.castShadow = true;
+                plantGroup.add(leaf);
+            }
+
+            plantGroup.position.set(x, y, z);
+            plantGroup.userData.swingPhase = Math.random() * Math.PI * 2;
+            scene.add(plantGroup);
+            return plantGroup;
+        }
+
+        const hangingPlant1 = createHangingPlant(-4, 6.5, -3);
+        const hangingPlant2 = createHangingPlant(3.5, 6.5, -2);
+
+        // 小さな花（床置き）
+        function createFlowerPot(x, y, z, flowerColor) {
+            const flowerGroup = new THREE.Group();
+
+            // 鉢
+            const potGeometry = new THREE.CylinderGeometry(0.2, 0.15, 0.25, 16);
+            const potMaterial = new THREE.MeshStandardMaterial({
+                color: 0xffd4e5,
+                metalness: 0.2,
+                roughness: 0.7
+            });
+            const pot = new THREE.Mesh(potGeometry, potMaterial);
+            pot.position.y = 0.125;
+            pot.castShadow = true;
+            flowerGroup.add(pot);
+
+            // 茎
+            const stemGeometry = new THREE.CylinderGeometry(0.02, 0.02, 0.4, 8);
+            const stemMaterial = new THREE.MeshStandardMaterial({
+                color: 0x7cb342,
+                metalness: 0.1,
+                roughness: 0.8
+            });
+            const stem = new THREE.Mesh(stemGeometry, stemMaterial);
+            stem.position.y = 0.45;
+            stem.castShadow = true;
+            flowerGroup.add(stem);
+
+            // 花びら（5枚）
+            for (let i = 0; i < 5; i++) {
+                const petalGeometry = new THREE.SphereGeometry(0.1, 8, 8);
+                const petalMaterial = new THREE.MeshStandardMaterial({
+                    color: flowerColor,
+                    metalness: 0.1,
+                    roughness: 0.6,
+                    emissive: flowerColor,
+                    emissiveIntensity: 0.3
+                });
+                const petal = new THREE.Mesh(petalGeometry, petalMaterial);
+                const angle = (i / 5) * Math.PI * 2;
+                petal.position.set(
+                    Math.cos(angle) * 0.12,
+                    0.65,
+                    Math.sin(angle) * 0.12
+                );
+                petal.castShadow = true;
+                flowerGroup.add(petal);
+            }
+
+            // 中心
+            const centerGeometry = new THREE.SphereGeometry(0.06, 8, 8);
+            const centerMaterial = new THREE.MeshStandardMaterial({
+                color: 0xffeb3b,
+                metalness: 0.1,
+                roughness: 0.5,
+                emissive: 0xffeb3b,
+                emissiveIntensity: 0.5
+            });
+            const center = new THREE.Mesh(centerGeometry, centerMaterial);
+            center.position.y = 0.65;
+            center.castShadow = true;
+            flowerGroup.add(center);
+
+            flowerGroup.position.set(x, y, z);
+            scene.add(flowerGroup);
+            return flowerGroup;
+        }
+
+        const flower1 = createFlowerPot(-4.5, 0, -1, 0xff99cc);
+        const flower2 = createFlowerPot(5, 0, -4, 0x99ccff);
+        const flower3 = createFlowerPot(0.5, 1.3, 1.2, 0xffcc99); // デスクの上
+
+        // アコースティックギター
+        function createGuitar() {
+            const guitarGroup = new THREE.Group();
+
+            // ボディ
+            const bodyGeometry = new THREE.SphereGeometry(0.4, 16, 16);
+            const bodyMaterial = new THREE.MeshStandardMaterial({
+                color: 0xd4a574,
+                metalness: 0.3,
+                roughness: 0.6
+            });
+            const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+            body.scale.set(1, 1, 0.3);
+            body.castShadow = true;
+            guitarGroup.add(body);
+
+            // ネック
+            const neckGeometry = new THREE.CylinderGeometry(0.05, 0.05, 1, 16);
+            const neckMaterial = new THREE.MeshStandardMaterial({
+                color: 0xa0826d,
+                metalness: 0.3,
+                roughness: 0.5
+            });
+            const neck = new THREE.Mesh(neckGeometry, neckMaterial);
+            neck.position.y = 0.7;
+            neck.castShadow = true;
+            guitarGroup.add(neck);
+
+            // ヘッド
+            const headGeometry = new THREE.BoxGeometry(0.15, 0.25, 0.05);
+            const headMaterial = new THREE.MeshStandardMaterial({
+                color: 0xa0826d,
+                metalness: 0.3,
+                roughness: 0.5
+            });
+            const head = new THREE.Mesh(headGeometry, headMaterial);
+            head.position.y = 1.3;
+            head.castShadow = true;
+            guitarGroup.add(head);
+
+            // 弦（6本）
+            for (let i = 0; i < 6; i++) {
+                const stringGeometry = new THREE.CylinderGeometry(0.005, 0.005, 1.3, 8);
+                const stringMaterial = new THREE.MeshStandardMaterial({
+                    color: 0xcccccc,
+                    metalness: 0.8,
+                    roughness: 0.2
+                });
+                const string = new THREE.Mesh(stringGeometry, stringMaterial);
+                string.position.set(-0.075 + i * 0.03, 0.6, 0.1);
+                guitarGroup.add(string);
+            }
+
+            guitarGroup.position.set(-2.5, 0.8, -5.8);
+            guitarGroup.rotation.set(0.3, 0, -0.3);
+            guitarGroup.scale.set(0.8, 0.8, 0.8);
+            scene.add(guitarGroup);
+            return guitarGroup;
+        }
+
+        const guitar = createGuitar();
+
+        // カメラ
+        function createCamera() {
+            const cameraGroup = new THREE.Group();
+
+            // ボディ
+            const bodyGeometry = new THREE.BoxGeometry(0.3, 0.2, 0.25);
+            const bodyMaterial = new THREE.MeshStandardMaterial({
+                color: 0x4a4a6a,
+                metalness: 0.5,
+                roughness: 0.4
+            });
+            const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+            body.castShadow = true;
+            cameraGroup.add(body);
+
+            // レンズ
+            const lensGeometry = new THREE.CylinderGeometry(0.12, 0.12, 0.15, 16);
+            const lensMaterial = new THREE.MeshStandardMaterial({
+                color: 0x2d3748,
+                metalness: 0.7,
+                roughness: 0.3
+            });
+            const lens = new THREE.Mesh(lensGeometry, lensMaterial);
+            lens.rotation.x = Math.PI / 2;
+            lens.position.z = 0.2;
+            lens.castShadow = true;
+            cameraGroup.add(lens);
+
+            // レンズガラス
+            const glassGeometry = new THREE.CircleGeometry(0.1, 16);
+            const glassMaterial = new THREE.MeshStandardMaterial({
+                color: 0x6366f1,
+                metalness: 0.9,
+                roughness: 0.1,
+                emissive: 0x6366f1,
+                emissiveIntensity: 0.3
+            });
+            const glass = new THREE.Mesh(glassGeometry, glassMaterial);
+            glass.position.z = 0.275;
+            cameraGroup.add(glass);
+
+            // ビューファインダー
+            const finderGeometry = new THREE.BoxGeometry(0.08, 0.06, 0.06);
+            const finderMaterial = new THREE.MeshStandardMaterial({
+                color: 0x2d3748,
+                metalness: 0.5,
+                roughness: 0.4
+            });
+            const finder = new THREE.Mesh(finderGeometry, finderMaterial);
+            finder.position.set(0, 0.13, -0.05);
+            finder.castShadow = true;
+            cameraGroup.add(finder);
+
+            cameraGroup.position.set(3.5, 1.3, 2.5);
+            cameraGroup.rotation.y = -0.5;
+            scene.add(cameraGroup);
+            return cameraGroup;
+        }
+
+        const camera2 = createCamera();
+
+        // 可愛い猫ちゃん
+        function createCat() {
+            const catGroup = new THREE.Group();
+
+            // 体
+            const bodyGeometry = new THREE.SphereGeometry(0.25, 16, 16);
+            const bodyMaterial = new THREE.MeshStandardMaterial({
+                color: 0xffd4e5,
+                metalness: 0.1,
+                roughness: 0.9
+            });
+            const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+            body.scale.set(1.2, 1, 1);
+            body.position.y = 0.2;
+            body.castShadow = true;
+            catGroup.add(body);
+
+            // 頭
+            const headGeometry = new THREE.SphereGeometry(0.2, 16, 16);
+            const headMaterial = new THREE.MeshStandardMaterial({
+                color: 0xffd4e5,
+                metalness: 0.1,
+                roughness: 0.9
+            });
+            const head = new THREE.Mesh(headGeometry, headMaterial);
+            head.position.set(0, 0.35, 0.2);
+            head.castShadow = true;
+            catGroup.add(head);
+
+            // 耳（2つ）
+            const earGeometry = new THREE.ConeGeometry(0.08, 0.15, 8);
+            const earMaterial = new THREE.MeshStandardMaterial({
+                color: 0xffd4e5,
+                metalness: 0.1,
+                roughness: 0.9
+            });
+
+            const leftEar = new THREE.Mesh(earGeometry, earMaterial);
+            leftEar.position.set(-0.12, 0.5, 0.2);
+            leftEar.rotation.z = -0.3;
+            leftEar.castShadow = true;
+            catGroup.add(leftEar);
+
+            const rightEar = new THREE.Mesh(earGeometry, earMaterial);
+            rightEar.position.set(0.12, 0.5, 0.2);
+            rightEar.rotation.z = 0.3;
+            rightEar.castShadow = true;
+            catGroup.add(rightEar);
+
+            // 目（2つ）
+            const eyeGeometry = new THREE.SphereGeometry(0.04, 8, 8);
+            const eyeMaterial = new THREE.MeshStandardMaterial({
+                color: 0x2d3748,
+                metalness: 0.3,
+                roughness: 0.5,
+                emissive: 0x6366f1,
+                emissiveIntensity: 0.5
+            });
+
+            const leftEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
+            leftEye.position.set(-0.08, 0.38, 0.35);
+            catGroup.add(leftEye);
+
+            const rightEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
+            rightEye.position.set(0.08, 0.38, 0.35);
+            catGroup.add(rightEye);
+
+            // 鼻
+            const noseGeometry = new THREE.SphereGeometry(0.02, 8, 8);
+            const noseMaterial = new THREE.MeshStandardMaterial({
+                color: 0xff99cc,
+                metalness: 0.2,
+                roughness: 0.8
+            });
+            const nose = new THREE.Mesh(noseGeometry, noseMaterial);
+            nose.position.set(0, 0.33, 0.38);
+            catGroup.add(nose);
+
+            // しっぽ
+            const tailGeometry = new THREE.CylinderGeometry(0.04, 0.02, 0.4, 8);
+            const tailMaterial = new THREE.MeshStandardMaterial({
+                color: 0xffd4e5,
+                metalness: 0.1,
+                roughness: 0.9
+            });
+            const tail = new THREE.Mesh(tailGeometry, tailMaterial);
+            tail.position.set(0, 0.3, -0.3);
+            tail.rotation.x = -0.5;
+            tail.castShadow = true;
+            catGroup.add(tail);
+
+            // 足（4本）
+            const legGeometry = new THREE.CylinderGeometry(0.04, 0.04, 0.15, 8);
+            const legMaterial = new THREE.MeshStandardMaterial({
+                color: 0xffd4e5,
+                metalness: 0.1,
+                roughness: 0.9
+            });
+
+            const legPositions = [
+                [-0.15, 0.075, 0.15],
+                [0.15, 0.075, 0.15],
+                [-0.15, 0.075, -0.1],
+                [0.15, 0.075, -0.1]
+            ];
+
+            legPositions.forEach(pos => {
+                const leg = new THREE.Mesh(legGeometry, legMaterial);
+                leg.position.set(pos[0], pos[1], pos[2]);
+                leg.castShadow = true;
+                catGroup.add(leg);
+            });
+
+            catGroup.position.set(1, 1.3, 0.5); // デスクの上に座る
+            catGroup.userData.originalY = 1.3;
+            catGroup.userData.tailAngle = 0;
+            scene.add(catGroup);
+            return catGroup;
+        }
+
+        const cat = createCat();
+
+        // 浮遊する風船
+        function createBalloon(x, y, z, color) {
+            const balloonGroup = new THREE.Group();
+
+            // 風船本体
+            const balloonGeometry = new THREE.SphereGeometry(0.2, 16, 16);
+            const balloonMaterial = new THREE.MeshStandardMaterial({
+                color: color,
+                metalness: 0.2,
+                roughness: 0.6,
+                emissive: color,
+                emissiveIntensity: 0.4,
+                transparent: true,
+                opacity: 0.9
+            });
+            const balloon = new THREE.Mesh(balloonGeometry, balloonMaterial);
+            balloon.scale.set(1, 1.2, 1);
+            balloon.castShadow = true;
+            balloonGroup.add(balloon);
+
+            // 結び目
+            const knotGeometry = new THREE.SphereGeometry(0.04, 8, 8);
+            const knotMaterial = new THREE.MeshStandardMaterial({
+                color: color,
+                metalness: 0.2,
+                roughness: 0.7
+            });
+            const knot = new THREE.Mesh(knotGeometry, knotMaterial);
+            knot.position.y = -0.24;
+            balloonGroup.add(knot);
+
+            // 紐
+            const stringGeometry = new THREE.CylinderGeometry(0.01, 0.01, 1, 8);
+            const stringMaterial = new THREE.MeshStandardMaterial({
+                color: 0xffffff,
+                metalness: 0.1,
+                roughness: 0.8
+            });
+            const string = new THREE.Mesh(stringGeometry, stringMaterial);
+            string.position.y = -0.74;
+            balloonGroup.add(string);
+
+            balloonGroup.position.set(x, y, z);
+            balloonGroup.userData.originalY = y;
+            balloonGroup.userData.floatSpeed = 0.5 + Math.random() * 0.5;
+            balloonGroup.userData.floatPhase = Math.random() * Math.PI * 2;
+            scene.add(balloonGroup);
+            return balloonGroup;
+        }
+
+        const balloons = [
+            createBalloon(-1, 5, 1, 0xff99cc),
+            createBalloon(2, 5.5, -1, 0x99ccff),
+            createBalloon(-2.5, 6, -2, 0xccff99),
+            createBalloon(4, 5.3, 0.5, 0xffcc99),
+            createBalloon(0.5, 5.8, 3, 0xff99ff)
+        ];
+
+        // 星のモビール
+        function createStarMobile() {
+            const mobileGroup = new THREE.Group();
+
+            // 上部の棒
+            const rodGeometry = new THREE.CylinderGeometry(0.02, 0.02, 1.5, 8);
+            const rodMaterial = new THREE.MeshStandardMaterial({
+                color: 0xffd4a3,
+                metalness: 0.5,
+                roughness: 0.4
+            });
+            const rod = new THREE.Mesh(rodGeometry, rodMaterial);
+            rod.rotation.z = Math.PI / 2;
+            mobileGroup.add(rod);
+
+            // 吊り紐
+            const hangGeometry = new THREE.CylinderGeometry(0.01, 0.01, 0.5, 8);
+            const hangMaterial = new THREE.MeshStandardMaterial({
+                color: 0xa0826d,
+                metalness: 0.1,
+                roughness: 0.9
+            });
+            const hang = new THREE.Mesh(hangGeometry, hangMaterial);
+            hang.position.y = 0.25;
+            mobileGroup.add(hang);
+
+            // 星（3つ）
+            const starColors = [0xffeb3b, 0xff99cc, 0x99ccff];
+            const starPositions = [[-0.6, -0.3], [0, -0.5], [0.6, -0.3]];
+
+            starPositions.forEach((pos, index) => {
+                // 星の紐
+                const starStringGeometry = new THREE.CylinderGeometry(0.01, 0.01, 0.4, 8);
+                const starString = new THREE.Mesh(starStringGeometry, hangMaterial);
+                starString.position.set(pos[0], pos[1], 0);
+                mobileGroup.add(starString);
+
+                // 星本体
+                const starGeometry = new THREE.SphereGeometry(0.12, 8, 8);
+                const starMaterial = new THREE.MeshStandardMaterial({
+                    color: starColors[index],
+                    metalness: 0.2,
+                    roughness: 0.5,
+                    emissive: starColors[index],
+                    emissiveIntensity: 0.6
+                });
+                const star = new THREE.Mesh(starGeometry, starMaterial);
+                star.position.set(pos[0], pos[1] - 0.2, 0);
+                star.castShadow = true;
+                mobileGroup.add(star);
+            });
+
+            mobileGroup.position.set(0, 7, 1);
+            mobileGroup.userData.rotationSpeed = 0.2;
+            scene.add(mobileGroup);
+            return mobileGroup;
+        }
+
+        const starMobile = createStarMobile();
+
+        // デスクランプ
+        function createDeskLamp() {
+            const lampGroup = new THREE.Group();
+
+            // ベース
+            const baseGeometry = new THREE.CylinderGeometry(0.15, 0.15, 0.05, 16);
+            const baseMaterial = new THREE.MeshStandardMaterial({
+                color: 0xffd4e5,
+                metalness: 0.4,
+                roughness: 0.5
+            });
+            const base = new THREE.Mesh(baseGeometry, baseMaterial);
+            base.position.y = 0.025;
+            base.castShadow = true;
+            lampGroup.add(base);
+
+            // アーム
+            const armGeometry = new THREE.CylinderGeometry(0.03, 0.03, 0.8, 8);
+            const armMaterial = new THREE.MeshStandardMaterial({
+                color: 0xffd4e5,
+                metalness: 0.5,
+                roughness: 0.4
+            });
+            const arm = new THREE.Mesh(armGeometry, armMaterial);
+            arm.position.set(0, 0.4, 0);
+            arm.rotation.z = Math.PI / 6;
+            arm.castShadow = true;
+            lampGroup.add(arm);
+
+            // シェード
+            const shadeGeometry = new THREE.ConeGeometry(0.2, 0.3, 16);
+            const shadeMaterial = new THREE.MeshStandardMaterial({
+                color: 0xffd4e5,
+                metalness: 0.3,
+                roughness: 0.5
+            });
+            const shade = new THREE.Mesh(shadeGeometry, shadeMaterial);
+            shade.position.set(0.35, 0.75, 0);
+            shade.rotation.z = Math.PI;
+            shade.castShadow = true;
+            lampGroup.add(shade);
+
+            // 光源
+            const light = new THREE.PointLight(0xfff5e6, 1.5, 5);
+            light.position.set(0.35, 0.6, 0);
+            light.castShadow = true;
+            lampGroup.add(light);
+
+            lampGroup.position.set(1, 1.25, 1.5);
+            lampGroup.userData.light = light;
+            scene.add(lampGroup);
+            return lampGroup;
+        }
+
+        const deskLamp = createDeskLamp();
+
+        // フロアランプ
+        function createFloorLamp() {
+            const lampGroup = new THREE.Group();
+
+            // ポール
+            const poleGeometry = new THREE.CylinderGeometry(0.05, 0.05, 2, 16);
+            const poleMaterial = new THREE.MeshStandardMaterial({
+                color: 0xe8c896,
+                metalness: 0.6,
+                roughness: 0.3
+            });
+            const pole = new THREE.Mesh(poleGeometry, poleMaterial);
+            pole.position.y = 1;
+            pole.castShadow = true;
+            lampGroup.add(pole);
+
+            // シェード
+            const shadeGeometry = new THREE.SphereGeometry(0.4, 16, 16);
+            const shadeMaterial = new THREE.MeshStandardMaterial({
+                color: 0xfff5f0,
+                metalness: 0.1,
+                roughness: 0.5,
+                emissive: 0xfff5e6,
+                emissiveIntensity: 0.4
+            });
+            const shade = new THREE.Mesh(shadeGeometry, shadeMaterial);
+            shade.position.y = 2;
+            shade.castShadow = true;
+            lampGroup.add(shade);
+
+            // 光源
+            const light = new THREE.PointLight(0xfff5e6, 2, 8);
+            light.position.y = 2;
+            light.castShadow = true;
+            lampGroup.add(light);
+
+            lampGroup.position.set(-4.5, 0, 2);
+            lampGroup.userData.light = light;
+            scene.add(lampGroup);
+            return lampGroup;
+        }
+
+        const floorLamp = createFloorLamp();
+
+        // 小物：マグカップ
+        function createMug() {
+            const mugGroup = new THREE.Group();
+
+            // カップ本体
+            const cupGeometry = new THREE.CylinderGeometry(0.15, 0.12, 0.25, 16);
+            const cupMaterial = new THREE.MeshStandardMaterial({
+                color: 0xffc4d6,
+                metalness: 0.3,
+                roughness: 0.6
+            });
+            const cup = new THREE.Mesh(cupGeometry, cupMaterial);
+            cup.position.y = 0.125;
+            cup.castShadow = true;
+            mugGroup.add(cup);
+
+            // ハンドル
+            const handleGeometry = new THREE.TorusGeometry(0.12, 0.03, 8, 16, Math.PI);
+            const handleMaterial = new THREE.MeshStandardMaterial({
+                color: 0xffc4d6,
+                metalness: 0.3,
+                roughness: 0.6
+            });
+            const handle = new THREE.Mesh(handleGeometry, handleMaterial);
+            handle.position.set(0.15, 0.125, 0);
+            handle.rotation.y = Math.PI / 2;
+            handle.castShadow = true;
+            mugGroup.add(handle);
+
+            mugGroup.position.set(3.2, 1.3, 1.8);
+            scene.add(mugGroup);
+            return mugGroup;
+        }
+
+        const mug = createMug();
+
+        // パーティクル（キラキラした光の粒子）強化版
+        function createDustParticles() {
+            const particleCount = 400; // 倍増
+            const geometry = new THREE.BufferGeometry();
+            const positions = [];
+            const colors = [];
+
+            for (let i = 0; i < particleCount; i++) {
+                positions.push(
+                    (Math.random() - 0.5) * 20,
+                    Math.random() * 8,
+                    (Math.random() - 0.5) * 20
+                );
+
+                // カラフルなパーティクル
+                const hue = Math.random();
+                const color = new THREE.Color().setHSL(hue, 0.8, 0.8);
+                colors.push(color.r, color.g, color.b);
+            }
+
+            geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+            geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+
+            // 丸いテクスチャを作成
+            const canvas = document.createElement('canvas');
+            canvas.width = 32;
+            canvas.height = 32;
+            const ctx = canvas.getContext('2d');
+            const gradient = ctx.createRadialGradient(16, 16, 0, 16, 16, 16);
+            gradient.addColorStop(0, 'rgba(255, 255, 255, 1)');
+            gradient.addColorStop(0.5, 'rgba(255, 255, 255, 0.5)');
+            gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, 32, 32);
+            const texture = new THREE.CanvasTexture(canvas);
+
+            const material = new THREE.PointsMaterial({
+                size: 0.2, // 少し大きく
+                vertexColors: true,
+                transparent: true,
+                opacity: 0.7, // より明るく
+                blending: THREE.AdditiveBlending,
+                map: texture, // 丸いテクスチャを適用
+                sizeAttenuation: true
+            });
+
+            const particles = new THREE.Points(geometry, material);
+            scene.add(particles);
+            return particles;
+        }
+
+        const dustParticles = createDustParticles();
+
+        // 星空エフェクト
+        function createStarField() {
+            const starCount = 150;
+            const geometry = new THREE.BufferGeometry();
+            const positions = [];
+            const colors = [];
+
+            for (let i = 0; i < starCount; i++) {
+                // 天井付近に星を配置
+                positions.push(
+                    (Math.random() - 0.5) * 30,
+                    7 + Math.random() * 2,
+                    (Math.random() - 0.5) * 30
+                );
+
+                const color = new THREE.Color().setHSL(0.6 + Math.random() * 0.2, 0.8, 0.9);
+                colors.push(color.r, color.g, color.b);
+            }
+
+            geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+            geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+
+            const material = new THREE.PointsMaterial({
+                size: 0.15,
+                vertexColors: true,
+                transparent: true,
+                opacity: 0.9,
+                blending: THREE.AdditiveBlending
+            });
+
+            const stars = new THREE.Points(geometry, material);
+            scene.add(stars);
+            return stars;
+        }
+
+        const starField = createStarField();
+
+        // オーロラ効果（天井）
+        function createAurora() {
+            const auroraGroup = new THREE.Group();
+
+            // 複数のオーロラレイヤー
+            for (let i = 0; i < 3; i++) {
+                const geometry = new THREE.PlaneGeometry(12, 3, 32, 8);
+                const vertices = geometry.attributes.position.array;
+
+                // 波打つ形状を作る
+                for (let j = 0; j < vertices.length; j += 3) {
+                    vertices[j + 2] = Math.sin(vertices[j] * 0.5 + i) * 0.3;
+                }
+                geometry.attributes.position.needsUpdate = true;
+
+                const material = new THREE.MeshBasicMaterial({
+                    color: new THREE.Color().setHSL(0.5 + i * 0.1, 0.8, 0.6),
+                    transparent: true,
+                    opacity: 0.15 + i * 0.05,
+                    side: THREE.DoubleSide,
+                    blending: THREE.AdditiveBlending,
+                    depthWrite: false
+                });
+
+                const aurora = new THREE.Mesh(geometry, material);
+                aurora.position.set(0, 7.5 - i * 0.2, 0);
+                aurora.rotation.x = Math.PI / 2;
+                aurora.userData.offset = i * 2;
+                auroraGroup.add(aurora);
+            }
+
+            scene.add(auroraGroup);
+            return auroraGroup;
+        }
+
+        const aurora = createAurora();
+
+        // 浮遊する魔法の球体
+        function createFloatingOrbs() {
+            const orbs = [];
+            const orbCount = 8;
+
+            for (let i = 0; i < orbCount; i++) {
+                const geometry = new THREE.SphereGeometry(0.15, 16, 16);
+                const material = new THREE.MeshBasicMaterial({
+                    color: new THREE.Color().setHSL(i / orbCount, 0.9, 0.7),
+                    transparent: true,
+                    opacity: 0.6,
+                    blending: THREE.AdditiveBlending
+                });
+
+                const orb = new THREE.Mesh(geometry, material);
+
+                // ランダムな軌道パラメータ
+                const radius = 3 + Math.random() * 2;
+                const height = 2 + Math.random() * 4;
+                const speed = 0.3 + Math.random() * 0.5;
+                const phase = (i / orbCount) * Math.PI * 2;
+
+                orb.userData = {
+                    radius: radius,
+                    height: height,
+                    speed: speed,
+                    phase: phase,
+                    verticalPhase: Math.random() * Math.PI * 2
+                };
+
+                // グロー効果用の外側の球
+                const glowGeometry = new THREE.SphereGeometry(0.25, 16, 16);
+                const glowMaterial = new THREE.MeshBasicMaterial({
+                    color: new THREE.Color().setHSL(i / orbCount, 0.9, 0.5),
+                    transparent: true,
+                    opacity: 0.2,
+                    blending: THREE.AdditiveBlending,
+                    depthWrite: false
+                });
+                const glow = new THREE.Mesh(glowGeometry, glowMaterial);
+                orb.add(glow);
+
+                scene.add(orb);
+                orbs.push(orb);
+            }
+
+            return orbs;
+        }
+
+        const floatingOrbs = createFloatingOrbs();
+
+        // 魔法のポータル
+        function createMagicPortal() {
+            const portalGroup = new THREE.Group();
+
+            // ポータルリング（複数の回転するリング）
+            for (let i = 0; i < 4; i++) {
+                const ringGeometry = new THREE.TorusGeometry(1.2 - i * 0.15, 0.05, 16, 100);
+                const ringMaterial = new THREE.MeshBasicMaterial({
+                    color: new THREE.Color().setHSL(0.6 + i * 0.1, 1, 0.6),
+                    transparent: true,
+                    opacity: 0.8 - i * 0.15,
+                    blending: THREE.AdditiveBlending,
+                    depthWrite: false
+                });
+
+                const ring = new THREE.Mesh(ringGeometry, ringMaterial);
+                ring.userData.rotationSpeed = 0.5 + i * 0.3;
+                ring.userData.direction = i % 2 === 0 ? 1 : -1;
+                portalGroup.add(ring);
+            }
+
+            // ポータル中心の光
+            const centerGeometry = new THREE.CircleGeometry(1, 32);
+            const centerMaterial = new THREE.MeshBasicMaterial({
+                color: 0x88ccff,
+                transparent: true,
+                opacity: 0.3,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false,
+                side: THREE.DoubleSide
+            });
+            const center = new THREE.Mesh(centerGeometry, centerMaterial);
+            portalGroup.add(center);
+
+            portalGroup.position.set(-5, 4, -2);
+            portalGroup.rotation.y = Math.PI / 4;
+            scene.add(portalGroup);
+            return portalGroup;
+        }
+
+        const magicPortal = createMagicPortal();
+
+        // ホログラフィック音楽ビジュアライザー
+        function createHolographicVisualizer() {
+            const visualizerGroup = new THREE.Group();
+
+            // 複数の球体
+            const bars = [];
+            const barCount = 16;
+
+            for (let i = 0; i < barCount; i++) {
+                // 球体に変更
+                const geometry = new THREE.SphereGeometry(0.15, 16, 16);
+                const material = new THREE.MeshBasicMaterial({
+                    color: new THREE.Color().setHSL(i / barCount, 0.9, 0.6),
+                    transparent: true,
+                    opacity: 0.7,
+                    blending: THREE.AdditiveBlending,
+                    depthWrite: false
+                });
+
+                const bar = new THREE.Mesh(geometry, material);
+                const angle = (i / barCount) * Math.PI * 2;
+                const radius = 0.8;
+                bar.position.x = Math.cos(angle) * radius;
+                bar.position.z = Math.sin(angle) * radius;
+                bar.position.y = 0.5;
+
+                bar.userData.index = i;
+                bar.userData.baseScale = 1;
+
+                visualizerGroup.add(bar);
+                bars.push(bar);
+            }
+
+            visualizerGroup.position.set(2, 1.5, -1);
+            visualizerGroup.userData.bars = bars;
+            scene.add(visualizerGroup);
+            return visualizerGroup;
+        }
+
+        const holographicVisualizer = createHolographicVisualizer();
+
+        // 虹色のアンビエントライト（音楽連動）
+        const rainbowLight = new THREE.PointLight(0xff99cc, 0, 10);
+        rainbowLight.position.set(0, 5, 0);
+        scene.add(rainbowLight);
+
+        // フェアリーライト（壁のイルミネーション）
+        function createFairyLights(startPos, endPos, numLights = 15) {
+            const lightsGroup = new THREE.Group();
+
+            for (let i = 0; i < numLights; i++) {
+                const t = i / (numLights - 1);
+                const x = startPos.x + (endPos.x - startPos.x) * t;
+                const y = startPos.y + (endPos.y - startPos.y) * t + Math.sin(t * Math.PI * 2) * 0.3;
+                const z = startPos.z + (endPos.z - startPos.z) * t;
+
+                // ライトの球体
+                const lightGeometry = new THREE.SphereGeometry(0.08, 16, 16);
+                const lightMaterial = new THREE.MeshStandardMaterial({
+                    color: new THREE.Color().setHSL(Math.random(), 0.8, 0.7),
+                    emissive: new THREE.Color().setHSL(Math.random(), 0.8, 0.7),
+                    emissiveIntensity: 1.5,
+                    transparent: true,
+                    opacity: 0.9
+                });
+                const lightBulb = new THREE.Mesh(lightGeometry, lightMaterial);
+                lightBulb.position.set(x, y, z);
+
+                // 点光源
+                const pointLight = new THREE.PointLight(
+                    new THREE.Color().setHSL(Math.random(), 0.8, 0.7),
+                    0.8,
+                    2
+                );
+                pointLight.position.set(x, y, z);
+
+                lightsGroup.add(lightBulb);
+                lightsGroup.add(pointLight);
+
+                // アニメーション用データを保存
+                lightBulb.userData = {
+                    originalIntensity: 1.5,
+                    phase: Math.random() * Math.PI * 2
+                };
+                pointLight.userData = {
+                    originalIntensity: 0.8,
+                    phase: Math.random() * Math.PI * 2
+                };
+            }
+
+            scene.add(lightsGroup);
+            return lightsGroup;
+        }
+
+        // 壁沿いにフェアリーライトを配置
+        const fairyLights1 = createFairyLights(
+            { x: -5.9, y: 6, z: -5 },
+            { x: 5.9, y: 6, z: -5 },
+            20
+        );
+        const fairyLights2 = createFairyLights(
+            { x: -5.9, y: 6, z: -5 },
+            { x: -5.9, y: 6, z: 5 },
+            15
+        );
+
+        // 壁のポスター/アートフレーム
+        function createWallArt(x, y, z, rotation, color, width = 1, height = 1.2) {
+            const artGroup = new THREE.Group();
+
+            // フレーム
+            const frameGeometry = new THREE.BoxGeometry(width + 0.1, height + 0.1, 0.05);
+            const frameMaterial = new THREE.MeshStandardMaterial({
+                color: 0xffd4a3,
+                metalness: 0.3,
+                roughness: 0.6
+            });
+            const frame = new THREE.Mesh(frameGeometry, frameMaterial);
+            frame.castShadow = true;
+            artGroup.add(frame);
+
+            // アート本体
+            const artGeometry = new THREE.BoxGeometry(width, height, 0.02);
+            const artMaterial = new THREE.MeshStandardMaterial({
+                color: color,
+                metalness: 0.1,
+                roughness: 0.7,
+                emissive: color,
+                emissiveIntensity: 0.2
+            });
+            const art = new THREE.Mesh(artGeometry, artMaterial);
+            art.position.z = 0.035;
+            art.castShadow = true;
+            artGroup.add(art);
+
+            artGroup.position.set(x, y, z);
+            artGroup.rotation.y = rotation;
+            scene.add(artGroup);
+            return artGroup;
+        }
+
+        // 背面の壁にポスターを配置
+        const poster1 = createWallArt(-2, 4.5, -5.95, 0, 0xff99cc, 0.8, 1);
+        const poster2 = createWallArt(0.5, 4.5, -5.95, 0, 0x99ccff, 0.8, 1);
+        const poster3 = createWallArt(3, 4.5, -5.95, 0, 0xccff99, 0.8, 1);
+
+        // 左の壁にもポスター
+        const poster4 = createWallArt(-5.95, 4.5, -2, Math.PI / 2, 0xffcc99, 0.8, 1);
+
+        // カメラ位置（アイソメトリック風）
+        camera.position.set(8, 10, 12);
+        camera.lookAt(0, 2, 0);
+
+        // Controls
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.maxPolarAngle = Math.PI / 2.2;
+        controls.target.set(0, 2, 0);
+
+        // Initialize ChocoDrop
+        const chocoDrop = ChocoDrop.createChocoDrop(scene, {
+            camera: camera,
+            renderer: renderer,
+            serverUrl: null,
+            enableServerHealthCheck: false,
+            sceneOptions: {
+                enableMouseInteraction: true
+            },
+            onControlsToggle: (disabled) => {
+                controls.enabled = !disabled;
+            }
+        });
+
+        // 音響システム初期化
+        let audioContext = null;
+        let analyser = null;
+        let dataArray = null;
+        let beatDetectionHistory = [];
+        let lastBeatTime = 0;
+        let musicData = {
+            volume: 0,
+            bass: 0,
+            mid: 0,
+            treble: 0,
+            bpm: 0,
+            beatDetected: false,
+            isPlaying: false
+        };
+        const audioStatusEl = document.getElementById('audio-status');
+        const audioTextEl = document.getElementById('audio-text');
+
+        function setupAudioAnalysis() {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                analyser = audioContext.createAnalyser();
+                analyser.fftSize = 256;
+                dataArray = new Uint8Array(analyser.frequencyBinCount);
+                console.log('🎵 Audio analysis initialized');
+            }
+        }
+
+        function connectVideoToAudio(videoElement) {
+            if (!audioContext || !analyser) {
+                setupAudioAnalysis();
+            }
+
+            try {
+                if (audioContext.state === 'suspended') {
+                    audioContext.resume();
+                }
+
+                const source = audioContext.createMediaElementSource(videoElement);
+                source.connect(analyser);
+                analyser.connect(audioContext.destination);
+
+                musicData.isPlaying = true;
+                if (audioStatusEl) {
+                    audioStatusEl.classList.add('active');
+                    if (audioTextEl) {
+                        audioTextEl.textContent = '音響連動中 ♪';
+                    }
+                }
+                console.log('🎵 Video connected to audio analyser');
+            } catch (error) {
+                console.warn('Audio connection error:', error);
+            }
+        }
+
+        function analyzeMusicData() {
+            if (!analyser || !dataArray) return;
+
+            analyser.getByteFrequencyData(dataArray);
+
+            let sum = 0;
+            for (let i = 0; i < dataArray.length; i++) {
+                sum += dataArray[i];
+            }
+            musicData.volume = sum / dataArray.length / 255;
+
+            const bassRange = Math.floor(dataArray.length * 0.1);
+            const midRange = Math.floor(dataArray.length * 0.5);
+
+            let bassSum = 0, midSum = 0, trebleSum = 0;
+
+            for (let i = 0; i < bassRange; i++) {
+                bassSum += dataArray[i];
+            }
+            for (let i = bassRange; i < midRange; i++) {
+                midSum += dataArray[i];
+            }
+            for (let i = midRange; i < dataArray.length; i++) {
+                trebleSum += dataArray[i];
+            }
+
+            musicData.bass = bassSum / bassRange / 255;
+            musicData.mid = midSum / (midRange - bassRange) / 255;
+            musicData.treble = trebleSum / (dataArray.length - midRange) / 255;
+
+            const currentTime = performance.now();
+            musicData.beatDetected = false;
+
+            if (musicData.bass > 0.3 && musicData.volume > 0.2) {
+                if (currentTime - lastBeatTime > 300) {
+                    musicData.beatDetected = true;
+                    lastBeatTime = currentTime;
+
+                    beatDetectionHistory.push(currentTime);
+                    if (beatDetectionHistory.length > 8) {
+                        beatDetectionHistory.shift();
+                    }
+
+                    if (beatDetectionHistory.length >= 4) {
+                        const intervals = [];
+                        for (let i = 1; i < beatDetectionHistory.length; i++) {
+                            intervals.push(beatDetectionHistory[i] - beatDetectionHistory[i-1]);
+                        }
+                        const avgInterval = intervals.reduce((a, b) => a + b) / intervals.length;
+                        musicData.bpm = Math.round(60000 / avgInterval);
+
+                        if (audioTextEl && musicData.bpm > 0) {
+                            audioTextEl.textContent = `音響連動中 ♪ (${musicData.bpm} BPM)`;
+                        }
+                    }
+                }
+            }
+        }
+
+        function observeVideoElements() {
+            const videoObserver = new MutationObserver((mutations) => {
+                mutations.forEach((mutation) => {
+                    mutation.addedNodes.forEach((node) => {
+                        if (node.nodeName === 'VIDEO') {
+                            console.log('🎬 Video element detected');
+                            connectVideoToAudio(node);
+                        }
+                    });
+                });
+            });
+
+            videoObserver.observe(document.body, {
+                childList: true,
+                subtree: true
+            });
+
+            const existingVideos = document.querySelectorAll('video');
+            existingVideos.forEach(video => {
+                connectVideoToAudio(video);
+            });
+        }
+
+        if (audioStatusEl) {
+            audioStatusEl.classList.add('active');
+        }
+        observeVideoElements();
+
+        // Animation loop
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+
+            const time = Date.now() * 0.001;
+
+            if (musicData.isPlaying) {
+                analyzeMusicData();
+            }
+
+            const audioIntensity = musicData.volume * 0.7;
+            const bassBoost = musicData.bass * 1.2;
+            const midBoost = musicData.mid * 0.9;
+            const trebleBoost = musicData.treble * 0.8;
+            const beatPulse = musicData.beatDetected ? 1.5 : 1.0;
+
+            // デスクランプの光の揺らぎ
+            if (deskLamp && deskLamp.userData.light) {
+                deskLamp.userData.light.intensity = 1.5 + Math.sin(time * 2) * 0.3 * (1 + audioIntensity * 0.5) * beatPulse;
+            }
+
+            // フロアランプの光の揺らぎ
+            if (floorLamp && floorLamp.userData.light) {
+                floorLamp.userData.light.intensity = 2 + Math.sin(time * 1.5 + 1) * 0.4 * (1 + audioIntensity * 0.6) * beatPulse;
+            }
+
+            // ノートPCの画面の光
+            if (laptop) {
+                const screen = laptop.children[0];
+                if (screen && screen.material && screen.material.emissiveIntensity !== undefined) {
+                    screen.material.emissiveIntensity = 0.3 + Math.sin(time * 3) * 0.1 * (1 + trebleBoost * 0.5) * beatPulse;
+                }
+            }
+
+            // サボテンの揺れ
+            if (cactus1) {
+                cactus1.rotation.z = Math.sin(time * 0.5) * 0.02 * (1 + bassBoost * 0.3) * beatPulse;
+            }
+            if (cactus2) {
+                cactus2.rotation.z = Math.sin(time * 0.6 + 1) * 0.02 * (1 + bassBoost * 0.3) * beatPulse;
+            }
+
+            // パーティクルの動き
+            if (dustParticles) {
+                dustParticles.rotation.y = time * 0.01 * (1 + audioIntensity * 0.3);
+                const positions = dustParticles.geometry.attributes.position.array;
+                for (let i = 0; i < positions.length; i += 3) {
+                    positions[i + 1] += Math.sin(time + i) * 0.0005 * (1 + midBoost * 0.4) * beatPulse;
+                    if (positions[i + 1] > 8) positions[i + 1] = 0;
+                    if (positions[i + 1] < 0) positions[i + 1] = 8;
+                }
+                dustParticles.geometry.attributes.position.needsUpdate = true;
+
+                if (dustParticles.material && dustParticles.material.opacity !== undefined) {
+                    dustParticles.material.opacity = (0.7 + trebleBoost * 0.3) * beatPulse;
+                }
+            }
+
+            // 星空のキラキラ
+            if (starField && starField.material) {
+                starField.material.opacity = 0.7 + Math.sin(time * 2) * 0.2 + audioIntensity * 0.3;
+            }
+
+            // 虹色ライトの色変化
+            if (rainbowLight) {
+                const hue = (time * 0.1) % 1;
+                rainbowLight.color.setHSL(hue, 0.8, 0.7);
+                rainbowLight.intensity = audioIntensity * 3 * beatPulse;
+            }
+
+            // フェアリーライトの点滅
+            if (fairyLights1) {
+                fairyLights1.children.forEach((child, index) => {
+                    if (child.userData.phase !== undefined) {
+                        if (child.material && child.material.emissiveIntensity !== undefined) {
+                            child.material.emissiveIntensity = child.userData.originalIntensity *
+                                (0.5 + Math.sin(time * 2 + child.userData.phase) * 0.5) *
+                                (1 + audioIntensity * 0.5) * beatPulse;
+                        }
+                        if (child.intensity !== undefined) {
+                            child.intensity = child.userData.originalIntensity *
+                                (0.5 + Math.sin(time * 2 + child.userData.phase) * 0.5) *
+                                (1 + audioIntensity * 0.5) * beatPulse;
+                        }
+                    }
+                });
+            }
+            if (fairyLights2) {
+                fairyLights2.children.forEach((child, index) => {
+                    if (child.userData.phase !== undefined) {
+                        if (child.material && child.material.emissiveIntensity !== undefined) {
+                            child.material.emissiveIntensity = child.userData.originalIntensity *
+                                (0.5 + Math.sin(time * 2.5 + child.userData.phase) * 0.5) *
+                                (1 + audioIntensity * 0.5) * beatPulse;
+                        }
+                        if (child.intensity !== undefined) {
+                            child.intensity = child.userData.originalIntensity *
+                                (0.5 + Math.sin(time * 2.5 + child.userData.phase) * 0.5) *
+                                (1 + audioIntensity * 0.5) * beatPulse;
+                        }
+                    }
+                });
+            }
+
+            // 猫のアニメーション
+            if (cat) {
+                // ビートに合わせて跳ねる
+                cat.position.y = cat.userData.originalY + (musicData.beatDetected ? 0.05 : 0) +
+                    Math.sin(time * 2) * 0.02 * (1 + bassBoost * 0.3);
+
+                // しっぽを振る
+                cat.userData.tailAngle += 0.05 * (1 + audioIntensity);
+                const tail = cat.children.find(child => child.geometry && child.geometry.type === 'CylinderGeometry' && child.position.z < 0);
+                if (tail) {
+                    tail.rotation.z = Math.sin(cat.userData.tailAngle) * 0.3 * (1 + bassBoost);
+                }
+
+                // 耳が動く
+                const ears = cat.children.filter(child => child.geometry && child.geometry.type === 'ConeGeometry');
+                ears.forEach((ear, index) => {
+                    if (musicData.beatDetected) {
+                        ear.rotation.x = (index === 0 ? -0.3 : 0.3) + Math.sin(time * 5) * 0.1;
+                    }
+                });
+            }
+
+            // 風船の浮遊
+            balloons.forEach((balloon) => {
+                balloon.userData.floatPhase += 0.01 * balloon.userData.floatSpeed;
+                balloon.position.y = balloon.userData.originalY +
+                    Math.sin(balloon.userData.floatPhase) * 0.5 * (1 + audioIntensity * 0.3) * beatPulse;
+                balloon.rotation.z = Math.sin(time + balloon.userData.floatPhase) * 0.1;
+            });
+
+            // モビールの回転
+            if (starMobile) {
+                starMobile.rotation.y += 0.002 * (1 + audioIntensity * 0.5);
+                starMobile.children.forEach((child, index) => {
+                    if (child.material && child.material.emissiveIntensity !== undefined) {
+                        child.material.emissiveIntensity = 0.6 + Math.sin(time * 3 + index) * 0.3 + audioIntensity * 0.5;
+                    }
+                });
+            }
+
+            // 吊り下げ植物の揺れ
+            if (hangingPlant1) {
+                hangingPlant1.userData.swingPhase += 0.01;
+                hangingPlant1.rotation.z = Math.sin(hangingPlant1.userData.swingPhase) * 0.05 * (1 + bassBoost * 0.3);
+            }
+            if (hangingPlant2) {
+                hangingPlant2.userData.swingPhase += 0.01;
+                hangingPlant2.rotation.z = Math.sin(hangingPlant2.userData.swingPhase) * 0.05 * (1 + bassBoost * 0.3);
+            }
+
+            // ポスターが音楽で光る
+            [poster1, poster2, poster3, poster4].forEach((poster, index) => {
+                if (poster && poster.children[1] && poster.children[1].material) {
+                    poster.children[1].material.emissiveIntensity = 0.2 + audioIntensity * 0.3 +
+                        (musicData.beatDetected ? 0.2 : 0);
+                }
+            });
+
+            // オーロラの動き
+            if (aurora) {
+                aurora.children.forEach((layer, index) => {
+                    const vertices = layer.geometry.attributes.position.array;
+                    for (let i = 0; i < vertices.length; i += 3) {
+                        const x = vertices[i];
+                        vertices[i + 2] = Math.sin(x * 0.5 + time * 0.5 + layer.userData.offset) * 0.3 *
+                            (1 + audioIntensity * 0.5) * beatPulse;
+                    }
+                    layer.geometry.attributes.position.needsUpdate = true;
+
+                    // 音楽に合わせて色が変わる
+                    const hue = 0.5 + index * 0.1 + audioIntensity * 0.2 + (time * 0.05) % 0.3;
+                    layer.material.color.setHSL(hue, 0.8, 0.6);
+                    layer.material.opacity = (0.15 + index * 0.05) * (1 + audioIntensity * 0.3) * beatPulse;
+                });
+            }
+
+            // 浮遊する球体の動き
+            if (floatingOrbs) {
+                floatingOrbs.forEach((orb, index) => {
+                    // 円軌道を描く
+                    const angle = time * orb.userData.speed + orb.userData.phase;
+                    orb.position.x = Math.cos(angle) * orb.userData.radius;
+                    orb.position.z = Math.sin(angle) * orb.userData.radius;
+
+                    // 上下に浮遊
+                    orb.userData.verticalPhase += 0.02;
+                    orb.position.y = orb.userData.height + Math.sin(orb.userData.verticalPhase) * 0.5 *
+                        (1 + audioIntensity * 0.4) * beatPulse;
+
+                    // 自転
+                    orb.rotation.x += 0.01 * (1 + bassBoost * 0.5);
+                    orb.rotation.y += 0.02 * (1 + midBoost * 0.5);
+
+                    // 音楽に合わせて明滅
+                    orb.material.opacity = 0.6 + audioIntensity * 0.3 + (musicData.beatDetected ? 0.2 : 0);
+
+                    // グロー効果
+                    const glow = orb.children[0];
+                    if (glow) {
+                        glow.material.opacity = 0.2 + audioIntensity * 0.2 * beatPulse;
+                        glow.scale.setScalar(1 + Math.sin(time * 3 + index) * 0.2 * (1 + audioIntensity * 0.5));
+                    }
+                });
+            }
+
+            // 魔法のポータルのアニメーション
+            if (magicPortal) {
+                magicPortal.children.forEach((ring, index) => {
+                    if (ring.userData.rotationSpeed) {
+                        ring.rotation.z += ring.userData.rotationSpeed * 0.01 * ring.userData.direction *
+                            (1 + audioIntensity * 0.5);
+
+                        // 音楽に合わせて光る
+                        if (ring.material) {
+                            const baseOpacity = 0.8 - index * 0.15;
+                            ring.material.opacity = baseOpacity * (1 + audioIntensity * 0.4) * beatPulse;
+
+                            // 色が変化
+                            const hue = 0.6 + index * 0.1 + (time * 0.1) % 0.4;
+                            ring.material.color.setHSL(hue, 1, 0.6);
+                        }
+                    }
+                });
+
+                // ポータル中心の脈動
+                const center = magicPortal.children[magicPortal.children.length - 1];
+                if (center && center.material) {
+                    center.material.opacity = 0.3 + Math.sin(time * 2) * 0.2 + audioIntensity * 0.3 * beatPulse;
+                    center.scale.setScalar(1 + Math.sin(time * 3) * 0.1 * (1 + bassBoost * 0.5));
+                }
+            }
+
+            // ホログラフィックビジュアライザー
+            if (holographicVisualizer && holographicVisualizer.userData.bars) {
+                holographicVisualizer.rotation.y += 0.005 * (1 + audioIntensity * 0.5);
+
+                holographicVisualizer.userData.bars.forEach((bar, index) => {
+                    // 周波数データに基づいて球体のサイズを変える
+                    let freqValue = 0;
+                    if (musicData.frequencyData && musicData.frequencyData.length > 0) {
+                        const freqIndex = Math.floor((index / holographicVisualizer.userData.bars.length) * musicData.frequencyData.length);
+                        freqValue = musicData.frequencyData[freqIndex] / 255;
+                    }
+
+                    const targetScale = bar.userData.baseScale * (0.8 + freqValue * 2) * (1 + audioIntensity * 0.5);
+                    const currentScale = bar.scale.x;
+                    const newScale = currentScale * 0.8 + targetScale * 0.2; // スムーズな補間
+                    bar.scale.setScalar(newScale);
+
+                    // 色が変化
+                    const hue = (index / holographicVisualizer.userData.bars.length + time * 0.1) % 1;
+                    bar.material.color.setHSL(hue, 0.9, 0.6);
+
+                    // 明度
+                    bar.material.opacity = 0.7 + freqValue * 0.3 * beatPulse;
+
+                    // 球体が回転
+                    bar.rotation.x += 0.01 * (1 + freqValue * 2);
+                    bar.rotation.y += 0.01 * (1 + freqValue * 2);
+                });
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        animate();
+
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // ヒントパネル管理
+        let autoHideTimer = null;
+
+        window.hideInfoPanel = function() {
+            const infoPanel = document.getElementById('info');
+            infoPanel.classList.add('hidden');
+            setTimeout(() => {
+                infoPanel.style.display = 'none';
+            }, 300);
+            if (autoHideTimer) {
+                clearTimeout(autoHideTimer);
+            }
+        };
+
+        window.showInfoPanel = function() {
+            const infoPanel = document.getElementById('info');
+            infoPanel.style.display = 'block';
+            setTimeout(() => {
+                infoPanel.classList.remove('hidden');
+            }, 10);
+            autoHideTimer = setTimeout(window.hideInfoPanel, 30000);
+        };
+
+        if (!localStorage.getItem('lofi_room_visited')) {
+            autoHideTimer = setTimeout(window.hideInfoPanel, 30000);
+        }
+
+        console.log('✅ Lo-fi Room準備完了！🎧');
+
+    })();
+    </script>
+
+    <!-- VR/AR Button inline implementation -->
+    <script>
+        // VRButton implementation
+        const VRButton = {
+            createButton: function(renderer) {
+                const button = document.createElement('button');
+
+                function showEnterVR() {
+                    button.style.display = '';
+                    button.style.cursor = 'pointer';
+                    button.style.left = 'calc(50% - 50px)';
+                    button.style.width = '100px';
+                    button.textContent = 'ENTER VR';
+                    button.onmouseenter = function() { button.style.opacity = '1.0'; };
+                    button.onmouseleave = function() { button.style.opacity = '0.5'; };
+                    button.onclick = function() {
+                        const session = renderer.xr.getSession();
+                        if (session) {
+                            session.end();
+                        } else {
+                            navigator.xr.requestSession('immersive-vr', {
+                                optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking']
+                            }).then(session => {
+                                renderer.xr.setSession(session);
+                                button.textContent = 'EXIT VR';
+
+                                session.addEventListener('end', () => {
+                                    button.textContent = 'ENTER VR';
+                                });
+                            }).catch(err => {
+                                console.error('VR session failed:', err);
+                            });
+                        }
+                    };
+                }
+
+                function showWebXRNotFound() {
+                    button.style.display = '';
+                    button.style.cursor = 'auto';
+                    button.style.left = 'calc(50% - 75px)';
+                    button.style.width = '150px';
+                    button.textContent = 'VR NOT SUPPORTED';
+                    button.onmouseenter = null;
+                    button.onmouseleave = null;
+                    button.onclick = null;
+                }
+
+                button.style.position = 'absolute';
+                button.style.bottom = '20px';
+                button.style.padding = '12px 6px';
+                button.style.border = '1px solid #fff';
+                button.style.borderRadius = '4px';
+                button.style.background = 'rgba(0,0,0,0.1)';
+                button.style.color = '#fff';
+                button.style.font = 'normal 13px sans-serif';
+                button.style.textAlign = 'center';
+                button.style.opacity = '0.5';
+                button.style.outline = 'none';
+                button.style.zIndex = '999';
+
+                if ('xr' in navigator) {
+                    navigator.xr.isSessionSupported('immersive-vr').then(supported => {
+                        supported ? showEnterVR() : showWebXRNotFound();
+                    });
+                } else {
+                    showWebXRNotFound();
+                }
+
+                return button;
+            }
+        };
+
+        // ARButton implementation
+        const ARButton = {
+            createButton: function(renderer, options) {
+                const button = document.createElement('button');
+
+                function showEnterAR() {
+                    button.style.display = '';
+                    button.style.cursor = 'pointer';
+                    button.style.left = 'calc(50% - 50px)';
+                    button.style.width = '100px';
+                    button.textContent = 'ENTER AR';
+                    button.onmouseenter = function() { button.style.opacity = '1.0'; };
+                    button.onmouseleave = function() { button.style.opacity = '0.5'; };
+                    button.onclick = function() {
+                        const session = renderer.xr.getSession();
+                        if (session) {
+                            session.end();
+                        } else {
+                            navigator.xr.requestSession('immersive-ar', {
+                                optionalFeatures: ['hit-test', 'dom-overlay', 'local-floor'],
+                                domOverlay: options?.domOverlay || { root: document.body }
+                            }).then(session => {
+                                renderer.xr.setSession(session);
+                                button.textContent = 'EXIT AR';
+
+                                session.addEventListener('end', () => {
+                                    button.textContent = 'ENTER AR';
+                                });
+                            }).catch(err => {
+                                console.error('AR session failed:', err);
+                                alert('AR not supported: ' + err.message);
+                            });
+                        }
+                    };
+                }
+
+                function showWebXRNotFound() {
+                    button.style.display = '';
+                    button.style.cursor = 'auto';
+                    button.style.left = 'calc(50% - 75px)';
+                    button.style.width = '150px';
+                    button.textContent = 'AR NOT SUPPORTED';
+                    button.onmouseenter = null;
+                    button.onmouseleave = null;
+                    button.onclick = null;
+                }
+
+                button.style.position = 'absolute';
+                button.style.bottom = '70px';
+                button.style.padding = '12px 6px';
+                button.style.border = '1px solid #fff';
+                button.style.borderRadius = '4px';
+                button.style.background = 'rgba(0,0,0,0.1)';
+                button.style.color = '#fff';
+                button.style.font = 'normal 13px sans-serif';
+                button.style.textAlign = 'center';
+                button.style.opacity = '0.5';
+                button.style.outline = 'none';
+                button.style.zIndex = '999';
+
+                if ('xr' in navigator) {
+                    navigator.xr.isSessionSupported('immersive-ar').then(supported => {
+                        supported ? showEnterAR() : showWebXRNotFound();
+                    });
+                } else {
+                    showWebXRNotFound();
+                }
+
+                return button;
+            }
+        };
+
+        console.log('✅ VRButton/ARButton inline implementation loaded');
+    </script>
+</body>
+</html>
