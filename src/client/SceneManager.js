@@ -18,6 +18,11 @@ export class SceneManager {
     this.camera = options.camera || null;
     this.renderer = options.renderer || null;
     this.labelRenderer = null; // CSS2DRenderer for UI overlays like audio controls
+
+    // Tone Mapping + Exposure設定（2025年標準：暗いシーンでも3Dモデルが見える）
+    if (this.renderer) {
+      this.setupToneMapping();
+    }
     // ChocoDrop Client（共通クライアント注入を優先）
     // 外部フォルダから共有する場合は options.client でクライアントを再利用
     this.client = options.client || new ChocoDropClient(options.serverUrl, this);
@@ -40,6 +45,7 @@ export class SceneManager {
     this.audioControls = new Map();
     this.audioControlUpdateInterval = null;
     this.audioControlUpdateListener = null;
+    this.scaleButtonUpdateInterval = null; // スケールボタン位置更新用インターバル
     this.animationMixers = new Set();
     this.gltfLoader = null;
 
@@ -81,12 +87,62 @@ export class SceneManager {
     // enableMouseInteractionが明示的にtrueの場合のみマウス操作を有効化
     if (this.config.enableMouseInteraction === true && this.renderer) {
       this.setupObjectDragging();
+      this.setupObjectHover(); // ホバーで+/-ボタン再表示（2025年トレンド）
       console.log('🖱️ Mouse interaction enabled - Click to select, Shift+drag to move objects');
     } else if (this.config.enableMouseInteraction === true && !this.renderer) {
       console.warn('⚠️ Mouse interaction requested but renderer not provided. Mouse interaction disabled.');
     } else {
       console.log('🖱️ Mouse interaction disabled (safe mode). Set enableMouseInteraction: true to enable.');
     }
+  }
+
+  /**
+   * 選択済みオブジェクトへのホバーで+/-ボタンを再表示（2025年トレンド：Zero-UI）
+   */
+  setupObjectHover() {
+    if (!this.renderer) return;
+
+    this.renderer.domElement.addEventListener('mousemove', (event) => {
+      // 選択されているオブジェクトがない場合は何もしない
+      if (!this.selectedObject) return;
+
+      // マウス座標を正規化
+      const rect = this.renderer.domElement.getBoundingClientRect();
+      this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+      // レイキャスト
+      this.raycaster.setFromCamera(this.mouse, this.camera);
+      const intersects = this.raycaster.intersectObjects(Array.from(this.spawnedObjects.values()), true);
+
+      if (intersects.length > 0) {
+        let hoveredObject = intersects[0].object;
+        while (hoveredObject.parent && !this.spawnedObjects.has(hoveredObject.userData.id)) {
+          hoveredObject = hoveredObject.parent;
+        }
+
+        // 選択済みオブジェクトにホバーしている場合、+/-ボタンを再表示
+        if (hoveredObject === this.selectedObject && hoveredObject.userData.showScaleButtons) {
+          hoveredObject.userData.showScaleButtons();
+        }
+      }
+    }, { passive: true });
+  }
+
+  /**
+   * Tone Mapping + Exposure設定（Three.js 2024標準）
+   * シーンの照明を変えずに、カメラの露出調整で3Dモデルを見やすくする
+   */
+  setupToneMapping() {
+    if (!this.renderer) return;
+
+    // ACESFilmicToneMapping：映画のような自然な色調（Three.js推奨）
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+
+    // 露出調整：1.5で暗いシーンでも見える、明るいシーンでも光りすぎない
+    this.renderer.toneMappingExposure = 1.5;
+
+    console.log('📸 Tone Mapping enabled: ACESFilmic, Exposure: 1.5 (2025 standard)');
   }
 
   // デバッグ情報表示メソッド
@@ -162,7 +218,15 @@ export class SceneManager {
 
     this.selectedObject = object;
 
-    this.createModernSelectionIndicator(object);
+    // 選択インジケーター：小さな白い丸（2025年トレンド：ミニマル）
+    this.createSelectionIndicator(object);
+
+    // スケール調整ボタンを表示（2025年トレンド：コンテキストUI）
+    if (object.userData && (object.userData.type === 'generated_image' ||
+        object.userData.type === 'generated_video' ||
+        object.userData.type === 'generated_3d_model')) {
+      this.createScaleButtons(object);
+    }
 
     console.log(`✅ Selected object: ${object.name}`);
     
@@ -187,6 +251,66 @@ export class SceneManager {
         this.commandUI.addOutput(`🎯 削除対象設定: ${objectName}`, 'system');
       }
     }
+  }
+
+  /**
+   * 選択インジケーター：小さな白い丸（2025年トレンド：ミニマル）
+   */
+  createSelectionIndicator(object) {
+    // 既存のインジケーターを削除
+    if (object.userData.selectionIndicator) {
+      if (object.userData.selectionIndicator.parentNode) {
+        object.userData.selectionIndicator.parentNode.removeChild(object.userData.selectionIndicator);
+      }
+    }
+
+    // 小さな白い丸を作成
+    const dot = document.createElement('div');
+    dot.style.cssText = `
+      width: 8px !important;
+      height: 8px !important;
+      background: white !important;
+      border: 1px solid rgba(255, 255, 255, 0.8) !important;
+      border-radius: 50% !important;
+      box-shadow: 0 0 8px rgba(255, 255, 255, 0.6) !important;
+      pointer-events: none !important;
+      z-index: 999998 !important;
+      position: absolute !important;
+    `;
+
+    document.body.appendChild(dot);
+    object.userData.selectionIndicator = dot;
+
+    // 位置更新関数
+    object.userData.updateSelectionIndicator = () => {
+      this.updateSelectionIndicator(object, dot);
+    };
+
+    // 初期位置設定
+    this.updateSelectionIndicator(object, dot);
+  }
+
+  /**
+   * 選択インジケーターの位置を更新
+   */
+  updateSelectionIndicator(object, dot) {
+    if (!this.camera || !this.renderer || !dot.parentNode) return;
+
+    const vector = new THREE.Vector3();
+    object.getWorldPosition(vector);
+
+    // オブジェクトの上部に配置
+    const box = new THREE.Box3().setFromObject(object);
+    const size = box.getSize(new THREE.Vector3());
+    vector.y += size.y / 2 + 0.5; // オブジェクトの上0.5単位
+
+    vector.project(this.camera);
+
+    const x = (vector.x * 0.5 + 0.5) * this.renderer.domElement.clientWidth;
+    const y = (vector.y * -0.5 + 0.5) * this.renderer.domElement.clientHeight;
+
+    dot.style.left = `${x}px`;
+    dot.style.top = `${y}px`;
   }
 
   createModernSelectionIndicator(object) {
@@ -275,23 +399,21 @@ export class SceneManager {
   deselectObject() {
     // シンプルで確実な選択解除
     if (this.selectedObject) {
-      // 選択インジケーターを削除（オブジェクトの子から探す）
-      const indicator = this.selectedObject.getObjectByName('selectionIndicator');
-      if (indicator) {
-        this.selectedObject.remove(indicator);
-
-        // メモリリークを防ぐためにリソースを破棄
-        indicator.traverse((child) => {
-          if (child.geometry) child.geometry.dispose();
-          if (child.material) {
-            if (Array.isArray(child.material)) {
-              child.material.forEach(material => material.dispose());
-            } else {
-              child.material.dispose();
-            }
-          }
-        });
-      }
+      // 選択インジケーターは使わない（コメントアウト）
+      // const indicator = this.selectedObject.getObjectByName('selectionIndicator');
+      // if (indicator) {
+      //   this.selectedObject.remove(indicator);
+      //   indicator.traverse((child) => {
+      //     if (child.geometry) child.geometry.dispose();
+      //     if (child.material) {
+      //       if (Array.isArray(child.material)) {
+      //         child.material.forEach(material => material.dispose());
+      //       } else {
+      //         child.material.dispose();
+      //       }
+      //     }
+      //   });
+      // }
 
       // 透明度を元に戻す（ユーザーが意図的に透明にしていない場合のみ）
       if (this.selectedObject.material &&
@@ -302,6 +424,18 @@ export class SceneManager {
         this.selectedObject.material.needsUpdate = true;
         console.log(`🔄 Restored opacity to ${this.selectedObject.userData.originalOpacity}`);
       }
+
+      // 選択インジケーター（白い丸）を削除
+      if (this.selectedObject.userData.selectionIndicator) {
+        if (this.selectedObject.userData.selectionIndicator.parentNode) {
+          this.selectedObject.userData.selectionIndicator.parentNode.removeChild(this.selectedObject.userData.selectionIndicator);
+        }
+        delete this.selectedObject.userData.selectionIndicator;
+        delete this.selectedObject.userData.updateSelectionIndicator;
+      }
+
+      // スケールボタンを削除
+      this.removeScaleButtons(this.selectedObject);
 
       console.log(`✅ Deselected: ${this.selectedObject.name}`);
       this.selectedObject = null;
@@ -463,56 +597,9 @@ export class SceneManager {
         endDragging();
       }
     });
-    
-    // Shift+ホイールでリサイズ機能を追加
-    canvas.addEventListener('wheel', (event) => {
-      event.preventDefault();
 
-      const rect = canvas.getBoundingClientRect();
-      const mouse = new THREE.Vector2();
-      mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-      mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-      
-      this.raycaster.setFromCamera(mouse, this.camera);
-      const intersects = this.raycaster.intersectObjects(this.experimentGroup.children, true);
-
-      if (intersects.length > 0) {
-        let obj = intersects[0].object;
-
-        // 3Dモデルの子メッシュがヒットした場合、親を辿る
-        let targetObj = obj;
-        while (targetObj && !targetObj.userData?.type && !targetObj.userData?.source && targetObj.parent) {
-          targetObj = targetObj.parent;
-          if (targetObj === this.scene || targetObj === this.experimentGroup) break;
-        }
-        if (targetObj && (targetObj.userData?.type || targetObj.userData?.source)) {
-          obj = targetObj;
-        }
-
-        // 生成された画像・動画・3Dモデル対象（Shift不要の直感的操作）
-        if (obj.userData && (obj.userData.type === 'generated_image' || obj.userData.type === 'generated_video' || obj.userData.type === 'generated_3d_model')) {
-          const scaleFactor = event.deltaY > 0 ? 0.9 : 1.1;
-          const newScale = obj.scale.x * scaleFactor;
-          
-          // 最小・最大サイズ制限
-          if (newScale >= 0.2 && newScale <= 5.0) {
-            obj.scale.setScalar(newScale);
-            
-            // 高品質な視覚フィードバック
-            if (obj.material) {
-              obj.material.emissive.setHex(0x333333);
-              setTimeout(() => {
-                if (obj.material) {
-                  obj.material.emissive.setHex(0x000000);
-                }
-              }, 150);
-            }
-            
-            console.log(`🔄 Resized ${obj.userData.type}: ${obj.name} to scale ${newScale.toFixed(2)} (Shift-free interaction)`);
-          }
-        }
-      }
-    });
+    // ホイール/ピンチは常にカメラズーム（OrbitControlsが処理）
+    // オブジェクトスケールはキーボード or ボタン or 数字入力で操作
 
     // 選択したオブジェクトの角度調整キーボードコントロール
     document.addEventListener('keydown', (event) => {
@@ -579,7 +666,7 @@ export class SceneManager {
             const newScale = Math.min(5.0, currentScale * factor);
             object.scale.setScalar(newScale);
             const increment = event.shiftKey ? '1%' : '10%';
-            console.log(`📐 Resized ${object.userData.type || 'object'}: ${object.name} to ${(newScale * 100).toFixed(0)}% (+${increment})`);
+            // console.log(`📐 Resized ${object.userData.type || 'object'}: ${object.name} to ${(newScale * 100).toFixed(0)}% (+${increment})`);
             this.showScaleToast(newScale);
             event.preventDefault();
           }
@@ -593,7 +680,7 @@ export class SceneManager {
             const newScale = Math.max(0.2, currentScale * factor);
             object.scale.setScalar(newScale);
             const increment = event.shiftKey ? '1%' : '10%';
-            console.log(`📐 Resized ${object.userData.type || 'object'}: ${object.name} to ${(newScale * 100).toFixed(0)}% (-${increment})`);
+            // console.log(`📐 Resized ${object.userData.type || 'object'}: ${object.name} to ${(newScale * 100).toFixed(0)}% (-${increment})`);
             this.showScaleToast(newScale);
             event.preventDefault();
           }
@@ -2003,6 +2090,8 @@ export class SceneManager {
             if (node.material.metalness !== undefined) {
               node.material.metalness = 0;
             }
+
+            // Tone Mapping + Exposureで暗いシーンでも見える（2025年標準）
             node.material.needsUpdate = true;
           }
         }
@@ -3551,7 +3640,7 @@ export class SceneManager {
       const currentScale = targetObject.scale.x; // 現在のスケール取得
       const newScale = currentScale * parsed.scale;
       targetObject.scale.setScalar(newScale);
-      console.log(`📏 Scale changed from ${currentScale} to ${newScale}`);
+      // console.log(`📏 Scale changed from ${currentScale} to ${newScale}`);
       modified = true;
     }
     
@@ -3593,7 +3682,7 @@ export class SceneManager {
     if (parsed.flip) {
       const currentScaleX = targetObject.scale.x;
       targetObject.scale.x = -currentScaleX; // X軸を反転
-      console.log(`↔️ Object flipped horizontally (scale.x: ${currentScaleX} → ${targetObject.scale.x})`);
+      // console.log(`↔️ Object flipped horizontally (scale.x: ${currentScaleX} → ${targetObject.scale.x})`);
       modified = true;
     }
     
@@ -4665,12 +4754,14 @@ export class SceneManager {
     const x = (vector.x * 0.5 + 0.5) * rect.width + rect.left;
     const y = -(vector.y * 0.5 - 0.5) * rect.height + rect.top;
 
-    // 動画オブジェクトの右上にボタンを配置
+    // 動画オブジェクトの右上にボタンを配置（スケール連動）
     const geometry = videoObject.geometry;
     if (geometry && geometry.parameters) {
-      const width = geometry.parameters.width * videoObject.scale.x;
-      const offsetX = 150; // 動画の右側に固定距離
-      const offsetY = -50; // 動画の上側に固定距離
+      // スケールを考慮したオフセット計算（2025年トレンド：レスポンシブUI）
+      const widthInPixels = (geometry.parameters.width * videoObject.scale.x / 2) *
+                            (this.renderer.domElement.clientHeight / 20); // 3D→2D変換の概算
+      const offsetX = widthInPixels + 20; // オブジェクトの端から20px
+      const offsetY = -widthInPixels - 10; // オブジェクトの上から10px
 
       audioButton.style.left = `${x + offsetX}px`;
       audioButton.style.top = `${y + offsetY}px`;
@@ -4690,6 +4781,25 @@ export class SceneManager {
       const obj = entry.object;
       if (obj && obj.userData && obj.userData.updateAudioControlPosition) {
         obj.userData.updateAudioControlPosition();
+      }
+    });
+  }
+
+  /**
+   * すべてのスケールボタンの位置を更新（マルチオブジェクト対応）
+   */
+  updateAllScaleButtonsPositions() {
+    if (!this.spawnedObjects || this.spawnedObjects.size === 0) {
+      return;
+    }
+
+    this.spawnedObjects.forEach((obj) => {
+      if (obj && obj.userData && obj.userData.updateScaleButtonsPosition) {
+        obj.userData.updateScaleButtonsPosition();
+      }
+      // 選択インジケーター（白い丸）の位置も更新
+      if (obj && obj.userData && obj.userData.updateSelectionIndicator) {
+        obj.userData.updateSelectionIndicator();
       }
     });
   }
@@ -4908,7 +5018,7 @@ export class SceneManager {
     // 現在のスケール値を保存（Escでキャンセル時に戻す）
     const originalScale = object.scale.x;
 
-    // コンテナ作成
+    // コンテナ作成（2025年トレンド：超ミニマル、Blender/Raycast風）
     const container = document.createElement('div');
     container.id = 'chocodrop-scale-input-container';
     container.style.cssText = `
@@ -4916,61 +5026,49 @@ export class SceneManager {
       bottom: 80px !important;
       left: 50% !important;
       transform: translateX(-50%) !important;
-      background: rgba(0, 0, 0, 0.9) !important;
-      backdrop-filter: blur(12px) !important;
-      -webkit-backdrop-filter: blur(12px) !important;
-      border: 2px solid rgba(139, 92, 246, 0.6) !important;
-      border-radius: 12px !important;
-      padding: 12px 16px !important;
+      background: rgba(0, 0, 0, 0.85) !important;
+      backdrop-filter: blur(16px) !important;
+      -webkit-backdrop-filter: blur(16px) !important;
+      border: 1px solid rgba(255, 255, 255, 0.15) !important;
+      border-radius: 8px !important;
+      padding: 8px 12px !important;
       z-index: 999999 !important;
       opacity: 0 !important;
-      transition: opacity 0.2s ease !important;
-      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5), 0 0 20px rgba(139, 92, 246, 0.3) !important;
+      transition: opacity 0.15s ease !important;
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4) !important;
       display: flex !important;
       align-items: center !important;
-      gap: 8px !important;
+      gap: 4px !important;
     `;
 
-    // ラベル
-    const label = document.createElement('span');
-    label.textContent = 'Size:';
-    label.style.cssText = `
-      color: rgba(255, 255, 255, 0.7) !important;
-      font-size: 14px !important;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
-      font-weight: 500 !important;
-    `;
-
-    // 入力フィールド
+    // 入力フィールド（ラベルなし、数字のみ）
     const input = document.createElement('input');
     input.type = 'text';
     input.value = initialDigit;
     input.style.cssText = `
-      background: rgba(255, 255, 255, 0.1) !important;
-      border: 1px solid rgba(255, 255, 255, 0.2) !important;
-      border-radius: 6px !important;
-      padding: 6px 10px !important;
+      background: transparent !important;
+      border: none !important;
       color: white !important;
-      font-size: 18px !important;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'SF Pro', monospace !important;
-      font-weight: 600 !important;
+      font-size: 20px !important;
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Mono', 'Roboto Mono', monospace !important;
+      font-weight: 500 !important;
       font-variant-numeric: tabular-nums !important;
-      width: 70px !important;
-      text-align: center !important;
+      width: 50px !important;
+      text-align: right !important;
       outline: none !important;
+      padding: 0 !important;
     `;
 
     // %記号
     const percent = document.createElement('span');
     percent.textContent = '%';
     percent.style.cssText = `
-      color: white !important;
-      font-size: 18px !important;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
-      font-weight: 600 !important;
+      color: rgba(255, 255, 255, 0.6) !important;
+      font-size: 20px !important;
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Mono', 'Roboto Mono', monospace !important;
+      font-weight: 400 !important;
     `;
 
-    container.appendChild(label);
     container.appendChild(input);
     container.appendChild(percent);
     document.body.appendChild(container);
@@ -4990,7 +5088,7 @@ export class SceneManager {
         if (!isNaN(value) && value >= 20 && value <= 500) {
           const newScale = value / 100;
           object.scale.setScalar(newScale);
-          console.log(`📐 Scale set to ${value}% via direct input`);
+          // console.log(`📐 Scale set to ${value}% via direct input`);
           this.showScaleToast(newScale);
         } else {
           console.warn(`⚠️ Invalid scale value: ${input.value}% (range: 20-500%)`);
@@ -5001,7 +5099,7 @@ export class SceneManager {
       } else if (e.key === 'Escape') {
         // キャンセル：元の値に戻す
         object.scale.setScalar(originalScale);
-        console.log(`📐 Scale input cancelled, restored to ${Math.round(originalScale * 100)}%`);
+        // console.log(`📐 Scale input cancelled, restored to ${Math.round(originalScale * 100)}%`);
         cleanup();
       }
     };
@@ -5108,6 +5206,216 @@ export class SceneManager {
     } else {
       // 明るい背景: より暗いホバー色
       return 0xff3366; // ダークピンク
+    }
+  }
+
+  /**
+   * スケール調整ボタンを作成（Glassmorphism、2025年トレンド）
+   */
+  createScaleButtons(object) {
+    // 既存のボタンがあれば削除
+    if (object.userData.scaleButtons) {
+      object.userData.scaleButtons.forEach(btn => {
+        if (btn.parentNode) btn.parentNode.removeChild(btn);
+      });
+    }
+
+    const createButton = (text, action) => {
+      const button = document.createElement('div');
+      button.textContent = text;
+      button.style.cssText = `
+        position: absolute !important;
+        width: 24px !important;
+        height: 24px !important;
+        background: rgba(0, 0, 0, 0.65) !important;
+        border: 1px solid rgba(255, 255, 255, 0.25) !important;
+        border-radius: 6px !important;
+        color: white !important;
+        font-size: 16px !important;
+        font-weight: 600 !important;
+        cursor: pointer !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        z-index: 999999 !important;
+        transition: all 0.2s ease !important;
+        user-select: none !important;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.3) !important;
+        backdrop-filter: blur(12px) !important;
+        -webkit-backdrop-filter: blur(12px) !important;
+        pointer-events: auto !important;
+        opacity: 0.9 !important;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+      `;
+
+      button.addEventListener('mouseenter', () => {
+        button.style.background = 'rgba(0, 0, 0, 0.85)';
+        button.style.transform = 'scale(1.08)';
+        button.style.borderColor = 'rgba(255, 255, 255, 0.4)';
+        button.style.opacity = '1';
+      });
+
+      button.addEventListener('mouseleave', () => {
+        button.style.background = 'rgba(0, 0, 0, 0.65)';
+        button.style.transform = 'scale(1.0)';
+        button.style.borderColor = 'rgba(255, 255, 255, 0.25)';
+        button.style.opacity = '0.9';
+      });
+
+      button.addEventListener('click', (e) => {
+        e.stopPropagation();
+        action();
+      });
+
+      document.body.appendChild(button);
+      return button;
+    };
+
+    const decreaseBtn = createButton('−', () => {
+      const currentScale = object.scale.x;
+      const newScale = Math.max(0.2, currentScale * 0.9);
+      object.scale.setScalar(newScale);
+      this.showScaleToast(newScale);
+
+      // 拡大縮小中フラグを立てる（位置固定）
+      object.userData.isScaling = true;
+      if (object.userData.scalingResetTimer) {
+        clearTimeout(object.userData.scalingResetTimer);
+      }
+      object.userData.scalingResetTimer = setTimeout(() => {
+        object.userData.isScaling = false;
+      }, 1000);
+
+      // ボタンクリック時にタイマーをリセット（連続操作しやすくする）
+      if (object.userData.showScaleButtons) {
+        object.userData.showScaleButtons();
+      }
+    });
+
+    const increaseBtn = createButton('+', () => {
+      const currentScale = object.scale.x;
+      const newScale = Math.min(5.0, currentScale * 1.1);
+      object.scale.setScalar(newScale);
+      this.showScaleToast(newScale);
+
+      // 拡大縮小中フラグを立てる（位置固定）
+      object.userData.isScaling = true;
+      if (object.userData.scalingResetTimer) {
+        clearTimeout(object.userData.scalingResetTimer);
+      }
+      object.userData.scalingResetTimer = setTimeout(() => {
+        object.userData.isScaling = false;
+      }, 1000);
+
+      // ボタンクリック時にタイマーをリセット（連続操作しやすくする）
+      if (object.userData.showScaleButtons) {
+        object.userData.showScaleButtons();
+      }
+    });
+
+    object.userData.scaleButtons = [decreaseBtn, increaseBtn];
+    object.userData.updateScaleButtonsPosition = () => {
+      this.updateScaleButtonsPosition(object, decreaseBtn, increaseBtn);
+    };
+
+    // フェードアウトタイマー管理
+    object.userData.showScaleButtons = () => {
+      decreaseBtn.style.opacity = '0.9';
+      increaseBtn.style.opacity = '0.9';
+      decreaseBtn.style.pointerEvents = 'auto';
+      increaseBtn.style.pointerEvents = 'auto';
+
+      // 既存のタイマーをクリア
+      if (object.userData.scaleButtonFadeTimer) {
+        clearTimeout(object.userData.scaleButtonFadeTimer);
+      }
+
+      // 3秒後にフェードアウト（2025年トレンド：Zero-UI）
+      object.userData.scaleButtonFadeTimer = setTimeout(() => {
+        decreaseBtn.style.opacity = '0';
+        increaseBtn.style.opacity = '0';
+        decreaseBtn.style.pointerEvents = 'none';
+        increaseBtn.style.pointerEvents = 'none';
+      }, 3000);
+    };
+
+    // 初回表示
+    object.userData.showScaleButtons();
+
+    this.updateScaleButtonsPosition(object, decreaseBtn, increaseBtn);
+
+    // スケールボタン用の位置更新インターバルを開始（なければ作成）
+    if (!this.scaleButtonUpdateInterval) {
+      this.scaleButtonUpdateInterval = setInterval(() => {
+        this.updateAllScaleButtonsPositions();
+      }, 100);
+    }
+  }
+
+  /**
+   * スケールボタンの位置を更新
+   */
+  updateScaleButtonsPosition(object, decreaseBtn, increaseBtn) {
+    if (!this.camera || !this.renderer || !decreaseBtn.parentNode) return;
+
+    // 拡大縮小中は位置を固定（連続クリックしやすくする）
+    if (object.userData.isScaling) return;
+
+    const vector = new THREE.Vector3();
+    object.getWorldPosition(vector);
+    vector.project(this.camera);
+
+    const x = (vector.x * 0.5 + 0.5) * this.renderer.domElement.clientWidth;
+    const y = (vector.y * -0.5 + 0.5) * this.renderer.domElement.clientHeight;
+
+    // オブジェクトの右上に配置（音アイコンの下、スケール連動）
+    const geometry = object.geometry;
+    if (geometry && geometry.parameters) {
+      // スケールを考慮したオフセット計算（2025年トレンド：レスポンシブUI）
+      const widthInPixels = (geometry.parameters.width * object.scale.x / 2) *
+                            (this.renderer.domElement.clientHeight / 20); // 3D→2D変換の概算
+      const offsetX = widthInPixels + 20; // オブジェクトの端から20px
+      const offsetY = -widthInPixels - 10; // オブジェクトの上から10px
+
+      decreaseBtn.style.left = `${x + offsetX}px`;
+      decreaseBtn.style.top = `${y + offsetY + 25}px`; // 音アイコンの下
+
+      increaseBtn.style.left = `${x + offsetX + 30}px`; // decreaseBtnの隣
+      increaseBtn.style.top = `${y + offsetY + 25}px`;
+    } else {
+      // 3Dモデル用：バウンディングボックスからサイズを計算
+      const box = new THREE.Box3().setFromObject(object);
+      const size = box.getSize(new THREE.Vector3());
+      const sizeInPixels = (size.x / 2) * (this.renderer.domElement.clientHeight / 20);
+      const offsetX = sizeInPixels + 20;
+
+      decreaseBtn.style.left = `${x + offsetX}px`;
+      decreaseBtn.style.top = `${y - sizeInPixels}px`;
+
+      increaseBtn.style.left = `${x + offsetX + 30}px`;
+      increaseBtn.style.top = `${y - sizeInPixels}px`;
+    }
+  }
+
+  /**
+   * スケールボタンを削除
+   */
+  removeScaleButtons(object) {
+    if (object.userData.scaleButtons) {
+      object.userData.scaleButtons.forEach(btn => {
+        if (btn.parentNode) btn.parentNode.removeChild(btn);
+      });
+      delete object.userData.scaleButtons;
+      delete object.userData.updateScaleButtonsPosition;
+
+      // 他にスケールボタンを持つオブジェクトがなければインターバルをクリア
+      const hasOtherButtons = Array.from(this.spawnedObjects.values()).some(
+        obj => obj !== object && obj.userData.scaleButtons
+      );
+      if (!hasOtherButtons && this.scaleButtonUpdateInterval) {
+        clearInterval(this.scaleButtonUpdateInterval);
+        this.scaleButtonUpdateInterval = null;
+      }
     }
   }
 

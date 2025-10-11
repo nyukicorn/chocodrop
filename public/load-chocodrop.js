@@ -1,6 +1,6 @@
 import ensureThree from './load-three.js';
 
-const BUNDLE_VERSION = '20251006221500';
+const BUNDLE_VERSION = '20251011025008';
 const BUNDLE_URL = new URL(`./chocodrop-demo.umd.min.js?v=${BUNDLE_VERSION}`, import.meta.url).href;
 
 async function ensureChocoDrop() {

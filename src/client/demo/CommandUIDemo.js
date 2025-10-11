@@ -2502,10 +2502,10 @@ export class CommandUIDemo {
       command
     });
 
-    // 選択表示を更新
-    if (typeof this.sceneManager.createModernSelectionIndicator === 'function') {
-      this.sceneManager.createModernSelectionIndicator(targetObject);
-    }
+    // 選択表示を更新（削除：+/-ボタンが選択の証拠）
+    // if (typeof this.sceneManager.createModernSelectionIndicator === 'function') {
+    //   this.sceneManager.createModernSelectionIndicator(targetObject);
+    // }
 
     const message = `✏️ ${operations.join('・')} を適用しました`;
     this.addOutput(message, 'success');
