@@ -1052,13 +1052,28 @@
             geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
             geometry.setAttribute('scale', new THREE.BufferAttribute(scales, 1));
 
+            // 円形テクスチャを作成して泡を丸くする
+            const canvas = document.createElement('canvas');
+            canvas.width = 32;
+            canvas.height = 32;
+            const ctx = canvas.getContext('2d');
+            const gradient = ctx.createRadialGradient(16, 16, 0, 16, 16, 16);
+            gradient.addColorStop(0, 'rgba(255, 255, 255, 1)');
+            gradient.addColorStop(0.5, 'rgba(255, 255, 255, 0.5)');
+            gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, 32, 32);
+
+            const texture = new THREE.CanvasTexture(canvas);
+
             const material = new THREE.PointsMaterial({
                 color: 0x87CEEB, // より鮮やかなスカイブルー
                 size: 1.2, // 少し大きめでピクセル感
                 sizeAttenuation: true,
                 transparent: true,
                 opacity: 0.8, // より見やすく
-                blending: THREE.AdditiveBlending
+                blending: THREE.AdditiveBlending,
+                map: texture // 円形テクスチャを適用
             });
 
             const bubbles = new THREE.Points(geometry, material);
@@ -1200,13 +1215,35 @@
             geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
             geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
 
+            // 円形テクスチャを作成して光粒子を丸くする（キラキラ輝く光）
+            const canvas = document.createElement('canvas');
+            canvas.width = 32;
+            canvas.height = 32;
+            const ctx = canvas.getContext('2d');
+
+            // 背景を完全に透明にクリア
+            ctx.clearRect(0, 0, 32, 32);
+
+            // 鋭く強く輝く中心
+            const gradient = ctx.createRadialGradient(16, 16, 0, 16, 16, 16);
+            gradient.addColorStop(0, 'rgba(255, 255, 255, 1)');    // 中心は真っ白
+            gradient.addColorStop(0.2, 'rgba(255, 255, 255, 0.9)'); // 強い輝き
+            gradient.addColorStop(0.4, 'rgba(255, 255, 255, 0.6)'); // まだ明るい
+            gradient.addColorStop(0.7, 'rgba(255, 255, 255, 0.3)'); // 徐々にフェード
+            gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');     // 完全に透明
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, 32, 32);
+
+            const texture = new THREE.CanvasTexture(canvas);
+
             const material = new THREE.PointsMaterial({
                 size: 1,  // 3から1に縮小
                 sizeAttenuation: true,
                 vertexColors: true,
                 transparent: true,
                 opacity: 0.3,  // 0.9から0.3に減少
-                blending: THREE.AdditiveBlending
+                blending: THREE.AdditiveBlending,
+                map: texture // 円形テクスチャを適用
             });
 
             const lightParticles = new THREE.Points(geometry, material);
