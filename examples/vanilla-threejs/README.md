@@ -1,424 +1,341 @@
 # Vanilla Three.js + ChocoDrop
 
-標準的な Three.js プロジェクトに ChocoDrop を統合する例です。
+純粋な Three.js プロジェクトに ChocoDrop を統合する例です。
+
+**対応バージョン**: ChocoDrop v1.0.2-alpha.0（daemon + SDK アーキテクチャ）
 
 ## 📁 ファイル構成
 
 ```
 vanilla-threejs/
-├── README.md              # このファイル
-├── advanced-example.html  # 高度な統合例
-└── minimal-example.html   # 最小限の統合例
+├── README.md               # このファイル
+├── minimal-example.html    # 最小限の統合例（60行）
+└── basic-integration.html  # 完全な統合例（UI付き）
 ```
 
-## 🚀 最小限の統合例
+## 🚀 クイックスタート
 
-### minimal-example.html
+### 前提条件
+
+ChocoDrop daemon が起動している必要があります：
+
+```bash
+# ターミナルで実行
+npx --yes @chocodrop/daemon@alpha
+```
+
+デーモンが起動すると `http://127.0.0.1:43110` でSDKが配信されます。
+
+### 1. 最小限の統合例
+
+`minimal-example.html` をブラウザで開くだけ：
+
+```bash
+# ローカルサーバー起動（任意の方法で）
+npx serve .
+# または
+python -m http.server 8000
+```
+
+ブラウザで `http://localhost:8000/minimal-example.html` を開く
+
+**特徴**:
+- ✅ 60行未満のシンプルなコード
+- ✅ CDNからThree.js読み込み
+- ✅ daemon SDK経由で統合
+- ✅ `@` キーで即座に操作可能
+
+### 2. コードの核心部分
 
 ```html
 <!DOCTYPE html>
 <html>
 <head>
-    <title>ChocoDrop - Minimal Three.js Example</title>
-    <style>
-        body { margin: 0; padding: 0; overflow: hidden; }
-        canvas { display: block; }
-    </style>
+    <title>ChocoDrop + Three.js</title>
 </head>
 <body>
+    <!-- Step 1: THREE.js Import Map -->
     <script type="importmap">
     {
         "imports": {
-            "three": "https://unpkg.com/three@0.170.0/build/three.module.js",
-            "three/addons/": "https://unpkg.com/three@0.170.0/examples/jsm/",
-            "chocodrop": "./src/index.js"
+            "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
         }
     }
     </script>
 
+    <!-- Step 2: ChocoDrop SDK -->
+    <script src="http://127.0.0.1:43110/sdk.js"></script>
+
+    <!-- Step 3: Your Scene -->
     <script type="module">
         import * as THREE from 'three';
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-        import { createChocoDrop } from 'chocodrop';
 
-        // 基本的な Three.js セットアップ
+        // Three.js setup
         const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const camera = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.1, 1000);
         const renderer = new THREE.WebGLRenderer();
-
-        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setSize(innerWidth, innerHeight);
         document.body.appendChild(renderer.domElement);
 
         const controls = new OrbitControls(camera, renderer.domElement);
         camera.position.z = 5;
 
-        // 照明
-        const ambientLight = new THREE.AmbientLight(0x404040, 0.5);
-        scene.add(ambientLight);
-        const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
-        directionalLight.position.set(1, 1, 1);
-        scene.add(directionalLight);
-
-        // ChocoDrop 統合
-        const chocoDrop = createChocoDrop(scene, {
-            camera,
-            renderer,
-            serverUrl: 'http://localhost:3011',
+        // ChocoDrop integration
+        await window.chocodrop.ready();
+        await window.chocodrop.attach(scene, {
+            camera: camera,
+            renderer: renderer,
             onControlsToggle: (disabled) => {
                 controls.enabled = !disabled;
             }
         });
 
-        // レンダーループ
+        // Render loop
         function animate() {
             requestAnimationFrame(animate);
             controls.update();
             renderer.render(scene, camera);
         }
         animate();
-
-        // ウィンドウリサイズ対応
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        });
-
-        // 使用例
-        console.log('ChocoDrop ready! Press @ key to start');
-
-        // プログラムからの操作例
-        window.demo = {
-            generateDragon: () => chocoDrop.client.generateImage('dragon in fantasy style'),
-            generateVideo: () => chocoDrop.client.generateVideo('flowing water'),
-            executeCommand: (cmd) => chocoDrop.client.executeCommand(cmd),
-            clearAll: () => chocoDrop.sceneManager.clearAll()
-        };
     </script>
-
-    <!-- 使用ガイド -->
-    <div style="position: fixed; top: 10px; left: 10px; color: white; background: rgba(0,0,0,0.7); padding: 10px; border-radius: 5px; font-family: Arial;">
-        <h3>ChocoDrop + Three.js</h3>
-        <p><strong>@キー</strong> - コマンドUI起動</p>
-        <p><strong>コンソール例:</strong></p>
-        <ul>
-            <li>demo.generateDragon()</li>
-            <li>demo.executeCommand('桜を中央に')</li>
-            <li>demo.clearAll()</li>
-        </ul>
-    </div>
 </body>
 </html>
 ```
 
-## 🎮 基本的な使い方
+## 🎮 SDK API リファレンス
 
-### 1. 初期化パターン
+### window.chocodrop.ready()
+
+daemon との疎通を確認します。
 
 ```javascript
-// パターン1: 基本初期化
-const chocoDrop = createChocoDrop(scene, {
-    camera,
-    renderer
-});
+await window.chocodrop.ready();
+// ✅ デーモンが起動している
+// ❌ 起動していない場合は Toast UI が表示される
+```
 
-// パターン2: カスタムサーバーURL
-const chocoDrop = createChocoDrop(scene, {
-    camera,
-    renderer,
-    serverUrl: 'http://localhost:3011'
-});
+### window.chocodrop.attach(scene, options)
 
-// パターン3: 詳細オプション
-const chocoDrop = createChocoDrop(scene, {
-    camera,
-    renderer,
-    serverUrl: 'http://localhost:3011',
-    onControlsToggle: (disabled) => {
-        controls.enabled = !disabled;
-    },
-    sceneOptions: {
-        defaultScale: 2.0,
-        positionOffset: { y: 1 }
-    },
-    uiOptions: {
-        theme: 'dark',
-        position: 'bottom-right'
-    }
+Three.js シーンに ChocoDrop を統合します。
+
+#### パラメーター
+
+```javascript
+await window.chocodrop.attach(scene, {
+    camera: THREE.Camera,           // カメラ（必須）
+    renderer: THREE.WebGLRenderer,  // レンダラー（必須）
+    onControlsToggle: (disabled) => void  // UI開閉時のコールバック
 });
 ```
 
-### 2. プログラム制御
+#### 戻り値
 
 ```javascript
-// 画像生成
-const result = await chocoDrop.client.generateImage('beautiful landscape', {
-    width: 1024,
-    height: 1024,
-    service: 't2i-kamui-seedream-v4'
-});
-
-if (result.success) {
-    console.log('Generated:', result.imageUrl);
-}
-
-// 動画生成
-const videoResult = await chocoDrop.client.generateVideo('flowing river', {
-    duration: 5,
-    aspect_ratio: '16:9',
-    resolution: '720p'
-});
-
-// 自然言語コマンド
-await chocoDrop.client.executeCommand('ドラゴンを右上に大きく配置');
-
-// シーン管理
-chocoDrop.sceneManager.clearAll(); // 全削除
-const objects = chocoDrop.sceneManager.getObjects(); // オブジェクト一覧
+const result = await window.chocodrop.attach(scene, options);
+// result.reload() - 設定のリロード
 ```
 
-## 🎨 カスタマイズ例
+### window.chocodrop.reload()
 
-### カスタムマテリアル
+daemon の設定を再読み込みします。
 
 ```javascript
-const chocoDrop = createChocoDrop(scene, {
-    camera,
-    renderer,
-    sceneOptions: {
-        customRenderer: (imageUrl, position, metadata) => {
-            const geometry = new THREE.PlaneGeometry(2, 2);
-            const texture = new THREE.TextureLoader().load(imageUrl);
-
-            // カスタムシェーダーマテリアル
-            const material = new THREE.ShaderMaterial({
-                uniforms: {
-                    map: { value: texture },
-                    time: { value: 0 }
-                },
-                vertexShader: `
-                    varying vec2 vUv;
-                    void main() {
-                        vUv = uv;
-                        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-                    }
-                `,
-                fragmentShader: `
-                    uniform sampler2D map;
-                    uniform float time;
-                    varying vec2 vUv;
-                    void main() {
-                        vec2 uv = vUv + sin(time + vUv.y * 10.0) * 0.01;
-                        gl_FragColor = texture2D(map, uv);
-                    }
-                `
-            });
-
-            const mesh = new THREE.Mesh(geometry, material);
-            mesh.position.set(position.x, position.y, position.z);
-            return mesh;
-        }
-    }
-});
-
-// アニメーションループでシェーダー更新
-function animate() {
-    const time = Date.now() * 0.001;
-    scene.traverse((child) => {
-        if (child.material && child.material.uniforms && child.material.uniforms.time) {
-            child.material.uniforms.time.value = time;
-        }
-    });
-    renderer.render(scene, camera);
-    requestAnimationFrame(animate);
-}
+const result = await window.chocodrop.reload();
+console.log(result); // { ok: true, message: "Configuration reloaded" }
 ```
 
-### イベント処理
+## 🎨 使用方法
+
+### 基本操作
+
+1. **`@` キー**: コマンドUI起動
+2. **自然言語入力**: 「ドラゴンを右上に」「桜を中央に」
+3. **Enter**: コマンド実行
+4. **Escape**: UI非表示
+
+### 対応コマンド例
 
 ```javascript
-// カスタムイベントリスナー
-chocoDrop.client.addEventListener('generation-start', (event) => {
-    console.log('Generation started:', event.detail);
-    showLoadingIndicator();
-});
+// 生成と配置
+"ドラゴンを右上に作って"
+"桜を中央に配置"
+"青い猫を左下に小さく"
 
-chocoDrop.client.addEventListener('generation-complete', (event) => {
-    console.log('Generation completed:', event.detail);
-    hideLoadingIndicator();
-});
-
-chocoDrop.sceneManager.addEventListener('object-added', (event) => {
-    console.log('Object added:', event.detail.objectId);
-    // カスタム処理
-});
-
-// UI状態監視
-chocoDrop.ui.addEventListener('show', () => {
-    console.log('UI opened');
-    pauseBackgroundAnimation();
-});
-
-chocoDrop.ui.addEventListener('hide', () => {
-    console.log('UI closed');
-    resumeBackgroundAnimation();
-});
+// 編集
+"大きくして"
+"位置を変更"
+"削除"
 ```
 
-## 🔧 高度な統合
+### 位置指定
 
-### マルチシーン対応
+| 日本語 | 英語 | 座標 |
+|--------|------|------|
+| 右上 | top-right | x:5, y:5, z:-10 |
+| 左上 | top-left | x:-5, y:5, z:-10 |
+| 右下 | bottom-right | x:5, y:-5, z:-10 |
+| 左下 | bottom-left | x:-5, y:-5, z:-10 |
+| 中央 | center | x:0, y:0, z:-10 |
 
-```javascript
-const scenes = [
-    new THREE.Scene(), // メインシーン
-    new THREE.Scene(), // UIシーン
-    new THREE.Scene()  // エフェクトシーン
-];
+## 🔧 カスタマイズ
 
-const chocoDrops = scenes.map(scene =>
-    createChocoDrop(scene, {
-        camera,
-        renderer,
-        sceneOptions: { sceneId: scene.uuid }
-    })
-);
+### THREE.js の読み込み制御
 
-function render() {
-    // マルチパスレンダリング
-    scenes.forEach((scene, index) => {
-        renderer.render(scene, cameras[index]);
-    });
-}
+企業ネットワークでCDNアクセスが制限されている場合:
+
+```html
+<script>
+  // CDNを無効化（ローカルフォールバックのみ使用）
+  window.chocodropConfig = {
+    allowCdn: false  // default: true
+  };
+</script>
+<script src="http://127.0.0.1:43110/sdk.js"></script>
 ```
 
-### WebXR統合
+### カスタムTHREE.jsソース指定
 
-```javascript
-import { VRButton } from 'three/addons/webxr/VRButton.js';
-
-// WebXR対応
-renderer.xr.enabled = true;
-document.body.appendChild(VRButton.createButton(renderer));
-
-const chocoDrop = createChocoDrop(scene, {
-    camera,
-    renderer,
-    sceneOptions: {
-        vrMode: true,
-        handTracking: true
-    }
-});
-
-// VRコントローラー対応
-function setupVRControls() {
-    const controller1 = renderer.xr.getController(0);
-    const controller2 = renderer.xr.getController(1);
-
-    controller1.addEventListener('selectstart', (event) => {
-        chocoDrop.ui.show(); // VRで手動UI表示
-    });
-}
+```html
+<script>
+  window.chocodropConfig = {
+    threeSrc: '/path/to/your/three.module.js'
+  };
+</script>
+<script src="http://127.0.0.1:43110/sdk.js"></script>
 ```
 
-## 📦 パッケージマネージャー統合
+### THREE.js読み込みの優先順位
 
-### npm/yarn プロジェクト
+1. 既存の `window.THREE`（既に読み込まれている場合）
+2. `window.chocodropConfig.threeSrc`（カスタムソース指定時）
+3. CDN（`allowCdn: true` の場合、SRI付き安全な読み込み）
+4. ローカルフォールバック（`http://127.0.0.1:43110/vendor/three-0.158.0.min.js`）
+
+## 🏗️ プロジェクト統合
+
+### npm プロジェクトで使用
 
 ```bash
 # プロジェクト初期化
 npm init -y
 
-# 依存関係追加
-npm install three chocodrop
+# Three.js インストール
+npm install three
 
-# 開発依存関係
+# 開発サーバー
 npm install -D vite
-
-# package.json scripts
-{
-  "scripts": {
-    "dev": "vite",
-    "build": "vite build"
-  }
-}
 ```
 
-### ES Modules
-
+**main.js**:
 ```javascript
-// main.js
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { createChocoDrop } from 'chocodrop';
 
-// Three.js セットアップ
+// Three.js setup
 const scene = new THREE.Scene();
-// ... 初期化コード
+const camera = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.1, 1000);
+const renderer = new THREE.WebGLRenderer();
+// ... setup code
 
-// ChocoDrop 統合
-const chocoDrop = createChocoDrop(scene, {
-    camera,
-    renderer
-});
+// ChocoDrop integration
+// HTMLに <script src="http://127.0.0.1:43110/sdk.js"></script> を追加
+await window.chocodrop.ready();
+await window.chocodrop.attach(scene, { camera, renderer });
+```
 
-export { chocoDrop };
+**index.html**:
+```html
+<!DOCTYPE html>
+<html>
+<head>
+    <title>My Three.js Project</title>
+</head>
+<body>
+    <!-- ChocoDrop SDK -->
+    <script src="http://127.0.0.1:43110/sdk.js"></script>
+
+    <!-- Your app -->
+    <script type="module" src="/main.js"></script>
+</body>
+</html>
 ```
 
 ## 🚨 トラブルシューティング
 
-### 一般的な問題
+### daemon が起動していない
 
-1. **モジュール読み込みエラー**
-```html
-<!-- importmap が正しく設定されているか確認 -->
-<script type="importmap">
+**症状**: Toast UIが表示される「ChocoDrop が起動していません」
+
+**解決策**:
+```bash
+npx --yes @chocodrop/daemon@alpha
+```
+
+### CORSエラー
+
+**症状**: ブラウザコンソールに `Access-Control-Allow-Origin` エラー
+
+**解決策**: `~/.config/chocodrop/allowlist.json` で許可リストを設定
+
+```json
 {
-    "imports": {
-        "three": "https://unpkg.com/three@0.170.0/build/three.module.js",
-        "chocodrop": "./src/index.js"
-    }
+  "origins": [
+    "http://localhost:*",
+    "http://127.0.0.1:*",
+    "https://your-site.com"
+  ]
 }
-</script>
 ```
 
-2. **CORS エラー**
-```javascript
-// ローカルサーバーを使用
-python -m http.server 8000
-# または
-npx serve .
-```
+### THREE.js バージョン不一致
 
-3. **Three.js バージョン不一致**
+**症状**: `THREE is not defined` エラー
+
+**解決策**:
 ```javascript
 // バージョン確認
 console.log(THREE.REVISION);
-// 推奨: r160 以上
+// 推奨: r170 (0.170.0)
 ```
 
-### デバッグ方法
+### SDK読み込みエラー
 
-```javascript
-// デバッグモード有効化
-const chocoDrop = createChocoDrop(scene, {
-    camera,
-    renderer,
-    debug: true
-});
+**症状**: `chocodrop is not defined`
 
-// コンソールログ確認
-window.chocoDrop = chocoDrop; // グローバル変数化
-console.log('ChocoDrop instance:', chocoDrop);
+**解決策**:
+1. daemon が起動しているか確認: `http://127.0.0.1:43110/v1/health`
+2. SDK読み込みタイミングを確認（`<script type="module">` の前に配置）
 
-// 3D オブジェクト確認
-scene.traverse((child) => {
-    console.log('Scene child:', child);
-});
-```
+## 🌐 外部サイトでの使用
 
-## 📚 参考リンク
+### Bookmarklet
+
+Three.js公式サイト（https://threejs.org/examples/）などの外部サイトでも動作します：
+
+1. [https://nyukicorn.github.io/chocodrop/examples/bookmarklet-v2.html](https://nyukicorn.github.io/chocodrop/examples/bookmarklet-v2.html) を開く
+2. 「🍫 ChocoDrop v2」ボタンをブックマークバーへドラッグ
+3. Three.jsのページでブックマークをクリック
+
+**セキュリティ**:
+- ✅ ローカル(127.0.0.1)のみと通信
+- ✅ 外部への送信なし
+- ⚠️ 現在は読み取り専用（AI生成は Phase 2b で対応予定）
+
+## 📚 関連ドキュメント
+
+- [ChocoDrop README](../../README.md) - メインドキュメント
+- [API リファレンス](../../docs/API.md) - API詳細
+- [セットアップガイド](../../docs/SETUP.md) - インストール手順
+- [トラブルシューティング](../../docs/TROUBLESHOOTING.md) - 問題解決
+
+## 🔗 参考リンク
 
 - [Three.js 公式ドキュメント](https://threejs.org/docs/)
 - [Three.js Examples](https://threejs.org/examples/)
-- [ChocoDrop API リファレンス](../docs/API.md)
+- [ChocoDrop GitHub](https://github.com/nyukicorn/chocodrop)
+
+---
+
+**重要**: このドキュメントは ChocoDrop v1.0.2-alpha.0 の新アーキテクチャ（daemon + SDK）に対応しています。旧バージョン（v1.x の `createChocoDrop()` API）をお探しの方は [docs/OLD_API.md](../../docs/OLD_API.md) をご覧ください。

@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChocoDrop - Basic Integration (v1.0.2-alpha)</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            overflow: hidden;
+            background: #000;
+        }
+
+        canvas {
+            display: block;
+        }
+
+        /* Control Panel */
+        .control-panel {
+            position: fixed;
+            top: 16px;
+            left: 16px;
+            background: rgba(20, 20, 25, 0.95);
+            color: white;
+            padding: 16px;
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+            font-size: 14px;
+            z-index: 100;
+            min-width: 280px;
+            backdrop-filter: blur(10px);
+        }
+
+        .control-panel h3 {
+            margin: 0 0 12px 0;
+            font-size: 18px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 12px;
+            padding: 8px 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #4ade80;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .info-section {
+            margin-bottom: 16px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .info-section:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+
+        .info-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: rgba(255, 255, 255, 0.5);
+            margin-bottom: 6px;
+        }
+
+        .info-value {
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        .key-hint {
+            display: inline-block;
+            padding: 2px 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .button {
+            width: 100%;
+            padding: 10px 14px;
+            margin-top: 8px;
+            background: rgba(74, 144, 226, 0.2);
+            border: 1px solid rgba(74, 144, 226, 0.4);
+            border-radius: 8px;
+            color: #4a90e2;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .button:hover {
+            background: rgba(74, 144, 226, 0.3);
+            border-color: rgba(74, 144, 226, 0.6);
+        }
+
+        .button:active {
+            transform: scale(0.98);
+        }
+
+        .button.danger {
+            background: rgba(239, 68, 68, 0.2);
+            border-color: rgba(239, 68, 68, 0.4);
+            color: #ef4444;
+        }
+
+        .button.danger:hover {
+            background: rgba(239, 68, 68, 0.3);
+            border-color: rgba(239, 68, 68, 0.6);
+        }
+
+        /* Usage Guide */
+        .usage-guide {
+            position: fixed;
+            bottom: 16px;
+            left: 16px;
+            background: rgba(20, 20, 25, 0.95);
+            color: white;
+            padding: 14px 16px;
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+            font-size: 13px;
+            z-index: 100;
+            max-width: 320px;
+            backdrop-filter: blur(10px);
+        }
+
+        .usage-guide h4 {
+            margin: 0 0 10px 0;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .usage-guide ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .usage-guide li {
+            padding: 4px 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .usage-guide li::before {
+            content: '→';
+            color: #4a90e2;
+            font-weight: 600;
+        }
+
+        /* Loading Indicator */
+        .loading {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(20, 20, 25, 0.95);
+            color: white;
+            padding: 24px 32px;
+            border-radius: 16px;
+            box-shadow: 0 12px 36px rgba(0, 0, 0, 0.5);
+            font-size: 16px;
+            z-index: 1000;
+            backdrop-filter: blur(10px);
+            display: none;
+        }
+
+        .loading.active {
+            display: block;
+        }
+
+        .spinner {
+            width: 24px;
+            height: 24px;
+            border: 3px solid rgba(255, 255, 255, 0.1);
+            border-top-color: #4a90e2;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 12px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <!-- Control Panel -->
+    <div class="control-panel">
+        <h3>🍫 ChocoDrop</h3>
+
+        <div class="status">
+            <div class="status-dot"></div>
+            <span id="status-text">Ready</span>
+        </div>
+
+        <div class="info-section">
+            <div class="info-label">Activation Key</div>
+            <div class="info-value">
+                Press <span class="key-hint">@</span> to open UI
+            </div>
+        </div>
+
+        <div class="info-section">
+            <div class="info-label">Controls</div>
+            <div class="info-value">
+                <div>• Mouse: Rotate camera</div>
+                <div>• Scroll: Zoom in/out</div>
+            </div>
+        </div>
+
+        <div class="info-section">
+            <button class="button" id="btn-reload" title="Reload daemon configuration">
+                🔄 Reload Config
+            </button>
+            <button class="button" id="btn-example" title="Try example command">
+                ✨ Try Example
+            </button>
+            <button class="button danger" id="btn-clear" title="Clear all generated objects">
+                🗑️ Clear All
+            </button>
+        </div>
+    </div>
+
+    <!-- Usage Guide -->
+    <div class="usage-guide">
+        <h4>💡 使用方法</h4>
+        <ul>
+            <li>「ドラゴンを右上に」</li>
+            <li>「桜を中央に配置」</li>
+            <li>「青い猫を左下に小さく」</li>
+            <li>「全て削除」</li>
+        </ul>
+    </div>
+
+    <!-- Loading Indicator -->
+    <div class="loading" id="loading">
+        <div class="spinner"></div>
+        <div id="loading-text">Loading...</div>
+    </div>
+
+    <!-- THREE.js Import Map -->
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+        }
+    }
+    </script>
+
+    <!-- Load THREE.js and expose to window (required for SDK) -->
+    <script type="module">
+        import * as THREE from 'three';
+        // Expose THREE to window so SDK can detect it
+        window.THREE = THREE;
+    </script>
+
+    <!-- ChocoDrop SDK -->
+    <script src="http://127.0.0.1:43110/sdk.js"></script>
+
+    <!-- Main Application -->
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        // ===================
+        // UI Helper Functions
+        // ===================
+        const ui = {
+            setStatus: (text, color = '#4ade80') => {
+                const el = document.getElementById('status-text');
+                const dot = document.querySelector('.status-dot');
+                el.textContent = text;
+                dot.style.background = color;
+            },
+            showLoading: (text = 'Loading...') => {
+                document.getElementById('loading').classList.add('active');
+                document.getElementById('loading-text').textContent = text;
+            },
+            hideLoading: () => {
+                document.getElementById('loading').classList.remove('active');
+            }
+        };
+
+        // ===================
+        // Three.js Scene Setup
+        // ===================
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x1a1a1f);
+        scene.fog = new THREE.Fog(0x1a1a1f, 20, 60);
+
+        const camera = new THREE.PerspectiveCamera(
+            60,
+            window.innerWidth / window.innerHeight,
+            0.1,
+            1000
+        );
+        camera.position.set(0, 5, 15);
+
+        const renderer = new THREE.WebGLRenderer({
+            antialias: true,
+            alpha: true
+        });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        document.body.appendChild(renderer.domElement);
+
+        // Controls
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.minDistance = 5;
+        controls.maxDistance = 30;
+        controls.maxPolarAngle = Math.PI / 2;
+
+        // ===================
+        // Lighting
+        // ===================
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+        scene.add(ambientLight);
+
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        directionalLight.position.set(10, 15, 10);
+        directionalLight.castShadow = true;
+        directionalLight.shadow.camera.near = 0.1;
+        directionalLight.shadow.camera.far = 50;
+        directionalLight.shadow.camera.left = -20;
+        directionalLight.shadow.camera.right = 20;
+        directionalLight.shadow.camera.top = 20;
+        directionalLight.shadow.camera.bottom = -20;
+        directionalLight.shadow.mapSize.width = 2048;
+        directionalLight.shadow.mapSize.height = 2048;
+        scene.add(directionalLight);
+
+        const hemisphereLight = new THREE.HemisphereLight(0x87ceeb, 0x8b7355, 0.5);
+        scene.add(hemisphereLight);
+
+        // ===================
+        // Ground
+        // ===================
+        const groundGeometry = new THREE.PlaneGeometry(40, 40);
+        const groundMaterial = new THREE.MeshStandardMaterial({
+            color: 0x2a2a2f,
+            roughness: 0.8,
+            metalness: 0.2
+        });
+        const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+        ground.rotation.x = -Math.PI / 2;
+        ground.receiveShadow = true;
+        scene.add(ground);
+
+        // Grid Helper
+        const gridHelper = new THREE.GridHelper(40, 40, 0x444444, 0x222222);
+        gridHelper.position.y = 0.01;
+        scene.add(gridHelper);
+
+        // ===================
+        // Sample Objects
+        // ===================
+        // Center cube
+        const cubeGeometry = new THREE.BoxGeometry(1.5, 1.5, 1.5);
+        const cubeMaterial = new THREE.MeshPhongMaterial({
+            color: 0xff6b9d,
+            shininess: 60
+        });
+        const cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
+        cube.position.set(0, 0.75, 0);
+        cube.castShadow = true;
+        scene.add(cube);
+
+        // Spheres
+        const sphereGeometry = new THREE.SphereGeometry(0.5, 32, 32);
+        const sphereMaterials = [
+            new THREE.MeshPhongMaterial({ color: 0x4a90e2 }),
+            new THREE.MeshPhongMaterial({ color: 0x50e3c2 }),
+            new THREE.MeshPhongMaterial({ color: 0xf5a623 })
+        ];
+
+        for (let i = 0; i < 3; i++) {
+            const sphere = new THREE.Mesh(sphereGeometry, sphereMaterials[i]);
+            const angle = (i / 3) * Math.PI * 2;
+            sphere.position.set(
+                Math.cos(angle) * 5,
+                0.5,
+                Math.sin(angle) * 5
+            );
+            sphere.castShadow = true;
+            scene.add(sphere);
+        }
+
+        // ===================
+        // ChocoDrop Integration
+        // ===================
+        let chocodropAttached = false;
+
+        try {
+            ui.showLoading('Connecting to ChocoDrop daemon...');
+            await window.chocodrop.ready();
+
+            ui.showLoading('Initializing ChocoDrop...');
+            const result = await window.chocodrop.attach(scene, {
+                camera: camera,
+                renderer: renderer,
+                sceneOptions: {
+                    enableMouseInteraction: true  // Enable click to select objects
+                },
+                onControlsToggle: (disabled) => {
+                    controls.enabled = !disabled;
+                    ui.setStatus(
+                        disabled ? 'UI Active' : 'Ready',
+                        disabled ? '#f59e0b' : '#4ade80'
+                    );
+                }
+            });
+
+            chocodropAttached = true;
+            ui.setStatus('ChocoDrop Ready', '#4ade80');
+            console.log('✅ ChocoDrop integration complete');
+
+            // Store reload function
+            window.chocodropReload = result.reload;
+
+        } catch (error) {
+            console.warn('ChocoDrop initialization failed:', error);
+            ui.setStatus('ChocoDrop Unavailable', '#ef4444');
+            document.getElementById('btn-reload').disabled = true;
+            document.getElementById('btn-example').disabled = true;
+        } finally {
+            ui.hideLoading();
+        }
+
+        // ===================
+        // Button Handlers
+        // ===================
+        document.getElementById('btn-reload').addEventListener('click', async () => {
+            if (!window.chocodropReload) return;
+
+            try {
+                ui.showLoading('Reloading configuration...');
+                const result = await window.chocodropReload();
+                console.log('Config reloaded:', result);
+                ui.setStatus('Config Reloaded', '#4ade80');
+                setTimeout(() => ui.setStatus('Ready', '#4ade80'), 2000);
+            } catch (error) {
+                console.error('Reload failed:', error);
+                ui.setStatus('Reload Failed', '#ef4444');
+                setTimeout(() => ui.setStatus('Ready', '#4ade80'), 2000);
+            } finally {
+                ui.hideLoading();
+            }
+        });
+
+        document.getElementById('btn-example').addEventListener('click', () => {
+            console.log('Example: Open ChocoDrop UI with @ key and try:');
+            console.log('  "ドラゴンを右上に"');
+            console.log('  "桜を中央に配置"');
+            console.log('  "青い猫を左下に小さく"');
+            ui.setStatus('Check console for examples', '#4a90e2');
+            setTimeout(() => ui.setStatus('Ready', '#4ade80'), 3000);
+        });
+
+        document.getElementById('btn-clear').addEventListener('click', () => {
+            console.log('To clear all: Use @ key and type "全て削除"');
+            ui.setStatus('Use "@" → "全て削除"', '#f59e0b');
+            setTimeout(() => ui.setStatus('Ready', '#4ade80'), 3000);
+        });
+
+        // ===================
+        // Animation Loop
+        // ===================
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Rotate center cube
+            cube.rotation.x += 0.003;
+            cube.rotation.y += 0.005;
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        // ===================
+        // Window Resize Handler
+        // ===================
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // ===================
+        // Expose to Console
+        // ===================
+        window.threeScene = {
+            scene,
+            camera,
+            renderer,
+            controls
+        };
+
+        console.log('🍫 ChocoDrop Basic Integration');
+        console.log('Press @ key to open ChocoDrop UI');
+        console.log('Access Three.js via: window.threeScene');
+    </script>
+</body>
+</html>
