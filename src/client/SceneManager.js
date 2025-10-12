@@ -4974,12 +4974,32 @@ export class SceneManager {
       font-weight: 600 !important;
       font-variant-numeric: tabular-nums !important;
       z-index: 999999 !important;
-      pointer-events: none !important;
+      pointer-events: auto !important;
+      cursor: pointer !important;
       opacity: 0 !important;
-      transition: opacity 0.2s ease !important;
+      transition: opacity 0.2s ease, transform 0.15s ease !important;
       box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4) !important;
       letter-spacing: 0.5px !important;
     `;
+
+    // クリックで入力モードに切り替え
+    toast.addEventListener('click', () => {
+      if (this.selectedObject) {
+        // 現在の値から%を削除して数字だけ渡す
+        const currentValue = percentage.toString();
+        this.showScaleInput(this.selectedObject, currentValue);
+      }
+    });
+
+    // ホバーエフェクト
+    toast.addEventListener('mouseenter', () => {
+      toast.style.transform = 'translateX(-50%) scale(1.05)';
+      toast.style.background = 'rgba(20, 20, 20, 0.9)';
+    });
+    toast.addEventListener('mouseleave', () => {
+      toast.style.transform = 'translateX(-50%) scale(1)';
+      toast.style.background = 'rgba(0, 0, 0, 0.85)';
+    });
 
     document.body.appendChild(toast);
 
@@ -5002,9 +5022,9 @@ export class SceneManager {
   /**
    * スケール入力UI を表示（数字直接入力）
    * @param {THREE.Object3D} object - 対象オブジェクト
-   * @param {string} initialDigit - 最初に押された数字キー
+   * @param {string} initialValue - 初期値（1文字または複数桁の数字）
    */
-  showScaleInput(object, initialDigit) {
+  showScaleInput(object, initialValue) {
     // 既存のトーストや入力UIを削除
     const existingToast = document.getElementById('chocodrop-scale-toast');
     if (existingToast) {
@@ -5044,7 +5064,7 @@ export class SceneManager {
     // 入力フィールド（ラベルなし、数字のみ）
     const input = document.createElement('input');
     input.type = 'text';
-    input.value = initialDigit;
+    input.value = initialValue;
     input.style.cssText = `
       background: transparent !important;
       border: none !important;
@@ -5077,7 +5097,8 @@ export class SceneManager {
     requestAnimationFrame(() => {
       container.style.opacity = '1';
       input.focus();
-      input.select();
+      // カーソルを末尾に移動（全選択しない）
+      input.setSelectionRange(input.value.length, input.value.length);
     });
 
     // Enter/Escハンドリング

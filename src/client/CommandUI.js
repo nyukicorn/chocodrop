@@ -1221,6 +1221,12 @@ export class CommandUI {
 
       const label = document.createElement('span');
       label.textContent = mode.label;
+      label.style.cssText = `
+        opacity: 0;
+        max-height: 0;
+        overflow: hidden;
+        transition: all 0.2s ease;
+      `;
 
       // AUTOバッジを作成
       const autoBadge = document.createElement('div');
@@ -1245,6 +1251,16 @@ export class CommandUI {
       button.appendChild(icon);
       button.appendChild(label);
       button.appendChild(autoBadge);
+
+      // ホバーイベント（ラベル表示/非表示）
+      button.addEventListener('mouseenter', () => {
+        label.style.opacity = '1';
+        label.style.maxHeight = '20px';
+      });
+      button.addEventListener('mouseleave', () => {
+        label.style.opacity = '0';
+        label.style.maxHeight = '0';
+      });
 
       // クリックイベント
       button.addEventListener('click', () => {
