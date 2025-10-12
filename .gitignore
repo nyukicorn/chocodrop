@@ -50,8 +50,9 @@ temp/
 .serena/
 .claude/
 
-# Internal development docs
-docs/
+# Internal development docs (exclude *.md which are public documentation)
+docs/*
+!docs/*.md
 
 # Development and test files (should not be distributed)
 index.html
