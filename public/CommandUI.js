@@ -57,9 +57,9 @@ export class CommandUI {
     this.isExpanded = false;
     this.overlayTextarea = null;
     this.pendingImageService = null;
-   this.pendingVideoService = null;
-   this.feedbackAutoClearTimer = null;
-   this.currentFeedback = null;
+    this.pendingVideoService = null;
+    this.feedbackAutoClearTimer = null;
+    this.currentFeedback = null;
 
     this.serverHealthState = {
       available: true,
@@ -429,7 +429,24 @@ export class CommandUI {
 
 
         e.preventDefault();
-        this.executeCommand();
+        
+        // deleteモードの場合は削除確認ダイアログを表示
+        if (this.currentMode === 'delete' && this.input.value.trim()) {
+          const originalCommand = this.input.value.trim();
+          this.showDeleteConfirmation(originalCommand)
+            .then(confirmed => {
+              if (confirmed) {
+                // [削除]プレフィックスを追加してコマンド実行
+                const deleteCommand = `[削除] ${originalCommand}`;
+                // input.valueを変更せず、直接executeCommandに渡す（inputイベント発火を防ぐ）
+                this.executeCommand(deleteCommand);
+              } else {
+                this.addOutput('❌ 削除をキャンセルしました', 'info');
+              }
+            });
+        } else {
+          this.executeCommand();
+        }
       }
     });
     
@@ -1204,6 +1221,12 @@ export class CommandUI {
 
       const label = document.createElement('span');
       label.textContent = mode.label;
+      label.style.cssText = `
+        opacity: 0;
+        max-height: 0;
+        overflow: hidden;
+        transition: all 0.2s ease;
+      `;
 
       // AUTOバッジを作成
       const autoBadge = document.createElement('div');
@@ -1228,6 +1251,16 @@ export class CommandUI {
       button.appendChild(icon);
       button.appendChild(label);
       button.appendChild(autoBadge);
+
+      // ホバーイベント（ラベル表示/非表示）
+      button.addEventListener('mouseenter', () => {
+        label.style.opacity = '1';
+        label.style.maxHeight = '20px';
+      });
+      button.addEventListener('mouseleave', () => {
+        label.style.opacity = '0';
+        label.style.maxHeight = '0';
+      });
 
       // クリックイベント
       button.addEventListener('click', () => {
@@ -2649,7 +2682,7 @@ export class CommandUI {
     const placeholders = {
       generate: '「猫の画像を作って」と話しかけて ⏎ ✨',
       import: 'ファイルを選択して ⏎ 📁',
-      modify: '選択後「背景の緑色を透明にして」と伝えて ⏎ ✏️',
+      modify: '選択後「透明に変更」と伝えて ⏎ ✏️',
       delete: '選択後、コマンドをそのまま送って ⏎ 🗑️'
     };
     return placeholders[mode] || placeholders.generate;
@@ -2658,8 +2691,9 @@ export class CommandUI {
   /**
    * コマンド実行
    */
-  async executeCommand() {
-    const command = this.input.value.trim();
+  async executeCommand(commandOverride = null) {
+    // ⏎記号（Enterキーのヒント）を削除してからコマンド処理
+    const command = commandOverride || this.input.value.replace(/\s*⏎\s*/g, '').trim();
     if (!command) return;
 
     // 事前バリデーション（2025年UX改善）
@@ -2794,12 +2828,16 @@ export class CommandUI {
       });
 
       // イベントリスナー
-      dialog.querySelector('#cancel-btn').onclick = () => {
+      dialog.querySelector('#cancel-btn').onclick = (e) => {
+        e.stopPropagation();
+        e.preventDefault();
         this.closeModalWithAnimation(modal);
         resolve(false);
       };
 
-      dialog.querySelector('#confirm-btn').onclick = () => {
+      dialog.querySelector('#confirm-btn').onclick = (e) => {
+        e.stopPropagation();
+        e.preventDefault();
         this.closeModalWithAnimation(modal);
         resolve(true);
       };
@@ -2814,12 +2852,18 @@ export class CommandUI {
       };
       document.addEventListener('keydown', escHandler);
 
-      // モーダル背景クリックでキャンセル
+      // モーダル全体でクリックイベントの伝播を防止
       modal.onclick = (e) => {
+        e.stopPropagation();
         if (e.target === modal) {
           this.closeModalWithAnimation(modal);
           resolve(false);
         }
+      };
+      
+      // ダイアログ自体のクリックでも伝播を防止
+      dialog.onclick = (e) => {
+        e.stopPropagation();
       };
     });
   }
@@ -3044,6 +3088,57 @@ export class CommandUI {
       this.animateCardSuccess(card, taskId);
     } else if (status === 'error') {
       this.animateCardError(card, taskId);
+    }
+  }
+
+  /**
+   * エラー時のクリーンアップ処理
+   */
+  performErrorCleanup(taskId, error) {
+    // タスクカードのエラー状態を更新
+    if (taskId) {
+      this.updateTaskCard(taskId, 'error', { errorMessage: error.message });
+      
+      // 一定時間後にタスクカードを自動削除（ユーザーが手動で消せるようになるまでの時間）
+      setTimeout(() => {
+        this.removeTaskCard(taskId);
+      }, 10000); // 10秒後に自動削除
+    }
+
+    // 現在のタスクIDをクリア
+    if (this.currentTaskId) {
+      this.currentTaskId = null;
+    }
+
+    // SceneManagerに残っているローディング状態をクリア
+    if (this.sceneManager) {
+      this.sceneManager.clearLoadingStates?.();
+    }
+
+    // アクティブなプログレス接続をクリア
+    if (this.progressConnections) {
+      for (const [connectionId, connection] of this.progressConnections.entries()) {
+        if (connection.taskId === taskId) {
+          this.progressConnections.delete(connectionId);
+        }
+      }
+    }
+
+    console.log('🧹 Error cleanup completed');
+  }
+
+  /**
+   * タスクカードを削除する
+   */
+  removeTaskCard(taskId) {
+    const taskCard = document.querySelector(`[data-task-id="${taskId}"]`);
+    if (taskCard) {
+      taskCard.style.opacity = '0';
+      taskCard.style.transform = 'translateX(-20px)';
+      setTimeout(() => {
+        taskCard.remove();
+      }, 300); // フェードアウト後に削除
+      console.log(`🗑️ Task card removed: ${taskId}`);
     }
   }
 
@@ -3412,7 +3507,22 @@ export class CommandUI {
         }
         result = await this.handleImportCommand(command);
       } else if (this.sceneManager) {
-        result = await this.sceneManager.executeCommand(fullCommand);
+        // modifyモードの場合は選択されたオブジェクトに直接適用
+        if (this.currentMode === 'modify') {
+          const selectedObject = this.sceneManager?.selectedObject;
+          if (!selectedObject) {
+            this.addOutput('⚠️ 変更するオブジェクトが選択されていません。まず3Dシーン内のオブジェクトをクリックで選択してから、再度コマンドを実行してください。', 'system');
+            return;
+          }
+          // LiveCommandClientのmodifySelectedObjectを呼び出し
+          if (this.client && this.client.modifySelectedObject) {
+            result = await this.client.modifySelectedObject(selectedObject, command);
+          } else {
+            result = await this.sceneManager.executeCommand(fullCommand);
+          }
+        } else {
+          result = await this.sceneManager.executeCommand(fullCommand);
+        }
       } else if (this.client) {
         if (this.currentMode === 'generate') {
           if (commandType.mediaType === 'video') {
@@ -3424,12 +3534,6 @@ export class CommandUI {
               service: this.selectedImageService || undefined
             });
           }
-        } else if (this.currentMode === 'modify') {
-          const selectedObject = this.sceneManager?.selectedObject;
-          if (!selectedObject) {
-            throw new Error('変更するオブジェクトが選択されていません。まず対象オブジェクトを選択してください。');
-          }
-          result = await this.client.modifySelectedObject(selectedObject, command);
         } else if (this.currentMode === 'delete') {
           const selectedObject = this.sceneManager?.selectedObject;
           if (!selectedObject && !this.sceneManager?.getSelectedObjects()?.length) {
@@ -3511,9 +3615,8 @@ export class CommandUI {
         this.showInputFeedback(error.message, 'error');
       }
 
-      if (taskId) {
-        this.updateTaskCard(taskId, 'error', { errorMessage: error.message });
-      }
+      // エラー時のクリーンアップ処理
+      this.performErrorCleanup(taskId, error);
 
       this.addOutput(`${errorMessages[this.currentMode]}: ${error.message}`, 'error');
       console.error('Command execution error:', error);
@@ -3565,6 +3668,7 @@ export class CommandUI {
       return;
     }
 
+    // 初回チェックは少し遅らせてUI描画を優先
     setTimeout(() => {
       this.performServerHealthCheck({ reason: 'initial', showModalOnFail: true }).catch(error => {
         this.logDebug('⚠️ Initial health check failed:', error);
@@ -3644,9 +3748,9 @@ export class CommandUI {
   getHealthEndpoint() {
     const serverUrl = this.client?.serverUrl || this.sceneManager?.client?.serverUrl;
     if (serverUrl) {
-      return `${serverUrl.replace(/\/$/, '')}/health`;
+      return `${serverUrl.replace(/\/$/, '')}/v1/health`;
     }
-    return '/health';
+    return '/v1/health';
   }
 
   ensureServerHealthModal() {
@@ -5480,6 +5584,7 @@ export class CommandUI {
             result = await this.sceneManager.load3DModel(this.selectedFile.url, {
               position: position,
               // scale: 自動調整に任せる
+              fileName: this.selectedFile.name
             });
           } else {
             throw new Error('SceneManager が利用できません');
@@ -5547,6 +5652,12 @@ export class CommandUI {
    * 削除モードが選択された時の処理
    */
   handleDeleteModeSelection() {
+    // selectedFileをクリア（削除モードではファイル選択状態を解除）
+    if (this.selectedFile?.url) {
+      URL.revokeObjectURL(this.selectedFile.url);
+    }
+    this.selectedFile = null;
+
     // SceneManagerから選択されたオブジェクトを取得
     const selectedObject = this.sceneManager?.selectedObject;
     
@@ -5576,6 +5687,12 @@ export class CommandUI {
    * 修正モードが選択された時の処理
    */
   handleModifyModeSelection() {
+    // selectedFileをクリア（修正モードではファイル選択状態を解除）
+    if (this.selectedFile?.url) {
+      URL.revokeObjectURL(this.selectedFile.url);
+    }
+    this.selectedFile = null;
+
     // SceneManagerから選択されたオブジェクトを取得
     const selectedObject = this.sceneManager?.selectedObject;
     
@@ -5792,6 +5909,7 @@ export class CommandUI {
                
       case 'modify':
         return deletePatterns.some(pattern => pattern.test(inputValue)) ||
+               modifyPatterns.some(pattern => pattern.test(inputValue)) ||
                importPatterns.some(pattern => pattern.test(inputValue));
                
       case 'import':
