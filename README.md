@@ -7,11 +7,19 @@ Drop a little, bloom a lot.
 
 A browser-based tool that enables instant 3D object creation and scene manipulation in Three.js using natural language commands.
 
+---
+
+## 🚀 まずはここから
+
 <div align="center">
 
+**👇 クリックしてすぐに試せます**
+
 [![Website](https://img.shields.io/badge/🌐_Website-ChocoDrop-00d9ff?style=for-the-badge)](https://nyukicorn.github.io/chocodrop/)
-[![Demo](https://img.shields.io/badge/🎮_Try_Demo-Live-ff69b4?style=for-the-badge)](https://nyukicorn.github.io/chocodrop/examples/basic/)
-[![Docs](https://img.shields.io/badge/📚_Docs-Setup-4CAF50?style=for-the-badge)](./docs/SETUP.md)
+[![Try Demo](https://img.shields.io/badge/🎮_Try_Demo-Live-ff69b4?style=for-the-badge)](https://nyukicorn.github.io/chocodrop/examples/basic/)
+[![Setup Guide](https://img.shields.io/badge/📚_Setup-Docs-4CAF50?style=for-the-badge)](./docs/SETUP.md)
+
+**💡 Tip:** インストール不要で今すぐブラウザで試せます
 
 </div>
 
