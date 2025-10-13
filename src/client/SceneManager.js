@@ -614,9 +614,11 @@ export class SceneManager {
       if (!object.userData || (object.userData.type !== 'generated_image' && object.userData.type !== 'generated_video' && object.userData.type !== 'generated_3d_model')) {
         return;
       }
-      
+
       const rotationStep = Math.PI / 36; // 5度ずつ回転
+      const moveStep = event.shiftKey ? 0.1 : 0.5; // Shift: 0.1単位, 通常: 0.5単位
       let rotated = false;
+      let moved = false;
       
       switch (event.key) {
         case 'ArrowLeft':
@@ -691,6 +693,33 @@ export class SceneManager {
           this.debugSceneInfo();
           event.preventDefault();
           break;
+
+        // WASD移動コントロール（ゲームスタイル）
+        case 'w':
+        case 'W':
+          // 前方（奥）へ移動
+          object.position.z -= moveStep;
+          moved = true;
+          break;
+        case 's':
+        case 'S':
+          // 後方（手前）へ移動
+          object.position.z += moveStep;
+          moved = true;
+          break;
+        case 'a':
+        case 'A':
+          // 左へ移動
+          object.position.x -= moveStep;
+          moved = true;
+          break;
+        case 'd':
+        case 'D':
+          // 右へ移動
+          object.position.x += moveStep;
+          moved = true;
+          break;
+
         default:
           // 数字キー(0-9)が押されたら、スケール入力モードに入る
           if (/^[0-9]$/.test(event.key)) {
@@ -709,12 +738,24 @@ export class SceneManager {
         };
         console.log(`🔄 Rotated ${object.userData.type}: ${object.name} to (${angles.x}°, ${angles.y}°, ${angles.z}°)`);
       }
+
+      if (moved) {
+        event.preventDefault();
+        const position = {
+          x: object.position.x.toFixed(2),
+          y: object.position.y.toFixed(2),
+          z: object.position.z.toFixed(2)
+        };
+        const moveAmount = event.shiftKey ? '0.1' : '0.5';
+        console.log(`🎮 Moved ${object.userData.type}: ${object.name} to (${position.x}, ${position.y}, ${position.z}) [step: ${moveAmount}]`);
+      }
     });
 
     console.log('🖱️ Object dragging system enabled (Drag to move objects - Shift-free interaction)');
     console.log('🔄 Object resizing system enabled (Scroll to resize - Shift-free interaction)');
     console.log('🎯 Angle adjustment enabled (Select object + Arrow keys to rotate, R to reset)');
     console.log('📐 Keyboard resize enabled (Select object + +/- keys to resize)');
+    console.log('🎮 WASD movement enabled (Select object + W/A/S/D keys to move, Shift for fine control)');
   }
 
   handleHoverEffects(event, canvas) {
