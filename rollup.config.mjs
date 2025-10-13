@@ -23,7 +23,7 @@ export default [
         preferBuiltins: false
       })
     ],
-    external: ['three', 'https://cdn.skypack.dev/three@0.158.0/examples/jsm/renderers/CSS2DRenderer.js', 'https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/GLTFLoader.js'],
+    external: ['three', 'three/examples/jsm/renderers/CSS2DRenderer.js', 'three/examples/jsm/loaders/GLTFLoader.js'],
   },
 
   // IIFE/Global version (for external sites)
@@ -44,6 +44,6 @@ export default [
         preferBuiltins: false
       })
     ],
-    external: ['three', 'https://cdn.skypack.dev/three@0.158.0/examples/jsm/renderers/CSS2DRenderer.js', 'https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/GLTFLoader.js'],
+    external: ['three', 'three/examples/jsm/renderers/CSS2DRenderer.js', 'three/examples/jsm/loaders/GLTFLoader.js'],
   },
 ];

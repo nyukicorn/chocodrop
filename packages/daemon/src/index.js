@@ -2,7 +2,7 @@ import express from 'express';
 import { createServer } from 'http';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { readFileSync } from 'fs';
+import { readFileSync, existsSync } from 'fs';
 import {
   ensureConfigDir,
   loadConfig,
@@ -125,21 +125,32 @@ export async function startDaemon({ host = '127.0.0.1', port = 43110 } = {}) {
   // SDK distribution endpoint
   app.get('/sdk.js', async (req, res) => {
     try {
-      // Read SDK source from packages/sdk/src/index.js
-      const { readFile } = await import('fs/promises');
+      // Read SDK source. Prefer the built bundle under dist/, fallback to source.
+      const { readFile, stat } = await import('fs/promises');
       const { fileURLToPath } = await import('url');
       const { dirname, join } = await import('path');
 
       const __filename = fileURLToPath(import.meta.url);
       const __dirname = dirname(__filename);
 
-      // Path to SDK source (../../sdk/src/index.js from daemon/src/)
-      const sdkPath = join(__dirname, '../../sdk/src/index.js');
+      const distSdkPath = join(__dirname, '../../../dist/chocodrop-sdk.esm.js');
+      const srcSdkPath = join(__dirname, '../../sdk/src/index.js');
+
+      let sdkPath = distSdkPath;
+      let sdkSource = 'dist';
+      try {
+        await stat(distSdkPath);
+      } catch (error) {
+        sdkPath = srcSdkPath;
+        sdkSource = 'src';
+      }
+
       const sdkContent = await readFile(sdkPath, 'utf-8');
 
       // Phase 2a: Cache-Control for sdk.js (prevent update issues)
       res.type('application/javascript; charset=utf-8');
       res.setHeader('Cache-Control', 'no-store, max-age=0');
+      res.setHeader('X-ChocoDrop-SDK-Source', sdkSource);
       res.send(sdkContent);
     } catch (error) {
       console.error('Failed to load SDK:', error);
@@ -149,12 +160,24 @@ export async function startDaemon({ host = '127.0.0.1', port = 43110 } = {}) {
 
   // Serve UI bundles from dist/ (Rollup output)
   const distPath = join(__dirname, '../../../dist');
-  app.use('/ui', express.static(distPath, {
-    setHeaders: (res, path) => {
+  const uiStatic = express.static(distPath, {
+    setHeaders: (res) => {
       // UI bundles: short cache (5 minutes) as they may update frequently during development
       res.setHeader('Cache-Control', 'public, max-age=300');
     }
-  }));
+  });
+
+  app.use('/ui', (req, res, next) => {
+    const esmExists = existsSync(join(distPath, 'ui.esm.js'));
+    const iifeExists = existsSync(join(distPath, 'ui.global.js'));
+
+    if (!esmExists || !iifeExists) {
+      res.status(503).type('text/plain').send('ChocoDrop UI bundles are not built. Run `npm run build` to generate dist/ui.* files.');
+      return;
+    }
+
+    uiStatic(req, res, next);
+  });
 
   // Also serve original source files (fallback for dev)
   const srcClientPath = join(__dirname, '../../../src/client');

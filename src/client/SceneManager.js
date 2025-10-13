@@ -2036,16 +2036,20 @@ export class SceneManager {
 
     if (!LoaderClass) {
       try {
-        if (typeof window !== 'undefined') {
-          const module = await import('https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/GLTFLoader.js');
-          LoaderClass = module.GLTFLoader || module.default || null;
-        } else {
-          const module = await import('three/examples/jsm/loaders/GLTFLoader.js');
-          LoaderClass = module.GLTFLoader || module.default || null;
+        const module = await import('three/examples/jsm/loaders/GLTFLoader.js');
+        LoaderClass = module.GLTFLoader || module.default || null;
+      } catch (localError) {
+        try {
+          if (typeof window !== 'undefined') {
+            const specifier = 'https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/GLTFLoader.js';
+            const dynamicImport = new Function('specifier', 'return import(specifier);');
+            const module = await dynamicImport(specifier);
+            LoaderClass = module.GLTFLoader || module.default || null;
+          }
+        } catch (remoteError) {
+          console.error('⚠️ Failed to load GLTFLoader dynamically:', remoteError);
+          LoaderClass = null;
         }
-      } catch (error) {
-        console.error('⚠️ Failed to load GLTFLoader dynamically:', error);
-        LoaderClass = null;
       }
     }
 
@@ -4867,8 +4871,14 @@ export class SceneManager {
       // Three.jsのCSS2DRendererを動的に読み込み
       console.log('🏷️ Loading CSS2DRenderer dynamically...');
 
-      // CDNからCSS2DRendererを読み込み
-      const module = await import('https://cdn.skypack.dev/three@0.158.0/examples/jsm/renderers/CSS2DRenderer.js');
+      let module;
+      try {
+        module = await import('three/examples/jsm/renderers/CSS2DRenderer.js');
+      } catch (localError) {
+        const specifier = 'https://cdn.skypack.dev/three@0.158.0/examples/jsm/renderers/CSS2DRenderer.js';
+        const dynamicImport = new Function('specifier', 'return import(specifier);');
+        module = await dynamicImport(specifier);
+      }
 
       // グローバルに設定
       if (!window.THREE) window.THREE = {};

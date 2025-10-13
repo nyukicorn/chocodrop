@@ -24,7 +24,7 @@
     "dev": "node src/server/server.js",
     "start": "node src/server/server.js",
     "build": "rollup -c rollup.config.js && rollup -c rollup.config.mjs",
-    "postbuild": "cp dist/chocodrop-demo.umd.min.js public/",
+    "postbuild": "cp dist/chocodrop-demo.umd.js public/chocodrop-demo.umd.js && cp dist/chocodrop-demo.umd.js public/chocodrop-demo.umd.min.js",
     "build:watch": "rollup -c -w",
     "prebuild": "mkdir -p dist",
     "test": "node --test tests/*.test.js",

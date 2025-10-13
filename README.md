@@ -6,7 +6,7 @@ Drop a little, bloom a lot.
 
 - 🌐 HP: https://nyukicorn.github.io/chocodrop/
 - 🎮 Demo: https://nyukicorn.github.io/chocodrop/examples/basic/
-- 📚 Docs: ./docs/GETTING_STARTED.md
+- 📚 Docs: ./docs/SETUP.md
 
 ## 🆕 新アーキテクチャ（v1.0.2-alpha.0）
 
@@ -52,39 +52,103 @@ Daemon を再起動すると反映されます。
 
 ### 🚀 クイックスタート
 
-#### Step 1: デーモンを起動
+#### 1. まずは目的に合わせてルートを選ぶ
 
-**npm（推奨・標準）:**
-```bash
-npx --yes @chocodrop/daemon@alpha
-```
+| 目的 | 推奨ルート | 所要時間 | 主な手順 |
+| --- | --- | --- | --- |
+| **雰囲気をすぐ体験したい** | デモ版（ホスト済み or ローカル） | 1 分 | ブラウザでサンプルを開くだけ |
+| **threejs.org 等の既存サイトで試したい** | ブックマークレット | 2–3 分 | daemon を起動 → ブックマークを登録 → 対象ページで実行 |
+| **自分の Three.js/Vite/Webpack プロジェクトに組み込みたい** | SDK + ローカル daemon（配布版） | 5–10 分 | daemon 起動 → SDK を読み込み → `ready()` `attach()` を呼ぶ |
+| **生成系機能を含めたフル構成を整えたい** | ローカル daemon + KAMUI Code 設定 | 10 分〜 | `config.json` を設定 → `npm run dev` → docs/SETUP.md 参照 |
 
-**pnpm（高速・開発者向け）:**
-```bash
-pnpm dlx @chocodrop/daemon@alpha
-```
+気になる行をクリック（またはスクロール）して、下記の詳細セクションから該当手順をたどってください。
 
-デーモンが起動すると、`http://127.0.0.1:43110` でSDKが配信されます。
+#### 2. シナリオ別ガイド
 
-#### Step 2: Three.jsページで統合（2つの方法）
+##### A. ブラウザで今すぐ試す（デモ版）
 
-##### 方法A: ブックマークレット（推奨 - ワンクリック統合）
+- **オンラインですぐ試す:** [Basic Demo](https://nyukicorn.github.io/chocodrop/examples/basic/) を開くだけで UI を体験できます。
+- **ローカルで試す:**
+  ```bash
+  npm run example:basic
+  ```
+  ブラウザで `http://localhost:8000/basic/index.html` を開きます。ネットワークが制限されている環境でも動作確認できます。
+- さらに世界観を試したい場合は `examples/` ディレクトリに複数のシーンが用意されています。
 
-1. [https://nyukicorn.github.io/chocodrop/examples/bookmarklet-v2.html](https://nyukicorn.github.io/chocodrop/examples/bookmarklet-v2.html) を開く（ローカルの場合は `examples/bookmarklet-v2.html` をブラウザで開いてください）
-2. ページ内の「🍫 ChocoDrop v2」ボタンをブックマークバーへドラッグ
-3. Three.jsのページ（例: https://threejs.org/examples/）でブックマークをクリック
-   - デーモン起動中 → 即座にUIが表示
-   - 停止中 → 右下のトーストが起動方法を案内
+##### B. 外部サイトにワンクリック注入（ブックマークレット）
 
-> ブックマークバーが見えない場合: Chrome の「表示」>「常にブックマークバーを表示」を有効化してください。
+1. **daemon を起動**（初回のみ）
+   ```bash
+   # npm 推奨
+   npx --yes @chocodrop/daemon@alpha
 
-##### 方法B: DevToolsスニペット（開発者モード向け）
+   # または pnpm
+   pnpm dlx @chocodrop/daemon@alpha
+   ```
+   起動後は `http://127.0.0.1:43110` で SDK/UI が配信されます。
+2. **ブックマークレットを登録**
+   [Bookmarklet v2](https://nyukicorn.github.io/chocodrop/examples/bookmarklet-v2.html) を開き、「🍫 ChocoDrop v2」ボタンをブックマークバーへドラッグ＆ドロップします。
+3. **対象ページで実行**
+   threejs.org など任意の Three.js ページで登録したブックマークをクリックすると、右下に ChocoDrop UI が表示されます。daemon が停止している場合は Toast UI が起動コマンドを案内します。
+4. **DevTools スニペット派のための代替**
+   `bookmarklet-code.js` の内容を Chrome の Snippets に貼り付けて実行すれば、同じトースト UI を呼び出せます。
 
-1. Chromeで F12（または Ctrl+Shift+I / Cmd+Opt+I）を押し、Sources → Snippets を開く
-2. 新規スニペットを作成し、`bookmarklet-code.js` の内容を貼り付けて保存
-3. 実行するとブックマークレットと同じトーストUIが表示され、デーモン状態に応じてSDKを読み込みます
+##### C. 自分の Three.js プロジェクトに組み込む（配布版）
 
-> ソースはリポジトリ直下の [bookmarklet-code.js](bookmarklet-code.js)。このファイルが常に最新の本番コードです。
+1. **前提**
+   - Node.js 16+ / npm または pnpm
+   - Three.js r170 付近（推奨）
+2. **daemon をローカルで起動**
+   ```bash
+   npx --yes @chocodrop/daemon@alpha
+   # 既存ポートと衝突する場合は --port 43111 などを付与
+   ```
+3. **SDK を読み込む（CDN 方式）**
+   HTML の `<head>` などに以下を追加します。
+   ```html
+   <script src="http://127.0.0.1:43110/sdk.js"></script>
+   ```
+   Three.js/OrbitControls をすでに読み込んでいれば、そのまま `ready()` → `attach()` を呼べます。
+4. **シーンにアタッチ**
+   ```javascript
+   await window.chocodrop.ready();
+   await window.chocodrop.attach(scene, {
+     camera,
+     renderer,
+     onControlsToggle: (disabled) => {
+       controls.enabled = !disabled;
+     }
+   });
+   ```
+   UI が表示され、`@` キーから操作できれば成功です。
+5. **npm で取り込む場合**
+   ```bash
+   npm install chocodrop three
+   ```
+   ```javascript
+   import { createChocoDrop } from 'chocodrop';
+
+   const choco = createChocoDrop(scene, {
+     camera,
+     renderer,
+     serverUrl: 'http://127.0.0.1:43110'
+   });
+   ```
+   bundler 向けの詳細手順は [`docs/INTEGRATION.md`](docs/INTEGRATION.md) を参照してください。
+
+##### D. 生成機能まで有効化する（KAMUI Code + ローカルサーバー）
+
+1. リポジトリを clone し、依存関係をインストールします。
+   ```bash
+   git clone https://github.com/nyukicorn/chocodrop.git
+   cd chocodrop
+   npm install
+   ```
+2. `npm run setup:mcp` で KAMUI Code の設定ファイルパスを登録します。
+3. `npm run dev` を実行すると `http://localhost:3011` でサーバーが起動し、生成 API が利用可能になります。
+4. 詳細な構成やモデル設定は [`docs/SETUP.md`](docs/SETUP.md) を参照してください。
+
+> 🔍 **ヒント**: daemon や `sdk.js` のレスポンスヘッダーに `X-ChocoDrop-SDK-Source: dist` が表示されていれば、ビルド済みバンドルが正しく配信されています。ブラウザで `await window.chocodrop.ready()` を実行して接続状況をチェックできます。
 
 ---
 

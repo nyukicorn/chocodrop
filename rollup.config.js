@@ -1,5 +1,4 @@
 import { nodeResolve } from '@rollup/plugin-node-resolve';
-import terser from '@rollup/plugin-terser';
 
 // Production build removed - ES Modules only
 
@@ -17,18 +16,6 @@ const demoConfig = {
       },
       sourcemap: true,
       inlineDynamicImports: true
-    },
-    {
-      file: 'dist/chocodrop-demo.umd.min.js',
-      format: 'umd',
-      name: 'ChocoDrop',
-      exports: 'named',
-      globals: {
-        'three': 'THREE'
-      },
-      plugins: [terser()],
-      sourcemap: true,
-      inlineDynamicImports: true
     }
   ],
   plugins: [
@@ -37,7 +24,31 @@ const demoConfig = {
       preferBuiltins: false
     })
   ],
-  external: ['three', 'https://cdn.skypack.dev/three@0.158.0/examples/jsm/renderers/CSS2DRenderer.js']
+  external: ['three', 'three/examples/jsm/renderers/CSS2DRenderer.js', 'three/examples/jsm/loaders/GLTFLoader.js']
 };
 
-export default [demoConfig];
+// Browser SDK bundle
+const sdkConfig = {
+  input: 'packages/sdk/src/index.js',
+  output: [
+    {
+      file: 'dist/chocodrop-sdk.esm.js',
+      format: 'esm',
+      sourcemap: true
+    },
+    {
+      file: 'dist/chocodrop-sdk.umd.js',
+      format: 'iife',
+      name: 'ChocoDropSDK',
+      sourcemap: true
+    }
+  ],
+  plugins: [
+    nodeResolve({
+      browser: true,
+      preferBuiltins: false
+    })
+  ]
+};
+
+export default [demoConfig, sdkConfig];
