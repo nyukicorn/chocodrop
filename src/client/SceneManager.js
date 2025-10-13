@@ -1167,6 +1167,16 @@ export class SceneManager {
 
     const targetLower = objectName.toLowerCase();
 
+    // 1. オブジェクト名の直接マッチング（最優先）
+    if (child.name) {
+      const childNameLower = child.name.toLowerCase();
+      // 完全一致またはオブジェクト名がターゲットに含まれる
+      if (childNameLower === targetLower || targetLower.includes(childNameLower)) {
+        return true;
+      }
+    }
+
+    // 2. キーワードマッチング
     if (child.userData && Array.isArray(child.userData.keywords)) {
       for (const keyword of child.userData.keywords) {
         if (!keyword) continue;
