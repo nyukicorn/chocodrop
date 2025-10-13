@@ -1,12 +1,45 @@
 # ChocoDrop
-ちょこっとDrop。
-世界が咲く。
 
+ちょこっとDrop。世界が咲く。
 Drop a little, bloom a lot.
 
-- 🌐 HP: https://nyukicorn.github.io/chocodrop/
-- 🎮 Demo: https://nyukicorn.github.io/chocodrop/examples/basic/
-- 📚 Docs: ./docs/SETUP.md
+**テキストや音声で、Three.js シーンに瞬時にオブジェクトを追加できるブラウザツール**
+
+A browser-based tool that enables instant 3D object creation and scene manipulation in Three.js using natural language commands.
+
+<div align="center">
+
+[![Website](https://img.shields.io/badge/🌐_Website-ChocoDrop-00d9ff?style=for-the-badge)](https://nyukicorn.github.io/chocodrop/)
+[![Demo](https://img.shields.io/badge/🎮_Try_Demo-Live-ff69b4?style=for-the-badge)](https://nyukicorn.github.io/chocodrop/examples/basic/)
+[![Docs](https://img.shields.io/badge/📚_Docs-Setup-4CAF50?style=for-the-badge)](./docs/SETUP.md)
+
+</div>
+
+---
+
+## ✨ できること / What You Can Do
+
+### 誰でもすぐ試せる
+
+**デモで体験 → プリセットシーンを操作**
+_Try the demo → Interact with preset scenes_
+
+[Basic Demo](https://nyukicorn.github.io/chocodrop/examples/basic/) でUIを体験できます。
+
+### KAMUI Code + daemon 設定で可能になる（開発者向け）
+
+**"右上に桜の3Dモデルを置いて" → 瞬時に生成・配置**
+_"Put a cherry blossom 3D model on the upper right" → Instantly generates and places_
+
+**"このオブジェクトをモノクロにして" → すぐに変換**
+_"Make this object monochrome" → Immediately transforms_
+
+⚠️ **注意:** AI生成機能は **ローカル環境でのKAMUI Code設定が必要**です。
+ブックマークレットや配布版daemonでは、UIの表示のみ可能です。
+
+詳細: [D. 生成機能まで有効化する](#d-生成機能まで有効化するkamui-code--ローカルサーバー)
+
+---
 
 ## 🆕 新アーキテクチャ（v1.0.2-alpha.0）
 
@@ -245,7 +278,7 @@ if (result.ok) {
 
 ---
 
-### ❓ トラブルシューティング
+## ❓ トラブルシューティング
 
 **Bookmarkletが動かない**
 - ブラウザのコンソール（F12）でエラーを確認
@@ -261,8 +294,6 @@ if (result.ok) {
 
 ---
 
----
-
 ## 📚 詳細ドキュメント
 
 v1.0.2-alpha.0 で新アーキテクチャに移行しました。旧API（v1.x）をお探しの方は [docs/OLD_API.md](docs/OLD_API.md) をご覧ください。
@@ -274,17 +305,11 @@ v1.0.2-alpha.0 で新アーキテクチャに移行しました。旧API（v1.x�
 
 ---
 
----
-
 ## 📄 License
 
 MIT License - see [LICENSE](LICENSE) file for details.
-
----
 
 ## 🔗 Links
 
 - **GitHub:** https://github.com/nyukicorn/chocodrop
 - **Examples:** [examples/](examples/)
-
----
