@@ -319,21 +319,24 @@ export class MCPClient {
   }
 
   getDefaultServiceId(type = 'image') {
+    const services = this.getServicesByType(type);
+    const serviceIds = services.map(service => service.id);
+
     const configDefault = config.get(`models.${type}.default`);
     if (configDefault) {
-      return configDefault;
+      if (serviceIds.includes(configDefault)) {
+        return configDefault;
+      }
+      console.warn(`⚠️ 設定されたデフォルトモデル "${configDefault}" は利用可能な${type}サービスに存在しません。最初のサービスを使用します。`);
     }
 
-    const services = this.getServicesByType(type);
-    if (services && services.length > 0) {
+    if (services.length > 0) {
       return services[0].id;
     }
 
-    if (type === 'video') {
-      return 't2v-kamui-wan-v2-2-5b-fast';
-    }
-
-    return 't2i-kamui-seedream-v4';
+    const error = this.createMcpConfigError(`no ${type} services found in MCP config`);
+    error.code = 'MCP_SERVICE_UNAVAILABLE';
+    throw error;
   }
   /**
    * オフライン翻訳辞書を使った簡易翻訳
