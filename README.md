@@ -24,8 +24,7 @@ ChocoDrop is a browser-based assistant for Three.js that lets you drop AI-genera
 
 ---
 
-<a id="contents"></a>
-## 📑 Contents / 目次
+<h2 id="contents">📑 Contents / 目次</h2>
 
 - [Quick Overview / 30秒でわかる](#quick-overview)
 - [Get Started / 使い始める](#get-started)
@@ -38,8 +37,7 @@ ChocoDrop is a browser-based assistant for Three.js that lets you drop AI-genera
 
 ---
 
-<a id="quick-overview"></a>
-## 🎬 Quick Overview / 30秒でわかる
+<h2 id="quick-overview">🎬 Quick Overview / 30秒でわかる</h2>
 
 <div align="center">
   <video src="docs/media/demo-overview.mp4" controls width="100%" style="max-width: 800px; border-radius: 8px;">
@@ -57,8 +55,7 @@ ChocoDrop is a browser-based assistant for Three.js that lets you drop AI-genera
 
 ---
 
-<a id="get-started"></a>
-## 🚀 Get Started / 使い始める
+<h2 id="get-started">🚀 Get Started / 使い始める</h2>
 
 ### Choose Your Path / あなたの目的に合わせて選ぶ
 
@@ -71,10 +68,10 @@ ChocoDrop is a browser-based assistant for Three.js that lets you drop AI-genera
 
 ---
 
-<a id="detailed-guides"></a>
-### Detailed Guides / 詳細ガイド
+<h3 id="detailed-guides">Detailed Guides / 詳細ガイド</h3>
 
-<details id="guide-demo">
+<a id="guide-demo"></a>
+<details>
 <summary><strong>A. Try the Demo / デモで試す</strong>（1分・インストール不要）</summary>
 
 <br>
@@ -92,7 +89,8 @@ npm run example:basic
 
 </details>
 
-<details id="guide-bookmarklet">
+<a id="guide-bookmarklet"></a>
+<details>
 <summary><strong>B. Bookmarklet / ブックマークレット</strong>（2-3分・外部サイトで試せる）</summary>
 
 <br>
@@ -118,11 +116,12 @@ daemon が停止している場合は Toast UI が起動コマンドを案内し
 #### 4. DevTools スニペット派のための代替
 `bookmarklet-code.js` の内容を Chrome の Snippets に貼り付けて実行すれば、同じトースト UI を呼び出せます。
 
-> ⚠️ **制限事項**: ブックマークレット版では**UIの表示と操作のみ**可能です。AI生成機能を使うには[フル環境構築](#d-フル環境構築)が必要です。
+> ⚠️ **制限事項**: ブックマークレット版では**UIの表示と操作のみ**可能です。AI生成機能を使うには[フル環境構築](#guide-full)が必要です。
 
 </details>
 
-<details id="guide-sdk">
+<a id="guide-sdk"></a>
+<details>
 <summary><strong>C. SDK Integration / SDK組み込み</strong>（5-10分・自分のプロジェクト）</summary>
 
 <br>
@@ -175,7 +174,8 @@ bundler 向けの詳細手順は [`docs/INTEGRATION.md`](docs/INTEGRATION.md) �
 
 </details>
 
-<details id="guide-full">
+<a id="guide-full"></a>
+<details>
 <summary><strong>D. Full Local Setup / フル環境構築</strong>（10分〜・AI生成機能を有効化）</summary>
 
 <br>
@@ -208,8 +208,7 @@ npm run dev
 
 ---
 
-<a id="what-you-can-do"></a>
-## ✨ What You Can Do / できること
+<h2 id="what-you-can-do">✨ What You Can Do / できること</h2>
 
 ### 誰でもすぐ試せる
 
@@ -225,8 +224,7 @@ npm run dev
 
 ---
 
-<a id="key-features"></a>
-## 💡 Key Features / 主な機能
+<h2 id="key-features">💡 Key Features / 主な機能</h2>
 
 ### 🍬 Toast UI - Guided Launch / 優しい起動案内
 デーモンが起動していない場合、右下にToast UIが表示されます:
@@ -287,8 +285,7 @@ Bookmarkletやコンソールスニペットで外部サイト（threejs.org、C
 
 ---
 
-<a id="technical-details"></a>
-## 🏗️ Technical Details / 技術詳細
+<h2 id="technical-details">🏗️ Technical Details / 技術詳細</h2>
 
 ### 🌐 Recommended Browsers / 推奨ブラウザ
 
@@ -339,8 +336,7 @@ ChocoDrop は常駐 daemon + ブラウザ SDK の構成で動作します。
 
 ---
 
-<a id="troubleshooting"></a>
-## ❓ Troubleshooting / トラブルシューティング
+<h2 id="troubleshooting">❓ Troubleshooting / トラブルシューティング</h2>
 
 **Bookmarkletが動かない**
 - ブラウザのコンソール（F12）でエラーを確認
@@ -358,8 +354,7 @@ ChocoDrop は常駐 daemon + ブラウザ SDK の構成で動作します。
 
 ---
 
-<a id="links-and-resources"></a>
-## 📚 Links & Resources / リンク・リソース
+<h2 id="links-and-resources">📚 Links & Resources / リンク・リソース</h2>
 
 ### Official Materials / 公式リソース
 - 🌐 [公式サイト](https://nyukicorn.github.io/chocodrop/)
