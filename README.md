@@ -1,36 +1,213 @@
 # ChocoDrop
 
 ちょこっとDrop。世界が咲く。
-Drop a little, bloom a lot.
 
 **テキストや音声で、Three.js シーンに瞬時にオブジェクトを追加できるブラウザツール**
 
 A browser-based tool that enables instant 3D object creation and scene manipulation in Three.js using natural language commands.
 
----
-
-## 🚀 まずはここから
-
 <div align="center">
 
-**👇 クリックしてすぐに試せます**
+[![GitHub stars](https://img.shields.io/github/stars/nyukicorn/chocodrop?style=social)](https://github.com/nyukicorn/chocodrop)
+[![npm version](https://img.shields.io/npm/v/chocodrop?color=4CAF50)](https://www.npmjs.com/package/chocodrop)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-[![Website](https://img.shields.io/badge/🌐_Website-ChocoDrop-00d9ff?style=for-the-badge)](https://nyukicorn.github.io/chocodrop/)
-[![Try Demo](https://img.shields.io/badge/🎮_Try_Demo-Live-ff69b4?style=for-the-badge)](https://nyukicorn.github.io/chocodrop/examples/basic/)
-[![Setup Guide](https://img.shields.io/badge/📚_Setup-Docs-4CAF50?style=for-the-badge)](./docs/SETUP.md)
+---
 
-**💡 Tip:** インストール不要で今すぐブラウザで試せます
+## [🎮 今すぐブラウザで試す →](https://nyukicorn.github.io/chocodrop/examples/basic/)
+
+**インストール不要 | 30秒で体験**
+
+[📖 公式サイト](https://nyukicorn.github.io/chocodrop/) · [📚 ドキュメント](./docs/SETUP.md) · [📦 npm](https://www.npmjs.com/package/chocodrop)
 
 </div>
 
 ---
 
-## ✨ できること / What You Can Do
+## 📑 目次
+
+- [30秒でわかる](#-30秒でわかる)
+- [使い始める](#-使い始める)
+- [できること](#-できること)
+- [主な機能](#-主な機能)
+- [技術詳細](#️-技術詳細)
+- [トラブルシューティング](#-トラブルシューティング)
+- [リンク・リソース](#-リンクリソース)
+
+---
+
+## 🎬 30秒でわかる
+
+<div align="center">
+  <a href="https://nyukicorn.github.io/chocodrop/examples/basic/">
+    <img src="https://via.placeholder.com/800x450/2C1810/FFF8E7?text=ChocoDrop+Demo+Video" alt="ChocoDrop Demo" width="100%" />
+  </a>
+  <p><em>↑ クリックしてライブデモを体験</em></p>
+</div>
+
+**3つのポイント:**
+- ✨ **AI生成**: "右上に桜の3Dモデル" → 瞬時に生成・配置（※ローカル環境設定が必要）
+- 🎮 **すぐ試せる**: ブックマークレットで既存サイトに注入
+- 🔧 **組み込み可能**: 自分のThree.jsプロジェクトに導入
+
+> ⚠️ **注意:** AI生成機能は**ローカル環境でのKAMUI Code設定が必要**です。ブックマークレットや配布版daemonでは、UIの表示と操作のみ可能です。
+
+---
+
+## 🚀 使い始める
+
+### あなたの目的に合わせて選ぶ
+
+| 目的 | 方法 | 所要時間 | 次のステップ |
+|------|------|----------|-------------|
+| **まず雰囲気を体験したい** | デモ版 | 1分 | [→ A. デモで試す](#a-デモで試す) |
+| **既存サイトで試したい** | ブックマークレット | 2-3分 | [→ B. ブックマークレット](#b-ブックマークレット) |
+| **プロジェクトに組み込む** | SDK + daemon | 5-10分 | [→ C. SDK組み込み](#c-sdk組み込み) |
+| **AI生成を含む全機能** | ローカル環境 | 10分〜 | [→ D. フル環境構築](#d-フル環境構築) |
+
+---
+
+### 詳細ガイド
+
+<details>
+<summary><strong>A. デモで試す</strong>（1分・インストール不要）</summary>
+
+<br>
+
+**オンラインですぐ試す:**
+- [Basic Demo](https://nyukicorn.github.io/chocodrop/examples/basic/) を開くだけでUIを体験できます
+
+**ローカルで試す:**
+```bash
+npm run example:basic
+```
+ブラウザで `http://localhost:8000/basic/index.html` を開きます。
+
+さらに世界観を試したい場合は `examples/` ディレクトリに複数のシーンが用意されています。
+
+</details>
+
+<details>
+<summary><strong>B. ブックマークレット</strong>（2-3分・外部サイトで試せる）</summary>
+
+<br>
+
+#### 1. daemon を起動（初回のみ）
+```bash
+# npm 推奨
+npx --yes @chocodrop/daemon@alpha
+
+# または pnpm
+pnpm dlx @chocodrop/daemon@alpha
+```
+起動後は `http://127.0.0.1:43110` で SDK/UI が配信されます。
+
+#### 2. ブックマークレットを登録
+[Bookmarklet v2](https://nyukicorn.github.io/chocodrop/examples/bookmarklet-v2.html) を開き、「🍫 ChocoDrop v2」ボタンをブックマークバーへドラッグ＆ドロップします。
+
+#### 3. 対象ページで実行
+threejs.org など任意の Three.js ページで登録したブックマークをクリックすると、右下に ChocoDrop UI が表示されます。
+
+daemon が停止している場合は Toast UI が起動コマンドを案内します。
+
+#### 4. DevTools スニペット派のための代替
+`bookmarklet-code.js` の内容を Chrome の Snippets に貼り付けて実行すれば、同じトースト UI を呼び出せます。
+
+> ⚠️ **制限事項**: ブックマークレット版では**UIの表示と操作のみ**可能です。AI生成機能を使うには[フル環境構築](#d-フル環境構築)が必要です。
+
+</details>
+
+<details>
+<summary><strong>C. SDK組み込み</strong>（5-10分・自分のプロジェクト）</summary>
+
+<br>
+
+#### 前提条件
+- Node.js 16+ / npm または pnpm
+- Three.js r170 付近（推奨）
+
+#### 1. daemon をローカルで起動
+```bash
+npx --yes @chocodrop/daemon@alpha
+# 既存ポートと衝突する場合は --port 43111 などを付与
+```
+
+#### 2. SDK を読み込む（CDN 方式）
+HTML の `<head>` などに以下を追加します。
+```html
+<script src="http://127.0.0.1:43110/sdk.js"></script>
+```
+
+Three.js/OrbitControls をすでに読み込んでいれば、そのまま `ready()` → `attach()` を呼べます。
+
+#### 3. シーンにアタッチ
+```javascript
+await window.chocodrop.ready();
+await window.chocodrop.attach(scene, {
+  camera,
+  renderer,
+  onControlsToggle: (disabled) => {
+    controls.enabled = !disabled;
+  }
+});
+```
+UI が表示され、`@` キーから操作できれば成功です。
+
+#### 4. npm で取り込む場合
+```bash
+npm install chocodrop three
+```
+```javascript
+import { createChocoDrop } from 'chocodrop';
+
+const choco = createChocoDrop(scene, {
+  camera,
+  renderer,
+  serverUrl: 'http://127.0.0.1:43110'
+});
+```
+bundler 向けの詳細手順は [`docs/INTEGRATION.md`](docs/INTEGRATION.md) を参照してください。
+
+</details>
+
+<details>
+<summary><strong>D. フル環境構築</strong>（10分〜・AI生成機能を有効化）</summary>
+
+<br>
+
+#### 1. リポジトリをclone
+```bash
+git clone https://github.com/nyukicorn/chocodrop.git
+cd chocodrop
+npm install
+```
+
+#### 2. KAMUI Code設定
+```bash
+npm run setup:mcp
+```
+KAMUI Code の設定ファイルパスを登録します。
+
+#### 3. 開発サーバー起動
+```bash
+npm run dev
+```
+`http://localhost:3011` でサーバーが起動し、生成 API が利用可能になります。
+
+#### 4. 詳細設定
+詳細な構成やモデル設定は [`docs/SETUP.md`](docs/SETUP.md) を参照してください。
+
+> 🔍 **ヒント**: daemon や `sdk.js` のレスポンスヘッダーに `X-ChocoDrop-SDK-Source: dist` が表示されていれば、ビルド済みバンドルが正しく配信されています。ブラウザで `await window.chocodrop.ready()` を実行して接続状況をチェックできます。
+
+</details>
+
+---
+
+## ✨ できること
 
 ### 誰でもすぐ試せる
 
 **デモで体験 → プリセットシーンを操作**
-_Try the demo → Interact with preset scenes_
 
 [Basic Demo](https://nyukicorn.github.io/chocodrop/examples/basic/) でUIを体験できます。
 
@@ -41,113 +218,6 @@ _"Put a cherry blossom 3D model on the upper right" → Instantly generates and 
 
 **"このオブジェクトをモノクロにして" → すぐに変換**
 _"Make this object monochrome" → Immediately transforms_
-
-⚠️ **注意:** AI生成機能は **ローカル環境でのKAMUI Code設定が必要**です。
-ブックマークレットや配布版daemonでは、UIの表示のみ可能です。
-
-詳細: [D. 生成機能まで有効化する](#d-生成機能まで有効化するkamui-code--ローカルサーバー)
-
----
-
-## 🚀 クイックスタート
-
-### 1. まずは目的に合わせてルートを選ぶ
-
-| 目的 | 推奨ルート | 所要時間 | 主な手順 |
-| --- | --- | --- | --- |
-| **雰囲気をすぐ体験したい** | デモ版（ホスト済み or ローカル） | 1 分 | ブラウザでサンプルを開くだけ |
-| **threejs.org 等の既存サイトで試したい** | ブックマークレット | 2–3 分 | daemon を起動 → ブックマークを登録 → 対象ページで実行 |
-| **自分の Three.js/Vite/Webpack プロジェクトに組み込みたい** | SDK + ローカル daemon（配布版） | 5–10 分 | daemon 起動 → SDK を読み込み → `ready()` `attach()` を呼ぶ |
-| **生成系機能を含めたフル構成を整えたい** | ローカル daemon + KAMUI Code 設定 | 10 分〜 | `config.json` を設定 → `npm run dev` → docs/SETUP.md 参照 |
-
-気になる行をクリック（またはスクロール）して、下記の詳細セクションから該当手順をたどってください。
-
-### 2. シナリオ別ガイド
-
-#### A. ブラウザで今すぐ試す（デモ版）
-
-- **オンラインですぐ試す:** [Basic Demo](https://nyukicorn.github.io/chocodrop/examples/basic/) を開くだけで UI を体験できます。
-- **ローカルで試す:**
-  ```bash
-  npm run example:basic
-  ```
-  ブラウザで `http://localhost:8000/basic/index.html` を開きます。ネットワークが制限されている環境でも動作確認できます。
-- さらに世界観を試したい場合は `examples/` ディレクトリに複数のシーンが用意されています。
-
-#### B. 外部サイトにワンクリック注入（ブックマークレット）
-
-1. **daemon を起動**（初回のみ）
-   ```bash
-   # npm 推奨
-   npx --yes @chocodrop/daemon@alpha
-
-   # または pnpm
-   pnpm dlx @chocodrop/daemon@alpha
-   ```
-   起動後は `http://127.0.0.1:43110` で SDK/UI が配信されます。
-2. **ブックマークレットを登録**
-   [Bookmarklet v2](https://nyukicorn.github.io/chocodrop/examples/bookmarklet-v2.html) を開き、「🍫 ChocoDrop v2」ボタンをブックマークバーへドラッグ＆ドロップします。
-3. **対象ページで実行**
-   threejs.org など任意の Three.js ページで登録したブックマークをクリックすると、右下に ChocoDrop UI が表示されます。daemon が停止している場合は Toast UI が起動コマンドを案内します。
-4. **DevTools スニペット派のための代替**
-   `bookmarklet-code.js` の内容を Chrome の Snippets に貼り付けて実行すれば、同じトースト UI を呼び出せます。
-
-#### C. 自分の Three.js プロジェクトに組み込む（配布版）
-
-1. **前提**
-   - Node.js 16+ / npm または pnpm
-   - Three.js r170 付近（推奨）
-2. **daemon をローカルで起動**
-   ```bash
-   npx --yes @chocodrop/daemon@alpha
-   # 既存ポートと衝突する場合は --port 43111 などを付与
-   ```
-3. **SDK を読み込む（CDN 方式）**
-   HTML の `<head>` などに以下を追加します。
-   ```html
-   <script src="http://127.0.0.1:43110/sdk.js"></script>
-   ```
-   Three.js/OrbitControls をすでに読み込んでいれば、そのまま `ready()` → `attach()` を呼べます。
-4. **シーンにアタッチ**
-   ```javascript
-   await window.chocodrop.ready();
-   await window.chocodrop.attach(scene, {
-     camera,
-     renderer,
-     onControlsToggle: (disabled) => {
-       controls.enabled = !disabled;
-     }
-   });
-   ```
-   UI が表示され、`@` キーから操作できれば成功です。
-5. **npm で取り込む場合**
-   ```bash
-   npm install chocodrop three
-   ```
-   ```javascript
-   import { createChocoDrop } from 'chocodrop';
-
-   const choco = createChocoDrop(scene, {
-     camera,
-     renderer,
-     serverUrl: 'http://127.0.0.1:43110'
-   });
-   ```
-   bundler 向けの詳細手順は [`docs/INTEGRATION.md`](docs/INTEGRATION.md) を参照してください。
-
-#### D. 生成機能まで有効化する（KAMUI Code + ローカルサーバー）
-
-1. リポジトリを clone し、依存関係をインストールします。
-   ```bash
-   git clone https://github.com/nyukicorn/chocodrop.git
-   cd chocodrop
-   npm install
-   ```
-2. `npm run setup:mcp` で KAMUI Code の設定ファイルパスを登録します。
-3. `npm run dev` を実行すると `http://localhost:3011` でサーバーが起動し、生成 API が利用可能になります。
-4. 詳細な構成やモデル設定は [`docs/SETUP.md`](docs/SETUP.md) を参照してください。
-
-> 🔍 **ヒント**: daemon や `sdk.js` のレスポンスヘッダーに `X-ChocoDrop-SDK-Source: dist` が表示されていれば、ビルド済みバンドルが正しく配信されています。ブラウザで `await window.chocodrop.ready()` を実行して接続状況をチェックできます。
 
 ---
 
@@ -212,7 +282,7 @@ Bookmarkletやコンソールスニペットで外部サイト（threejs.org、C
 
 ---
 
-## 🏗️ アーキテクチャ・技術詳細
+## 🏗️ 技術詳細
 
 ### 🌐 推奨ブラウザ
 
@@ -274,15 +344,29 @@ ChocoDrop は常駐 daemon + ブラウザ SDK の構成で動作します。
 - ページをリロードしてもう一度試す
 
 **CORSエラー**
-- allowlist設定が必要な場合があります（詳細なガイドは次バージョンで追加予定）
+- allowlist設定が必要な場合があります
 - `~/.config/chocodrop/allowlist.json` で設定可能
+
+詳細は [トラブルシューティングガイド](docs/TROUBLESHOOTING.md) を参照してください。
 
 ---
 
-## 📚 詳細ドキュメント
-- [トラブルシューティング](docs/TROUBLESHOOTING.md)
-- [API リファレンス](docs/API.md)
-- [セットアップガイド](docs/SETUP.md)
+## 📚 リンク・リソース
+
+### 公式リソース
+- 🌐 [公式サイト](https://nyukicorn.github.io/chocodrop/)
+- 📚 [セットアップガイド](docs/SETUP.md)
+- 📖 [API リファレンス](docs/API.md)
+- 🔧 [統合ガイド](docs/INTEGRATION.md)
+
+### パッケージ・コード
+- 📦 [npm パッケージ](https://www.npmjs.com/package/chocodrop)
+- 💻 [GitHub リポジトリ](https://github.com/nyukicorn/chocodrop)
+- 🎮 [サンプル集](examples/)
+
+### コミュニティ
+- 💬 [GitHub Discussions](https://github.com/nyukicorn/chocodrop/discussions)
+- 🐛 [Issue報告](https://github.com/nyukicorn/chocodrop/issues)
 
 ---
 
@@ -290,7 +374,12 @@ ChocoDrop は常駐 daemon + ブラウザ SDK の構成で動作します。
 
 MIT License - see [LICENSE](LICENSE) file for details.
 
-## 🔗 Links
+---
 
-- **GitHub:** https://github.com/nyukicorn/chocodrop
-- **Examples:** [examples/](examples/)
+<div align="center">
+
+**© 2025 ChocoDrop. Made with 🍫 and ✨**
+
+[⬆ ページトップへ](#chocodrop)
+
+</div>
