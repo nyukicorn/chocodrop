@@ -39,10 +39,10 @@ A browser-based tool that enables instant 3D object creation and scene manipulat
 ## 🎬 30秒でわかる
 
 <div align="center">
-  <a href="https://nyukicorn.github.io/chocodrop/examples/basic/">
-    <img src="https://via.placeholder.com/800x450/2C1810/FFF8E7?text=ChocoDrop+Demo+Video" alt="ChocoDrop Demo" width="100%" />
-  </a>
-  <p><em>↑ クリックしてライブデモを体験</em></p>
+  <video src="docs/media/demo-overview.mp4" controls width="100%" style="max-width: 800px; border-radius: 8px;">
+    お使いのブラウザは動画タグをサポートしていません。<a href="docs/media/demo-overview.mp4">動画をダウンロード</a>してご覧ください。
+  </video>
+  <p><em>ChocoDrop の使い方を30秒で紹介 | <a href="https://nyukicorn.github.io/chocodrop/examples/basic/">今すぐ試す →</a></em></p>
 </div>
 
 **3つのポイント:**
