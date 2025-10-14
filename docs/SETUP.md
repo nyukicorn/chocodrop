@@ -56,6 +56,8 @@ MCP設定ファイル（例: KAMUI CODE.json）のパスを入力してくださ
 - `/Users/yourname/.claude/mcp-kamui-code.json`
 - `./config/KAMUI CODE.json`
 
+> ℹ️ KAMUI Code 設定が未入力のままでも ChocoDrop 自体は起動します。画像/動画生成を実行したタイミングで「AI生成サーバーを設定してください」という案内が表示されるため、生成機能を使いたい場合のみ設定してください。
+
 #### 2.3 手動設定
 
 1. `config.example.json` を `config.json` にコピー：
@@ -86,6 +88,8 @@ ChocoDrop は以下の順序で設定ファイルを自動検索します：
 - `KAMUI CODE.JSON`
 - `mcp-kamui-code.json`
 - `kamui-code.json`
+
+> ✅ MCP設定ファイル内の `mcpServers` に登録されているサービスだけが利用可能になります。`config.json` の `models.image.default` / `models.video.default` は、登録済みサービスIDと一致している場合にのみ優先され、それ以外は最初に見つかったサービスが自動的に使用されます。
 
 ### 3. 利用可能なAIモデル
 

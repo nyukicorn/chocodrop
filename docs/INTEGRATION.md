@@ -334,6 +334,8 @@ const chocoDrop = createChocoDrop(scene, options);
 
 4. Three.js を使っているページでブックマークをクリック
 
+> 💡 ページに `scene` / `camera` / `renderer` が存在しない場合は、自動的に「Lite Scene Preview」が立ち上がります。小さなオーバーレイ上に生成・インポート結果を表示できるので、Three.js を直接組み込んでいないページでも気軽に試せます。
+
 ### 対応サイト例
 
 - [Three.js Examples](https://threejs.org/examples/)
@@ -349,6 +351,7 @@ const chocoDrop = createChocoDrop(scene, options);
 
 - ⚠️ 現在は読み取り専用（オブジェクト配置のみ、AI生成は Phase 2b で対応予定）
 - ⚠️ サイトによっては Content Security Policy で制限される場合がある
+- ⚠️ Lite Scene Preview モードではカメラ操作が最小限（ドラッグ移動は無効）になります
 
 ---
 
