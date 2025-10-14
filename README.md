@@ -1,10 +1,10 @@
 # ChocoDrop
 
+ChocoDrop is a browser-based assistant for Three.js that lets you drop AI-generated or preset 3D objects into any scene with text or voice commands. Jump into the live demo, plug the SDK into your project, or enable the full AI workflow by running the local daemon described below. Documentation is primarily written in Japanese; English readers can follow the bilingual headings and quick links to get started.
+
 ちょこっとDrop。世界が咲く。
 
-**テキストや音声で、Three.js シーンに瞬時にオブジェクトを追加できるブラウザツール**
-
-A browser-based tool that enables instant 3D object creation and scene manipulation in Three.js using natural language commands.
+**テキストや音声からの指示だけで Three.js のシーンにオブジェクトを瞬時に追加できるブラウザツールです。**
 
 <div align="center">
 
@@ -18,25 +18,28 @@ A browser-based tool that enables instant 3D object creation and scene manipulat
 
 **インストール不要 | 30秒で体験**
 
-[📖 公式サイト](https://nyukicorn.github.io/chocodrop/) · [📚 ドキュメント](./docs/SETUP.md) · [📦 npm](https://www.npmjs.com/package/chocodrop)
+[📖 公式サイト](https://nyukicorn.github.io/chocodrop/) · [🔖 ブックマークレット v2](https://nyukicorn.github.io/chocodrop/examples/bookmarklet-v2.html) · [📚 ドキュメント](./docs/SETUP.md) · [📦 npm](https://www.npmjs.com/package/chocodrop)
 
 </div>
 
 ---
 
-## 📑 目次
+<a id="contents"></a>
+## 📑 Contents / 目次
 
-- [30秒でわかる](#-30秒でわかる)
-- [使い始める](#-使い始める)
-- [できること](#-できること)
-- [主な機能](#-主な機能)
-- [技術詳細](#️-技術詳細)
-- [トラブルシューティング](#-トラブルシューティング)
-- [リンク・リソース](#-リンクリソース)
+- [Quick Overview / 30秒でわかる](#quick-overview)
+- [Get Started / 使い始める](#get-started)
+- [What You Can Do / できること](#what-you-can-do)
+- [Key Features / 主な機能](#key-features)
+- [Technical Details / 技術詳細](#technical-details)
+- [Troubleshooting / トラブルシューティング](#troubleshooting)
+- [Links & Resources / リンク・リソース](#links-and-resources)
+
 
 ---
 
-## 🎬 30秒でわかる
+<a id="quick-overview"></a>
+## 🎬 Quick Overview / 30秒でわかる
 
 <div align="center">
   <video src="docs/media/demo-overview.mp4" controls width="100%" style="max-width: 800px; border-radius: 8px;">
@@ -54,23 +57,25 @@ A browser-based tool that enables instant 3D object creation and scene manipulat
 
 ---
 
-## 🚀 使い始める
+<a id="get-started"></a>
+## 🚀 Get Started / 使い始める
 
-### あなたの目的に合わせて選ぶ
+### Choose Your Path / あなたの目的に合わせて選ぶ
 
 | 目的 | 方法 | 所要時間 | 次のステップ |
 |------|------|----------|-------------|
-| **まず雰囲気を体験したい** | デモ版 | 1分 | [→ A. デモで試す](#a-デモで試す) |
-| **既存サイトで試したい** | ブックマークレット | 2-3分 | [→ B. ブックマークレット](#b-ブックマークレット) |
-| **プロジェクトに組み込む** | SDK + daemon | 5-10分 | [→ C. SDK組み込み](#c-sdk組み込み) |
-| **AI生成を含む全機能** | ローカル環境 | 10分〜 | [→ D. フル環境構築](#d-フル環境構築) |
+| **まず雰囲気を体験したい** | デモ版 | 1分 | [→ A. Try the Demo](#guide-demo) |
+| **既存サイトで試したい** | ブックマークレット | 2-3分 | [→ B. Bookmarklet](#guide-bookmarklet) |
+| **プロジェクトに組み込む** | SDK + daemon | 5-10分 | [→ C. SDK Integration](#guide-sdk) |
+| **AI生成を含む全機能** | ローカル環境 | 10分〜 | [→ D. Full Local Setup](#guide-full) |
 
 ---
 
-### 詳細ガイド
+<a id="detailed-guides"></a>
+### Detailed Guides / 詳細ガイド
 
-<details>
-<summary><strong>A. デモで試す</strong>（1分・インストール不要）</summary>
+<details id="guide-demo">
+<summary><strong>A. Try the Demo / デモで試す</strong>（1分・インストール不要）</summary>
 
 <br>
 
@@ -87,8 +92,8 @@ npm run example:basic
 
 </details>
 
-<details>
-<summary><strong>B. ブックマークレット</strong>（2-3分・外部サイトで試せる）</summary>
+<details id="guide-bookmarklet">
+<summary><strong>B. Bookmarklet / ブックマークレット</strong>（2-3分・外部サイトで試せる）</summary>
 
 <br>
 
@@ -117,8 +122,8 @@ daemon が停止している場合は Toast UI が起動コマンドを案内し
 
 </details>
 
-<details>
-<summary><strong>C. SDK組み込み</strong>（5-10分・自分のプロジェクト）</summary>
+<details id="guide-sdk">
+<summary><strong>C. SDK Integration / SDK組み込み</strong>（5-10分・自分のプロジェクト）</summary>
 
 <br>
 
@@ -170,8 +175,8 @@ bundler 向けの詳細手順は [`docs/INTEGRATION.md`](docs/INTEGRATION.md) �
 
 </details>
 
-<details>
-<summary><strong>D. フル環境構築</strong>（10分〜・AI生成機能を有効化）</summary>
+<details id="guide-full">
+<summary><strong>D. Full Local Setup / フル環境構築</strong>（10分〜・AI生成機能を有効化）</summary>
 
 <br>
 
@@ -203,7 +208,8 @@ npm run dev
 
 ---
 
-## ✨ できること
+<a id="what-you-can-do"></a>
+## ✨ What You Can Do / できること
 
 ### 誰でもすぐ試せる
 
@@ -213,24 +219,23 @@ npm run dev
 
 ### KAMUI Code + daemon 設定で可能になる（開発者向け）
 
-**"右上に桜の3Dモデルを置いて" → 瞬時に生成・配置**
-_"Put a cherry blossom 3D model on the upper right" → Instantly generates and places_
+**「右上に桜の3Dモデルを置いて」→ 瞬時に生成・配置**
 
-**"このオブジェクトをモノクロにして" → すぐに変換**
-_"Make this object monochrome" → Immediately transforms_
+**「このオブジェクトをモノクロにして」→ すぐに変換**
 
 ---
 
-## 💡 主な機能
+<a id="key-features"></a>
+## 💡 Key Features / 主な機能
 
-### 🍬 Toast UI - 優しい起動案内
+### 🍬 Toast UI - Guided Launch / 優しい起動案内
 デーモンが起動していない場合、右下にToast UIが表示されます:
 
 - **起動コマンドのコピー**: ワンクリックでコマンドをクリップボードにコピー
 - **自動ポーリング**: 2.5秒間隔でデーモンの起動を自動チェック
 - **接続成功**: デーモンが起動すると自動的にSDKを読み込み
 
-### 🔄 reload() API
+### 🔄 reload() API / 設定リロード
 設定をリロードできる新しいAPI:
 
 ```javascript
@@ -238,7 +243,7 @@ const result = await window.chocodrop.reload();
 console.log(result); // {ok: true, message: "Configuration reloaded"}
 ```
 
-### 🌐 外部サイト対応 - Full UI表示
+### 🌐 Full UI on External Sites / 外部サイト対応
 Bookmarkletやコンソールスニペットで外部サイト（threejs.org、CodePen、Glitch等）に統合した場合も、**フル機能のUIが表示されます**（プレースホルダーUIではありません）。
 
 **特徴:**
@@ -247,7 +252,7 @@ Bookmarkletやコンソールスニペットで外部サイト（threejs.org、C
 - ✅ ローカルデーモン(127.0.0.1)との通信のみ（外部送信なし）
 - ⚠️ 現在は読み取り専用モード（AI生成機能はローカル環境でのKAMUI Code設定が必要）
 
-### 🏢 企業ポリシー配慮 - CDN制御
+### 🏢 Enterprise-Friendly CDN Controls / 企業ポリシー配慮
 企業ネットワークでCDNアクセスが制限されている環境向けに、THREE.js読み込み動作をカスタマイズできます:
 
 ```html
@@ -282,9 +287,10 @@ Bookmarkletやコンソールスニペットで外部サイト（threejs.org、C
 
 ---
 
-## 🏗️ 技術詳細
+<a id="technical-details"></a>
+## 🏗️ Technical Details / 技術詳細
 
-### 🌐 推奨ブラウザ
+### 🌐 Recommended Browsers / 推奨ブラウザ
 
 **Chrome（推奨・動作確認済み）**
 - ✅ Private Network Access (PNA) 完全サポート
@@ -294,7 +300,7 @@ Bookmarkletやコンソールスニペットで外部サイト（threejs.org、C
 **⚠️ 他のブラウザについて:**
 Safari/Firefox/Edgeは現在サポートしていません。Chromeの使用を強く推奨します。
 
-### 🔒 Origin許可設定
+### 🔒 Origin Allowlist / Origin許可設定
 
 ChocoDrop は CORS allowlist でアクセスを制御しています。
 
@@ -322,7 +328,7 @@ Daemon を再起動すると反映されます。
 
 ⚠️ **信頼できるサイトのみ追加してください**
 
-### 🔐 セキュリティ
+### 🔐 Security / セキュリティ
 
 ChocoDrop は常駐 daemon + ブラウザ SDK の構成で動作します。
 
@@ -333,7 +339,8 @@ ChocoDrop は常駐 daemon + ブラウザ SDK の構成で動作します。
 
 ---
 
-## ❓ トラブルシューティング
+<a id="troubleshooting"></a>
+## ❓ Troubleshooting / トラブルシューティング
 
 **Bookmarkletが動かない**
 - ブラウザのコンソール（F12）でエラーを確認
@@ -351,34 +358,35 @@ ChocoDrop は常駐 daemon + ブラウザ SDK の構成で動作します。
 
 ---
 
-## 📚 リンク・リソース
+<a id="links-and-resources"></a>
+## 📚 Links & Resources / リンク・リソース
 
-### 公式リソース
+### Official Materials / 公式リソース
 - 🌐 [公式サイト](https://nyukicorn.github.io/chocodrop/)
 - 📚 [セットアップガイド](docs/SETUP.md)
 - 📖 [API リファレンス](docs/API.md)
 - 🔧 [統合ガイド](docs/INTEGRATION.md)
 
-### パッケージ・コード
+### Packages & Code / パッケージ・コード
 - 📦 [npm パッケージ](https://www.npmjs.com/package/chocodrop)
 - 💻 [GitHub リポジトリ](https://github.com/nyukicorn/chocodrop)
 - 🎮 [サンプル集](examples/)
 
-### コミュニティ
+### Community / コミュニティ
 - 💬 [GitHub Discussions](https://github.com/nyukicorn/chocodrop/discussions)
 - 🐛 [Issue報告](https://github.com/nyukicorn/chocodrop/issues)
 
 ---
 
-## 📄 License
+## 📄 License / ライセンス
 
-MIT License - see [LICENSE](LICENSE) file for details.
+このプロジェクトは MIT License の下で公開されています。詳細は [LICENSE](LICENSE) を参照してください。
 
 ---
 
 <div align="center">
 
-**© 2025 ChocoDrop. Made with 🍫 and ✨**
+**© 2025 ChocoDrop. 🍫 と ✨ に感謝を込めて。**
 
 [⬆ ページトップへ](#chocodrop)
 
