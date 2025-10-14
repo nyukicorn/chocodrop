@@ -70,9 +70,8 @@ ChocoDrop is a browser-based assistant for Three.js that lets you drop AI-genera
 
 <h3 id="detailed-guides">Detailed Guides / 詳細ガイド</h3>
 
-<a id="guide-demo"></a>
 <details>
-<summary><strong>A. Try the Demo / デモで試す</strong>（1分・インストール不要）</summary>
+<summary id="guide-demo"><strong>A. Try the Demo / デモで試す</strong>（1分・インストール不要）</summary>
 
 <br>
 
@@ -89,9 +88,8 @@ npm run example:basic
 
 </details>
 
-<a id="guide-bookmarklet"></a>
 <details>
-<summary><strong>B. Bookmarklet / ブックマークレット</strong>（2-3分・外部サイトで試せる）</summary>
+<summary id="guide-bookmarklet"><strong>B. Bookmarklet / ブックマークレット</strong>（2-3分・外部サイトで試せる）</summary>
 
 <br>
 
@@ -120,9 +118,8 @@ daemon が停止している場合は Toast UI が起動コマンドを案内し
 
 </details>
 
-<a id="guide-sdk"></a>
 <details>
-<summary><strong>C. SDK Integration / SDK組み込み</strong>（5-10分・自分のプロジェクト）</summary>
+<summary id="guide-sdk"><strong>C. SDK Integration / SDK組み込み</strong>（5-10分・自分のプロジェクト）</summary>
 
 <br>
 
@@ -174,9 +171,8 @@ bundler 向けの詳細手順は [`docs/INTEGRATION.md`](docs/INTEGRATION.md) �
 
 </details>
 
-<a id="guide-full"></a>
 <details>
-<summary><strong>D. Full Local Setup / フル環境構築</strong>（10分〜・AI生成機能を有効化）</summary>
+<summary id="guide-full"><strong>D. Full Local Setup / フル環境構築</strong>（10分〜・AI生成機能を有効化）</summary>
 
 <br>
 
