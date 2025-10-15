@@ -1,10 +1,10 @@
 # ChocoDrop
 
-ChocoDrop is a browser-based assistant for Three.js that lets you drop AI-generated or preset 3D objects into any scene with text or voice commands. Jump into the live demo, plug the SDK into your project, or enable the full AI workflow by running the local daemon described below. Documentation is primarily written in Japanese; English readers can follow the bilingual headings and quick links to get started.
-
 ちょこっとDrop。世界が咲く。
 
 **テキストや音声からの指示だけで Three.js のシーンにオブジェクトを瞬時に追加できるブラウザツールです。**
+
+ChocoDrop is a browser-based assistant for Three.js that lets you drop AI-generated or preset 3D objects into any scene with text or voice commands. Jump into the live demo, plug the SDK into your project, or enable the full AI workflow by running the local daemon described below. Documentation is primarily written in Japanese; English readers can follow the bilingual headings and quick links to get started.
 
 <div align="center">
 
@@ -24,8 +24,29 @@ ChocoDrop is a browser-based assistant for Three.js that lets you drop AI-genera
 
 ---
 
+<h2 id="demo-worlds">🌈 Demo Worlds / デモギャラリー</h2>
+
+デモ版は1ページで終わりません。気分に合わせて世界を切り替え、ChocoDropの使い方やUIアニメーションを短時間で横断できます。
+
+<div align="center">
+
+| | |
+|---|---|
+| [🍫 Basic Lounge](https://nyukicorn.github.io/chocodrop/examples/basic/)<br><sub>UI全体を通しで体験できるスタータールーム</sub> | [🌌 Space Dive](https://nyukicorn.github.io/chocodrop/examples/space/)<br><sub>無重力空間でライトとマテリアルの切り替えを試す</sub> |
+| [🎶 Music Garden](https://nyukicorn.github.io/chocodrop/examples/music-garden/)<br><sub>音に合わせて揺らぐ植生とライティングをチェック</sub> | [🧘 Wabi-Sabi Studio](https://nyukicorn.github.io/chocodrop/examples/wabi-sabi/)<br><sub>和のマテリアルと静かな演出で質感調整を確認</sub> |
+| [🧩 Toy City](https://nyukicorn.github.io/chocodrop/examples/toy-city/)<br><sub>プロシージャルに広がる街でカメラ切替をテスト</sub> | [🌊 Pixel Ocean](https://nyukicorn.github.io/chocodrop/examples/pixel-ocean/)<br><sub>ボクセルの海とパーティクル表現をミックス</sub> |
+
+</div>
+
+<p align="center">
+⇨ <a href="https://github.com/nyukicorn/chocodrop/tree/main/examples">もっと見る（examples フォルダ一覧）</a>
+</p>
+
+---
+
 <h2 id="contents">📑 Contents / 目次</h2>
 
+- [Demo Worlds / デモギャラリー](#demo-worlds)
 - [Quick Overview / 30秒でわかる](#quick-overview)
 - [Get Started / 使い始める](#get-started)
 - [What You Can Do / できること](#what-you-can-do)
