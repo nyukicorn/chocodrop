@@ -166,6 +166,223 @@
             font-weight: 400;
         }
 
+        /* Demo Carousel */
+        .demo-carousel {
+            position: relative;
+            padding: 80px 0 60px;
+            background: linear-gradient(135deg, rgba(139, 92, 246, 0.08) 0%, rgba(22, 22, 23, 0.4) 60%, rgba(139, 108, 71, 0.05) 100%);
+            border-top: 1px solid rgba(255, 248, 231, 0.04);
+            border-bottom: 1px solid rgba(255, 248, 231, 0.04);
+        }
+
+        .demo-carousel::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle at 5% 10%, rgba(255, 248, 231, 0.04) 0%, transparent 45%),
+                        radial-gradient(circle at 95% 90%, rgba(139, 92, 246, 0.08) 0%, transparent 55%);
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .demo-carousel .container {
+            position: relative;
+            z-index: 2;
+        }
+
+        .carousel-head {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: flex-end;
+            justify-content: space-between;
+            gap: 20px;
+            margin-bottom: 32px;
+        }
+
+        .carousel-head h2 {
+            font-size: clamp(2rem, 4vw, 2.6rem);
+            font-weight: 700;
+            color: var(--choco-cream);
+        }
+
+        .carousel-copy {
+            max-width: 520px;
+            color: rgba(255, 248, 231, 0.7);
+            font-size: 0.98rem;
+            line-height: 1.7;
+        }
+
+        .carousel-nav {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .carousel-nav button {
+            background: rgba(255, 248, 231, 0.08);
+            color: var(--choco-cream);
+            border: 1px solid rgba(255, 248, 231, 0.16);
+            border-radius: 50%;
+            width: 44px;
+            height: 44px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.15rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .carousel-nav button:hover:not([disabled]) {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-1);
+            border-color: rgba(139, 92, 246, 0.7);
+        }
+
+        .carousel-nav button[disabled] {
+            opacity: 0.35;
+            cursor: not-allowed;
+        }
+
+        .carousel-viewport {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .carousel-track {
+            display: flex;
+            gap: 24px;
+            overflow-x: auto;
+            scroll-snap-type: x mandatory;
+            scroll-padding: 24px;
+            padding-bottom: 12px;
+            scrollbar-width: thin;
+        }
+
+        .carousel-track::-webkit-scrollbar {
+            height: 6px;
+        }
+
+        .carousel-track::-webkit-scrollbar-thumb {
+            background: rgba(255, 248, 231, 0.2);
+            border-radius: 999px;
+        }
+
+        .carousel-card {
+            position: relative;
+            min-width: clamp(260px, 32vw, 360px);
+            padding: 28px 28px 120px;
+            border-radius: var(--r-l);
+            background: linear-gradient(160deg, rgba(17, 17, 19, 0.9) 0%, rgba(28, 24, 35, 0.7) 80%, rgba(139, 92, 246, 0.18) 100%);
+            border: 1px solid rgba(255, 248, 231, 0.08);
+            text-decoration: none;
+            color: var(--choco-cream);
+            scroll-snap-align: start;
+            overflow: hidden;
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.25);
+            transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+        }
+
+        .carousel-card:hover {
+            transform: translateY(-6px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35), var(--shadow-glow);
+            border-color: rgba(139, 92, 246, 0.4);
+        }
+
+        .carousel-card::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle at 60% 30%, rgba(139, 92, 246, 0.35) 0%, transparent 60%);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .carousel-card:hover::after {
+            opacity: 0.6;
+        }
+
+        .carousel-tag {
+            font-size: 0.78rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: rgba(255, 248, 231, 0.6);
+            display: inline-flex;
+            gap: 6px;
+            align-items: center;
+        }
+
+        .carousel-title {
+            font-size: 1.55rem;
+            font-weight: 700;
+            margin: 16px 0 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .carousel-title span {
+            font-size: 1.8rem;
+        }
+
+        .carousel-description {
+            font-size: 0.98rem;
+            line-height: 1.7;
+            opacity: 0.82;
+            margin-bottom: 18px;
+        }
+
+        .carousel-meta {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            font-size: 0.9rem;
+            opacity: 0.75;
+        }
+
+        .carousel-action {
+            position: absolute;
+            inset: auto 24px 24px 24px;
+            display: inline-flex;
+            gap: 8px;
+            align-items: center;
+            background: rgba(255, 248, 231, 0.12);
+            color: var(--choco-cream);
+            padding: 12px 18px;
+            border-radius: var(--r-xl);
+            font-weight: 600;
+            font-size: 0.92rem;
+            border: 1px solid rgba(255, 248, 231, 0.16);
+            transition: background 0.2s ease, color 0.2s ease;
+        }
+
+        .carousel-card:hover .carousel-action {
+            background: rgba(139, 92, 246, 0.22);
+            color: #fff;
+        }
+
+        .carousel-progress {
+            margin-top: 24px;
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+        }
+
+        .carousel-progress button {
+            width: 10px;
+            height: 10px;
+            border-radius: 999px;
+            border: none;
+            background: rgba(255, 248, 231, 0.18);
+            cursor: pointer;
+            transition: width 0.25s ease, background 0.25s ease;
+        }
+
+        .carousel-progress button.is-active {
+            width: 32px;
+            background: rgba(139, 92, 246, 0.9);
+        }
+
         .hero-buttons {
             display: flex;
             gap: 16px;
@@ -461,6 +678,24 @@
                 grid-template-columns: 1fr;
             }
 
+            .carousel-head {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .carousel-track {
+                gap: 18px;
+            }
+
+            .carousel-card {
+                min-width: calc(100vw - 80px);
+            }
+
+            .carousel-nav {
+                width: 100%;
+                justify-content: flex-end;
+            }
+
             .hero-buttons {
                 flex-direction: column;
                 width: 100%;
@@ -655,6 +890,121 @@
                 <button class="btn-secondary melting-hover" onclick="scrollToVideo()">
                     ▶️ 30秒でわかる
                 </button>
+            </div>
+        </div>
+    </section>
+
+    <section class="demo-carousel" aria-labelledby="demo-carousel-heading">
+        <div class="container">
+            <div class="carousel-head">
+                <div>
+                    <h2 id="demo-carousel-heading">好きな世界をワープして体験</h2>
+                    <p class="carousel-copy">
+                        ひとつのデモだけで終わらないよう、世界観や用途別にシーンを用意しました。
+                        スクロールまたはナビボタンで移動し、気になった世界をそのまま開いてください。
+                    </p>
+                </div>
+                <div class="carousel-nav" role="group" aria-label="デモギャラリーナビゲーション">
+                    <button type="button" data-direction="prev" aria-label="前のデモへ">
+                        ←
+                    </button>
+                    <button type="button" data-direction="next" aria-label="次のデモへ">
+                        →
+                    </button>
+                </div>
+            </div>
+            <div class="carousel-viewport">
+                <div class="carousel-track" data-carousel-track>
+                    <a class="carousel-card" href="examples/basic/index.html" data-carousel-index="0" aria-label="Basic Lounge デモを開く">
+                        <span class="carousel-tag">Starter</span>
+                        <h3 class="carousel-title"><span>🍫</span>Basic Lounge</h3>
+                        <p class="carousel-description">
+                            UI全体の流れを通しで確認できる定番ルーム。初めての方はここからどうぞ。
+                        </p>
+                        <div class="carousel-meta">🕒 1分で概要チェック</div>
+                        <span class="carousel-action">この世界へ →</span>
+                    </a>
+
+                    <a class="carousel-card" href="examples/space/index.html" data-carousel-index="1" aria-label="Space Dive デモを開く">
+                        <span class="carousel-tag">Lighting</span>
+                        <h3 class="carousel-title"><span>🌌</span>Space Dive</h3>
+                        <p class="carousel-description">
+                            無重力空間でマテリアルとライトを切り替え。暗所でのUIワークフローを試すのに最適。
+                        </p>
+                        <div class="carousel-meta">💡 光源操作 / カメラドリー</div>
+                        <span class="carousel-action">この世界へ →</span>
+                    </a>
+
+                    <a class="carousel-card" href="examples/music-garden/index.html" data-carousel-index="2" aria-label="Music Garden デモを開く">
+                        <span class="carousel-tag">Reactive</span>
+                        <h3 class="carousel-title"><span>🎶</span>Music Garden</h3>
+                        <p class="carousel-description">
+                            オーディオリアクティブな植生で、エフェクト系コマンドの挙動をまとめて体験。
+                        </p>
+                        <div class="carousel-meta">🎧 リアクティブUI / パーティクル</div>
+                        <span class="carousel-action">この世界へ →</span>
+                    </a>
+
+                    <a class="carousel-card" href="examples/wabi-sabi/index.html" data-carousel-index="3" aria-label="Wabi-Sabi Studio デモを開く">
+                        <span class="carousel-tag">Material</span>
+                        <h3 class="carousel-title"><span>🧘</span>Wabi-Sabi Studio</h3>
+                        <p class="carousel-description">
+                            和のマテリアル調整と静的ライトで、テクスチャやトーン調整コマンドを試したいときに。
+                        </p>
+                        <div class="carousel-meta">🧱 テクスチャ調整 / 静的ライト</div>
+                        <span class="carousel-action">この世界へ →</span>
+                    </a>
+
+                    <a class="carousel-card" href="examples/toy-city/index.html" data-carousel-index="4" aria-label="Toy City デモを開く">
+                        <span class="carousel-tag">Procedural</span>
+                        <h3 class="carousel-title"><span>🧩</span>Toy City</h3>
+                        <p class="carousel-description">
+                            プロシージャル生成で広がる街。カメラ切り替えやレイヤー管理のコマンド確認に。
+                        </p>
+                        <div class="carousel-meta">🏙️ プロシージャル生成</div>
+                        <span class="carousel-action">この世界へ →</span>
+                    </a>
+
+                    <a class="carousel-card" href="examples/pixel-ocean/index.html" data-carousel-index="5" aria-label="Pixel Ocean デモを開く">
+                        <span class="carousel-tag">Particles</span>
+                        <h3 class="carousel-title"><span>🌊</span>Pixel Ocean</h3>
+                        <p class="carousel-description">
+                            ボクセルの海と漂うパーティクルで、モーション系コマンドとカラーバリエーションをチェック。
+                        </p>
+                        <div class="carousel-meta">🌈 カラーシフト / パーティクル</div>
+                        <span class="carousel-action">この世界へ →</span>
+                    </a>
+
+                    <a class="carousel-card" href="examples/lofi-room/index.html" data-carousel-index="6" aria-label="Lo-Fi Room デモを開く">
+                        <span class="carousel-tag">Chill</span>
+                        <h3 class="carousel-title"><span>🎧</span>Lo-Fi Room</h3>
+                        <p class="carousel-description">
+                            落ち着いた室内でインテリア配置を試すチルな空間。モード切替の挙動も確認できます。
+                        </p>
+                        <div class="carousel-meta">🪑 インテリア配置</div>
+                        <span class="carousel-action">この世界へ →</span>
+                    </a>
+
+                    <a class="carousel-card" href="examples/react-three-fiber/index.html" data-carousel-index="7" aria-label="React Three Fiber Playground デモを開く">
+                        <span class="carousel-tag">R3F</span>
+                        <h3 class="carousel-title"><span>⚛️</span>R3F Playground</h3>
+                        <p class="carousel-description">
+                            React Three Fiber 版のインテグレーション。フロントエンド構成で使う方はこちらへ。
+                        </p>
+                        <div class="carousel-meta">🧠 React + Three.js</div>
+                        <span class="carousel-action">この世界へ →</span>
+                    </a>
+                </div>
+            </div>
+            <div class="carousel-progress" role="tablist" aria-label="デモ一覧の現在位置">
+                <button type="button" data-carousel-dot="0" class="is-active" aria-label="Basic Lounge を表示" aria-current="true"></button>
+                <button type="button" data-carousel-dot="1" aria-label="Space Dive を表示"></button>
+                <button type="button" data-carousel-dot="2" aria-label="Music Garden を表示"></button>
+                <button type="button" data-carousel-dot="3" aria-label="Wabi-Sabi Studio を表示"></button>
+                <button type="button" data-carousel-dot="4" aria-label="Toy City を表示"></button>
+                <button type="button" data-carousel-dot="5" aria-label="Pixel Ocean を表示"></button>
+                <button type="button" data-carousel-dot="6" aria-label="Lo-Fi Room を表示"></button>
+                <button type="button" data-carousel-dot="7" aria-label="R3F Playground を表示"></button>
             </div>
         </div>
     </section>
@@ -901,6 +1251,140 @@
     </footer>
 
     <script>
+        // Demo carousel interactions
+        const carouselTrack = document.querySelector('[data-carousel-track]');
+        if (carouselTrack) {
+            const cards = Array.from(carouselTrack.querySelectorAll('.carousel-card'));
+            const navButtons = Array.from(document.querySelectorAll('.carousel-nav button'));
+            const dots = Array.from(document.querySelectorAll('[data-carousel-dot]'));
+            const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+            let currentIndex = 0;
+            let isProgrammatic = false;
+            let autoplayTimer = null;
+            let scrollDebounce = null;
+
+            const getStep = () => {
+                if (cards.length <= 1) {
+                    return cards[0]?.offsetWidth ?? 0;
+                }
+                return cards[1].offsetLeft - cards[0].offsetLeft;
+            };
+
+            const updateDots = (index) => {
+                dots.forEach((dot, dotIndex) => {
+                    const isActive = dotIndex === index;
+                    dot.classList.toggle('is-active', isActive);
+                    dot.setAttribute('aria-current', isActive ? 'true' : 'false');
+                });
+            };
+
+            const updateNav = (index) => {
+                const maxIndex = cards.length - 1;
+                navButtons.forEach((btn) => {
+                    if (btn.dataset.direction === 'prev') {
+                        btn.disabled = index <= 0;
+                    } else {
+                        btn.disabled = index >= maxIndex;
+                    }
+                });
+            };
+
+            const scrollToIndex = (index) => {
+                const step = getStep();
+                if (!step) return;
+                const maxIndex = cards.length - 1;
+                const clamped = Math.max(0, Math.min(index, maxIndex));
+                isProgrammatic = true;
+                carouselTrack.scrollTo({
+                    left: clamped * step,
+                    behavior: 'smooth'
+                });
+                currentIndex = clamped;
+                updateDots(currentIndex);
+                updateNav(currentIndex);
+                window.setTimeout(() => {
+                    isProgrammatic = false;
+                }, 420);
+            };
+
+            const stopAutoplay = () => {
+                if (autoplayTimer) {
+                    window.clearInterval(autoplayTimer);
+                    autoplayTimer = null;
+                }
+            };
+
+            const startAutoplay = () => {
+                stopAutoplay();
+                if (prefersReducedMotion.matches || cards.length <= 1) return;
+                autoplayTimer = window.setInterval(() => {
+                    const nextIndex = (currentIndex + 1) % cards.length;
+                    scrollToIndex(nextIndex);
+                }, 12000);
+            };
+
+            navButtons.forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    const direction = btn.dataset.direction === 'prev' ? -1 : 1;
+                    scrollToIndex(currentIndex + direction);
+                });
+            });
+
+            dots.forEach((dot) => {
+                dot.addEventListener('click', () => {
+                    const targetIndex = Number(dot.dataset.carouselDot);
+                    scrollToIndex(targetIndex);
+                });
+            });
+
+            carouselTrack.addEventListener('scroll', () => {
+                if (isProgrammatic) return;
+                window.clearTimeout(scrollDebounce);
+                scrollDebounce = window.setTimeout(() => {
+                    const step = getStep();
+                    if (!step) return;
+                    const rawIndex = Math.round(carouselTrack.scrollLeft / step);
+                    const nextIndex = Math.max(0, Math.min(rawIndex, cards.length - 1));
+                    if (nextIndex !== currentIndex) {
+                        currentIndex = nextIndex;
+                        updateDots(currentIndex);
+                        updateNav(currentIndex);
+                    }
+                }, 80);
+            });
+
+            window.addEventListener('resize', () => {
+                scrollToIndex(currentIndex);
+            });
+
+            carouselTrack.addEventListener('pointerdown', stopAutoplay);
+            carouselTrack.addEventListener('mouseenter', stopAutoplay);
+            carouselTrack.addEventListener('mouseleave', startAutoplay);
+            document.addEventListener('visibilitychange', () => {
+                if (document.hidden) {
+                    stopAutoplay();
+                } else {
+                    startAutoplay();
+                }
+            });
+            const handleMotionPrefChange = () => {
+                if (prefersReducedMotion.matches) {
+                    stopAutoplay();
+                } else {
+                    startAutoplay();
+                }
+            };
+            if (typeof prefersReducedMotion.addEventListener === 'function') {
+                prefersReducedMotion.addEventListener('change', handleMotionPrefChange);
+            } else if (typeof prefersReducedMotion.addListener === 'function') {
+                prefersReducedMotion.addListener(handleMotionPrefChange);
+            }
+
+            updateDots(currentIndex);
+            updateNav(currentIndex);
+            startAutoplay();
+        }
+
         // Scroll to video section
         function scrollToVideo() {
             document.getElementById('video-section').scrollIntoView({
