@@ -32,9 +32,9 @@ ChocoDrop is a browser-based assistant for Three.js that lets you drop AI-genera
 
 | | |
 |---|---|
-| [🍫 Basic Lounge](https://nyukicorn.github.io/chocodrop/examples/basic/)<br><sub>UI全体を通しで体験できるスタータールーム</sub> | [🌌 Space Dive](https://nyukicorn.github.io/chocodrop/examples/space/)<br><sub>無重力空間でライトとマテリアルの切り替えを試す</sub> |
-| [🎶 Music Garden](https://nyukicorn.github.io/chocodrop/examples/music-garden/)<br><sub>音に合わせて揺らぐ植生とライティングをチェック</sub> | [🧘 Wabi-Sabi Studio](https://nyukicorn.github.io/chocodrop/examples/wabi-sabi/)<br><sub>和のマテリアルと静かな演出で質感調整を確認</sub> |
-| [🧩 Toy City](https://nyukicorn.github.io/chocodrop/examples/toy-city/)<br><sub>プロシージャルに広がる街でカメラ切替をテスト</sub> | [🌊 Pixel Ocean](https://nyukicorn.github.io/chocodrop/examples/pixel-ocean/)<br><sub>ボクセルの海とパーティクル表現をミックス</sub> |
+| [🍫 スタータールーム](https://nyukicorn.github.io/chocodrop/examples/basic/)<br><sub>カカオが香るラウンジで基本操作を一巡。初めての人におすすめ。</sub> | [🌌 宇宙遊泳ステーション](https://nyukicorn.github.io/chocodrop/examples/space/)<br><sub>無重力でライトとマテリアルを切り替えながら漂う。</sub> |
+| [🎶 音咲き庭園](https://nyukicorn.github.io/chocodrop/examples/music-garden/)<br><sub>音に合わせて花粒子が揺らぐ、夜のサウンド・ガーデン。</sub> | [🧘 侘び寂びアトリエ](https://nyukicorn.github.io/chocodrop/examples/wabi-sabi/)<br><sub>静かな灯りで和のマテリアルを磨くテクスチャ工房。</sub> |
+| [🧩 AI遊園地](https://nyukicorn.github.io/chocodrop/examples/toy-city/)<br><sub>ホログラム観覧車とドローンが駆ける、AI生成の街角。</sub> | [🌊 ピクセル海底世界](https://nyukicorn.github.io/chocodrop/examples/pixel-ocean/)<br><sub>ピクセルの魚と泡が静かに浮かぶ、光の深海。</sub> |
 
 </div>
 
