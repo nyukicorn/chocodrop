@@ -76,6 +76,7 @@
    * Show friendly startup toast with polling
    */
   function showStartToast({ base = BASE, pollMs = 2500 } = {}) {
+    if (startToastDismissed) return;
     if (document.getElementById('__chocodrop_start_toast__')) return;
 
     const root = document.createElement('div');
@@ -92,8 +93,9 @@
     root.innerHTML = `
       <div style="background:#18181c; color:#fff; padding:14px 16px; border-radius:14px; box-shadow:0 10px 30px rgba(0,0,0,.35)">
         <div style="font-weight:700; display:flex; gap:8px; align-items:center">
-          <span>🍫 ChocoDrop が起動していません</span>
+          <span data-toast-title>🍫 ChocoDrop が起動していません</span>
           <span id="cd-dot" style="margin-left:auto;width:8px;height:8px;border-radius:50%;background:#f43"></span>
+          <button id="cd-dismiss" type="button" style="border:0;background:transparent;color:rgba(255,255,255,0.75);cursor:pointer;font-size:16px;line-height:1;padding:2px;">×</button>
         </div>
         <div style="font-size:12px; opacity:.85; margin-top:6px">ローカル(127.0.0.1)のみで動作・外部送信なし。起動すると自動で接続します。</div>
         <div style="display:grid; gap:8px; margin-top:12px">
@@ -105,6 +107,8 @@
     document.body.appendChild(root);
 
     const dot = root.querySelector('#cd-dot');
+    const title = root.querySelector('[data-toast-title]');
+    const closeButton = root.querySelector('#cd-dismiss');
     const guide = document.createElement('dialog');
     guide.style.border = '0';
     guide.style.borderRadius = '14px';
@@ -142,6 +146,27 @@
     };
     root.querySelector('#cd-retry').onclick = loop;
 
+    let dismissed = false;
+
+    function teardown(autoConnected = false) {
+      if (dismissed) return;
+      dismissed = true;
+      if (!autoConnected) {
+        startToastDismissed = true;
+      }
+      if (guide.open) {
+        guide.close();
+      }
+      guide.remove();
+      if (root.parentElement) {
+        root.parentElement.removeChild(root);
+      }
+    }
+
+    closeButton.onclick = () => {
+      teardown(false);
+    };
+
     async function checkPing() {
       try {
         const r = await fetch(`${base}/v1/health`, { method: 'GET' });
@@ -152,13 +177,21 @@
     }
 
     async function loop() {
+      if (dismissed) return;
+
       const ok = await checkPing();
       dot.style.background = ok ? '#0f6' : '#f43';
       if (ok) {
-        root.querySelector('span').textContent = '🍫 接続できました';
-        setTimeout(() => root.remove(), 700);
+        if (title) {
+          title.textContent = '🍫 接続できました';
+        }
+        setTimeout(() => teardown(true), 700);
       } else {
-        setTimeout(loop, pollMs);
+        setTimeout(() => {
+          if (!dismissed) {
+            loop();
+          }
+        }, pollMs);
       }
     }
 
@@ -283,6 +316,8 @@
   }
 
   let liteSceneContext = null;
+  let startToastDismissed = false;
+  let placeholderDismissed = false;
 
   /**
    * Create lightweight preview scene when host page has no SceneManager
@@ -548,6 +583,13 @@
 
     // Fallback: Simple placeholder UI
     if (!mounted) {
+      if (placeholderDismissed) {
+        console.warn('ChocoDrop placeholder UI suppressed (dismissed by user).');
+        return {
+          reload
+        };
+      }
+
       root.innerHTML = '';
       const wrapper = document.createElement('div');
       Object.assign(wrapper.style, {
@@ -561,7 +603,13 @@
       });
 
       wrapper.innerHTML = `
-        <div style="margin-bottom: 8px; font-weight: 600;">🍫 ChocoDrop</div>
+        <div style="margin-bottom: 8px; font-weight: 600; display:flex; align-items:center; gap:12px;">
+          <span>🍫 ChocoDrop（簡易モード）</span>
+          <button id="__cd_close__" type="button" style="margin-left:auto;border:0;background:transparent;color:rgba(255,255,255,0.75);cursor:pointer;font-size:16px;line-height:1;padding:2px;">×</button>
+        </div>
+        <div id="__cd_status__" style="font-size:13px; line-height:1.5; margin-bottom:12px; opacity:0.85;">
+          UI バンドルを読み込めませんでした。<br>開発環境の場合は <code>npm run build</code> を実行してデーモンを再起動してください。
+        </div>
         <button id="__cd_reload__" style="
           background: rgba(255, 255, 255, 0.1);
           border: 1px solid rgba(255, 255, 255, 0.2);
@@ -576,12 +624,38 @@
       root.appendChild(wrapper);
 
       const reloadBtn = wrapper.querySelector('#__cd_reload__');
+      const closeBtn = wrapper.querySelector('#__cd_close__');
+      const statusLabel = wrapper.querySelector('#__cd_status__');
+
+      function dismissPlaceholder() {
+        placeholderDismissed = true;
+        if (wrapper.parentElement) {
+          wrapper.parentElement.removeChild(wrapper);
+        }
+      }
+
+      closeBtn.onclick = () => {
+        dismissPlaceholder();
+      };
+
       reloadBtn.onclick = async () => {
         try {
+          reloadBtn.disabled = true;
+          reloadBtn.style.opacity = '0.6';
+          statusLabel.textContent = '設定を再読み込みしています…';
+
           await reload();
-          alert('Configuration reloaded!');
+
+          statusLabel.textContent = '設定を再読み込みしました。ページを更新するか UI を再起動してください。';
+          setTimeout(() => {
+            dismissPlaceholder();
+          }, 1500);
         } catch (error) {
-          alert('Failed to reload: ' + error.message);
+          const message = error?.message || '不明なエラー';
+          statusLabel.textContent = `再読み込みに失敗しました：${message}。デーモンが起動済みか、ネットワーク設定を確認してください。`;
+        } finally {
+          reloadBtn.disabled = false;
+          reloadBtn.style.opacity = '1';
         }
       };
 
