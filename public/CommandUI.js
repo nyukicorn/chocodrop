@@ -51,6 +51,14 @@ export class CommandUI {
     this.serviceSelectorRetryButton = null;
     this.serviceSelectorSaveButton = null;
     this.serviceSelectorCancelButton = null;
+    this.mcpFileInput = null;
+    this.mcpUploadButton = null;
+    this.mcpUploadInProgress = false;
+    this.mcpSetupOverlay = null;
+    this.mcpSetupModal = null;
+    this.mcpSetupStatus = null;
+    this.mcpSetupUploadButton = null;
+    this.mcpSetupDismissed = false;
     this.serviceModalOverlay = null;
     this.serviceModal = null;
     this.servicesLoading = false;
@@ -125,11 +133,19 @@ export class CommandUI {
     });
 
     this.logDebug('🎮 CommandUI initialized');
+  }
 
-    // GitHub Pages等でサービス設定を不要にする場合はスキップ
-    if (!this.config.skipServiceDialog && (!this.selectedImageService || !this.selectedVideoService)) {
-      this.openServiceModal(true);
+  createMcpFileInput() {
+    if (this.mcpFileInput) {
+      return;
     }
+
+    this.mcpFileInput = document.createElement('input');
+    this.mcpFileInput.type = 'file';
+    this.mcpFileInput.accept = '.json,application/json';
+    this.mcpFileInput.style.display = 'none';
+    this.mcpFileInput.addEventListener('change', (event) => this.handleMcpFileSelection(event));
+    this.container.appendChild(this.mcpFileInput);
   }
 
   logDebug(...args) {
@@ -147,6 +163,8 @@ export class CommandUI {
     this.container = document.createElement('div');
     this.container.id = 'live-command-ui';
     this.container.style.cssText = this.getContainerStyles();
+
+    this.createMcpFileInput();
 
     // 2025年トレンド：Progressive Disclosure（ホバー時のみブランド表示）
     const brandIndicator = document.createElement('div');
@@ -643,6 +661,52 @@ export class CommandUI {
 
     const selector = this.createServiceSelectorSection();
 
+    const uploadSection = document.createElement('div');
+    uploadSection.style.cssText = `
+      border-radius: 12px;
+      border: 1px dashed rgba(148, 163, 184, ${this.isDarkMode ? '0.35' : '0.45'});
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      background: ${this.isDarkMode ? 'rgba(30, 41, 59, 0.45)' : 'rgba(248, 250, 252, 0.6)'};
+    `;
+
+    const uploadTitle = document.createElement('div');
+    uploadTitle.textContent = 'MCP設定ファイル（JSON）をアップロード';
+    uploadTitle.style.cssText = `
+      font-size: 12px;
+      font-weight: 600;
+    `;
+
+    const uploadHelper = document.createElement('div');
+    uploadHelper.textContent = 'KAMUI Codeの設定JSONを選択してください。既存設定は上書きされます。';
+    uploadHelper.style.cssText = `
+      font-size: 11px;
+      opacity: 0.7;
+      line-height: 1.5;
+    `;
+
+    this.mcpUploadButton = document.createElement('button');
+    this.mcpUploadButton.type = 'button';
+    this.mcpUploadButton.textContent = 'ファイルを選択';
+    this.mcpUploadButton.style.cssText = `
+      align-self: flex-start;
+      padding: 8px 16px;
+      font-size: 12px;
+      border-radius: 10px;
+      border: 1px solid rgba(99, 102, 241, 0.3);
+      background: linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(139, 92, 246, 0.2));
+      color: ${this.isDarkMode ? '#e0e7ff' : '#312e81'};
+      cursor: pointer;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    `;
+    this.mcpUploadButton.addEventListener('click', () => this.openMcpFileSelector());
+
+    uploadSection.appendChild(uploadTitle);
+    uploadSection.appendChild(uploadHelper);
+    uploadSection.appendChild(this.mcpUploadButton);
+
     const actionRow = document.createElement('div');
     actionRow.style.cssText = `
       display: flex;
@@ -705,6 +769,7 @@ export class CommandUI {
     this.serviceModal.appendChild(title);
     this.serviceModal.appendChild(subtitle);
     this.serviceModal.appendChild(selector);
+    this.serviceModal.appendChild(uploadSection);
     this.serviceModal.appendChild(actionRow);
 
     this.serviceModalOverlay.appendChild(this.serviceModal);
@@ -818,6 +883,147 @@ export class CommandUI {
     }
     this.serviceSelectorRetryButton.style.display = visible ? 'inline-flex' : 'none';
     this.updateServiceSelectorTheme();
+  }
+
+  resolveServerEndpoint(pathname) {
+    if (this.client?.serverUrl) {
+      const base = this.client.serverUrl.replace(/\/$/, '');
+      return `${base}${pathname}`;
+    }
+    if (typeof window !== 'undefined' && window.location) {
+      return `${window.location.origin}${pathname}`;
+    }
+    return pathname;
+  }
+
+  openMcpFileSelector() {
+    if (this.mcpUploadInProgress) {
+      return;
+    }
+    this.createMcpFileInput();
+    if (this.mcpFileInput) {
+      this.mcpFileInput.click();
+    }
+  }
+
+  setMcpUploadState(isUploading) {
+    this.mcpUploadInProgress = isUploading;
+    if (this.mcpUploadButton) {
+      this.mcpUploadButton.disabled = isUploading;
+      this.mcpUploadButton.textContent = isUploading ? 'アップロード中…' : 'ファイルを選択';
+    }
+    if (this.mcpSetupUploadButton) {
+      this.mcpSetupUploadButton.disabled = isUploading;
+      this.mcpSetupUploadButton.textContent = isUploading ? 'アップロード中…' : 'JSONファイルをアップロード';
+    }
+    if (isUploading) {
+      this.toggleServiceRetryButton(false);
+      this.setServiceButtonsEnabled(false);
+      if (this.mcpSetupStatus) {
+        this.mcpSetupStatus.textContent = 'MCP設定ファイルをアップロードしています...';
+      }
+    } else {
+      const hasServices = (this.availableImageServices?.length || this.availableVideoServices?.length);
+      this.setServiceButtonsEnabled(Boolean(hasServices));
+      if (this.mcpSetupStatus && !this.mcpSetupDismissed) {
+        this.mcpSetupStatus.textContent = '設定が完了したら再度生成を実行してください。';
+      }
+    }
+  }
+
+  async handleMcpFileSelection(event) {
+    if (!event || !event.target) {
+      return;
+    }
+
+    const input = event.target;
+    const file = input.files && input.files[0] ? input.files[0] : null;
+    input.value = '';
+
+    if (!file) {
+      return;
+    }
+
+    if (!file.name.toLowerCase().endsWith('.json')) {
+      this.setServiceSelectorStatus('JSONファイルのみ選択できます。', 'error');
+      return;
+    }
+
+    try {
+      const content = await file.text();
+      try {
+        JSON.parse(content);
+      } catch (error) {
+        this.setServiceSelectorStatus('JSONの内容を解析できませんでした。ファイルを確認してください。', 'error');
+        return;
+      }
+
+      await this.uploadMcpConfig(file.name, content);
+    } catch (error) {
+      console.error('❌ Failed to read MCP config file:', error);
+      this.setServiceSelectorStatus('MCP設定ファイルの読み込みに失敗しました。', 'error');
+    }
+  }
+
+  async uploadMcpConfig(fileName, content) {
+    if (this.mcpUploadInProgress) {
+      return;
+    }
+
+    this.setMcpUploadState(true);
+    this.setServiceSelectorStatus('MCP設定ファイルをアップロードしています...', 'info');
+    if (this.mcpSetupStatus) {
+      this.mcpSetupStatus.textContent = 'MCP設定ファイルをアップロードしています...';
+    }
+
+    try {
+      const endpoint = this.resolveServerEndpoint('/api/mcp-config');
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          fileName,
+          content
+        })
+      });
+
+      let payload = null;
+      try {
+        payload = await response.json();
+      } catch (error) {
+        // レスポンスがJSONでない場合は無視
+      }
+
+      if (!response.ok || !payload?.success) {
+        const errorMessage = payload?.error || 'MCP設定のアップロードに失敗しました。';
+        throw new Error(errorMessage);
+      }
+
+      this.setServiceSelectorStatus('MCP設定を保存しました。サービス情報を再取得します...', 'info');
+      if (this.mcpSetupStatus) {
+        this.mcpSetupStatus.textContent = 'MCP設定を保存しました。もう一度生成コマンドを実行してください。';
+      }
+
+      try {
+        await this.initializeServiceSelector(true);
+      } catch (initError) {
+        console.warn('⚠️ MCPサービスの再取得に失敗しました:', initError);
+      }
+
+      this.hideMcpSetupPrompt();
+      this.mcpSetupDismissed = false;
+      this.showInputFeedback('MCP設定を保存しました。再度生成を実行してください。', 'system');
+    } catch (error) {
+      console.error('❌ MCP config upload failed:', error);
+      this.setServiceSelectorStatus(error?.message || 'MCP設定の更新に失敗しました。', 'error');
+      if (this.mcpSetupStatus) {
+        this.mcpSetupStatus.textContent = error?.message || 'MCP設定の更新に失敗しました。JSONの内容を確認してください。';
+      }
+    } finally {
+      this.setMcpUploadState(false);
+    }
   }
 
   resolveServiceSelection(type, services, defaultId) {
@@ -3912,15 +4118,165 @@ export class CommandUI {
   }
 
   showMcpConfigNotice(error) {
-    if (this.mcpNoticeShown) {
+    this.showMcpSetupPrompt(error);
+  }
+
+  showMcpSetupPrompt(error) {
+    if (this.mcpSetupDismissed) {
+      this.showInputFeedback('MCP 設定が未完了のため生成できません。設定は後から再開できます。', 'error');
       return;
     }
-    this.mcpNoticeShown = true;
 
-    const message = error?.message || 'MCP 設定が見つかりません。config.json の設定を確認してください。';
-    const guidance = '⚙️ MCP 設定が必要です: docs/SETUP.md を参照し、config.json の mcp セクションまたは MCP_CONFIG_PATH 環境変数を設定してください。';
-    this.showInputFeedback('AI生成サーバー (MCP) が未設定です。設定が完了するまで生成を実行できません。', 'error');
-    this.addOutput(`${guidance}\nサーバーからのメッセージ: ${message}`, 'error');
+    if (!this.mcpSetupOverlay) {
+      this.createMcpSetupModal();
+    }
+
+    if (this.mcpSetupStatus) {
+      const message = error?.message || 'MCP 設定が不足しています。JSON をアップロードしてください。';
+      this.mcpSetupStatus.textContent = message;
+    }
+
+    this.mcpSetupOverlay.style.display = 'flex';
+    requestAnimationFrame(() => {
+      if (this.mcpSetupOverlay) {
+        this.mcpSetupOverlay.style.opacity = '1';
+      }
+    });
+
+    const guidance = '⚙️ MCP 設定が必要です: 契約済みの方は設定ファイル(JSON)をアップロードしてください。未契約の方は「あとで」を押して続行できます。';
+    this.addOutput(guidance, 'system');
+  }
+
+  hideMcpSetupPrompt() {
+    if (!this.mcpSetupOverlay) {
+      return;
+    }
+
+    this.mcpSetupOverlay.style.opacity = '0';
+    setTimeout(() => {
+      if (this.mcpSetupOverlay) {
+        this.mcpSetupOverlay.style.display = 'none';
+      }
+    }, 150);
+  }
+
+  createMcpSetupModal() {
+    this.mcpSetupOverlay = document.createElement('div');
+    this.mcpSetupOverlay.className = 'mcp-setup-overlay';
+    this.mcpSetupOverlay.style.cssText = `
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.65);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 4000;
+      opacity: 0;
+      transition: opacity 0.2s ease;
+    `;
+
+    this.mcpSetupModal = document.createElement('div');
+    this.mcpSetupModal.className = 'mcp-setup-modal';
+    this.mcpSetupModal.style.cssText = `
+      width: min(420px, 92vw);
+      border-radius: 24px;
+      padding: 28px;
+      background: linear-gradient(145deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.92));
+      border: 1px solid rgba(99, 102, 241, 0.35);
+      box-shadow: 0 25px 60px rgba(15, 23, 42, 0.55);
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      color: #e2e8f0;
+    `;
+
+    const title = document.createElement('h2');
+    title.textContent = 'MCP設定が必要です';
+    title.style.cssText = 'margin: 0; font-size: 18px; font-weight: 700;';
+
+    const description = document.createElement('p');
+    description.textContent = '画像/動画生成を利用するには KAMUI Code の設定ファイル(JSON) をアップロードしてください。契約していない場合は「あとで」を選んでインポートのみ利用できます。';
+    description.style.cssText = 'margin: 0; font-size: 13px; line-height: 1.6; opacity: 0.85;';
+
+    this.mcpSetupStatus = document.createElement('div');
+    this.mcpSetupStatus.className = 'mcp-setup-status';
+    this.mcpSetupStatus.style.cssText = 'font-size: 12px; line-height: 1.6; color: #cbd5f5;';
+    this.mcpSetupStatus.textContent = 'JSONファイルを選択してアップロードしてください。';
+
+    const buttonRow = document.createElement('div');
+    buttonRow.style.cssText = 'display: flex; flex-direction: column; gap: 10px;';
+
+    this.mcpSetupUploadButton = document.createElement('button');
+    this.mcpSetupUploadButton.type = 'button';
+    this.mcpSetupUploadButton.textContent = 'JSONファイルをアップロード';
+    this.mcpSetupUploadButton.style.cssText = `
+      padding: 12px 18px;
+      font-size: 13px;
+      font-weight: 600;
+      border-radius: 12px;
+      border: none;
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      color: white;
+      cursor: pointer;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      box-shadow: 0 16px 35px rgba(99, 102, 241, 0.35);
+    `;
+    this.mcpSetupUploadButton.addEventListener('click', () => {
+      this.openMcpFileSelector();
+    });
+
+    const secondaryRow = document.createElement('div');
+    secondaryRow.style.cssText = 'display: flex; gap: 8px; justify-content: flex-end;';
+
+    const skipButton = document.createElement('button');
+    skipButton.type = 'button';
+    skipButton.textContent = 'あとで';
+    skipButton.style.cssText = `
+      padding: 10px 16px;
+      font-size: 12px;
+      border-radius: 10px;
+      border: 1px solid rgba(148, 163, 184, 0.4);
+      background: transparent;
+      color: #cbd5f5;
+      cursor: pointer;
+    `;
+    skipButton.addEventListener('click', () => {
+      this.mcpSetupDismissed = true;
+      this.hideMcpSetupPrompt();
+      this.showInputFeedback('生成はキャンセルされました。設定は右上の⚙️から再開できます。', 'system');
+    });
+
+    const manageButton = document.createElement('button');
+    manageButton.type = 'button';
+    manageButton.textContent = '設定メニューを開く';
+    manageButton.style.cssText = `
+      padding: 10px 16px;
+      font-size: 12px;
+      border-radius: 10px;
+      border: 1px solid rgba(99, 102, 241, 0.35);
+      background: rgba(99, 102, 241, 0.12);
+      color: #d6d8ff;
+      cursor: pointer;
+    `;
+    manageButton.addEventListener('click', () => {
+      this.hideMcpSetupPrompt();
+      this.openServiceModal(true);
+    });
+
+    buttonRow.appendChild(this.mcpSetupUploadButton);
+    secondaryRow.appendChild(skipButton);
+    secondaryRow.appendChild(manageButton);
+    buttonRow.appendChild(secondaryRow);
+
+    this.mcpSetupModal.appendChild(title);
+    this.mcpSetupModal.appendChild(description);
+    this.mcpSetupModal.appendChild(this.mcpSetupStatus);
+    this.mcpSetupModal.appendChild(buttonRow);
+
+    this.mcpSetupOverlay.appendChild(this.mcpSetupModal);
+    document.body.appendChild(this.mcpSetupOverlay);
   }
 
   /**

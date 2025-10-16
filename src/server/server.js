@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { MCPClient } from './mcp-client.js';
@@ -48,7 +49,8 @@ class ChocoDropServer {
       'http://localhost:5173',
       'http://localhost:8080',
       'http://localhost:8000',
-      'http://localhost:8001'
+      'http://localhost:8001',
+      'http://localhost:3011'
     ];
     const configuredCorsOrigins = config.get('server.corsOrigins');
     const allowedCorsOrigins = Array.isArray(configuredCorsOrigins)
@@ -103,6 +105,112 @@ class ChocoDropServer {
         port: config.get('server.port'),
         host: config.get('server.host')
       });
+    });
+
+    // MCP設定ファイルアップロード
+    this.app.post('/api/mcp-config', (req, res) => {
+      try {
+        const { fileName, content } = req.body || {};
+
+        if (!content || typeof content !== 'string') {
+          return res.status(400).json({
+            success: false,
+            error: '設定ファイルの内容が空です。JSONファイルを選択してください。'
+          });
+        }
+
+        if (!fileName || !/\.json$/i.test(fileName.trim())) {
+          return res.status(400).json({
+            success: false,
+            error: 'JSONファイルのみアップロードできます。拡張子 .json を確認してください。'
+          });
+        }
+
+        let parsed;
+        try {
+          parsed = JSON.parse(content);
+        } catch (error) {
+          return res.status(400).json({
+            success: false,
+            error: 'JSONの解析に失敗しました。ファイル内容を確認してください。'
+          });
+        }
+
+        const projectRoot = process.cwd();
+        const configDir = path.join(projectRoot, 'config');
+        const storedFileName = 'mcp-config.json';
+        const storedFilePath = path.join(configDir, storedFileName);
+
+        if (!fs.existsSync(configDir)) {
+          fs.mkdirSync(configDir, { recursive: true });
+        }
+
+        fs.writeFileSync(storedFilePath, `${JSON.stringify(parsed, null, 2)}\n`, 'utf8');
+
+        const configPath = path.join(projectRoot, 'config.json');
+        let mergedConfig;
+
+        if (fs.existsSync(configPath)) {
+          try {
+            const rawConfig = fs.readFileSync(configPath, 'utf8');
+            mergedConfig = JSON.parse(rawConfig);
+          } catch (error) {
+            return res.status(500).json({
+              success: false,
+              error: `config.json の読み込みに失敗しました: ${error.message}`
+            });
+          }
+        } else {
+          const examplePath = path.join(projectRoot, 'config.example.json');
+          if (fs.existsSync(examplePath)) {
+            try {
+              const exampleConfig = fs.readFileSync(examplePath, 'utf8');
+              mergedConfig = JSON.parse(exampleConfig);
+            } catch (error) {
+              mergedConfig = {};
+            }
+          } else {
+            mergedConfig = {};
+          }
+        }
+
+        mergedConfig = mergedConfig || {};
+        mergedConfig.mcp = mergedConfig.mcp || {};
+        mergedConfig.mcp.configPath = storedFilePath;
+
+        try {
+          fs.writeFileSync(configPath, `${JSON.stringify(mergedConfig, null, 2)}\n`, 'utf8');
+        } catch (error) {
+          return res.status(500).json({
+            success: false,
+            error: `config.json の保存に失敗しました: ${error.message}`
+          });
+        }
+
+        const liveConfig = config.getAll();
+        if (liveConfig) {
+          liveConfig.mcp = liveConfig.mcp || {};
+          liveConfig.mcp.configPath = storedFilePath;
+        }
+
+        if (this.mcpClient) {
+          this.mcpClient.originalMcpConfigPath = storedFilePath;
+          this.mcpClient.mcpConfigPath = storedFilePath;
+          this.mcpClient.mcpConfigCache = null;
+        }
+
+        return res.json({
+          success: true,
+          message: 'MCP設定ファイルを保存しました。',
+          storedPath: storedFilePath
+        });
+      } catch (error) {
+        console.error('❌ MCP config upload failed:', error);
+        return res.status(500).json({
+          success: false,
+          error: 'MCP設定ファイルの保存に失敗しました。再度お試しください。'
+        });
+      }
     });
 
     // 利用可能なサービス一覧
