@@ -3,6 +3,7 @@
 
 (async () => {
   const b = 'http://127.0.0.1:43110';
+  let toastDismissed = false;
 
   async function check() {
     try {
@@ -14,6 +15,7 @@
   }
 
   async function showToast() {
+    if (toastDismissed) return;
     if (document.getElementById('__cd_toast__')) return;
 
     const t = document.createElement('div');
@@ -30,8 +32,9 @@
     t.innerHTML = `
       <div style="background:#18181c; color:#fff; padding:14px 16px; border-radius:14px; box-shadow:0 10px 30px rgba(0,0,0,.35)">
         <div style="font-weight:700; display:flex; gap:8px; align-items:center">
-          <span>🍫 ChocoDrop が起動していません</span>
+          <span id="cd-title">🍫 ChocoDrop が起動していません</span>
           <span id="cd-dot" style="margin-left:auto;width:8px;height:8px;border-radius:50%;background:#f43"></span>
+          <button id="cd-dismiss" type="button" style="border:0;background:transparent;color:rgba(255,255,255,0.75);cursor:pointer;font-size:16px;line-height:1;padding:2px;">×</button>
         </div>
         <div style="font-size:12px; opacity:.85; margin-top:6px">ローカル(127.0.0.1)のみで動作・外部送信なし。起動すると自動で接続します。</div>
         <div style="display:grid; gap:8px; margin-top:12px">
@@ -43,6 +46,8 @@
     document.body.appendChild(t);
 
     const d = t.querySelector('#cd-dot');
+    const title = t.querySelector('#cd-title');
+    const closeButton = t.querySelector('#cd-dismiss');
     const g = document.createElement('dialog');
     g.style.border = '0';
     g.style.borderRadius = '14px';
@@ -76,17 +81,46 @@
 
     t.querySelector('#cd-retry').onclick = poll;
 
+    let dismissed = false;
+
+    function teardown(autoConnected = false) {
+      if (dismissed) return;
+      dismissed = true;
+      if (!autoConnected) {
+        toastDismissed = true;
+      }
+      if (g.open) {
+        g.close();
+      }
+      g.remove();
+      if (t.parentElement) {
+        t.parentElement.removeChild(t);
+      }
+    }
+
+    closeButton.onclick = () => {
+      teardown(false);
+    };
+
     async function poll() {
+      if (dismissed) return;
+
       const ok = await check();
       d.style.background = ok ? '#0f6' : '#f43';
       if (ok) {
-        t.querySelector('span').textContent = '🍫 接続できました';
+        if (title) {
+          title.textContent = '🍫 接続できました';
+        }
         setTimeout(() => {
-          t.remove();
+          teardown(true);
           loadSDK();
         }, 700);
       } else {
-        setTimeout(poll, 2500);
+        setTimeout(() => {
+          if (!dismissed) {
+            poll();
+          }
+        }, 2500);
       }
     }
 
