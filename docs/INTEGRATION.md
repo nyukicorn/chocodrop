@@ -234,7 +234,7 @@ const chocoDrop = createChocoDrop(scene, options);
   },
   "dependencies": {
     "three": "^0.170.0",
-    "chocodrop": "^1.0.2-alpha.0"
+    "chocodrop": "^1.0.3-alpha.0"
   },
   "devDependencies": {
     "vite": "^5.0.0"
