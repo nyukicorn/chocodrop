@@ -27,6 +27,8 @@ A browser-based tool for adding UI and interaction features to Three.js scenes.
 - [Space](https://nyukicorn.github.io/chocodrop/examples/space/) - 銀河が広がり、3つの星雲が煌めく無限の宇宙
 - その他 → [examples/](examples/)
 
+**できること**: ✅ インポート（画像/動画をファイルから読み込み）
+
 ---
 
 ### 2. 既存サイトで使いたい（ブックマークレット）
@@ -38,6 +40,8 @@ npx --yes @chocodrop/daemon@alpha
 ```
 
 [ブックマークレット登録ページ](https://nyukicorn.github.io/chocodrop/examples/bookmarklet-v2.html) → threejs.org 等で実行
+
+**できること**: ✅ インポート（画像/動画をファイルから読み込み）
 
 詳細: [セクション B](#b-外部サイトにワンクリック注入ブックマークレット)
 
@@ -55,6 +59,8 @@ npx --yes @chocodrop/daemon@alpha
 <script src="http://127.0.0.1:43110/sdk.js"></script>
 ```
 
+**できること**: ✅ インポート（画像/動画をファイルから読み込み）
+
 詳細: [統合ガイド](docs/INTEGRATION.md) / [セクション C](#c-自分の-threejs-プロジェクトに組み込む配布版)
 
 ---
@@ -71,9 +77,7 @@ npm run setup:mcp  # KAMUI Code 設定
 npm run dev        # サーバー起動
 ```
 
-**できること**:
-- ✅ "右上に桜の画像を置いて" → AI が生成・配置
-- ✅ "このオブジェクトをモノクロにして" → AI が変換
+**できること**: ✅ インポート（画像/動画をファイルから読み込み） + ✅ 生成（AIで画像/動画を生成）
 
 ⚠️ **注意**: AI生成には KAMUI Code の設定が必要です。
 詳細: [AI生成セットアップ](docs/SETUP.md)
