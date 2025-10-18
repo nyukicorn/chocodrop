@@ -2,7 +2,121 @@
 
 ## 🚨 よくある問題と解決方法
 
-### 1. KAMUI Code / MCP 関連
+### 0. daemon 関連（98%の人向け）
+
+#### ❌ daemon が起動しない
+```
+Error: Port 43110 already in use
+command not found: npx
+```
+
+**解決方法**:
+
+1. **ポート使用中の場合**
+   ```bash
+   # 使用中プロセス確認
+   lsof -ti:43110
+
+   # プロセス終了
+   kill $(lsof -ti:43110)
+
+   # または別ポートで起動
+   npx --yes @chocodrop/daemon@alpha --port 43111
+   ```
+
+2. **npx が見つからない場合**
+   ```bash
+   # Node.js バージョン確認
+   node --version  # v16.0.0 以上必要
+
+   # Node.js インストール（必要に応じて）
+   # macOS: brew install node
+   # Windows: https://nodejs.org/
+   ```
+
+#### ❌ Bookmarklet が動かない
+```
+Failed to fetch SDK
+ChocoDrop not loaded
+```
+
+**解決方法**:
+
+1. **daemon が起動しているか確認**
+   ```bash
+   # ブラウザで以下にアクセス
+   http://127.0.0.1:43110/v1/health
+   # → {"status":"ok"} が表示されれば正常
+   ```
+
+2. **ブラウザコンソールでエラー確認**
+   - F12 でコンソールを開く
+   - CORS エラーが出ている場合は allowlist 設定が必要（下記参照）
+
+3. **Toast UI が表示される場合**
+   - Toast UI の指示に従って daemon を起動
+   - 自動的に再接続されます
+
+#### ❌ Toast UI が表示されない
+```
+何も反応しない
+UI が出ない
+```
+
+**解決方法**:
+
+1. **daemon が既に起動している可能性**
+   - これは正常な動作です
+   - ページをリロードして確認
+
+2. **ブラウザコンソール確認**
+   ```javascript
+   // F12 でコンソールを開いて実行
+   console.log(window.chocodrop);
+   // → Object が表示されれば ChocoDrop は読み込まれています
+   ```
+
+#### ❌ CORS エラー（allowlist設定）
+```
+Access-Control-Allow-Origin error
+Origin not allowed
+```
+
+**解決方法**:
+
+1. **allowlist に Origin を追加**
+   ```bash
+   # 設定ファイルを作成・編集
+   mkdir -p ~/.config/chocodrop
+   nano ~/.config/chocodrop/allowlist.json
+   ```
+
+2. **設定内容**
+   ```json
+   {
+     "origins": [
+       "http://localhost:*",
+       "http://127.0.0.1:*",
+       "https://threejs.org",
+       "https://your-site.com"
+     ]
+   }
+   ```
+
+3. **daemon を再起動**
+   ```bash
+   # 既存 daemon を停止
+   kill $(lsof -ti:43110)
+
+   # 再起動
+   npx --yes @chocodrop/daemon@alpha
+   ```
+
+⚠️ **信頼できるサイトのみ追加してください**
+
+---
+
+### 1. KAMUI Code / MCP 関連（2%の人向け）
 
 #### ❌ MCP接続エラー
 ```
