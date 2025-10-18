@@ -9,7 +9,7 @@ A browser-based tool for adding UI and interaction features to Three.js scenes.
 
 <div align="center">
 
-**[🌐 Website](https://nyukicorn.github.io/chocodrop/)** | **[🎮 Try Demo](https://nyukicorn.github.io/chocodrop/examples/basic/)** | **[📚 Docs](./docs/SETUP.md)**
+**[🌐 Website](https://nyukicorn.github.io/chocodrop/)** | **[🎮 Try Demo](https://nyukicorn.github.io/chocodrop/examples/basic/)** | **[📚 Docs](./docs/INTEGRATION.md)**
 
 </div>
 
@@ -43,7 +43,7 @@ npx --yes @chocodrop/daemon@alpha
 - ✅ Three.js シーンの UI 操作
 - ❌ **AI生成は使えません**
 
-詳細: [使い方ガイド](#クイックスタート)
+詳細: [統合ガイド](docs/INTEGRATION.md) / [シナリオ別ガイド](#シナリオ別ガイド)
 
 ---
 
