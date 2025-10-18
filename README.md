@@ -3,9 +3,9 @@
 ちょこっとDrop。世界が咲く。
 Drop a little, bloom a lot.
 
-**テキストや音声で、Three.js シーンに瞬時にオブジェクトを追加できるブラウザツール**
+**Three.js シーンに UI とインタラクション機能を追加できるブラウザツール**
 
-A browser-based tool that enables instant 3D object creation and scene manipulation in Three.js using natural language commands.
+A browser-based tool for adding UI and interaction features to Three.js scenes.
 
 <div align="center">
 
@@ -15,43 +15,64 @@ A browser-based tool that enables instant 3D object creation and scene manipulat
 
 ---
 
-## ✨ できること / What You Can Do
+## 🚀 すぐ始める
 
-### 誰でもすぐ試せる
+### まず見る：デモサイト
+https://nyukicorn.github.io/chocodrop/examples/basic/
 
-**1. 多彩なデモで雰囲気を体験**
-
-ChocoDrop には複数の世界観のデモが用意されています：
-- [Basic (基本)](https://nyukicorn.github.io/chocodrop/examples/basic/) - シンプルな操作体験
-- [Music Garden (音楽の庭)](https://nyukicorn.github.io/chocodrop/examples/music-garden/) - 夜桜と音楽
-- [Space (宇宙)](https://nyukicorn.github.io/chocodrop/examples/space/) - 宇宙空間
-- [Toy City (おもちゃの街)](https://nyukicorn.github.io/chocodrop/examples/toy-city/) - カラフルな街
-- その他多数 → [examples/](examples/)
-
-**2. ブックマークレットで外部サイトにも導入可能**
-
-threejs.org などの既存サイトにも ChocoDrop UI を表示できます。
-詳細: [B. 外部サイトにワンクリック注入](#b-外部サイトにワンクリック注入ブックマークレット)
-
-### 開発者向け: AI生成機能も使える
-
-**daemon (配布版) を起動すると:**
-- ✅ ChocoDrop UI が使える
-- ✅ シーンの操作やスクリーンショットが可能
-- ❌ AI生成機能は使えない（KAMUI Code 設定が必要）
-
-**さらに KAMUI Code を設定すると:**
-- ✅ "右上に桜の3Dモデルを置いて" → AI が生成・配置
-- ✅ "このオブジェクトをモノクロにして" → AI が変換
-
-⚠️ **AI生成機能を使うには**: リポジトリをcloneし、KAMUI Code設定が必要です。
-詳細: [D. 生成機能まで有効化する](#d-生成機能まで有効化するkamui-code--ローカルサーバー)
+複数の世界観のシーンを用意しています：
+- [Basic](https://nyukicorn.github.io/chocodrop/examples/basic/) - シンプルな操作体験
+- [Music Garden](https://nyukicorn.github.io/chocodrop/examples/music-garden/) - 夜桜と音楽
+- [Wabi-Sabi](https://nyukicorn.github.io/chocodrop/examples/wabi-sabi/) - 侘び寂びの世界
+- [Lofi Room](https://nyukicorn.github.io/chocodrop/examples/lofi-room/) - チルな部屋
+- その他 → [examples/](examples/)
 
 ---
 
-## 🚀 クイックスタート
+### 自分で使う
 
-### 1. まずは目的に合わせてルートを選ぶ
+#### 98%の人向け：UI とインタラクション機能を使う
+
+```bash
+npx --yes @chocodrop/daemon@alpha
+```
+
+**これでできること**:
+- ✅ ブックマークレットで既存サイト（threejs.org など）に統合
+- ✅ npm プロジェクトに組み込み
+- ✅ Three.js シーンの UI 操作
+- ❌ **AI生成は使えません**
+
+詳細: [使い方ガイド](#クイックスタート)
+
+---
+
+#### 2%の人向け：AI生成機能も使いたい
+
+リポジトリをクローンしてください：
+
+```bash
+git clone https://github.com/nyukicorn/chocodrop.git
+cd chocodrop
+npm install
+npm run setup:mcp  # KAMUI Code 設定
+npm run dev        # サーバー起動
+```
+
+**AI生成でできること**:
+- ✅ "右上に桜の画像を置いて" → AI が生成・配置
+- ✅ "このオブジェクトをモノクロにして" → AI が変換
+
+⚠️ **注意**: AI生成には KAMUI Code の設定が必要です。
+詳細: [AI生成セットアップ](docs/SETUP.md)
+
+詳細な手順は下の「シナリオ別ガイド」を参照してください。
+
+---
+
+## 📖 シナリオ別ガイド
+
+まずは目的に合わせてルートを選びましょう：
 
 | 目的 | 推奨ルート | 所要時間 | 主な手順 |
 | --- | --- | --- | --- |
@@ -60,11 +81,11 @@ threejs.org などの既存サイトにも ChocoDrop UI を表示できます。
 | **自分のプロジェクトに組み込みたい** | daemon + SDK | 5–10 分 | daemon 起動 → SDK 読み込み → `ready()` `attach()` |
 | **AI生成機能も使いたい** | リポジトリ clone + KAMUI Code 設定 | 10 分〜 | clone → `npm run setup:mcp` → `npm run dev` |
 
-気になる行をクリック（またはスクロール）して、下記の詳細セクションから該当手順をたどってください。
+気になる行をクリック（またはスクロール）して、下記の手順をたどってください。
 
-### 2. シナリオ別ガイド
+---
 
-#### A. ブラウザで今すぐ試す（デモ版）
+### A. ブラウザで今すぐ試す（デモ版）
 
 - **オンラインですぐ試す:** [Basic Demo](https://nyukicorn.github.io/chocodrop/examples/basic/) を開くだけで UI を体験できます。
 - **ローカルで試す:**
