@@ -2,6 +2,9 @@
 
 最もシンプルなChocoDrop統合例です。
 
+> ⚠️ **注意**: この例は**リポジトリをcloneした人（2%の人）向け**です。
+> daemon のみを使う場合は、[vanilla-threejs の例](../vanilla-threejs/) を参照してください。
+
 ## 起動方法
 
 ```bash

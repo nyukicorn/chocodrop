@@ -2,7 +2,7 @@
 
 純粋な Three.js プロジェクトに ChocoDrop を統合する例です。
 
-**対応バージョン**: ChocoDrop v1.0.2-alpha.0（daemon + SDK アーキテクチャ）
+**対応バージョン**: ChocoDrop v1.0.3-alpha.0（daemon + SDK アーキテクチャ）
 
 ## 📁 ファイル構成
 
@@ -157,13 +157,16 @@ console.log(result); // { ok: true, message: "Configuration reloaded" }
 
 ### 対応コマンド例
 
+> ⚠️ **注意**: 自然言語でのAI生成コマンドは daemon のみでは使えません。
+> 以下のコマンドは、リポジトリ clone + KAMUI Code 設定が必要です。
+
 ```javascript
-// 生成と配置
+// AI生成と配置（要KAMUI Code設定）
 "ドラゴンを右上に作って"
 "桜を中央に配置"
 "青い猫を左下に小さく"
 
-// 編集
+// 編集（daemon でも可能）
 "大きくして"
 "位置を変更"
 "削除"
@@ -211,7 +214,7 @@ console.log(result); // { ok: true, message: "Configuration reloaded" }
 1. 既存の `window.THREE`（既に読み込まれている場合）
 2. `window.chocodropConfig.threeSrc`（カスタムソース指定時）
 3. CDN（`allowCdn: true` の場合、SRI付き安全な読み込み）
-4. ローカルフォールバック（`http://127.0.0.1:43110/vendor/three-0.158.0.min.js`）
+4. ローカルフォールバック（`http://127.0.0.1:43110/vendor/three-0.170.0.min.js`）
 
 ## 🏗️ プロジェクト統合
 
@@ -321,7 +324,7 @@ Three.js公式サイト（https://threejs.org/examples/）などの外部サイ�
 **セキュリティ**:
 - ✅ ローカル(127.0.0.1)のみと通信
 - ✅ 外部への送信なし
-- ⚠️ 現在は読み取り専用（AI生成は Phase 2b で対応予定）
+- ⚠️ UI表示と操作のみ（AI生成は daemon では使えません）
 
 ## 📚 関連ドキュメント
 
@@ -338,4 +341,4 @@ Three.js公式サイト（https://threejs.org/examples/）などの外部サイ�
 
 ---
 
-**重要**: このドキュメントは ChocoDrop v1.0.2-alpha.0 の新アーキテクチャ（daemon + SDK）に対応しています。旧バージョン（v1.x の `createChocoDrop()` API）をお探しの方は [docs/OLD_API.md](../../docs/OLD_API.md) をご覧ください。
+**重要**: このドキュメントは ChocoDrop v1.0.3-alpha.0 の新アーキテクチャ（daemon + SDK）に対応しています。旧バージョン（v1.x の `createChocoDrop()` API）をお探しの方は [docs/OLD_API.md](../../docs/OLD_API.md) をご覧ください。

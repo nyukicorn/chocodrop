@@ -151,7 +151,7 @@ npm run dev        # サーバー起動
    const choco = createChocoDrop(scene, {
      camera,
      renderer,
-     serverUrl: 'http://127.0.0.1:43110'
+     serverUrl: null  // サーバーレスモード（UIのみ）
    });
    ```
    bundler 向けの詳細手順は [`docs/INTEGRATION.md`](docs/INTEGRATION.md) を参照してください。
@@ -196,7 +196,7 @@ Bookmarkletやコンソールスニペットで外部サイト（threejs.org、C
 - ✅ 完全なChocoDrop UIが表示
 - ✅ THREE.jsが未読み込みでも自動的にCDNから取得
 - ✅ ローカルデーモン(127.0.0.1)との通信のみ（外部送信なし）
-- ⚠️ 現在は読み取り専用モード（AI生成機能はローカル環境でのKAMUI Code設定が必要）
+- ⚠️ UI表示と操作のみ（AI生成は daemon では使えません。リポジトリ clone + KAMUI Code 設定が必要）
 
 ### 🏢 企業ポリシー配慮 - CDN制御
 企業ネットワークでCDNアクセスが制限されている環境向けに、THREE.js読み込み動作をカスタマイズできます:
@@ -295,8 +295,9 @@ ChocoDrop は常駐 daemon + ブラウザ SDK の構成で動作します。
 - ページをリロードしてもう一度試す
 
 **CORSエラー**
-- allowlist設定が必要な場合があります（詳細なガイドは次バージョンで追加予定）
+- allowlist設定が必要な場合があります
 - `~/.config/chocodrop/allowlist.json` で設定可能
+- 詳細: [トラブルシューティング](docs/TROUBLESHOOTING.md#0-daemon-関連98の人向け)
 
 ---
 
