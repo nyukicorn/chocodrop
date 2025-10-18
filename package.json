@@ -1,6 +1,6 @@
 {
   "name": "chocodrop",
-  "version": "1.0.2-alpha.0",
+  "version": "1.0.3-alpha.0",
   "description": "ChocoDrop: real-time AI image drops for 3D scenes via Model Context Protocol (MCP)",
   "homepage": "https://nyukicorn.github.io/chocodrop/",
   "bugs": {
@@ -19,7 +19,6 @@
     "./bootstrap": "./src/client/bootstrap.js",
     "./server": "./src/server/index.js"
   },
-
   "scripts": {
     "dev": "node src/server/server.js",
     "start": "node src/server/server.js",
