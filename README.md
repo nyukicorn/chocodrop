@@ -17,7 +17,7 @@ A browser-based tool for adding UI and interaction features to Three.js scenes.
 
 ## 🚀 使い方（目的に合わせて選べます）
 
-### ブラウザで雰囲気を感じたい
+### 1. ブラウザで雰囲気を感じたい
 
 複数の世界観を用意しています：
 - [Basic](https://nyukicorn.github.io/chocodrop/examples/basic/) - 雲の上でふわふわと浮かぶ、創造の種を落とす場所
@@ -29,7 +29,7 @@ A browser-based tool for adding UI and interaction features to Three.js scenes.
 
 ---
 
-### 既存サイトで使いたい（ブックマークレット）
+### 2. 既存サイトで使いたい（ブックマークレット）
 
 daemon を起動してブックマークレット経由で統合：
 
@@ -43,7 +43,7 @@ npx --yes @chocodrop/daemon@alpha
 
 ---
 
-### 自分のプロジェクトに組み込みたい
+### 3. 自分のプロジェクトに組み込みたい
 
 daemon を起動して SDK を読み込む：
 
@@ -59,7 +59,7 @@ npx --yes @chocodrop/daemon@alpha
 
 ---
 
-### AI生成機能も使いたい
+### 4. AI生成機能も使いたい
 
 リポジトリをクローンしてフル機能を利用できます：
 
