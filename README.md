@@ -17,40 +17,45 @@ A browser-based tool for adding UI and interaction features to Three.js scenes.
 
 ## 🚀 使い方（目的に合わせて選べます）
 
-どの使い方も等しく ChocoDrop の体験です。あなたのニーズに合わせて選んでください。
-
----
-
-### まず雰囲気を感じたい
-
-ブラウザで今すぐ体験できます：
-
-**👉 https://nyukicorn.github.io/chocodrop/examples/basic/**
+### ブラウザで雰囲気を感じたい
 
 複数の世界観を用意しています：
-- [Basic](https://nyukicorn.github.io/chocodrop/examples/basic/) - シンプルな操作体験
-- [Music Garden](https://nyukicorn.github.io/chocodrop/examples/music-garden/) - 夜桜と音楽
-- [Wabi-Sabi](https://nyukicorn.github.io/chocodrop/examples/wabi-sabi/) - 侘び寂びの世界
-- [Lofi Room](https://nyukicorn.github.io/chocodrop/examples/lofi-room/) - チルな部屋
+- [Basic](https://nyukicorn.github.io/chocodrop/examples/basic/) - 雲の上でふわふわと浮かぶ、創造の種を落とす場所
+- [Music Garden](https://nyukicorn.github.io/chocodrop/examples/music-garden/) - 散らばった硝子のかけらたちが集まり寄り添い、新たな花をそっと咲かせる世界
+- [Wabi-Sabi](https://nyukicorn.github.io/chocodrop/examples/wabi-sabi/) - 音楽に共鳴する、墨が紡ぐ不完全な美の世界
+- [Toy City](https://nyukicorn.github.io/chocodrop/examples/toy-city/) - 観覧車やメリーゴーランド、そして可愛いAIたちが回ってます！
+- [Space](https://nyukicorn.github.io/chocodrop/examples/space/) - 銀河が広がり、3つの星雲が煌めく無限の宇宙
 - その他 → [examples/](examples/)
 
 ---
 
-### 既存サイトやプロジェクトで使いたい
+### 既存サイトで使いたい（ブックマークレット）
 
-daemon を起動して統合できます：
+daemon を起動してブックマークレット経由で統合：
 
 ```bash
 npx --yes @chocodrop/daemon@alpha
 ```
 
-**できること**:
-- ✅ ブックマークレットで既存サイト（threejs.org など）に統合
-- ✅ npm プロジェクトに組み込み
-- ✅ Three.js シーンの UI 操作
-- ❌ **AI生成は使えません**
+[ブックマークレット登録ページ](https://nyukicorn.github.io/chocodrop/examples/bookmarklet-v2.html) → threejs.org 等で実行
 
-詳細: [統合ガイド](docs/INTEGRATION.md) / [シナリオ別ガイド](#シナリオ別ガイド)
+詳細: [セクション B](#b-外部サイトにワンクリック注入ブックマークレット)
+
+---
+
+### 自分のプロジェクトに組み込みたい
+
+daemon を起動して SDK を読み込む：
+
+```bash
+npx --yes @chocodrop/daemon@alpha
+```
+
+```html
+<script src="http://127.0.0.1:43110/sdk.js"></script>
+```
+
+詳細: [統合ガイド](docs/INTEGRATION.md) / [セクション C](#c-自分の-threejs-プロジェクトに組み込む配布版)
 
 ---
 
@@ -94,13 +99,18 @@ npm run dev        # サーバー起動
 
 ### A. ブラウザで体験
 
-- **オンラインで体験:** [Basic](https://nyukicorn.github.io/chocodrop/examples/basic/) を開くだけで UI を体験できます。
-- **ローカルで体験:**
-  ```bash
-  npm run example:basic
-  ```
-  ブラウザで `http://localhost:8000/basic/index.html` を開きます。ネットワークが制限されている環境でも動作確認できます。
-- さらに世界観を試したい場合は `examples/` ディレクトリに複数のシーンが用意されています。
+複数の世界観を用意しています：
+- [Basic](https://nyukicorn.github.io/chocodrop/examples/basic/) - 雲の上でふわふわと浮かぶ、創造の種を落とす場所
+- [Music Garden](https://nyukicorn.github.io/chocodrop/examples/music-garden/) - 散らばった硝子のかけらたちが集まり寄り添い、新たな花をそっと咲かせる世界
+- [Wabi-Sabi](https://nyukicorn.github.io/chocodrop/examples/wabi-sabi/) - 音楽に共鳴する、墨が紡ぐ不完全な美の世界
+- [Toy City](https://nyukicorn.github.io/chocodrop/examples/toy-city/) - 観覧車やメリーゴーランド、そして可愛いAIたちが回ってます！
+- [Space](https://nyukicorn.github.io/chocodrop/examples/space/) - 銀河が広がり、3つの星雲が煌めく無限の宇宙
+- その他 → [examples/](examples/)
+
+**ローカルで体験:**
+```bash
+npm run example:basic  # または他の例
+```
 
 #### B. 外部サイトにワンクリック注入（ブックマークレット）
 
