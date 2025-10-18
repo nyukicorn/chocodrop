@@ -260,8 +260,25 @@ export async function startDaemon({ host = '127.0.0.1', port = 43110 } = {}) {
     }
   });
 
-  // 404 handler
+  // 404 handler with helpful messages
   app.use((req, res) => {
+    // Special handling for /ui/ requests
+    if (req.path.startsWith('/ui/')) {
+      return res.status(404).type('text/plain').send(
+        'ChocoDrop UI bundles not found.\n\n' +
+        'This may happen if:\n' +
+        '1. The daemon was installed via npx without pre-built bundles\n' +
+        '2. The dist/ directory is missing\n\n' +
+        'To fix this:\n' +
+        '- Clone the repository: git clone https://github.com/nyukicorn/chocodrop.git\n' +
+        '- Install dependencies: npm install\n' +
+        '- Build bundles: npm run build\n' +
+        '- Run daemon: npm start\n\n' +
+        'For more information, visit: https://github.com/nyukicorn/chocodrop'
+      );
+    }
+
+    // Default 404 for other paths
     res.status(404).json({
       error: 'Not found',
       path: req.path,
