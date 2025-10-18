@@ -490,7 +490,6 @@
         2. 🎵 音楽入り動画をやってみて！墨絵に魂が宿ります<br>
         3. 視点操作: ChocoDropを最小化してドラッグ<br>
         4. 🎨モノクロ変換をやってみて！(対象を選択 → 「モノクロに変更」)<br>
-        5. オブジェクトをクリック → WASDキーで移動<br>
 
         <div class="controls">
             <div class="control-item">
@@ -791,6 +790,11 @@
         console.log('✅ VRButton/ARButton inline implementation loaded');
     </script>
     <script type="module">
+    import ensureChocoDrop from '../../public/load-chocodrop.js';
+
+    (async () => {
+        await ensureChocoDrop();
+
         const THREE = window.THREE;
         const ChocoDrop = window.ChocoDrop;
 
@@ -2481,6 +2485,7 @@
         console.log('Window location:', window.location.href);
         console.log('Is HTTPS:', window.location.protocol === 'https:');
 
+    })();
     </script>
 </body>
 </html>

@@ -76,7 +76,6 @@
    * Show friendly startup toast with polling
    */
   function showStartToast({ base = BASE, pollMs = 2500 } = {}) {
-    if (startToastDismissed) return;
     if (document.getElementById('__chocodrop_start_toast__')) return;
 
     const root = document.createElement('div');
@@ -93,9 +92,8 @@
     root.innerHTML = `
       <div style="background:#18181c; color:#fff; padding:14px 16px; border-radius:14px; box-shadow:0 10px 30px rgba(0,0,0,.35)">
         <div style="font-weight:700; display:flex; gap:8px; align-items:center">
-          <span data-toast-title>🍫 ChocoDrop が起動していません</span>
+          <span>🍫 ChocoDrop が起動していません</span>
           <span id="cd-dot" style="margin-left:auto;width:8px;height:8px;border-radius:50%;background:#f43"></span>
-          <button id="cd-dismiss" type="button" style="border:0;background:transparent;color:rgba(255,255,255,0.75);cursor:pointer;font-size:16px;line-height:1;padding:2px;">×</button>
         </div>
         <div style="font-size:12px; opacity:.85; margin-top:6px">ローカル(127.0.0.1)のみで動作・外部送信なし。起動すると自動で接続します。</div>
         <div style="display:grid; gap:8px; margin-top:12px">
@@ -107,8 +105,6 @@
     document.body.appendChild(root);
 
     const dot = root.querySelector('#cd-dot');
-    const title = root.querySelector('[data-toast-title]');
-    const closeButton = root.querySelector('#cd-dismiss');
     const guide = document.createElement('dialog');
     guide.style.border = '0';
     guide.style.borderRadius = '14px';
@@ -146,27 +142,6 @@
     };
     root.querySelector('#cd-retry').onclick = loop;
 
-    let dismissed = false;
-
-    function teardown(autoConnected = false) {
-      if (dismissed) return;
-      dismissed = true;
-      if (!autoConnected) {
-        startToastDismissed = true;
-      }
-      if (guide.open) {
-        guide.close();
-      }
-      guide.remove();
-      if (root.parentElement) {
-        root.parentElement.removeChild(root);
-      }
-    }
-
-    closeButton.onclick = () => {
-      teardown(false);
-    };
-
     async function checkPing() {
       try {
         const r = await fetch(`${base}/v1/health`, { method: 'GET' });
@@ -177,21 +152,13 @@
     }
 
     async function loop() {
-      if (dismissed) return;
-
       const ok = await checkPing();
       dot.style.background = ok ? '#0f6' : '#f43';
       if (ok) {
-        if (title) {
-          title.textContent = '🍫 接続できました';
-        }
-        setTimeout(() => teardown(true), 700);
+        root.querySelector('span').textContent = '🍫 接続できました';
+        setTimeout(() => root.remove(), 700);
       } else {
-        setTimeout(() => {
-          if (!dismissed) {
-            loop();
-          }
-        }, pollMs);
+        setTimeout(loop, pollMs);
       }
     }
 
@@ -272,18 +239,18 @@
     // Try CDN with SRI if allowed
     if (allowCdn) {
       try {
-        console.log('📦 Loading THREE from CDN (pinned v0.158.0 with SRI)...');
+        console.log('📦 Loading THREE from CDN (pinned v0.170.0 with SRI)...');
 
         // Load via script tag to support integrity checking
         await new Promise((resolve, reject) => {
           const script = document.createElement('script');
           script.type = 'module';
           script.crossOrigin = 'anonymous';
-          script.integrity = 'sha384-8BWMu/Do9SsP0UPy64KoqsVP4vTp4JAQF2X6jRMBYVnWcZVkgwtEZLJ1KE0blEKT';
+          script.integrity = 'sha384-IDC7sAMAIMB/TZ6dgKKPPAKZ2bXXXP8+FBMBC8cU319eBhKITx+PaalhfDkDNH28';
 
           // Create inline module to import and expose THREE
           const inlineModule = `
-            import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.module.min.js';
+            import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.min.js';
             window.THREE = THREE;
           `;
 
@@ -303,7 +270,7 @@
     // Try local fallback
     try {
       console.log('📦 Loading THREE from local vendor...');
-      const mod = await import(`${BASE}/vendor/three-0.158.0.min.js`);
+      const mod = await import(`${BASE}/vendor/three-0.170.0.min.js`);
       if (typeof window !== 'undefined') {
         window.THREE = mod;
       }
@@ -313,221 +280,6 @@
       console.warn('Failed to load THREE from local vendor:', error);
       return false;
     }
-  }
-
-  let liteSceneContext = null;
-  let startToastDismissed = false;
-  let placeholderDismissed = false;
-
-  /**
-   * Create lightweight preview scene when host page has no SceneManager
-   */
-  function createLightweightScene() {
-    if (liteSceneContext) {
-      return liteSceneContext;
-    }
-
-    if (typeof window === 'undefined' || !window.THREE) {
-      throw new Error('THREE is required to bootstrap lightweight scene');
-    }
-
-    const THREE = window.THREE;
-
-    // Container
-    const container = document.createElement('div');
-    container.id = '__chocodrop_lite_scene__';
-    Object.assign(container.style, {
-      position: 'fixed',
-      right: '24px',
-      bottom: '24px',
-      width: 'min(420px, calc(100vw - 48px))',
-      height: 'min(420px, calc(100vh - 120px))',
-      zIndex: '2147483600',
-      borderRadius: '18px',
-      boxShadow: '0 20px 45px rgba(0, 0, 0, 0.45)',
-      background: 'rgba(14, 14, 18, 0.92)',
-      backdropFilter: 'blur(16px)',
-      color: '#f8fafc',
-      fontFamily: 'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif',
-      display: 'flex',
-      flexDirection: 'column',
-      overflow: 'hidden',
-      pointerEvents: 'auto'
-    });
-
-    const header = document.createElement('div');
-    Object.assign(header.style, {
-      padding: '14px 18px 6px',
-      fontSize: '13px',
-      letterSpacing: '0.02em',
-      textTransform: 'uppercase',
-      opacity: '0.75',
-      display: 'flex',
-      alignItems: 'center',
-      gap: '8px'
-    });
-    header.innerHTML = `<span style="font-size:16px;">🍫</span> Lite Scene Preview`;
-    container.appendChild(header);
-
-    const canvasWrapper = document.createElement('div');
-    Object.assign(canvasWrapper.style, {
-      position: 'relative',
-      flex: '1 1 auto'
-    });
-    container.appendChild(canvasWrapper);
-
-    if (!document.body.contains(container)) {
-      document.body.appendChild(container);
-    }
-
-    const renderer = new THREE.WebGLRenderer({
-      alpha: true,
-      antialias: true
-    });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-    renderer.domElement.style.width = '100%';
-    renderer.domElement.style.height = '100%';
-    renderer.domElement.style.display = 'block';
-    renderer.domElement.style.borderRadius = '12px';
-    canvasWrapper.appendChild(renderer.domElement);
-
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x111215);
-
-    const aspect = canvasWrapper.clientWidth / Math.max(canvasWrapper.clientHeight, 1);
-    const camera = new THREE.PerspectiveCamera(45, aspect, 0.1, 100);
-    camera.position.set(0, 1.6, 3.8);
-
-    const ambient = new THREE.AmbientLight(0xffffff, 0.55);
-    const keyLight = new THREE.DirectionalLight(0xffffff, 0.85);
-    const fillLight = new THREE.DirectionalLight(0x4450ff, 0.45);
-    keyLight.position.set(3, 6, 4);
-    fillLight.position.set(-4, 2, -6);
-    scene.add(ambient, keyLight, fillLight);
-
-    const grid = new THREE.GridHelper(6, 12, 0x2f3542, 0x1e272e);
-    grid.position.y = -0.01;
-    scene.add(grid);
-
-    const ground = new THREE.Mesh(
-      new THREE.CircleGeometry(3, 64),
-      new THREE.MeshStandardMaterial({
-        color: 0x20242e,
-        emissive: 0x0,
-        metalness: 0.05,
-        roughness: 0.9
-      })
-    );
-    ground.rotation.x = -Math.PI / 2;
-    scene.add(ground);
-
-    // Simple animation loop
-    let animationId = null;
-    const target = new THREE.Vector3(0, 1.4, 0);
-
-    function resizeRenderer() {
-      const rect = canvasWrapper.getBoundingClientRect();
-      const width = Math.max(rect.width, 1);
-      const height = Math.max(rect.height, 1);
-      renderer.setSize(width, height, false);
-      camera.aspect = width / height;
-      camera.updateProjectionMatrix();
-    }
-
-    function tick() {
-      animationId = requestAnimationFrame(tick);
-      camera.lookAt(target);
-      renderer.render(scene, camera);
-    }
-
-    resizeRenderer();
-    tick();
-
-    let resizeObserver = null;
-    if (typeof ResizeObserver !== 'undefined') {
-      resizeObserver = new ResizeObserver(() => {
-        resizeRenderer();
-      });
-      resizeObserver.observe(canvasWrapper);
-    }
-    window.addEventListener('resize', resizeRenderer);
-
-    function dispose() {
-      if (animationId) {
-        cancelAnimationFrame(animationId);
-        animationId = null;
-      }
-      if (resizeObserver) {
-        resizeObserver.disconnect();
-      }
-      window.removeEventListener('resize', resizeRenderer);
-      renderer.dispose();
-      if (container && container.parentElement) {
-        container.parentElement.removeChild(container);
-      }
-      liteSceneContext = null;
-    }
-
-    function togglePointerEvents(disabled) {
-      renderer.domElement.style.pointerEvents = disabled ? 'none' : 'auto';
-    }
-
-    liteSceneContext = {
-      scene,
-      camera,
-      renderer,
-      dispose,
-      togglePointerEvents
-    };
-
-    return liteSceneContext;
-  }
-
-  /**
-   * Ensure scene/camera/renderer exist, creating a lightweight fallback if needed
-   */
-  function ensureSceneContext(scene, opts = {}) {
-    if (scene && (opts.camera || opts.renderer)) {
-      return { scene, options: opts };
-    }
-
-    if (scene && !opts.camera && !opts.renderer) {
-      return {
-        scene,
-        options: {
-          ...opts
-        }
-      };
-    }
-
-    const lite = createLightweightScene();
-
-    const mergedOptions = {
-      ...opts,
-      camera: lite.camera,
-      renderer: lite.renderer,
-      sceneOptions: {
-        enableMouseInteraction: false,
-        ...(opts.sceneOptions || {})
-      },
-      uiOptions: {
-        ...(opts.uiOptions || {}),
-        lightweightMode: true
-      }
-    };
-
-    const originalToggle = opts.onControlsToggle;
-    mergedOptions.onControlsToggle = (disabled) => {
-      lite.togglePointerEvents?.(disabled);
-      if (typeof originalToggle === 'function') {
-        originalToggle(disabled);
-      }
-    };
-
-    return {
-      scene: lite.scene,
-      options: mergedOptions
-    };
   }
 
   /**
@@ -544,8 +296,6 @@
 
       const hasGlobalThree = typeof window !== 'undefined' && window.THREE;
 
-      const { scene: resolvedScene, options: resolvedOptions } = ensureSceneContext(scene, opts);
-
       if (hasGlobalThree) {
         // Load global.js (IIFE bundle) for external sites using <script> tag
         console.log('🌐 Detected window.THREE - loading global bundle');
@@ -560,7 +310,7 @@
         });
 
         if (window.ChocoDropUI && window.ChocoDropUI.attach) {
-          const result = await window.ChocoDropUI.attach(resolvedScene, resolvedOptions);
+          const result = await window.ChocoDropUI.attach(scene, opts);
           mounted = true;
           console.log('✅ ChocoDrop UI loaded from global bundle');
           return { ...result, reload };
@@ -571,7 +321,7 @@
         const mod = await import(`${BASE}/ui/ui.esm.js`);
 
         if (mod.attach) {
-          const result = await mod.attach(resolvedScene, resolvedOptions);
+          const result = await mod.attach(scene, opts);
           mounted = true;
           console.log('✅ ChocoDrop UI loaded from ESM bundle');
           return { ...result, reload };
@@ -583,13 +333,6 @@
 
     // Fallback: Simple placeholder UI
     if (!mounted) {
-      if (placeholderDismissed) {
-        console.warn('ChocoDrop placeholder UI suppressed (dismissed by user).');
-        return {
-          reload
-        };
-      }
-
       root.innerHTML = '';
       const wrapper = document.createElement('div');
       Object.assign(wrapper.style, {
@@ -603,13 +346,7 @@
       });
 
       wrapper.innerHTML = `
-        <div style="margin-bottom: 8px; font-weight: 600; display:flex; align-items:center; gap:12px;">
-          <span>🍫 ChocoDrop（簡易モード）</span>
-          <button id="__cd_close__" type="button" style="margin-left:auto;border:0;background:transparent;color:rgba(255,255,255,0.75);cursor:pointer;font-size:16px;line-height:1;padding:2px;">×</button>
-        </div>
-        <div id="__cd_status__" style="font-size:13px; line-height:1.5; margin-bottom:12px; opacity:0.85;">
-          UI バンドルを読み込めませんでした。<br>開発環境の場合は <code>npm run build</code> を実行してデーモンを再起動してください。
-        </div>
+        <div style="margin-bottom: 8px; font-weight: 600;">🍫 ChocoDrop</div>
         <button id="__cd_reload__" style="
           background: rgba(255, 255, 255, 0.1);
           border: 1px solid rgba(255, 255, 255, 0.2);
@@ -624,38 +361,12 @@
       root.appendChild(wrapper);
 
       const reloadBtn = wrapper.querySelector('#__cd_reload__');
-      const closeBtn = wrapper.querySelector('#__cd_close__');
-      const statusLabel = wrapper.querySelector('#__cd_status__');
-
-      function dismissPlaceholder() {
-        placeholderDismissed = true;
-        if (wrapper.parentElement) {
-          wrapper.parentElement.removeChild(wrapper);
-        }
-      }
-
-      closeBtn.onclick = () => {
-        dismissPlaceholder();
-      };
-
       reloadBtn.onclick = async () => {
         try {
-          reloadBtn.disabled = true;
-          reloadBtn.style.opacity = '0.6';
-          statusLabel.textContent = '設定を再読み込みしています…';
-
           await reload();
-
-          statusLabel.textContent = '設定を再読み込みしました。ページを更新するか UI を再起動してください。';
-          setTimeout(() => {
-            dismissPlaceholder();
-          }, 1500);
+          alert('Configuration reloaded!');
         } catch (error) {
-          const message = error?.message || '不明なエラー';
-          statusLabel.textContent = `再読み込みに失敗しました：${message}。デーモンが起動済みか、ネットワーク設定を確認してください。`;
-        } finally {
-          reloadBtn.disabled = false;
-          reloadBtn.style.opacity = '1';
+          alert('Failed to reload: ' + error.message);
         }
       };
 
