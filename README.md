@@ -15,12 +15,19 @@ A browser-based tool for adding UI and interaction features to Three.js scenes.
 
 ---
 
-## 🚀 すぐ始める
+## 🚀 使い方（目的に合わせて選べます）
 
-### まず見る：デモサイト
-https://nyukicorn.github.io/chocodrop/examples/basic/
+どの使い方も等しく ChocoDrop の体験です。あなたのニーズに合わせて選んでください。
 
-複数の世界観のシーンを用意しています：
+---
+
+### まず雰囲気を感じたい
+
+ブラウザで今すぐ体験できます：
+
+**👉 https://nyukicorn.github.io/chocodrop/examples/basic/**
+
+複数の世界観を用意しています：
 - [Basic](https://nyukicorn.github.io/chocodrop/examples/basic/) - シンプルな操作体験
 - [Music Garden](https://nyukicorn.github.io/chocodrop/examples/music-garden/) - 夜桜と音楽
 - [Wabi-Sabi](https://nyukicorn.github.io/chocodrop/examples/wabi-sabi/) - 侘び寂びの世界
@@ -29,15 +36,15 @@ https://nyukicorn.github.io/chocodrop/examples/basic/
 
 ---
 
-### 自分で使う
+### 既存サイトやプロジェクトで使いたい
 
-#### 98%の人向け：UI とインタラクション機能を使う
+daemon を起動して統合できます：
 
 ```bash
 npx --yes @chocodrop/daemon@alpha
 ```
 
-**これでできること**:
+**できること**:
 - ✅ ブックマークレットで既存サイト（threejs.org など）に統合
 - ✅ npm プロジェクトに組み込み
 - ✅ Three.js シーンの UI 操作
@@ -47,9 +54,9 @@ npx --yes @chocodrop/daemon@alpha
 
 ---
 
-#### 2%の人向け：AI生成機能も使いたい
+### AI生成機能も使いたい
 
-リポジトリをクローンしてください：
+リポジトリをクローンしてフル機能を利用できます：
 
 ```bash
 git clone https://github.com/nyukicorn/chocodrop.git
@@ -59,7 +66,7 @@ npm run setup:mcp  # KAMUI Code 設定
 npm run dev        # サーバー起動
 ```
 
-**AI生成でできること**:
+**できること**:
 - ✅ "右上に桜の画像を置いて" → AI が生成・配置
 - ✅ "このオブジェクトをモノクロにして" → AI が変換
 
@@ -74,9 +81,9 @@ npm run dev        # サーバー起動
 
 まずは目的に合わせてルートを選びましょう：
 
-| 目的 | 推奨ルート | 所要時間 | 主な手順 |
+| 目的 | 方法 | 所要時間 | 主な手順 |
 | --- | --- | --- | --- |
-| **雰囲気をすぐ体験したい** | デモ版（ホスト済み） | 1 分 | ブラウザでサンプルを開くだけ |
+| **雰囲気をすぐ体験したい** | オンライン体験 | 1 分 | ブラウザでサンプルを開くだけ |
 | **threejs.org 等の既存サイトで試したい** | ブックマークレット + daemon | 2–3 分 | daemon 起動 → ブックマークレット登録 → 対象ページで実行 |
 | **自分のプロジェクトに組み込みたい** | daemon + SDK | 5–10 分 | daemon 起動 → SDK 読み込み → `ready()` `attach()` |
 | **AI生成機能も使いたい** | リポジトリ clone + KAMUI Code 設定 | 10 分〜 | clone → `npm run setup:mcp` → `npm run dev` |
@@ -85,10 +92,10 @@ npm run dev        # サーバー起動
 
 ---
 
-### A. ブラウザで今すぐ試す（デモ版）
+### A. ブラウザで体験
 
-- **オンラインですぐ試す:** [Basic Demo](https://nyukicorn.github.io/chocodrop/examples/basic/) を開くだけで UI を体験できます。
-- **ローカルで試す:**
+- **オンラインで体験:** [Basic](https://nyukicorn.github.io/chocodrop/examples/basic/) を開くだけで UI を体験できます。
+- **ローカルで体験:**
   ```bash
   npm run example:basic
   ```
