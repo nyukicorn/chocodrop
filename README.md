@@ -84,7 +84,7 @@ threejs.org などの既存サイトにも ChocoDrop UI を表示できます。
    # または pnpm
    pnpm dlx @chocodrop/daemon@alpha
    ```
-   起動後は `http://127.0.0.1:43110` で SDK/UI が配信されます。
+   起動すると、ブラウザから ChocoDrop が使えるようになります（`http://127.0.0.1:43110` で ChocoDrop の機能（SDK）が配信されます）。
 2. **ブックマークレットを登録**
    [Bookmarklet v2](https://nyukicorn.github.io/chocodrop/examples/bookmarklet-v2.html) を開き、「🍫 ChocoDrop v2」ボタンをブックマークバーへドラッグ＆ドロップします。
 3. **対象ページで実行**
