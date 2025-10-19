@@ -73,7 +73,6 @@
   "files": [
     "src/",
     "dist/",
-    "examples/",
     "README.md",
     "LICENSE",
     "CONTRIBUTING.md",
