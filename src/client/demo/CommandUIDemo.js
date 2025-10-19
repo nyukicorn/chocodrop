@@ -431,7 +431,7 @@ export class CommandUIDemo {
       border-radius: 999px;
       border: 1px solid rgba(255, 255, 255, 0.28);
       background: rgba(255, 255, 255, ${this.isDarkMode ? '0.12' : '0.16'});
-      color: ${this.isDarkMode ? '#f8fafc' : '#1f2937'};
+      color: ${this.isWabiSabiMode || this.isDarkMode ? '#ffffff' : '#1f2937'};
       font-size: 11px;
       font-weight: 600;
       cursor: pointer;
