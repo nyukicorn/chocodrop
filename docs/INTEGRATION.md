@@ -7,7 +7,7 @@ ChocoDrop を自分のプロジェクトに統合する方法を、ユースケ�
 - [統合方法の選び方](#統合方法の選び方)
 - [Vanilla HTML で使う（daemon + SDK）](#vanilla-html-で使うdaemon--sdk)
 - [npm プロジェクトで使う](#npm-プロジェクトで使う)
-- [外部サイトで使う（Bookmarklet）](#外部サイトで使うbookmarklet)
+- [Three.js サイトで使う](#threejs-サイトで使う)
 - [React Three Fiber で使う](#react-three-fiber-で使う)
 - [トラブルシューティング](#トラブルシューティング)
 
@@ -21,7 +21,7 @@ ChocoDrop を自分のプロジェクトに統合する方法を、ユースケ�
 |--------|------------|-----|--------------|
 | [Vanilla HTML](#vanilla-html-で使うdaemon--sdk) | CDNから直接Three.jsを使いたい | `window.chocodrop` | ✅ 必要 |
 | [npm プロジェクト](#npm-プロジェクトで使う) | Vite/Webpackでビルドしたい | `createChocoDrop()` | ❌ 不要 |
-| [Bookmarklet](#外部サイトで使うbookmarklet) | 外部サイトに注入したい | `window.chocodrop` | ✅ 必要 |
+| [ブックマークから注入](#threejs-サイトで使う) | Three.js を使っている外部サイトに注入したい | `window.chocodrop` | ✅ 必要 |
 | [React Three Fiber](#react-three-fiber-で使う) | Reactを使っている | `createChocoDrop()` | ❌ 不要 |
 
 ---
@@ -313,12 +313,15 @@ const chocoDrop = createChocoDrop(scene, options);
 
 ---
 
-## 外部サイトで使う（Bookmarklet）
+## Three.js サイトで使う
 
 **こんな人におすすめ**:
 - Three.js 公式サイトなど、他人のサイトで試したい
 - コードを一切変更せずに使いたい
 - ブラウザから簡単に注入したい
+
+ブックマークバーに登録したボタンをクリックするだけで、Three.js を使っている既存サイトに ChocoDrop を導入できます。
+※技術的には「ブックマークレット (bookmarklet)」と呼ばれる機能です
 
 ### セットアップ
 
@@ -327,7 +330,7 @@ const chocoDrop = createChocoDrop(scene, options);
    npx --yes @chocodrop/daemon@alpha
    ```
 
-2. ブックマークレットページを開く：
+2. ブックマークページを開く：
    - [Bookmarklet v2](https://nyukicorn.github.io/chocodrop/examples/bookmarklet-v2.html)
 
 3. 「🍫 ChocoDrop v2」ボタンをブックマークバーへドラッグ
