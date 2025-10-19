@@ -545,13 +545,35 @@
 
     <!-- Three.js r170 + ChocoDrop (module preload) -->
     <script type="module">
-    import ensureChocoDrop from '../../public/load-chocodrop.js';
+        const fallbackBase = window.CHOCODROP_PUBLIC_BASE || `${window.location.protocol}//${window.location.hostname}:3011`;
+        const loaderCandidates = [
+            `${fallbackBase}/load-chocodrop.js`,
+            new URL('../../public/load-chocodrop.js', import.meta.url).href
+        ];
 
-    (async () => {
-    await ensureChocoDrop();
+        let ensureChocoDrop = null;
+        for (const candidate of loaderCandidates) {
+            try {
+                const module = await import(candidate);
+                ensureChocoDrop = module?.default || module?.ensureChocoDrop || null;
+                if (ensureChocoDrop) {
+                    console.log(`✅ ChocoDrop loader resolved via ${candidate}`);
+                    break;
+                }
+            } catch (error) {
+                console.warn(`⚠️ Failed to load ChocoDrop loader from ${candidate}`, error);
+            }
+        }
 
-    const THREE = window.THREE;
-    const ChocoDrop = window.ChocoDrop;
+        if (!ensureChocoDrop) {
+            throw new Error('ChocoDrop ローダーを取得できませんでした。`load-chocodrop.js` の提供元を確認してください。');
+        }
+
+        (async () => {
+            await ensureChocoDrop();
+
+            const THREE = window.THREE;
+            const ChocoDrop = window.ChocoDrop;
         // 統合メニューの制御
         (function() {
             const menuToggle = document.getElementById('unifiedMenuToggle');

@@ -1,3 +1,5 @@
+import { GuidedOnboarding } from '../onboarding/GuidedOnboarding.js';
+
 const IMAGE_SERVICE_STORAGE_KEY = 'chocodrop-service-image';
 const VIDEO_SERVICE_STORAGE_KEY = 'chocodrop-service-video';
 
@@ -42,6 +44,7 @@ export class CommandUIDemo {
       autoScroll: options.autoScroll !== false,
       enableDebugLogging: options.enableDebugLogging === true,
       enableServerHealthCheck: options.enableServerHealthCheck !== false,
+      showGuidedOnboarding: options.showGuidedOnboarding !== false,
       ...options.config
     };
 
@@ -99,6 +102,9 @@ export class CommandUIDemo {
     this.currentTheme = localStorage.getItem('live-command-theme') || 'light';
     this.isDarkMode = this.currentTheme === 'dark';
     this.isWabiSabiMode = this.currentTheme === 'wabisabi';
+
+    this.onboardingCoach = null;
+    this.onboardingLauncherButton = null;
     
     // Undo/Redo システム
     this.commandHistory = [];
@@ -116,6 +122,7 @@ export class CommandUIDemo {
 
     this.createServiceModal();
     this.createFloatingChocolateIcon();
+    this.initializeGuidedOnboarding();
 
     // DOM読み込み完了後にスタイルを確実に適用
     document.addEventListener('DOMContentLoaded', () => {
@@ -412,6 +419,40 @@ export class CommandUIDemo {
     // 組み立て（ヘッダー削除、ブランドバッジは既に追加済み）
     // this.container.appendChild(this.output); // 大きなタスク表示エリアをDOMに追加しない
     this.container.appendChild(closeButton);
+
+    this.onboardingLauncherButton = document.createElement('button');
+    this.onboardingLauncherButton.id = 'chocodrop-onboarding-launcher-demo';
+    this.onboardingLauncherButton.textContent = '初めての方ガイド';
+    this.onboardingLauncherButton.style.cssText = `
+      align-self: flex-start;
+      margin-top: 4px;
+      margin-bottom: 6px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.28);
+      background: rgba(255, 255, 255, ${this.isDarkMode ? '0.12' : '0.16'});
+      color: ${this.isDarkMode ? '#f8fafc' : '#1f2937'};
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    `;
+    this.onboardingLauncherButton.addEventListener('mouseenter', () => {
+      this.onboardingLauncherButton.style.boxShadow = '0 8px 18px rgba(99, 102, 241, 0.25)';
+      this.onboardingLauncherButton.style.transform = 'translateY(-1px)';
+    });
+    this.onboardingLauncherButton.addEventListener('mouseleave', () => {
+      this.onboardingLauncherButton.style.boxShadow = 'none';
+      this.onboardingLauncherButton.style.transform = 'translateY(0)';
+    });
+    this.onboardingLauncherButton.addEventListener('click', () => this.launchOnboarding(true));
+
+    this.container.appendChild(this.onboardingLauncherButton);
     this.container.appendChild(modeSelector);
     this.container.appendChild(this.inputWrapper);
     this.container.appendChild(actionContainer);
@@ -754,6 +795,32 @@ export class CommandUIDemo {
 
     this.updateServiceSelectorTheme();
     this.toggleServiceRetryButton(false);
+  }
+
+  initializeGuidedOnboarding() {
+    this.onboardingCoach = new GuidedOnboarding({
+      modeContainer: () => this.radioModeContainer,
+      settingsButton: () => this.settingsButton,
+      inputElement: () => this.input,
+      executeButton: () => this.container?.querySelector('#execute-btn'),
+      onSelectMode: (mode) => this.selectMode(mode, true),
+      onInsertPrompt: (prompt) => this.insertOnboardingPrompt(prompt),
+      onOpenServiceModal: () => this.openServiceModal(),
+      onRequestShow: () => {
+        if (!this.isVisible) {
+          this.show();
+        }
+      },
+      onComplete: ({ status }) => {
+        if (status === 'finished') {
+          this.addOutput('🎉 初回ガイドを完了しました。メニューからいつでも再開できます。', 'system');
+        }
+      }
+    });
+
+    if (this.config.showGuidedOnboarding !== false) {
+      setTimeout(() => this.onboardingCoach?.start({ force: false }), 600);
+    }
   }
 
   openServiceModal(forceFetch = false) {
@@ -2339,6 +2406,23 @@ export class CommandUIDemo {
     } else {
       this.show();
     }
+  }
+
+  launchOnboarding(force = false) {
+    if (!this.onboardingCoach) {
+      setTimeout(() => this.launchOnboarding(force), 120);
+      return;
+    }
+    this.onboardingCoach.start({ force });
+  }
+
+  insertOnboardingPrompt(prompt) {
+    if (!this.input) {
+      return;
+    }
+    this.input.value = prompt;
+    this.input.dispatchEvent(new Event('input', { bubbles: true }));
+    this.addOutput('🪄 推奨プロンプトを挿入しました。必要に応じて調整してください。', 'system');
   }
 
   /**
@@ -4493,6 +4577,16 @@ export class CommandUIDemo {
     if (executeBtn) {
       executeBtn.style.cssText = this.getModernButtonStyles('primary');
     }
+
+    if (this.onboardingLauncherButton) {
+      this.onboardingLauncherButton.style.background = this.isDarkMode
+        ? 'rgba(255, 255, 255, 0.12)'
+        : 'rgba(0, 0, 0, 0.06)';
+      this.onboardingLauncherButton.style.color = this.isDarkMode ? '#f8fafc' : '#1f2937';
+      this.onboardingLauncherButton.style.border = this.isDarkMode
+        ? '1px solid rgba(255, 255, 255, 0.28)'
+        : '1px solid rgba(15, 23, 42, 0.18)';
+    }
   }
 
   /**
@@ -5486,6 +5580,39 @@ export class CommandUIDemo {
 
     // メニューに追加
     menu.appendChild(openFormItem);
+
+    if (this.onboardingCoach) {
+      const guideItem = document.createElement('div');
+      guideItem.innerHTML = '🎯 初回ガイドを再生';
+      guideItem.style.cssText = `
+        padding: 8px 16px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: #6366f1;
+        text-shadow: 0 2px 4px rgba(99, 102, 241, 0.3);
+      `;
+
+      guideItem.addEventListener('mouseover', () => {
+        guideItem.style.background = this.isDarkMode ? 'rgba(99, 102, 241, 0.15)' : 'rgba(99, 102, 241, 0.1)';
+        guideItem.style.textShadow = '0 2px 6px rgba(99, 102, 241, 0.5)';
+      });
+
+      guideItem.addEventListener('mouseout', () => {
+        guideItem.style.background = 'transparent';
+        guideItem.style.textShadow = '0 2px 4px rgba(99, 102, 241, 0.3)';
+      });
+
+      guideItem.addEventListener('click', () => {
+        menu.remove();
+        this.launchOnboarding(true);
+      });
+
+      menu.appendChild(guideItem);
+    }
+
     menu.appendChild(hideIconItem);
 
     // DOM に追加
