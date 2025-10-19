@@ -545,7 +545,14 @@
 
     <!-- Three.js r170 + ChocoDrop (module preload) -->
     <script type="module">
-        const fallbackBase = window.CHOCODROP_PUBLIC_BASE || `${window.location.protocol}//${window.location.hostname}:3011`;
+        // GitHub Pages対応: プロトコルとホスト名を取得し、適切なベースURLを構築
+        const isGitHubPages = window.location.hostname.includes('github.io');
+        const fallbackBase = window.CHOCODROP_PUBLIC_BASE ||
+            (isGitHubPages
+                ? `${window.location.origin}${window.location.pathname.split('/examples/')[0]}/public`
+                : `${window.location.protocol}//${window.location.hostname}:3011`
+            );
+
         const loaderCandidates = [
             `${fallbackBase}/load-chocodrop.js`,
             new URL('../../public/load-chocodrop.js', import.meta.url).href
