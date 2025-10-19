@@ -5,6 +5,7 @@ node_modules/
 
 # Configuration files with sensitive data
 config.json
+config.local.json
 .env
 .env.local
 .env.*.local
