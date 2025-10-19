@@ -369,7 +369,7 @@ export class CommandUI {
       border-radius: 999px;
       border: 1px solid rgba(255, 255, 255, 0.28);
       background: rgba(255, 255, 255, ${this.isDarkMode ? '0.12' : '0.16'});
-      color: ${this.isDarkMode ? '#f8fafc' : '#1f2937'};
+      color: ${this.isWabiSabiMode || this.isDarkMode ? '#ffffff' : '#1f2937'};
       font-size: 11px;
       font-weight: 600;
       cursor: pointer;
@@ -760,7 +760,10 @@ export class CommandUI {
       modeContainer: () => this.radioModeContainer,
       settingsButton: () => this.settingsButton,
       inputElement: () => this.input,
+      textareaElement: () => this.input,
       executeButton: () => this.container?.querySelector('#execute-btn'),
+      fileButton: () => this.radioModeButtons?.['import']?.button,
+      closeButton: () => this.closeButton,
       onSelectMode: (mode) => this.selectMode(mode, true),
       onInsertPrompt: (prompt) => this.insertOnboardingPrompt(prompt),
       onOpenServiceModal: () => this.openServiceModal(),
@@ -1258,6 +1261,7 @@ export class CommandUI {
     modes.forEach(mode => {
       const button = document.createElement('div');
       button.className = `mode-option ${mode.value}`;
+      button.setAttribute('data-mode', mode.value);
       button.style.cssText = `
         display: flex;
         flex-direction: column;
