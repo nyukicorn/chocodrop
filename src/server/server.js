@@ -48,7 +48,9 @@ class ChocoDropServer {
       'http://localhost:5173',
       'http://localhost:8080',
       'http://localhost:8000',
-      'http://localhost:8001'
+      'http://localhost:8001',
+      'http://localhost:8005',
+      'http://127.0.0.1:8005'
     ];
     const configuredCorsOrigins = config.get('server.corsOrigins');
     const allowedCorsOrigins = Array.isArray(configuredCorsOrigins)

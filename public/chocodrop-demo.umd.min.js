@@ -6295,7 +6295,9 @@
       this.primaryButton = null;
       this.secondaryButton = null;
       this.skipButton = null;
+      this.closeButton = null;
       this.progressBar = null;
+      this.spotlightLayer = null;
 
       this.currentHighlightTarget = null;
       this.updateFocusRingPosition = this.updateFocusRingPosition.bind(this);
@@ -6462,11 +6464,19 @@
       z-index: 1600;
       display: none;
       pointer-events: none;
-      background: ${this.theme.isDark ? 'rgba(0, 0, 0, 0.45)' : 'rgba(255, 255, 255, 0.45)'};
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
+      background: transparent;
       transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1);
       opacity: 0;
+    `;
+
+      this.spotlightLayer = document.createElement('div');
+      this.spotlightLayer.style.cssText = `
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      transition: background 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+      background: ${this.computeSpotlightGradient(null)};
     `;
 
       this.focusRing = document.createElement('div');
@@ -6482,6 +6492,7 @@
       border-radius: 24px;
       opacity: 0;
       transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+      z-index: 1;
     `;
 
       const panelWrapper = document.createElement('div');
@@ -6492,6 +6503,7 @@
       transform: translateX(-50%);
       max-width: min(420px, 92vw);
       pointer-events: auto;
+      z-index: 2;
     `;
 
       this.panel = document.createElement('div');
@@ -6762,43 +6774,97 @@
       buttonRow.appendChild(this.backButton);
       buttonRow.appendChild(this.secondaryButton);
       buttonRow.appendChild(this.primaryButton);
+      const controlsContainer = document.createElement('div');
+      controlsContainer.style.cssText = `
+      position: absolute;
+      top: 16px;
+      right: 20px;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      z-index: 4;
+    `;
+
+      this.closeButton = document.createElement('button');
+      this.closeButton.type = 'button';
+      this.closeButton.setAttribute('aria-label', 'ガイドを閉じる');
+      this.closeButton.innerHTML = '&times;';
+      this.closeButton.style.cssText = `
+      width: 32px;
+      height: 32px;
+      border-radius: 10px;
+      border: 1.5px solid ${colors.border};
+      background: ${this.theme.isDark ? 'rgba(15, 23, 42, 0.45)' : 'rgba(241, 245, 249, 0.45)'};
+      color: ${colors.textSecondary};
+      font-size: 18px;
+      font-weight: 600;
+      line-height: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      box-shadow: none;
+    `;
+      this.closeButton.addEventListener('mouseenter', () => {
+        this.closeButton.style.borderColor = colors.borderAccent;
+        this.closeButton.style.color = colors.textPrimary;
+        this.closeButton.style.boxShadow = `0 6px 16px ${colors.glow}`;
+      });
+      this.closeButton.addEventListener('mouseleave', () => {
+        this.closeButton.style.borderColor = colors.border;
+        this.closeButton.style.color = colors.textSecondary;
+        this.closeButton.style.boxShadow = 'none';
+      });
+      this.closeButton.addEventListener('click', () => this.complete('dismissed'));
 
       this.skipButton = document.createElement('button');
       this.skipButton.type = 'button';
       this.skipButton.textContent = 'スキップ';
+      this.skipButton.setAttribute('aria-label', 'このページをスキップ');
+      this.skipButton.title = 'このページをスキップして次へ進みます';
       this.skipButton.style.cssText = `
-      position: absolute;
-      top: 16px;
-      right: 20px;
       border: none;
-      background: transparent;
+      padding: 8px 14px;
+      border-radius: 12px;
+      background: ${this.theme.isDark ? 'rgba(148, 163, 184, 0.14)' : 'rgba(148, 163, 184, 0.12)'};
       color: ${colors.textSecondary};
       font-size: 13px;
-      font-weight: 500;
+      font-weight: 600;
       cursor: pointer;
-      text-decoration: none;
-      padding: 6px 10px;
-      border-radius: 8px;
       transition: all 0.2s ease;
-      z-index: 3;
-      opacity: 0.7;
+      opacity: 0.85;
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
     `;
       this.skipButton.addEventListener('mouseenter', () => {
-        this.skipButton.style.background = this.theme.isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.05)';
         this.skipButton.style.opacity = '1';
+        this.skipButton.style.background = this.theme.isDark
+          ? 'rgba(168, 85, 247, 0.16)'
+          : 'rgba(139, 92, 246, 0.16)';
+        this.skipButton.style.color = colors.textPrimary;
       });
       this.skipButton.addEventListener('mouseleave', () => {
-        this.skipButton.style.background = 'transparent';
-        this.skipButton.style.opacity = '0.7';
+        this.skipButton.style.opacity = '0.85';
+        this.skipButton.style.background = this.theme.isDark
+          ? 'rgba(148, 163, 184, 0.14)'
+          : 'rgba(148, 163, 184, 0.12)';
+        this.skipButton.style.color = colors.textSecondary;
       });
-      this.skipButton.addEventListener('click', () => this.complete('skipped'));
+      this.skipButton.addEventListener('click', () => this.skipStep());
 
-      this.panel.appendChild(this.skipButton);
+      controlsContainer.appendChild(this.closeButton);
+      controlsContainer.appendChild(this.skipButton);
+
+      this.panel.appendChild(controlsContainer);
       this.panel.appendChild(header);
       this.panel.appendChild(bodyWrapper);
       this.panel.appendChild(buttonRow);
 
       panelWrapper.appendChild(this.panel);
+      this.backdrop.appendChild(this.spotlightLayer);
       this.backdrop.appendChild(this.focusRing);
       this.backdrop.appendChild(panelWrapper);
 
@@ -6827,6 +6893,10 @@
 
       // Re-detect background brightness when starting
       this.detectBackgroundBrightness();
+
+      if (this.spotlightLayer) {
+        this.spotlightLayer.style.background = this.computeSpotlightGradient(null);
+      }
 
       if (typeof this.options.onRequestShow === 'function') {
         this.options.onRequestShow();
@@ -6880,6 +6950,7 @@
         return;
       }
 
+      this.updateTopControls();
       this.titleEl.textContent = step.title;
       const progress = ((this.state.stepIndex + 1) / this.steps.length) * 100;
       this.progressValue.style.width = `${progress}%`;
@@ -6994,8 +7065,13 @@
           this.state.persona = option.id;
           this.state.samplePrompt = option.prompt;
           this.state.hasInsertedPrompt = false;
-          if (typeof this.options.onSelectMode === 'function') {
-            this.options.onSelectMode(option.mode);
+          const supportedModes = ['generate', 'import', 'modify', 'delete'];
+          if (typeof this.options.onSelectMode === 'function' && supportedModes.includes(option.mode)) {
+            try {
+              this.options.onSelectMode(option.mode);
+            } catch (error) {
+              console.warn('Select mode handler failed:', error);
+            }
           }
 
           // Update all cards
@@ -7427,6 +7503,38 @@
       this.currentHighlightTarget = null;
     }
 
+    updateTopControls() {
+      if (!this.skipButton || !this.closeButton) {
+        return;
+      }
+
+      const isLastStep = this.state.stepIndex >= this.steps.length - 1;
+      if (isLastStep) {
+        this.skipButton.textContent = 'ガイドを終了';
+        this.skipButton.title = 'すべて確認したのでガイドを閉じます';
+        this.skipButton.setAttribute('aria-label', 'ガイドを終了');
+      } else {
+        this.skipButton.textContent = 'スキップ';
+        this.skipButton.title = 'このページをスキップして次へ進みます';
+        this.skipButton.setAttribute('aria-label', 'このページをスキップ');
+      }
+    }
+
+    skipStep() {
+      if (!this.active) {
+        return;
+      }
+
+      const nextIndex = this.state.stepIndex + 1;
+      if (nextIndex >= this.steps.length) {
+        this.complete('skipped');
+        return;
+      }
+
+      this.state.stepIndex = nextIndex;
+      this.renderCurrentStep();
+    }
+
     nextStep() {
       this.state.stepIndex += 1;
       if (this.state.stepIndex >= this.steps.length) {
@@ -7465,20 +7573,25 @@
     }
 
     updateFocusRingPosition() {
+      const fallbackRect = this.panel ? this.panel.getBoundingClientRect() : null;
+
       if (!this.active) {
         this.focusRing.style.opacity = '0';
+        this.updateSpotlight(null);
         return;
       }
 
       const target = this.currentHighlightTarget;
       if (!target) {
         this.focusRing.style.opacity = '0';
+        this.updateSpotlight(fallbackRect);
         return;
       }
 
       const rect = target.getBoundingClientRect();
       if (rect.width === 0 && rect.height === 0) {
         this.focusRing.style.opacity = '0';
+        this.updateSpotlight(fallbackRect);
         return;
       }
 
@@ -7486,6 +7599,39 @@
       this.focusRing.style.transform = `translate(${rect.left - 12}px, ${rect.top - 12}px)`;
       this.focusRing.style.width = `${rect.width + 24}px`;
       this.focusRing.style.height = `${rect.height + 24}px`;
+
+      this.updateSpotlight(rect);
+    }
+
+    getBaseOverlayLayer() {
+      return this.theme.isDark
+        ? 'linear-gradient(180deg, rgba(5, 10, 24, 0.58) 0%, rgba(15, 23, 42, 0.62) 100%)'
+        : 'linear-gradient(180deg, rgba(248, 250, 255, 0.7) 0%, rgba(226, 232, 240, 0.65) 100%)';
+    }
+
+    computeSpotlightGradient(rect) {
+      const baseLayer = this.getBaseOverlayLayer();
+      if (!rect) {
+        return baseLayer;
+      }
+
+      const centerX = Math.round(rect.left + rect.width / 2);
+      const centerY = Math.round(rect.top + rect.height / 2);
+      const radius = Math.max(rect.width, rect.height) * 0.6 + 160;
+      const innerStop = Math.max(0, radius - 200);
+      const haloRadius = Math.min(radius, innerStop + 80);
+      const tintColor = this.theme.isDark ? 'rgba(8, 13, 24, 0.65)' : 'rgba(241, 245, 249, 0.75)';
+      const haloColor = this.theme.isDark ? 'rgba(148, 163, 184, 0.22)' : 'rgba(139, 92, 246, 0.18)';
+
+      return `radial-gradient(circle at ${centerX}px ${centerY}px, rgba(0, 0, 0, 0) ${innerStop}px, ${haloColor} ${haloRadius}px, ${tintColor} ${radius}px), ${baseLayer}`;
+    }
+
+    updateSpotlight(rect) {
+      if (!this.spotlightLayer) {
+        return;
+      }
+
+      this.spotlightLayer.style.background = this.computeSpotlightGradient(rect);
     }
 
     updateProgressIndicator() {
@@ -7598,6 +7744,7 @@
 
       this.backdrop.style.opacity = '0';
       this.focusRing.style.opacity = '0';
+      this.updateSpotlight(null);
 
       setTimeout(() => {
         this.backdrop.style.display = 'none';
@@ -14752,6 +14899,16 @@
      * モード選択（ラジオボタンUI更新）
      */
     selectMode(mode, isManual = false, detectedKeyword = null) {
+      const modeEntry = this.radioModeButtons?.[mode];
+      if (!modeEntry) {
+        if (typeof this.logDebug === 'function') {
+          this.logDebug('⚠️ Unknown mode requested for selectMode:', mode);
+        } else {
+          console.warn('Unknown mode requested for selectMode:', mode);
+        }
+        return;
+      }
+
       this.currentMode = mode;
 
       // 全ボタンをリセット
@@ -14770,7 +14927,7 @@
       });
 
       // 選択されたボタンをハイライト（2025年仕様）
-      const { button, autoBadge } = this.radioModeButtons[mode];
+      const { button, autoBadge } = modeEntry;
       
       // 2025 Glassmorphism選択状態
       const selectedGlass = this.isWabiSabiMode

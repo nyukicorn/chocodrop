@@ -1361,6 +1361,16 @@ export class CommandUI {
    * モード選択（ラジオボタンUI更新）
    */
   selectMode(mode, isManual = false, detectedKeyword = null) {
+    const modeEntry = this.radioModeButtons?.[mode];
+    if (!modeEntry) {
+      if (typeof this.logDebug === 'function') {
+        this.logDebug('⚠️ Unknown mode requested for selectMode:', mode);
+      } else {
+        console.warn('Unknown mode requested for selectMode:', mode);
+      }
+      return;
+    }
+
     this.currentMode = mode;
 
     // 全ボタンをリセット
@@ -1379,7 +1389,7 @@ export class CommandUI {
     });
 
     // 選択されたボタンをハイライト（2025年仕様）
-    const { button, autoBadge } = this.radioModeButtons[mode];
+    const { button, autoBadge } = modeEntry;
     
     // 2025 Glassmorphism選択状態
     const selectedGlass = this.isWabiSabiMode
