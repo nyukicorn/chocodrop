@@ -2010,6 +2010,7 @@
       const colorMap = {
         '赤': 0xff0000, '赤色': 0xff0000,
         '青': 0x0000ff, '青色': 0x0000ff,
+        'ブルー': 0x0000ff,
         '緑': 0x00ff00, '緑色': 0x00ff00,
         '黄': 0xffff00, '黄色': 0xffff00, '黄色い': 0xffff00,
         '紫': 0xff00ff, '紫色': 0xff00ff,
@@ -6247,44 +6248,44 @@
         {
           id: 'media-import',
           label: 'メディアインポート',
-          emoji: '📥',
-          description: '📁ボタンから画像・動画・3Dファイルを選択して配置。サービス接続不要で即座に使えます。',
-          prompt: '中央に設置',
+          icon: { start: '#a855f7', end: '#ec4899', rotation: 28, type: 'import' },
+          description: '手元の画像・動画・3D素材をそのまま配置。ショーケースのレイアウト作りにぴったりなモードです。',
+          prompt: '中央に飾って',
           mode: 'import'
         },
         {
           id: 'remix-pro',
           label: '雰囲気演出',
-          emoji: '🌌',
-          description: '3Dシーンのオブジェクトをクリック選択後、見た目を自然言語で変更・削除。サービス不要で即座に反映されます。',
-          prompt: '背景の白色を透明にして',
+          icon: { start: '#38bdf8', end: '#a855f7', rotation: -12, type: 'modify' },
+          description: '選択したオブジェクトに自然言語で光と色をまとわせます。ライブ演出の微調整に最適。',
+          prompt: '背景の白い光を透明なブルーにして',
           mode: 'modify'
         },
         {
           id: 'atmos-sculpt',
           label: 'ビジュアル生成',
-          emoji: '🎨',
-          description: '動画サービスでアニメーション演出を生成。⚙️から動画サービスの接続が必要です。',
-          prompt: '虹色に輝く折り紙で作った幻想的なユニコーンの動画を作って',
+          icon: { start: '#f472b6', end: '#facc15', rotation: 40, type: 'generate' },
+          description: '接続した生成サービスで新しいビジュアルやアニメーションを生み出します。壮大なシーンの起点に。',
+          prompt: '虹色のガラスで編んだユニコーンのドローンショットの動画を作って',
           mode: 'generate',
           mediaType: 'video'
         },
         {
           id: 'scene-capture',
           label: 'シーン撮影',
-          emoji: '🎬',
-          description: 'WASDキー操作でシーンを調整し、UI非表示で画面をキャプチャ。完璧なアングルを見つけよう。',
+          icon: { start: '#60a5fa', end: '#4ade80', rotation: -5, type: 'capture' },
+          description: 'WASD操作で少しずつアングルを整え、UIを隠してシネマティックなスクリーンショットを収めます。',
           prompt: '',
           mode: 'capture'
         }
       ];
 
       this.steps = [
-        { id: 'persona', title: 'ChocoDropへようこそ', type: 'choice' },
-        { id: 'service', title: 'サービス接続を整える', type: 'service' },
-        { id: 'prompt', title: '最初のコマンドを仕上げる', type: 'prompt' },
-        { id: 'execute', title: '実験を走らせる', type: 'execute' },
-        { id: 'next', title: '次のステップ', type: 'next' }
+        { id: 'persona', title: 'ChocoDropへようこそ', type: 'choice', icon: '💡', tagline: '作りたいムードを選ぶと、あなたの世界づくりが最短距離になります。' },
+        { id: 'service', title: 'サービス接続を整える', type: 'service', icon: '🔗', tagline: '生成サービスの接続状態をチェックして、滞りなく創作を進めましょう。' },
+        { id: 'prompt', title: '言葉で世界をデザイン', type: 'prompt', icon: '🖋️', tagline: 'フォームに光を当てながら、シーンを導く言葉を仕上げます。' },
+        { id: 'execute', title: 'シーンを動かす', type: 'execute', icon: '🎬', tagline: '準備が整ったら再生。サウンドと光がシーンに息を吹き込みます。' },
+        { id: 'next', title: '次のステップ', type: 'next', icon: '🌈', tagline: 'これからもっと遊ぶためのヒントとショートカットをご案内。' }
       ];
 
       this.backdrop = null;
@@ -6295,7 +6296,16 @@
       this.primaryButton = null;
       this.secondaryButton = null;
       this.skipButton = null;
+      this.closeButton = null;
       this.progressBar = null;
+      this.spotlightLayer = null;
+      this.focusAuraClass = 'chocodrop-onboarding-focus';
+      this.focusAuraStyleId = 'chocodrop-onboarding-style';
+      this.focusAuraTargets = new Set();
+      this.additionalHighlights = [];
+      this.badgeIndicators = {};
+      this.stepCompletionStates = {};
+      this.completedSteps = new Set();
 
       this.currentHighlightTarget = null;
       this.updateFocusRingPosition = this.updateFocusRingPosition.bind(this);
@@ -6306,6 +6316,84 @@
 
       window.addEventListener('resize', this.updateFocusRingPosition);
       window.addEventListener('scroll', this.updateFocusRingPosition, true);
+    }
+
+    createPersonaIcon(spec = {}) {
+      const {
+        start = '#6366f1',
+        end = '#a855f7',
+        rotation = 0,
+        type = 'default'
+      } = spec;
+
+      const icon = document.createElement('div');
+      icon.style.cssText = `
+      width: 36px;
+      height: 36px;
+      border-radius: 14px;
+      background: linear-gradient(${rotation}deg, ${start}, ${end});
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow:
+        0 4px 12px rgba(99, 102, 241, 0.35),
+        inset 0 1px 0 rgba(255, 255, 255, 0.35);
+    `;
+
+      const svg = this.createPersonaGlyph(type);
+      if (svg) {
+        icon.appendChild(svg);
+      }
+
+      return icon;
+    }
+
+    createPersonaGlyph(type) {
+      const svgNS = 'http://www.w3.org/2000/svg';
+      const svg = document.createElementNS(svgNS, 'svg');
+      svg.setAttribute('width', '20');
+      svg.setAttribute('height', '20');
+      svg.setAttribute('viewBox', '0 0 24 24');
+      svg.setAttribute('fill', 'none');
+      svg.setAttribute('stroke', 'white');
+      svg.setAttribute('stroke-width', '1.6');
+      svg.setAttribute('stroke-linecap', 'round');
+      svg.setAttribute('stroke-linejoin', 'round');
+      svg.style.filter = 'drop-shadow(0 3px 6px rgba(255,255,255,0.2))';
+
+      const addPath = (d, attrs = {}) => {
+        const path = document.createElementNS(svgNS, 'path');
+        path.setAttribute('d', d);
+        Object.entries(attrs).forEach(([key, value]) => path.setAttribute(key, value));
+        svg.appendChild(path);
+      };
+
+      switch (type) {
+        case 'import':
+          addPath('M12 3v10');
+          addPath('M8 9l4 4 4-4');
+          addPath('M5 17h14');
+          addPath('M7 21h10', { 'stroke-width': '1.2' });
+          break;
+        case 'modify':
+          addPath('M7 17v3');
+          addPath('M7 15l9-9c.83-.83 2.17-.83 3 0v0c.83.83.83 2.17 0 3l-9 9H7z');
+          addPath('M12 6l6 6', { 'stroke-width': '1.1' });
+          break;
+        case 'generate':
+          addPath('M12 4l1.76 4.27L18.5 9l-3.25 3.08L16 16.5 12 14.5 8 16.5l.75-4.42L5.5 9l4.74-.73L12 4z');
+          break;
+        case 'capture':
+          addPath('M4 8h2l1.2-2.4A2 2 0 0 1 9 4h6a2 2 0 0 1 1.8 1.04L18 8h2a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2z', { 'stroke-width': '1.2' });
+          addPath('M12 10.5a3.5 3.5 0 1 1 0 7 3.5 3.5 0 0 1 0-7z');
+          break;
+        default:
+          addPath('M6 6h12v12H6z', { 'stroke-width': '1.2' });
+          addPath('M9 9h6v6H9z');
+          break;
+      }
+
+      return svg;
     }
 
     /**
@@ -6434,15 +6522,38 @@
 
     storeCompletion(meta = {}) {
       try {
-        window.localStorage?.setItem(this.storageKey, JSON.stringify({
+        const payload = {
           completed: true,
           version: ONBOARDING_VERSION,
           completedAt: new Date().toISOString(),
           persona: this.state.persona,
+          stepCompletionStates: this.stepCompletionStates,
           ...meta
-        }));
+        };
+        window.localStorage?.setItem(this.storageKey, JSON.stringify(payload));
       } catch (_) {
         // ストレージが使えない環境では黙って継続
+      }
+    }
+
+    loadProgressFromStorage() {
+      try {
+        const raw = window.localStorage?.getItem(this.storageKey);
+        if (!raw) {
+          return;
+        }
+        const parsed = JSON.parse(raw);
+        if (parsed?.version !== ONBOARDING_VERSION) {
+          return;
+        }
+        if (parsed?.stepCompletionStates && typeof parsed.stepCompletionStates === 'object') {
+          this.stepCompletionStates = parsed.stepCompletionStates;
+          Object.entries(this.stepCompletionStates).forEach(([stepId, state]) => {
+            this.updateBadgeState(stepId, state);
+          });
+        }
+      } catch (error) {
+        console.warn('Failed to restore onboarding progress:', error);
       }
     }
 
@@ -6454,6 +6565,114 @@
     initDom() {
       const colors = this.getAdaptiveColors();
 
+      if (!document.getElementById('chocodrop-onboarding-gamify-style')) {
+        const style = document.createElement('style');
+        style.id = 'chocodrop-onboarding-gamify-style';
+        style.textContent = `
+        .chocodrop-badge-row {
+          display: flex;
+          gap: 10px;
+          align-items: center;
+          margin-top: 6px;
+          flex-wrap: wrap;
+        }
+        .chocodrop-badge {
+          width: 28px;
+          height: 28px;
+          border-radius: 50%;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 12px;
+          font-weight: 600;
+          color: rgba(255,255,255,0.65);
+          background: rgba(148, 163, 184, 0.2);
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.25);
+          transition: transform 0.35s ease, box-shadow 0.35s ease, color 0.35s ease;
+          position: relative;
+        }
+        .chocodrop-badge.completed {
+          color: rgba(255,255,255,0.95);
+          transform: scale(1.08);
+          box-shadow: 0 0 0 1px rgba(236, 72, 153, 0.35), 0 12px 26px rgba(236, 72, 153, 0.28);
+        }
+        .chocodrop-badge.completed::after {
+          content: '✔';
+          font-size: 10px;
+          position: absolute;
+          bottom: -6px;
+          right: -4px;
+          width: 16px;
+          height: 16px;
+          border-radius: 50%;
+          background: linear-gradient(135deg, #f472b6, #c084fc);
+          color: white;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          box-shadow: 0 4px 10px rgba(236, 72, 153, 0.35);
+        }
+        .chocodrop-badge.skipped {
+          opacity: 0.5;
+          box-shadow: inset 0 1px 0 rgba(148, 163, 184, 0.2);
+        }
+        .chocodrop-confetti {
+          position: absolute;
+          inset: 0;
+          pointer-events: none;
+          overflow: visible;
+          z-index: 6;
+        }
+        .chocodrop-confetti span {
+          position: absolute;
+          width: 6px;
+          height: 14px;
+          border-radius: 2px;
+          opacity: 0;
+          animation: chocodropConfetti 0.9s ease-out forwards;
+        }
+        @keyframes chocodropConfetti {
+          0% { transform: translate3d(0,0,0) rotate(0deg); opacity: 0; }
+          15% { opacity: 1; }
+          100% { transform: translate3d(var(--x), var(--y), 0) rotate(var(--r)); opacity: 0; }
+        }
+      `;
+        document.head.appendChild(style);
+      }
+
+      if (!document.getElementById(this.focusAuraStyleId)) {
+        const focusStyle = document.createElement('style');
+        focusStyle.id = this.focusAuraStyleId;
+        focusStyle.textContent = `
+        .${this.focusAuraClass} {
+          position: relative;
+          border-radius: 18px !important;
+          box-shadow:
+            0 0 0 2px rgba(236, 72, 153, 0.32),
+            0 18px 36px rgba(192, 132, 252, 0.22),
+            0 0 38px rgba(236, 72, 153, 0.2);
+          transition: box-shadow 0.35s ease, transform 0.35s ease, filter 0.35s ease;
+          filter: saturate(1.1) brightness(1.02);
+        }
+
+        .${this.focusAuraClass}::after {
+          content: '';
+          position: absolute;
+          inset: -8px;
+          border-radius: inherit;
+          pointer-events: none;
+          background: radial-gradient(circle at 50% 0%, rgba(236, 72, 153, 0.25), transparent 65%);
+          opacity: 0.75;
+          transition: opacity 0.35s ease;
+        }
+
+        .${this.focusAuraClass}:focus-visible {
+          outline: none;
+        }
+      `;
+        document.head.appendChild(focusStyle);
+      }
+
       this.backdrop = document.createElement('div');
       this.backdrop.id = 'chocodrop-onboarding';
       this.backdrop.style.cssText = `
@@ -6462,11 +6681,19 @@
       z-index: 1600;
       display: none;
       pointer-events: none;
-      background: ${this.theme.isDark ? 'rgba(0, 0, 0, 0.45)' : 'rgba(255, 255, 255, 0.45)'};
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
+      background: transparent;
       transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1);
       opacity: 0;
+    `;
+
+      this.spotlightLayer = document.createElement('div');
+      this.spotlightLayer.style.cssText = `
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      transition: background 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+      background: ${this.computeSpotlightGradient(null)};
     `;
 
       this.focusRing = document.createElement('div');
@@ -6482,6 +6709,7 @@
       border-radius: 24px;
       opacity: 0;
       transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+      z-index: 1;
     `;
 
       const panelWrapper = document.createElement('div');
@@ -6492,6 +6720,7 @@
       transform: translateX(-50%);
       max-width: min(420px, 92vw);
       pointer-events: auto;
+      z-index: 2;
     `;
 
       this.panel = document.createElement('div');
@@ -6531,10 +6760,10 @@
       this.panel.appendChild(glassOverlay);
 
       const header = document.createElement('div');
-      header.style.cssText = 'display: flex; flex-direction: column; gap: 10px; position: relative; z-index: 2;';
+      header.style.cssText = 'display: flex; flex-direction: column; gap: 10px; position: relative; z-index: 2; padding-right: 140px;';
 
       const titleRow = document.createElement('div');
-      titleRow.style.cssText = 'display: flex; justify-content: space-between; align-items: baseline; gap: 12px;';
+      titleRow.style.cssText = 'display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding-right: 8px;';
 
       this.titleEl = document.createElement('h3');
       this.titleEl.style.cssText = `
@@ -6551,16 +6780,43 @@
 
       this.progressIndicator = document.createElement('div');
       this.progressIndicator.style.cssText = `
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
       font-size: 12px;
       font-weight: 600;
       color: ${colors.textSecondary};
-      opacity: 0.7;
+      opacity: 0.85;
       white-space: nowrap;
     `;
-      this.progressIndicator.textContent = '1/4';
+      this.progressIcon = document.createElement('span');
+      this.progressIcon.style.cssText = `font-size: 14px; line-height: 1;`;
+
+      this.progressLabel = document.createElement('span');
+      this.progressLabel.style.cssText = `letter-spacing: 0.02em;`;
+
+      this.progressCount = document.createElement('span');
+      this.progressCount.style.cssText = `opacity: 0.7; font-variant-numeric: tabular-nums;`;
+
+      this.progressIndicator.appendChild(this.progressIcon);
+      this.progressIndicator.appendChild(this.progressLabel);
+      this.progressIndicator.appendChild(this.progressCount);
 
       titleRow.appendChild(this.titleEl);
       titleRow.appendChild(this.progressIndicator);
+
+      this.subtitleEl = document.createElement('p');
+      this.subtitleEl.style.cssText = `
+      margin: 0;
+      font-size: 13px;
+      font-weight: 500;
+      color: ${colors.textSecondary};
+      opacity: 0.85;
+      letter-spacing: 0.01em;
+    `;
+
+      this.badgeRow = document.createElement('div');
+      this.badgeRow.className = 'chocodrop-badge-row';
 
       this.progressBar = document.createElement('div');
       this.progressBar.style.cssText = `
@@ -6614,7 +6870,15 @@
       this.progressBar.appendChild(this.progressValue);
 
       header.appendChild(titleRow);
+      header.appendChild(this.subtitleEl);
+      header.appendChild(this.badgeRow);
       header.appendChild(this.progressBar);
+      this.subtitleEl.textContent = this.steps[0]?.tagline || '';
+      this.progressIcon.textContent = this.steps[0]?.icon || '💡';
+      this.progressLabel.textContent = 'ムード選択';
+      this.progressCount.textContent = '1/4';
+
+      this.initializeBadges();
 
       const bodyWrapper = document.createElement('div');
       bodyWrapper.style.cssText = 'display: flex; flex-direction: column; gap: 14px; position: relative; z-index: 2;';
@@ -6762,43 +7026,97 @@
       buttonRow.appendChild(this.backButton);
       buttonRow.appendChild(this.secondaryButton);
       buttonRow.appendChild(this.primaryButton);
+      const controlsContainer = document.createElement('div');
+      controlsContainer.style.cssText = `
+      position: absolute;
+      top: 16px;
+      right: 20px;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      z-index: 4;
+    `;
+
+      this.closeButton = document.createElement('button');
+      this.closeButton.type = 'button';
+      this.closeButton.setAttribute('aria-label', 'ガイドを閉じる');
+      this.closeButton.innerHTML = '&times;';
+      this.closeButton.style.cssText = `
+      width: 32px;
+      height: 32px;
+      border-radius: 10px;
+      border: 1.5px solid ${colors.border};
+      background: ${this.theme.isDark ? 'rgba(15, 23, 42, 0.45)' : 'rgba(241, 245, 249, 0.45)'};
+      color: ${colors.textSecondary};
+      font-size: 18px;
+      font-weight: 600;
+      line-height: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      box-shadow: none;
+    `;
+      this.closeButton.addEventListener('mouseenter', () => {
+        this.closeButton.style.borderColor = colors.borderAccent;
+        this.closeButton.style.color = colors.textPrimary;
+        this.closeButton.style.boxShadow = `0 6px 16px ${colors.glow}`;
+      });
+      this.closeButton.addEventListener('mouseleave', () => {
+        this.closeButton.style.borderColor = colors.border;
+        this.closeButton.style.color = colors.textSecondary;
+        this.closeButton.style.boxShadow = 'none';
+      });
+      this.closeButton.addEventListener('click', () => this.complete('dismissed'));
 
       this.skipButton = document.createElement('button');
       this.skipButton.type = 'button';
       this.skipButton.textContent = 'スキップ';
+      this.skipButton.setAttribute('aria-label', 'このページをスキップ');
+      this.skipButton.title = 'このページをスキップして次へ進みます';
       this.skipButton.style.cssText = `
-      position: absolute;
-      top: 16px;
-      right: 20px;
       border: none;
-      background: transparent;
+      padding: 8px 14px;
+      border-radius: 12px;
+      background: ${this.theme.isDark ? 'rgba(148, 163, 184, 0.14)' : 'rgba(148, 163, 184, 0.12)'};
       color: ${colors.textSecondary};
       font-size: 13px;
-      font-weight: 500;
+      font-weight: 600;
       cursor: pointer;
-      text-decoration: none;
-      padding: 6px 10px;
-      border-radius: 8px;
       transition: all 0.2s ease;
-      z-index: 3;
-      opacity: 0.7;
+      opacity: 0.85;
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
     `;
       this.skipButton.addEventListener('mouseenter', () => {
-        this.skipButton.style.background = this.theme.isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.05)';
         this.skipButton.style.opacity = '1';
+        this.skipButton.style.background = this.theme.isDark
+          ? 'rgba(168, 85, 247, 0.16)'
+          : 'rgba(139, 92, 246, 0.16)';
+        this.skipButton.style.color = colors.textPrimary;
       });
       this.skipButton.addEventListener('mouseleave', () => {
-        this.skipButton.style.background = 'transparent';
-        this.skipButton.style.opacity = '0.7';
+        this.skipButton.style.opacity = '0.85';
+        this.skipButton.style.background = this.theme.isDark
+          ? 'rgba(148, 163, 184, 0.14)'
+          : 'rgba(148, 163, 184, 0.12)';
+        this.skipButton.style.color = colors.textSecondary;
       });
-      this.skipButton.addEventListener('click', () => this.complete('skipped'));
+      this.skipButton.addEventListener('click', () => this.skipStep());
 
-      this.panel.appendChild(this.skipButton);
+      controlsContainer.appendChild(this.closeButton);
+      controlsContainer.appendChild(this.skipButton);
+
+      this.panel.appendChild(controlsContainer);
       this.panel.appendChild(header);
       this.panel.appendChild(bodyWrapper);
       this.panel.appendChild(buttonRow);
 
       panelWrapper.appendChild(this.panel);
+      this.backdrop.appendChild(this.spotlightLayer);
       this.backdrop.appendChild(this.focusRing);
       this.backdrop.appendChild(panelWrapper);
 
@@ -6824,9 +7142,15 @@
       this.state.persona = null;
       this.state.samplePrompt = '';
       this.state.hasInsertedPrompt = false;
+      this.resetBadgeStates();
+      this.loadProgressFromStorage();
 
       // Re-detect background brightness when starting
       this.detectBackgroundBrightness();
+
+      if (this.spotlightLayer) {
+        this.spotlightLayer.style.background = this.computeSpotlightGradient(null);
+      }
 
       if (typeof this.options.onRequestShow === 'function') {
         this.options.onRequestShow();
@@ -6875,19 +7199,45 @@
 
       if (step.type === 'service' && !needsServiceConnection) {
         // サービス接続が不要な場合はステップをスキップ
+        this.handleStepCompletion(step.id, { skipped: true });
         this.state.stepIndex += 1;
         this.renderCurrentStep();
         return;
       }
 
-      this.titleEl.textContent = step.title;
-      const progress = ((this.state.stepIndex + 1) / this.steps.length) * 100;
-      this.progressValue.style.width = `${progress}%`;
+      this.updateTopControls();
 
-      // 進捗インジケーターを更新
-      this.updateProgressIndicator();
+      const colors = this.getAdaptiveColors();
+      const headerMeta = this.getStepMeta(step, selectedPersona);
+      const progressState = this.calculateProgress(step.id, needsServiceConnection);
+
+      this.titleEl.textContent = headerMeta.title;
+
+      if (this.subtitleEl) {
+        this.subtitleEl.style.color = colors.textSecondary;
+        if (headerMeta.tagline) {
+          this.subtitleEl.textContent = headerMeta.tagline;
+          this.subtitleEl.style.display = 'block';
+        } else {
+          this.subtitleEl.textContent = '';
+          this.subtitleEl.style.display = 'none';
+        }
+      }
+
+      const progressPercentage = Math.min(100, (progressState.currentStep / progressState.totalSteps) * 100);
+      this.progressValue.style.width = `${progressPercentage}%`;
+
+      this.updateProgressIndicator({
+        currentStep: progressState.currentStep,
+        totalSteps: progressState.totalSteps,
+        icon: headerMeta.icon,
+        label: headerMeta.progressLabel
+      });
 
       this.bodyEl.innerHTML = '';
+      this.currentHighlightTarget = null;
+      this.setAdditionalHighlights([]);
+      this.updateFocusRingPosition();
       this.secondaryButton.style.display = 'none';
       this.secondaryButton.textContent = '';
       this.secondaryButton.onclick = null;
@@ -6926,7 +7276,7 @@
 
       const intro = document.createElement('p');
       intro.style.cssText = `margin: 0; color: ${colors.textSecondary}; line-height: 1.6;`;
-      intro.textContent = '目的に合わせたおすすめフローを選ぶと、初回のセットアップが最短ルートになります。';
+      intro.textContent = '最初に灯したいムードを選びましょう。カードをクリックすると、おすすめのフローが展開されます。';
       this.bodyEl.appendChild(intro);
 
       const grid = document.createElement('div');
@@ -6994,8 +7344,13 @@
           this.state.persona = option.id;
           this.state.samplePrompt = option.prompt;
           this.state.hasInsertedPrompt = false;
-          if (typeof this.options.onSelectMode === 'function') {
-            this.options.onSelectMode(option.mode);
+          const supportedModes = ['generate', 'import', 'modify', 'delete'];
+          if (typeof this.options.onSelectMode === 'function' && supportedModes.includes(option.mode)) {
+            try {
+              this.options.onSelectMode(option.mode);
+            } catch (error) {
+              console.warn('Select mode handler failed:', error);
+            }
           }
 
           // Update all cards
@@ -7036,12 +7391,20 @@
         font-size: 15px;
         display: flex;
         align-items: center;
-        gap: 8px;
+        gap: 10px;
         color: ${colors.textPrimary};
         position: relative;
         z-index: 1;
       `;
-        title.innerHTML = `<span style="font-size: 20px;">${option.emoji}</span> ${option.label}`;
+
+        const iconEl = this.createPersonaIcon(option.icon);
+        iconEl.style.flexShrink = '0';
+
+        const labelSpan = document.createElement('span');
+        labelSpan.textContent = option.label;
+
+        title.appendChild(iconEl);
+        title.appendChild(labelSpan);
 
         const desc = document.createElement('div');
         desc.style.cssText = `
@@ -7176,6 +7539,64 @@
       const selectedPersona = this.personaOptions.find(p => p.id === this.state.persona);
       const mode = selectedPersona?.mode;
 
+      const calloutConfig = {
+        import: {
+          icon: '📁',
+          title: 'ドロップのコツ',
+          message: 'ファイルを取り込むと自動で配置キーワードが入力されます。Enter ⏎ で瞬時にシーンへ落とし込みましょう。'
+        },
+        modify: {
+          icon: '🪄',
+          title: '演出のヒント',
+          message: '変更したいオブジェクトをクリックしたら、色・質感・光のニュアンスを短い文章で伝えましょう。'
+        },
+        capture: {
+          icon: '🎥',
+          title: 'シネマティックな撮影',
+          message: 'UIを隠した状態でも WASD とドラッグで微調整できます。息を整えて最高の瞬間をキャプチャ。'
+        },
+        generate: {
+          icon: '✨',
+          title: '想像を言葉に',
+          message: 'モチーフだけでなく、光や素材感、カメラワークまで描写すると生成AIの感性が引き出されます。※現在は画像・動画のみ対応（3D生成は未対応）'
+        }
+      };
+
+      const callout = document.createElement('div');
+      callout.style.cssText = `
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 16px 18px;
+      border-radius: 18px;
+      border: 1px solid ${this.theme.isDark ? 'rgba(168, 85, 247, 0.4)' : 'rgba(129, 140, 248, 0.35)'};
+      background: ${this.theme.isDark ? 'rgba(61, 35, 88, 0.35)' : 'rgba(236, 233, 255, 0.7)'};
+      box-shadow: 0 12px 28px ${this.theme.isDark ? 'rgba(76, 29, 149, 0.25)' : 'rgba(148, 163, 184, 0.32)'};
+    `;
+
+      const calloutIcon = document.createElement('span');
+      calloutIcon.style.cssText = 'font-size: 20px; line-height: 1; filter: drop-shadow(0 6px 12px rgba(168, 85, 247, 0.45));';
+      callout.appendChild(calloutIcon);
+
+      const calloutContent = document.createElement('div');
+      calloutContent.style.cssText = 'display: flex; flex-direction: column; gap: 4px;';
+      const calloutTitle = document.createElement('strong');
+      calloutTitle.style.cssText = 'font-size: 13px; letter-spacing: 0.02em; color: inherit;';
+      const calloutMessage = document.createElement('span');
+      calloutMessage.style.cssText = `font-size: 13px; line-height: 1.6; color: ${colors.textSecondary};`;
+
+      const appliedConfig = calloutConfig[mode] || calloutConfig.generate;
+      calloutIcon.textContent = appliedConfig.icon;
+      calloutTitle.textContent = appliedConfig.title;
+      calloutMessage.textContent = appliedConfig.message;
+
+      calloutContent.appendChild(calloutTitle);
+      calloutContent.appendChild(calloutMessage);
+      callout.appendChild(calloutContent);
+      this.bodyEl.appendChild(callout);
+
+      const extraHighlights = [];
+
       const lead = document.createElement('p');
       lead.style.cssText = `margin: 0; color: ${colors.textSecondary}; line-height: 1.6;`;
 
@@ -7191,6 +7612,13 @@
         <li>500ms後に自動実行され、シーンに配置されます</li>
       `;
         this.bodyEl.appendChild(steps);
+
+        const fileButton = typeof this.options.fileButton === 'function'
+          ? this.options.fileButton()
+          : this.options.fileButton || null;
+        if (fileButton) {
+          extraHighlights.push(fileButton);
+        }
       } else if (mode === 'modify') {
         lead.textContent = 'まず3Dシーン内のオブジェクトをクリックして選択してから、変更・削除の指示を入力します。';
         this.bodyEl.appendChild(lead);
@@ -7214,13 +7642,32 @@
         promptPreview.textContent = this.state.samplePrompt || '背景の白色を透明にして';
         this.bodyEl.appendChild(promptPreview);
 
-        const note = document.createElement('p');
-        note.style.cssText = `font-size: 13px; margin: 0; opacity: 0.8; color: ${colors.textSecondary};`;
-        note.textContent = 'サービス接続不要。「削除して」で選択オブジェクトを削除、色の変更や背景の透明化も可能です。';
+        const note = document.createElement('div');
+        note.style.cssText = `
+        font-size: 13px;
+        margin: 0;
+        opacity: 0.85;
+        color: ${colors.textSecondary};
+        display: grid;
+        gap: 4px;
+      `;
+        note.innerHTML = `
+        <span>・ 選択されていない状態で実行するとエラーになります。まず対象をクリックしてハイライトさせてください。</span>
+        <span>・ そのまま「大きく」「小さく」「音を鳴らして」などと入力すると、即座に反映されます。</span>
+        <span>・ 削除は「削除して」、透明感は「透明なブルーに」など自然文で指定できます。</span>
+      `;
         this.bodyEl.appendChild(note);
       } else if (mode === 'capture') {
         lead.textContent = 'WASDキーでシーンを移動し、完璧なアングルを見つけます。';
         this.bodyEl.appendChild(lead);
+
+        const interactionTip = document.createElement('p');
+        interactionTip.style.cssText = `margin: 8px 0 0 0; color: ${colors.textSecondary}; font-size: 13px; line-height: 1.6; opacity: 0.9;`;
+        interactionTip.innerHTML = `
+        <span style="display:block;">・ ChocoDropを開いたままでも、選択したオブジェクトをドラッグやコマンドで調整できます。</span>
+        <span style="display:block;">・ ChocoDropを閉じると、シーン全体をマウスドラッグで滑らかに動かせます。</span>
+      `;
+        this.bodyEl.appendChild(interactionTip);
 
         const keyGuide = document.createElement('div');
         keyGuide.style.cssText = `
@@ -7260,7 +7707,7 @@
 
         const note = document.createElement('p');
         note.style.cssText = `font-size: 13px; margin: 12px 0 0 0; opacity: 0.8; color: ${colors.textSecondary}; text-align: center;`;
-        note.textContent = 'UI非表示でシーン操作も可能。スクリーンショットで完璧な一枚を。';
+        note.textContent = 'UIを隠した状態でシャッター。スクリーンショットで仕上げましょう。';
         this.bodyEl.appendChild(note);
       } else if (mode === 'generate') {
         lead.textContent = '自然言語でオブジェクトの生成指示を入力します。';
@@ -7316,6 +7763,8 @@
         ? this.options.textareaElement()
         : this.options.textareaElement || null;
 
+      this.setAdditionalHighlights(extraHighlights);
+
       // ハイライトを即座に適用
       if (this.currentHighlightTarget) {
         this.updateFocusRing(this.currentHighlightTarget);
@@ -7329,39 +7778,48 @@
       const mediaType = selectedPersona?.mediaType;
 
       const description = document.createElement('div');
+      const extraHighlights = [];
 
       if (mode === 'import') {
         description.innerHTML = `
-        <p style="margin:0; color:${colors.textSecondary}; line-height:1.6;">📁ボタンをクリックして画像・動画・3Dファイルを選択してください。</p>
-        <p style="margin:12px 0 0 0; font-size:13px; opacity:0.8; color:${colors.textSecondary};">ファイル選択後、自動的にシーンに配置されます（約0.5秒後）。</p>
+        <p style="margin:0; color:${colors.textSecondary}; line-height:1.6;">📁ボタンから素材を選ぶと、ハイライトされたフォームにキーワードが挿入されます。</p>
+        <p style="margin:12px 0 0 0; font-size:13px; opacity:0.85; color:${colors.textSecondary};">Enter ⏎ を押すと約0.5秒後にシーンへふわりと配置されます。位置はあとからコマンドで微調整できます。</p>
       `;
+        const textareaEl = typeof this.options.textareaElement === 'function'
+          ? this.options.textareaElement()
+          : this.options.textareaElement || null;
+        if (textareaEl) {
+          extraHighlights.push(textareaEl);
+        }
       } else if (mode === 'modify') {
         description.innerHTML = `
-        <p style="margin:0; color:${colors.textSecondary}; line-height:1.6;">まず3Dシーン内のオブジェクトをクリックして選択してから、変更・削除の指示を入力して実行してください。</p>
-        <p style="margin:12px 0 0 0; font-size:13px; opacity:0.8; color:${colors.textSecondary};">選択したオブジェクトの見た目が即座に変更されます。「削除して」でオブジェクト削除も可能です。</p>
+        <p style="margin:0; color:${colors.textSecondary}; line-height:1.6;">演出したいオブジェクトをクリックし、質感や光のニュアンスを文章で伝えてみてください。</p>
+        <p style="margin:12px 0 0 0; font-size:13px; opacity:0.85; color:${colors.textSecondary};">「透明なバニラの光に」「輪郭を少し柔らかく」など、ライブでイメージが切り替わります。</p>
       `;
       } else if (mode === 'capture') {
         description.innerHTML = `
-        <p style="margin:0; color:${colors.textSecondary}; line-height:1.6;">WASDキーでシーンを移動し、×ボタンでUIを非表示にしてみてください。</p>
-        <p style="margin:12px 0 0 0; font-size:13px; opacity:0.8; color:${colors.textSecondary};">UI非表示時は3Dシーン操作（マウスドラッグ等）が有効になります。スクリーンショットで完璧なアングルを保存しましょう。</p>
+        <p style="margin:0; color:${colors.textSecondary}; line-height:1.6;">WASD キーとマウスドラッグで空間を滑り、UIを隠してからスクリーンショットを撮影しましょう。</p>
+        <p style="margin:12px 0 0 0; font-size:13px; opacity:0.85; color:${colors.textSecondary};">ChocoDropを開いたままならオブジェクト単位で移動や回転ができ、閉じるとシーン全体をドラッグ操作できます。</p>
+        <p style="margin:12px 0 0 0; font-size:13px; opacity:0.85; color:${colors.textSecondary};">光が巡る瞬間を逃さないよう、撮影前に一呼吸おくと映像がやさしくまとまります。</p>
       `;
       } else if (mode === 'generate' && mediaType === 'video') {
         description.innerHTML = `
-        <p style="margin:0; color:${colors.textSecondary}; line-height:1.6;">プロンプトを入力して実行ボタンをクリックすると、動画生成が開始されます。</p>
-        <p style="margin:12px 0 0 0; font-size:13px; opacity:0.8; color:${colors.textSecondary};">ステータスカードで進捗を確認できます。動画生成は30秒〜数分かかることがあります。</p>
+        <p style="margin:0; color:${colors.textSecondary}; line-height:1.6;">プロンプトを送信すると生成が始まります。カメラワークやテンポも一緒にイメージしておくと滑らかです。</p>
+        <p style="margin:12px 0 0 0; font-size:13px; opacity:0.85; color:${colors.textSecondary};">ステータスカードで進捗を確認。生成は30秒〜数分、音も加わるとさらに没入感が増します。</p>
+        <p style="margin:12px 0 0 0; font-size:12px; opacity:0.85; color:${colors.textSecondary};">Enter ⏎ でプロンプトを送信すると生成がスタートします。現在は画像・動画のみ対応（3Dモデル生成は未対応）です。</p>
       `;
       } else {
         // Fallback for any other modes
         description.innerHTML = `
-        <p style="margin:0; color:${colors.textSecondary}; line-height:1.6;">準備が整ったら実行ボタンでタスクを開始してください。</p>
-        <p style="margin:12px 0 0 0; font-size:13px; opacity:0.8; color:${colors.textSecondary};">ステータスカードで進捗を確認できます。</p>
+        <p style="margin:0; color:${colors.textSecondary}; line-height:1.6;">準備が整ったら実行ボタンをクリック。シーンが呼吸をはじめる瞬間を見届けましょう。</p>
+        <p style="margin:12px 0 0 0; font-size:13px; opacity:0.85; color:${colors.textSecondary};">進捗はステータスカードに表示されます。完了通知まで創作ノートをメモするのもおすすめです。</p>
       `;
       }
       this.bodyEl.appendChild(description);
 
       const buttonTextSpan = this.primaryButton.querySelector('span');
       if (buttonTextSpan) {
-        buttonTextSpan.textContent = '実行しました';
+        buttonTextSpan.textContent = (mode === 'generate') ? 'Enterで送信しました' : '実行しました';
       }
       this.primaryButton.disabled = false;
       this.primaryButton.style.opacity = '1';
@@ -7371,12 +7829,21 @@
       // セカンダリボタンを非表示
       this.secondaryButton.style.display = 'none';
 
+      this.setAdditionalHighlights(extraHighlights);
+
       // モードに応じて自動でハイライト
       if (mode === 'import') {
         // Importモードではファイルボタンを自動ハイライト
         this.currentHighlightTarget = typeof this.options.fileButton === 'function'
           ? this.options.fileButton()
           : this.options.fileButton || null;
+        const textareaEl = typeof this.options.textareaElement === 'function'
+          ? this.options.textareaElement()
+          : this.options.textareaElement || null;
+        if (textareaEl) {
+          extraHighlights.push(textareaEl);
+          this.setAdditionalHighlights(extraHighlights);
+        }
       } else if (mode === 'capture') {
         // Captureモードでは×ボタン（UI非表示ボタン）を自動ハイライト
         this.currentHighlightTarget = typeof this.options.closeButton === 'function'
@@ -7391,6 +7858,8 @@
         this.currentHighlightTarget = null;
       }
 
+      this.setAdditionalHighlights(extraHighlights);
+
       // ハイライトを即座に適用
       if (this.currentHighlightTarget) {
         this.updateFocusRing(this.currentHighlightTarget);
@@ -7402,14 +7871,26 @@
 
       const summary = document.createElement('div');
       summary.innerHTML = `
-      <p style="margin:0; color:${colors.textSecondary}; line-height:1.6;">お疲れさまでした。ChocoDrop の4つの操作モードを覚えておきましょう。</p>
-      <ul style="margin:12px 0 0 20px; padding:0; font-size:14px; line-height:1.7; opacity:0.85; color:${colors.textSecondary};">
-        <li style="margin-bottom:6px;">📥 <strong>メディアインポート</strong>: 📁ボタンから画像・動画・3Dファイルを配置（サービス不要）</li>
-        <li style="margin-bottom:6px;">🌌 <strong>雰囲気演出</strong>: 動画サービスでアニメーション演出を生成（⚙️で動画サービス接続）</li>
-        <li style="margin-bottom:6px;">🛠️ <strong>既存シーン磨き</strong>: オブジェクト選択後、見た目を自然言語で変更（サービス不要）</li>
-        <li style="margin-bottom:6px;">🎨 <strong>ビジュアル生成</strong>: 画像サービスで新規オブジェクトを生成（⚙️で画像サービス接続）</li>
-        <li>💡 🍫アイコン右クリックでショートカットを確認</li>
-      </ul>
+      <p style="margin:0; color:${colors.textSecondary}; line-height:1.6; font-weight:600;">すべてのモードをひとめで振り返りましょう。</p>
+      <div style="display:grid; gap:10px; margin-top:12px;">
+        <div style="display:flex; gap:10px; align-items:flex-start;">
+          <span style="font-size:18px;">📥</span>
+          <span style="font-size:13px; line-height:1.6; color:${colors.textSecondary};"><strong>インポート</strong> — ドロップして配置。Enter ⏎ で即座にシーンへ。</span>
+        </div>
+        <div style="display:flex; gap:10px; align-items:flex-start;">
+          <span style="font-size:18px;">✏️</span>
+          <span style="font-size:13px; line-height:1.6; color:${colors.textSecondary};"><strong>雰囲気演出 / 削除</strong> — 選択→言葉で光や質感を調整。"削除して" で除去。</span>
+        </div>
+        <div style="display:flex; gap:10px; align-items:flex-start;">
+          <span style="font-size:18px;">🎨</span>
+          <span style="font-size:13px; line-height:1.6; color:${colors.textSecondary};"><strong>ビジュアル生成</strong> — 画像/動画生成に対応（3Dは未対応）。Enter ⏎ で送信。</span>
+        </div>
+        <div style="display:flex; gap:10px; align-items:flex-start;">
+          <span style="font-size:18px;">🎬</span>
+          <span style="font-size:13px; line-height:1.6; color:${colors.textSecondary};"><strong>シーン撮影</strong> — UIを隠し、WASDで理想のアングルに。</span>
+        </div>
+      </div>
+      <p style="margin:14px 0 0 0; font-size:12px; color:${colors.textSecondary}; opacity:0.85;">ショートカットは 🍫 メニューからいつでも呼び出せます。</p>
     `;
       this.bodyEl.appendChild(summary);
 
@@ -7420,14 +7901,59 @@
       this.primaryButton.disabled = false;
       this.primaryButton.style.opacity = '1';
       this.primaryButton.style.cursor = 'pointer';
-      this.primaryButton.onclick = () => this.complete('finished');
+      this.primaryButton.onclick = () => {
+        this.handleStepCompletion('next', { skipped: false });
+        this.complete('finished');
+      };
 
       this.secondaryButton.style.display = 'none';
 
       this.currentHighlightTarget = null;
     }
 
+    updateTopControls() {
+      if (!this.skipButton || !this.closeButton) {
+        return;
+      }
+
+      const isLastStep = this.state.stepIndex >= this.steps.length - 1;
+      if (isLastStep) {
+        this.skipButton.textContent = 'ガイドを終了';
+        this.skipButton.title = 'すべて確認したのでガイドを閉じます';
+        this.skipButton.setAttribute('aria-label', 'ガイドを終了');
+      } else {
+        this.skipButton.textContent = 'スキップ';
+        this.skipButton.title = 'このページをスキップして次へ進みます';
+        this.skipButton.setAttribute('aria-label', 'このページをスキップ');
+      }
+    }
+
+    skipStep() {
+      if (!this.active) {
+        return;
+      }
+
+      const current = this.steps[this.state.stepIndex];
+      if (current) {
+        this.handleStepCompletion(current.id, { skipped: true });
+      }
+
+      const nextIndex = this.state.stepIndex + 1;
+      if (nextIndex >= this.steps.length) {
+        this.complete('skipped');
+        return;
+      }
+
+      this.state.stepIndex = nextIndex;
+      this.renderCurrentStep();
+    }
+
     nextStep() {
+      const current = this.steps[this.state.stepIndex];
+      if (current) {
+        this.handleStepCompletion(current.id, { skipped: false });
+      }
+
       this.state.stepIndex += 1;
       if (this.state.stepIndex >= this.steps.length) {
         this.complete('finished');
@@ -7465,20 +7991,28 @@
     }
 
     updateFocusRingPosition() {
+      const fallbackRect = this.panel ? this.panel.getBoundingClientRect() : null;
+
       if (!this.active) {
         this.focusRing.style.opacity = '0';
+        this.updateSpotlight(null);
+        this.syncFocusAura(null);
         return;
       }
 
       const target = this.currentHighlightTarget;
       if (!target) {
         this.focusRing.style.opacity = '0';
+        this.updateSpotlight(fallbackRect);
+        this.syncFocusAura(null);
         return;
       }
 
       const rect = target.getBoundingClientRect();
       if (rect.width === 0 && rect.height === 0) {
         this.focusRing.style.opacity = '0';
+        this.updateSpotlight(fallbackRect);
+        this.syncFocusAura(null);
         return;
       }
 
@@ -7486,37 +8020,250 @@
       this.focusRing.style.transform = `translate(${rect.left - 12}px, ${rect.top - 12}px)`;
       this.focusRing.style.width = `${rect.width + 24}px`;
       this.focusRing.style.height = `${rect.height + 24}px`;
+
+      this.updateSpotlight(rect);
+      this.syncFocusAura(target);
     }
 
-    updateProgressIndicator() {
+    getBaseOverlayLayer() {
+      return this.theme.isDark
+        ? 'linear-gradient(180deg, rgba(5, 10, 24, 0.58) 0%, rgba(15, 23, 42, 0.62) 100%)'
+        : 'linear-gradient(180deg, rgba(248, 250, 255, 0.7) 0%, rgba(226, 232, 240, 0.65) 100%)';
+    }
+
+    computeSpotlightGradient(rect) {
+      const baseLayer = this.getBaseOverlayLayer();
+      if (!rect) {
+        return baseLayer;
+      }
+
+      const centerX = Math.round(rect.left + rect.width / 2);
+      const centerY = Math.round(rect.top + rect.height / 2);
+      const radius = Math.max(rect.width, rect.height) * 0.6 + 160;
+      const innerStop = Math.max(0, radius - 200);
+      const haloRadius = Math.min(radius, innerStop + 80);
+      const tintColor = this.theme.isDark ? 'rgba(8, 13, 24, 0.65)' : 'rgba(241, 245, 249, 0.75)';
+      const haloColor = this.theme.isDark ? 'rgba(148, 163, 184, 0.22)' : 'rgba(139, 92, 246, 0.18)';
+
+      return `radial-gradient(circle at ${centerX}px ${centerY}px, rgba(0, 0, 0, 0) ${innerStop}px, ${haloColor} ${haloRadius}px, ${tintColor} ${radius}px), ${baseLayer}`;
+    }
+
+    updateSpotlight(rect) {
+      if (!this.spotlightLayer) {
+        return;
+      }
+
+      this.spotlightLayer.style.background = this.computeSpotlightGradient(rect);
+    }
+
+    clearFocusAura() {
+      this.focusAuraTargets.forEach(target => target.classList.remove(this.focusAuraClass));
+      this.focusAuraTargets.clear();
+      this.additionalHighlights = [];
+    }
+
+    setAdditionalHighlights(targets = []) {
+      const uniqueTargets = [];
+      const seen = new Set();
+      targets.forEach(target => {
+        if (target && !seen.has(target)) {
+          seen.add(target);
+          uniqueTargets.push(target);
+        }
+      });
+      this.additionalHighlights = uniqueTargets;
+      this.syncFocusAura(this.currentHighlightTarget);
+    }
+
+    syncFocusAura(primaryTarget) {
+      const desiredTargets = new Set();
+      if (primaryTarget) {
+        desiredTargets.add(primaryTarget);
+      }
+      this.additionalHighlights.forEach(target => desiredTargets.add(target));
+
+      this.focusAuraTargets.forEach(target => {
+        if (!desiredTargets.has(target)) {
+          target.classList.remove(this.focusAuraClass);
+          this.focusAuraTargets.delete(target);
+        }
+      });
+
+      desiredTargets.forEach(target => {
+        if (!this.focusAuraTargets.has(target)) {
+          target.classList.add(this.focusAuraClass);
+          this.focusAuraTargets.add(target);
+        }
+      });
+    }
+
+    initializeBadges() {
+      if (!this.badgeRow) return;
+      this.badgeRow.innerHTML = '';
+      this.badgeIndicators = {};
+
+      const badgeSteps = this.steps.filter(step => step.id !== 'next');
+      badgeSteps.forEach(step => {
+        const badge = document.createElement('div');
+        badge.className = 'chocodrop-badge';
+        badge.dataset.stepId = step.id;
+        badge.textContent = step.icon || '•';
+        this.badgeRow.appendChild(badge);
+        this.badgeIndicators[step.id] = badge;
+      });
+
+      this.resetBadgeStates();
+    }
+
+    resetBadgeStates() {
+      Object.values(this.badgeIndicators).forEach(badge => {
+        badge.classList.remove('completed', 'skipped');
+      });
+      this.stepCompletionStates = {};
+      this.completedSteps = new Set();
+    }
+
+    updateBadgeState(stepId, state) {
+      const badge = this.badgeIndicators?.[stepId];
+      if (!badge) return;
+      badge.classList.remove('completed', 'skipped');
+      if (state === 'completed') {
+        badge.classList.add('completed');
+      } else if (state === 'skipped') {
+        badge.classList.add('skipped');
+      }
+    }
+
+    handleStepCompletion(stepId, { skipped = false } = {}) {
+      if (!stepId || this.stepCompletionStates[stepId]) {
+        if (skipped) {
+          this.updateBadgeState(stepId, 'skipped');
+        }
+        return;
+      }
+
+      this.stepCompletionStates[stepId] = skipped ? 'skipped' : 'completed';
+      if (skipped) {
+        this.updateBadgeState(stepId, 'skipped');
+        this.storeCompletion();
+        return;
+      }
+
+      this.updateBadgeState(stepId, 'completed');
+      this.launchConfetti();
+      this.storeCompletion();
+    }
+
+    launchConfetti() {
+      if (!this.panel) return;
+
+      const container = document.createElement('div');
+      container.className = 'chocodrop-confetti';
+      this.panel.appendChild(container);
+
+      const palette = ['#f472b6', '#c084fc', '#60a5fa', '#facc15', '#4ade80'];
+      const pieces = 14;
+      for (let i = 0; i < pieces; i++) {
+        const piece = document.createElement('span');
+        const color = palette[i % palette.length];
+        piece.style.background = color;
+        const angle = (Math.random() * 120) - 60; // spread
+        const distance = 120 + Math.random() * 60;
+        const x = Math.cos(angle * Math.PI / 180) * distance;
+        const y = Math.sin((angle + 90) * Math.PI / 180) * distance;
+        const rotate = (Math.random() * 260 - 130) + 'deg';
+        const left = 40 + Math.random() * 20;
+        piece.style.left = `${left}%`;
+        piece.style.top = '10%';
+        piece.style.setProperty('--x', `${x}px`);
+        piece.style.setProperty('--y', `${y}px`);
+        piece.style.setProperty('--r', rotate);
+        container.appendChild(piece);
+      }
+
+      setTimeout(() => {
+        container.remove();
+      }, 900);
+    }
+
+    getStepMeta(step, persona) {
+      const personaId = persona?.id;
+      const meta = {
+        icon: step?.icon || '✨',
+        title: step?.title || 'ChocoDrop ガイド',
+        tagline: step?.tagline || '',
+        progressLabel: step?.progressLabel || step?.title || 'ガイド'
+      };
+
+      switch (step?.id) {
+        case 'persona':
+          meta.title = 'ムードを選ぶ';
+          meta.tagline = '最初に描きたい世界観を選ぶと、ガイドが最適な順番を提案します。';
+          meta.progressLabel = 'ムード選択';
+          break;
+        case 'service':
+          meta.title = 'サービス接続を整える';
+          meta.progressLabel = '接続チェック';
+          if (personaId === 'atmos-sculpt') {
+            meta.tagline = '動画生成サービスがオンラインか確認しましょう。接続が完了するとステータスが緑になります。';
+          }
+          break;
+        case 'prompt':
+          meta.progressLabel = '言葉を整える';
+          if (personaId === 'media-import') {
+            meta.title = '素材にひと言添える';
+            meta.tagline = '配置する位置やサイズなど、素材に合わせたワンフレーズを追加しましょう。';
+          } else if (personaId === 'remix-pro') {
+            meta.title = '演出のニュアンスを言葉に';
+            meta.tagline = '光や質感のイメージを自然な文章で伝えると、即座にシーンへ反映されます。';
+          } else if (personaId === 'scene-capture') {
+            meta.title = '撮影メモを残す';
+            meta.tagline = '欲しい画角や時間帯、色味を簡単に控えておくとルートが決まります。';
+          }
+          break;
+        case 'execute':
+          meta.progressLabel = 'シーン再生';
+          if (personaId === 'scene-capture') {
+            meta.tagline = 'UIを隠したら、呼吸を整えてからシャッター。光の揺らぎも録り込みましょう。';
+          }
+          break;
+        case 'next':
+          meta.progressLabel = 'まとめ';
+          meta.tagline = 'ショートカットやおすすめの遊び方をチェックして、次の世界へ踏み出しましょう。';
+          break;
+      }
+
+      return meta;
+    }
+
+    calculateProgress(stepId, needsService) {
+      const flow = needsService
+        ? ['persona', 'service', 'prompt', 'execute', 'next']
+        : ['persona', 'prompt', 'execute', 'next'];
+
+      const index = flow.indexOf(stepId);
+      const currentStep = index >= 0 ? index + 1 : Math.min(this.state.stepIndex + 1, flow.length);
+
+      return {
+        currentStep,
+        totalSteps: flow.length
+      };
+    }
+
+    updateProgressIndicator({ currentStep, totalSteps, icon, label }) {
       if (!this.progressIndicator) return;
 
-      const selectedPersona = this.personaOptions.find(p => p.id === this.state.persona);
-      const needsService = selectedPersona?.mode === 'generate';
-
-      // 総ステップ数を計算（サービス接続が必要な場合は4ステップ、不要な場合は3ステップ）
-      const totalSteps = needsService ? 4 : 3;
-
-      // 現在のステップインデックスを実際の表示番号に変換
-      let currentStep = 1;
-      const stepIndex = this.state.stepIndex;
-
-      if (stepIndex === 0) {
-        currentStep = 1; // Persona selection
-      } else if (stepIndex === 1) {
-        currentStep = needsService ? 2 : 2; // Service step (if needed) or Prompt step
-      } else if (stepIndex === 2) {
-        currentStep = needsService ? 3 : 2; // Prompt step
-      } else if (stepIndex === 3) {
-        currentStep = needsService ? 4 : 3; // Execute step
+      if (this.progressIcon) {
+        this.progressIcon.textContent = icon || '✨';
       }
 
-      // サービス接続ステップをスキップする場合の調整
-      if (!needsService && stepIndex >= 1) {
-        currentStep = stepIndex; // ステップ1をスキップするので、stepIndex = 2 → 2/3, stepIndex = 3 → 3/3
+      if (this.progressLabel) {
+        this.progressLabel.textContent = label || '';
       }
 
-      this.progressIndicator.textContent = `${currentStep}/${totalSteps}`;
+      if (this.progressCount) {
+        this.progressCount.textContent = `${currentStep}/${totalSteps}`;
+      }
     }
 
     highlightModeButton(mode) {
@@ -7598,6 +8345,8 @@
 
       this.backdrop.style.opacity = '0';
       this.focusRing.style.opacity = '0';
+      this.updateSpotlight(null);
+      this.clearFocusAura();
 
       setTimeout(() => {
         this.backdrop.style.display = 'none';
@@ -7715,6 +8464,9 @@
 
       this.onboardingCoach = null;
       this.onboardingLauncherButton = null;
+      this.handleExternalOnboardingRequest = null;
+      this.handleExternalShortcutsRequest = null;
+      this.hasBoundExternalEvents = false;
       
       // Undo/Redo システム
       this.commandHistory = [];
@@ -8409,7 +9161,10 @@
         modeContainer: () => this.radioModeContainer,
         settingsButton: () => this.settingsButton,
         inputElement: () => this.input,
+        textareaElement: () => this.input,
         executeButton: () => this.container?.querySelector('#execute-btn'),
+        fileButton: () => this.radioModeButtons?.['import']?.button,
+        closeButton: () => this.closeButton,
         onSelectMode: (mode) => this.selectMode(mode, true),
         onInsertPrompt: (prompt) => this.insertOnboardingPrompt(prompt),
         onOpenServiceModal: () => this.openServiceModal(),
@@ -8424,6 +9179,14 @@
           }
         }
       });
+
+      if (!this.hasBoundExternalEvents) {
+        this.handleExternalOnboardingRequest = () => this.launchOnboarding(true);
+        this.handleExternalShortcutsRequest = () => this.showShortcutGuide();
+        window.addEventListener('chocodrop:request-onboarding', this.handleExternalOnboardingRequest);
+        window.addEventListener('chocodrop:show-shortcuts-request', this.handleExternalShortcutsRequest);
+        this.hasBoundExternalEvents = true;
+      }
 
       if (this.config.showGuidedOnboarding !== false) {
         setTimeout(() => this.onboardingCoach?.start({ force: false }), 600);
@@ -9994,6 +10757,22 @@
         return;
       }
       this.onboardingCoach.start({ force });
+    }
+
+    showShortcutGuide() {
+      const shortcuts = [
+        { key: this.config.activationKey || '@', description: 'ChocoDropの表示/非表示を切り替え' },
+        { key: 'Ctrl / ⌘ + Enter', description: '現在のコマンドを実行' },
+        { key: 'WASD + マウス', description: '撮影モードで視点を移動' },
+        { key: 'Shift', description: '撮影モードで移動を加速' }
+      ];
+
+      if (!this.isVisible) {
+        this.show();
+      }
+
+      const messageLines = shortcuts.map(item => ` • ${item.key} … ${item.description}`).join('\n');
+      this.addOutput(`⌨️ ショートカットヒント\n${messageLines}`, 'system');
     }
 
     insertOnboardingPrompt(prompt) {
@@ -13460,6 +14239,9 @@
 
       this.onboardingCoach = null;
       this.onboardingLauncherButton = null;
+      this.handleExternalOnboardingRequest = null;
+      this.handleExternalShortcutsRequest = null;
+      this.hasBoundExternalEvents = false;
 
       this.serverHealthState = {
         available: true,
@@ -13652,7 +14434,7 @@
       this.input = document.createElement('textarea');
       this.input.rows = 1;
       this.input.id = 'command-input';
-      this.input.placeholder = '「右上にドラゴンを」「美しい桜の森を中央に」など... ✨';
+      this.input.placeholder = 'どんな世界を描きますか？ 例: 「夕暮れのスタジオに光を落として」 ⏎ ✨';
       this.input.style.cssText = this.getInputStyles();
 
       // 展開ボタン（初期状態は非表示）
@@ -14172,6 +14954,14 @@
           }
         }
       });
+
+      if (!this.hasBoundExternalEvents) {
+        this.handleExternalOnboardingRequest = () => this.launchOnboarding(true);
+        this.handleExternalShortcutsRequest = () => this.showShortcutGuide();
+        window.addEventListener('chocodrop:request-onboarding', this.handleExternalOnboardingRequest);
+        window.addEventListener('chocodrop:show-shortcuts-request', this.handleExternalShortcutsRequest);
+        this.hasBoundExternalEvents = true;
+      }
 
       if (this.config.showGuidedOnboarding !== false) {
         setTimeout(() => this.onboardingCoach?.start({ force: false }), 600);
@@ -14752,6 +15542,16 @@
      * モード選択（ラジオボタンUI更新）
      */
     selectMode(mode, isManual = false, detectedKeyword = null) {
+      const modeEntry = this.radioModeButtons?.[mode];
+      if (!modeEntry) {
+        if (typeof this.logDebug === 'function') {
+          this.logDebug('⚠️ Unknown mode requested for selectMode:', mode);
+        } else {
+          console.warn('Unknown mode requested for selectMode:', mode);
+        }
+        return;
+      }
+
       this.currentMode = mode;
 
       // 全ボタンをリセット
@@ -14770,7 +15570,7 @@
       });
 
       // 選択されたボタンをハイライト（2025年仕様）
-      const { button, autoBadge } = this.radioModeButtons[mode];
+      const { button, autoBadge } = modeEntry;
       
       // 2025 Glassmorphism選択状態
       const selectedGlass = this.isWabiSabiMode
@@ -15791,33 +16591,33 @@
     getInputStyles() {
       // 2025 Glassmorphism仕様：入力フィールド
       const glassmorphismDark = {
-        background: 'linear-gradient(135deg, rgba(30, 27, 75, 0.4), rgba(15, 23, 42, 0.5))',
-        border: '1px solid rgba(99, 102, 241, 0.25)',
-        boxShadow: '0 4px 16px rgba(15, 23, 42, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.08)'
+        background: 'linear-gradient(135deg, rgba(53, 41, 72, 0.48), rgba(24, 35, 55, 0.58))',
+        border: '1px solid rgba(192, 132, 252, 0.45)',
+        boxShadow: '0 14px 34px rgba(17, 24, 39, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.12)'
       };
 
       const glassmorphismLight = {
-        background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.2))',
-        border: '1px solid rgba(255, 255, 255, 0.5)',
-        boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.4)'
+        background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.6), rgba(243, 232, 255, 0.5))',
+        border: '1px solid rgba(216, 180, 254, 0.6)',
+        boxShadow: '0 16px 30px rgba(148, 163, 184, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.6)'
       };
 
       const glassmorphismWabiSabi = {
-        background: 'linear-gradient(135deg, rgba(97, 97, 97, 0.4), rgba(66, 66, 66, 0.3))',
-        border: '1px solid rgba(97, 97, 97, 0.5)',
-        boxShadow: '0 4px 16px rgba(66, 66, 66, 0.3), inset 0 1px 0 rgba(189, 189, 189, 0.2)'
+        background: 'linear-gradient(135deg, rgba(117, 101, 92, 0.48), rgba(66, 54, 47, 0.38))',
+        border: '1px solid rgba(205, 174, 142, 0.55)',
+        boxShadow: '0 12px 28px rgba(85, 69, 60, 0.42), inset 0 1px 0 rgba(230, 214, 195, 0.18)'
       };
 
       const theme = this.isWabiSabiMode ? glassmorphismWabiSabi : (this.isDarkMode ? glassmorphismDark : glassmorphismLight);
 
       return `
       width: 100%;
-      padding: 14px 16px;
+      padding: 16px 20px;
       background: ${theme.background};
       border: ${theme.border};
-      border-radius: 14px;
-      color: ${this.isWabiSabiMode ? '#F5F5F5' : (this.isDarkMode ? '#ffffff' : '#1f2937')};
-      font-size: 14px;
+      border-radius: 18px;
+      color: ${this.isWabiSabiMode ? '#F9F5F0' : (this.isDarkMode ? '#f8fafc' : '#1f2937')};
+      font-size: 15px;
       outline: none;
       box-sizing: border-box;
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -15825,12 +16625,14 @@
       backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);
       box-shadow: ${theme.boxShadow};
-      placeholder-color: ${this.isDarkMode ? 'rgba(255, 255, 255, 0.5)' : 'rgba(55, 65, 81, 0.6)'};
+      placeholder-color: ${this.isDarkMode ? 'rgba(248, 250, 252, 0.55)' : 'rgba(55, 65, 81, 0.56)'};
       resize: none;
       overflow-y: hidden;
-      min-height: 22px;
-      max-height: 66px;
-      line-height: 22px;
+      min-height: 26px;
+      max-height: 88px;
+      line-height: 24px;
+      letter-spacing: 0.01em;
+      caret-color: ${this.isWabiSabiMode ? '#f9c784' : '#f472b6'};
     `;
     }
 
@@ -15961,22 +16763,18 @@
       // 入力フィールドのスタイル調整
       this.input.addEventListener('focus', () => {
         if (this.isWabiSabiMode) {
-          this.input.style.borderColor = '#8BC34A';
-          this.input.style.boxShadow = '0 0 5px rgba(139, 195, 74, 0.5)';
+          this.input.style.borderColor = 'rgba(249, 199, 132, 0.65)';
+          this.input.style.boxShadow = '0 0 0 2px rgba(249, 199, 132, 0.3), 0 18px 32px rgba(189, 140, 94, 0.35)';
         } else {
-          this.input.style.borderColor = '#74b9ff';
-          this.input.style.boxShadow = '0 0 5px rgba(116, 185, 255, 0.5)';
+          this.input.style.borderColor = 'rgba(244, 114, 182, 0.65)';
+          this.input.style.boxShadow = '0 0 0 2px rgba(244, 114, 182, 0.35), 0 20px 36px rgba(192, 132, 252, 0.25)';
         }
+        this.input.style.filter = 'brightness(1.05)';
       });
 
       this.input.addEventListener('blur', () => {
-        if (this.isWabiSabiMode) {
-          this.input.style.borderColor = '#8D6E63';
-          this.input.style.boxShadow = 'none';
-        } else {
-          this.input.style.borderColor = '#4a90e2';
-          this.input.style.boxShadow = 'none';
-        }
+        this.input.style.cssText = this.getInputStyles();
+        this.input.placeholder = this.getPlaceholderForMode(this.currentMode);
       });
     }
 
@@ -15997,6 +16795,22 @@
         return;
       }
       this.onboardingCoach.start({ force });
+    }
+
+    showShortcutGuide() {
+      const shortcuts = [
+        { key: this.config.activationKey || '@', description: 'ChocoDropの表示/非表示を切り替え' },
+        { key: 'Ctrl / ⌘ + Enter', description: '現在のコマンドを実行' },
+        { key: 'WASD + マウス', description: '撮影モードで視点を移動' },
+        { key: 'Shift', description: '撮影モードで移動を加速' }
+      ];
+
+      if (!this.isVisible) {
+        this.show();
+      }
+
+      const messageLines = shortcuts.map(item => ` • ${item.key} … ${item.description}`).join('\n');
+      this.addOutput(`⌨️ ショートカットヒント\n${messageLines}`, 'system');
     }
 
     insertOnboardingPrompt(prompt) {
@@ -16100,10 +16914,10 @@
      */
     getPlaceholderForMode(mode) {
       const placeholders = {
-        generate: '「猫の画像を作って」と話しかけて ⏎ ✨',
-        import: 'ファイルを選択して ⏎ 📁',
-        modify: '選択後「透明に変更」と伝えて ⏎ ✏️',
-        delete: '選択後、コマンドをそのまま送って ⏎ 🗑️'
+        generate: '例: 「夕暮れのスタジオで揺れるリボンライトを描いて」⏎ ✨',
+        import: '例: 「📁 で取り込んだ彫刻を中央にそっと置いて」⏎',
+        modify: '例: 「この照明をミルキーゴールドに柔らかくして」⏎',
+        delete: '例: 「足元のスモークをそっと消して」⏎'
       };
       return placeholders[mode] || placeholders.generate;
     }

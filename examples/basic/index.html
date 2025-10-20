@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ChocoDrop - Basic Three.js Example</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='8' y='8' width='48' height='48' rx='12' fill='%2363410f'/%3E%3Crect x='18' y='18' width='28' height='28' rx='6' fill='%23a16207'/%3E%3C/svg%3E">
     <script type="importmap">
     {
         "imports": {
@@ -23,21 +24,21 @@
 
         #info {
             position: fixed;
-            top: 16px;
-            left: 16px;
-            color: #2d3748;
-            background: rgba(255, 255, 255, 0.85);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            padding: 14px 18px;
-            border-radius: 8px;
-            font-size: 12px;
-            font-weight: 400;
+            top: 18px;
+            left: 18px;
+            color: #1b2337;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.88), rgba(236, 233, 255, 0.82));
+            backdrop-filter: blur(18px);
+            -webkit-backdrop-filter: blur(18px);
+            border: 1px solid rgba(180, 198, 255, 0.45);
+            padding: 18px 22px;
+            border-radius: 18px;
+            font-size: 13px;
+            font-weight: 500;
             z-index: 100;
-            max-width: 280px;
-            line-height: 1.5;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            max-width: 320px;
+            line-height: 1.6;
+            box-shadow: 0 18px 38px rgba(15, 23, 42, 0.25);
             transition: opacity 0.3s ease, transform 0.3s ease;
         }
 
@@ -49,24 +50,111 @@
 
         .close-btn {
             position: absolute;
-            top: 8px;
-            right: 8px;
-            background: none;
-            border: none;
-            font-size: 16px;
-            color: #666;
+            top: 10px;
+            right: 10px;
+            background: rgba(99, 102, 241, 0.12);
+            border: 1px solid rgba(99, 102, 241, 0.2);
+            font-size: 14px;
+            color: #4338ca;
             cursor: pointer;
-            width: 20px;
-            height: 20px;
+            width: 26px;
+            height: 26px;
             display: flex;
             align-items: center;
             justify-content: center;
             border-radius: 50%;
-            transition: background-color 0.2s ease;
+            transition: all 0.2s ease;
+            backdrop-filter: blur(6px);
         }
 
         .close-btn:hover {
-            background-color: rgba(0, 0, 0, 0.1);
+            background: rgba(99, 102, 241, 0.22);
+            border-color: rgba(129, 140, 248, 0.45);
+            transform: scale(1.05);
+        }
+
+        #info .info-header strong {
+            display: block;
+            font-size: 16px;
+            font-weight: 700;
+            letter-spacing: 0.03em;
+            margin-bottom: 6px;
+        }
+
+        #info .info-header .subtitle {
+            margin: 0 0 16px;
+            font-size: 12px;
+            font-weight: 500;
+            color: rgba(30, 64, 175, 0.75);
+            line-height: 1.7;
+        }
+
+        #info .info-list {
+            list-style: none;
+            padding: 0;
+            margin: 0 0 16px;
+            display: grid;
+            gap: 10px;
+        }
+
+        #info .info-list li {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+        }
+
+        #info .info-icon {
+            font-size: 18px;
+            line-height: 1;
+            filter: drop-shadow(0 4px 10px rgba(99, 102, 241, 0.3));
+        }
+
+        #info code {
+            background: rgba(99, 102, 241, 0.15);
+            color: #4338ca;
+            padding: 2px 6px;
+            border-radius: 6px;
+            font-family: 'SFMono-Regular', ui-monospace, SFMono, menlo, monospace;
+            font-size: 11px;
+        }
+
+        #info .info-cta {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        #info .cta-primary,
+        #info .cta-secondary {
+            border-radius: 999px;
+            padding: 10px 18px;
+            font-size: 12px;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        #info .cta-primary {
+            background: linear-gradient(135deg, #a855f7 0%, #ec4899 100%);
+            color: #fff;
+            box-shadow: 0 12px 24px rgba(168, 85, 247, 0.28);
+        }
+
+        #info .cta-primary:hover {
+            box-shadow: 0 18px 32px rgba(236, 72, 153, 0.32);
+            transform: translateY(-1px);
+        }
+
+        #info .cta-secondary {
+            background: rgba(99, 102, 241, 0.1);
+            color: #3730a3;
+            border: 1px solid rgba(99, 102, 241, 0.2);
+        }
+
+        #info .cta-secondary:hover {
+            background: rgba(99, 102, 241, 0.18);
         }
 
         .navigation {
@@ -482,28 +570,20 @@
 
     <!-- Main Info Panel -->
     <div id="info">
-        <button class="close-btn" onclick="hideInfoPanel()">×</button>
-        <strong><span class="emoji choco-title">🍫</span>はじまりの国へようこそ</strong>
-
-        <div style="font-size: 11px; opacity: 0.85; margin-bottom: 12px; line-height: 1.6; text-align: center; font-style: italic;">
-            雲の上でふわふわと浮かぶ、創造の種を落とす場所
+        <button class="close-btn" type="button" aria-label="ヘルプを閉じる" onclick="hideInfoPanel()">×</button>
+        <div class="info-header">
+            <strong><span class="emoji choco-title">🍫</span>はじまりの国へようこそ</strong>
+            <p class="subtitle">雲の上に浮かぶスタジオ。ひとしずくのコマンドが、光と色を変えていきます。</p>
         </div>
-
-        💡 基本操作:<br>
-        1. 動画や画像をインポートしてみて！<br>
-        2. 視点操作: ChocoDropを最小化してドラッグ<br>
-        3. キューブを選択 → 🗑️ボタン → 送信<br>
-        4. オブジェクトをクリック → WASDキーで移動<br>
-
-        <div class="controls">
-            <div class="control-item">
-                <span class="key">@</span>
-                <span>ChocoDrop / ちょこドロップ起動</span>
-            </div>
-            <div class="control-item">
-                <span class="key">🍫</span>
-                <span>右下ボタンからも起動可</span>
-            </div>
+        <ul class="info-list">
+            <li><span class="info-icon">🧭</span><span>右下の <code>🍫</code> をクリックしてコマンドUIを呼び出しましょう。</span></li>
+            <li><span class="info-icon">💡</span><span>フォームが輝いたら、そのまま言葉を添えて <strong>Enter ⏎</strong>。</span></li>
+            <li><span class="info-icon">🎨</span><span>素材はドラッグ＆ドロップ、または「メディアインポート」モードで配置できます。</span></li>
+            <li><span class="info-icon">🎥</span><span>撮影モードでは UI を隠し、WASD でふわりと視点を滑らせましょう。</span></li>
+        </ul>
+        <div class="info-cta">
+            <button id="info-open-guide" class="cta-primary">ガイドをひらく ✨</button>
+            <button id="info-show-shortcuts" class="cta-secondary">ショートカットを表示</button>
         </div>
     </div>
     </div>
@@ -547,16 +627,33 @@
     <script type="module">
         // GitHub Pages対応: プロトコルとホスト名を取得し、適切なベースURLを構築
         const isGitHubPages = window.location.hostname.includes('github.io');
+        const normalizeBase = (base) => {
+            if (!base) return '';
+            return base.replace(/\/$/, '');
+        };
+
+        const localLoaderBase = `${window.location.protocol}//${window.location.hostname}:3015`;
         const fallbackBase = window.CHOCODROP_PUBLIC_BASE ||
             (isGitHubPages
                 ? `${window.location.origin}${window.location.pathname.split('/examples/')[0]}/public`
-                : `${window.location.protocol}//${window.location.hostname}:3011`
+                : localLoaderBase
             );
 
-        const loaderCandidates = [
-            `${fallbackBase}/load-chocodrop.js`,
-            new URL('../../public/load-chocodrop.js', import.meta.url).href
-        ];
+        const loaderCandidates = [];
+        const addCandidate = (candidate) => {
+            if (!candidate) return;
+            const normalized = candidate.endsWith('.js')
+                ? candidate
+                : `${normalizeBase(candidate)}/load-chocodrop.js`;
+            if (!loaderCandidates.includes(normalized)) {
+                loaderCandidates.push(normalized);
+            }
+        };
+
+        addCandidate(localLoaderBase);
+        addCandidate(fallbackBase);
+        addCandidate(window.CHOCODROP_PUBLIC_BASE);
+        addCandidate(new URL('../../public/load-chocodrop.js', import.meta.url).href);
 
         let ensureChocoDrop = null;
         for (const candidate of loaderCandidates) {
@@ -589,6 +686,8 @@
             const worldsSubmenu = document.getElementById('worldsSubmenu');
             const showInfoBtn = document.getElementById('showInfoBtn');
             const infoPanel = document.getElementById('info');
+            const guideButton = document.getElementById('info-open-guide');
+            const shortcutsButton = document.getElementById('info-show-shortcuts');
 
             // 初回訪問チェック - localStorage使用
             const FIRST_VISIT_KEY = 'basic_visited';
@@ -659,6 +758,35 @@
                         }
                     }
                     menuDropdown.classList.remove('active');
+                });
+            }
+
+            if (guideButton) {
+                guideButton.addEventListener('click', () => {
+                    try {
+                        if (window.ChocoDrop?.ui?.onboardingCoach) {
+                            window.ChocoDrop.ui.onboardingCoach.start({ force: true });
+                        } else {
+                            window.dispatchEvent(new CustomEvent('chocodrop:request-onboarding'));
+                        }
+                    } finally {
+                        if (typeof hideInfoPanel === 'function') {
+                            hideInfoPanel();
+                        }
+                    }
+                });
+            }
+
+            if (shortcutsButton) {
+                shortcutsButton.addEventListener('click', () => {
+                    if (menuDropdown) {
+                        menuDropdown.classList.add('active');
+                    }
+
+                    window.dispatchEvent(new CustomEvent('chocodrop:show-shortcuts-request'));
+                    if (typeof hideInfoPanel === 'function') {
+                        hideInfoPanel();
+                    }
                 });
             }
 
