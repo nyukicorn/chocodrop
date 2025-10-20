@@ -258,7 +258,7 @@ export class CommandUI {
     this.input = document.createElement('textarea');
     this.input.rows = 1;
     this.input.id = 'command-input';
-    this.input.placeholder = '「右上にドラゴンを」「美しい桜の森を中央に」など... ✨';
+    this.input.placeholder = 'どんな世界を描きますか？ 例: 「夕暮れのスタジオに光を落として」 ⏎ ✨';
     this.input.style.cssText = this.getInputStyles();
 
     // 展開ボタン（初期状態は非表示）
@@ -2472,33 +2472,33 @@ export class CommandUI {
   getInputStyles() {
     // 2025 Glassmorphism仕様：入力フィールド
     const glassmorphismDark = {
-      background: 'linear-gradient(135deg, rgba(30, 27, 75, 0.4), rgba(15, 23, 42, 0.5))',
-      border: '1px solid rgba(99, 102, 241, 0.25)',
-      boxShadow: '0 4px 16px rgba(15, 23, 42, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.08)'
+      background: 'linear-gradient(135deg, rgba(53, 41, 72, 0.48), rgba(24, 35, 55, 0.58))',
+      border: '1px solid rgba(192, 132, 252, 0.45)',
+      boxShadow: '0 14px 34px rgba(17, 24, 39, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.12)'
     };
 
     const glassmorphismLight = {
-      background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.2))',
-      border: '1px solid rgba(255, 255, 255, 0.5)',
-      boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.4)'
+      background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.6), rgba(243, 232, 255, 0.5))',
+      border: '1px solid rgba(216, 180, 254, 0.6)',
+      boxShadow: '0 16px 30px rgba(148, 163, 184, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.6)'
     };
 
     const glassmorphismWabiSabi = {
-      background: 'linear-gradient(135deg, rgba(97, 97, 97, 0.4), rgba(66, 66, 66, 0.3))',
-      border: '1px solid rgba(97, 97, 97, 0.5)',
-      boxShadow: '0 4px 16px rgba(66, 66, 66, 0.3), inset 0 1px 0 rgba(189, 189, 189, 0.2)'
+      background: 'linear-gradient(135deg, rgba(117, 101, 92, 0.48), rgba(66, 54, 47, 0.38))',
+      border: '1px solid rgba(205, 174, 142, 0.55)',
+      boxShadow: '0 12px 28px rgba(85, 69, 60, 0.42), inset 0 1px 0 rgba(230, 214, 195, 0.18)'
     };
 
     const theme = this.isWabiSabiMode ? glassmorphismWabiSabi : (this.isDarkMode ? glassmorphismDark : glassmorphismLight);
 
     return `
       width: 100%;
-      padding: 14px 16px;
+      padding: 16px 20px;
       background: ${theme.background};
       border: ${theme.border};
-      border-radius: 14px;
-      color: ${this.isWabiSabiMode ? '#F5F5F5' : (this.isDarkMode ? '#ffffff' : '#1f2937')};
-      font-size: 14px;
+      border-radius: 18px;
+      color: ${this.isWabiSabiMode ? '#F9F5F0' : (this.isDarkMode ? '#f8fafc' : '#1f2937')};
+      font-size: 15px;
       outline: none;
       box-sizing: border-box;
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -2506,12 +2506,14 @@ export class CommandUI {
       backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);
       box-shadow: ${theme.boxShadow};
-      placeholder-color: ${this.isDarkMode ? 'rgba(255, 255, 255, 0.5)' : 'rgba(55, 65, 81, 0.6)'};
+      placeholder-color: ${this.isDarkMode ? 'rgba(248, 250, 252, 0.55)' : 'rgba(55, 65, 81, 0.56)'};
       resize: none;
       overflow-y: hidden;
-      min-height: 22px;
-      max-height: 66px;
-      line-height: 22px;
+      min-height: 26px;
+      max-height: 88px;
+      line-height: 24px;
+      letter-spacing: 0.01em;
+      caret-color: ${this.isWabiSabiMode ? '#f9c784' : '#f472b6'};
     `;
   }
 
@@ -2642,22 +2644,18 @@ export class CommandUI {
     // 入力フィールドのスタイル調整
     this.input.addEventListener('focus', () => {
       if (this.isWabiSabiMode) {
-        this.input.style.borderColor = '#8BC34A';
-        this.input.style.boxShadow = '0 0 5px rgba(139, 195, 74, 0.5)';
+        this.input.style.borderColor = 'rgba(249, 199, 132, 0.65)';
+        this.input.style.boxShadow = '0 0 0 2px rgba(249, 199, 132, 0.3), 0 18px 32px rgba(189, 140, 94, 0.35)';
       } else {
-        this.input.style.borderColor = '#74b9ff';
-        this.input.style.boxShadow = '0 0 5px rgba(116, 185, 255, 0.5)';
+        this.input.style.borderColor = 'rgba(244, 114, 182, 0.65)';
+        this.input.style.boxShadow = '0 0 0 2px rgba(244, 114, 182, 0.35), 0 20px 36px rgba(192, 132, 252, 0.25)';
       }
+      this.input.style.filter = 'brightness(1.05)';
     });
 
     this.input.addEventListener('blur', () => {
-      if (this.isWabiSabiMode) {
-        this.input.style.borderColor = '#8D6E63';
-        this.input.style.boxShadow = 'none';
-      } else {
-        this.input.style.borderColor = '#4a90e2';
-        this.input.style.boxShadow = 'none';
-      }
+      this.input.style.cssText = this.getInputStyles();
+      this.input.placeholder = this.getPlaceholderForMode(this.currentMode);
     });
   }
 
@@ -2781,10 +2779,10 @@ export class CommandUI {
    */
   getPlaceholderForMode(mode) {
     const placeholders = {
-      generate: '「猫の画像を作って」と話しかけて ⏎ ✨',
-      import: 'ファイルを選択して ⏎ 📁',
-      modify: '選択後「透明に変更」と伝えて ⏎ ✏️',
-      delete: '選択後、コマンドをそのまま送って ⏎ 🗑️'
+      generate: '例: 「夕暮れのスタジオで揺れるリボンライトを描いて」⏎ ✨',
+      import: '例: 「📁 で取り込んだ彫刻を中央にそっと置いて」⏎',
+      modify: '例: 「この照明をミルキーゴールドに柔らかくして」⏎',
+      delete: '例: 「足元のスモークをそっと消して」⏎'
     };
     return placeholders[mode] || placeholders.generate;
   }

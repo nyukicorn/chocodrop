@@ -6248,24 +6248,24 @@
           id: 'media-import',
           label: 'メディアインポート',
           emoji: '📥',
-          description: '📁ボタンから画像・動画・3Dファイルを選択して配置。サービス接続不要で即座に使えます。',
-          prompt: '中央に設置',
+          description: '手元の画像・動画・3D素材をそのまま配置。ショーケースのレイアウト作りにぴったりなモードです。',
+          prompt: '中央に飾って',
           mode: 'import'
         },
         {
           id: 'remix-pro',
           label: '雰囲気演出',
           emoji: '🌌',
-          description: '3Dシーンのオブジェクトをクリック選択後、見た目を自然言語で変更・削除。サービス不要で即座に反映されます。',
-          prompt: '背景の白色を透明にして',
+          description: '選択したオブジェクトに自然言語で光と色をまとわせます。ライブ演出の微調整に最適。',
+          prompt: '背景の白い光を透明なブルーにして',
           mode: 'modify'
         },
         {
           id: 'atmos-sculpt',
           label: 'ビジュアル生成',
           emoji: '🎨',
-          description: '動画サービスでアニメーション演出を生成。⚙️から動画サービスの接続が必要です。',
-          prompt: '虹色に輝く折り紙で作った幻想的なユニコーンの動画を作って',
+          description: '接続した生成サービスで新しいビジュアルやアニメーションを生み出します。壮大なシーンの起点に。',
+          prompt: '虹色のガラスで編んだユニコーンのドローンショットを作って',
           mode: 'generate',
           mediaType: 'video'
         },
@@ -6273,18 +6273,18 @@
           id: 'scene-capture',
           label: 'シーン撮影',
           emoji: '🎬',
-          description: 'WASDキー操作でシーンを調整し、UI非表示で画面をキャプチャ。完璧なアングルを見つけよう。',
+          description: 'WASD操作で少しずつアングルを整え、UIを隠してシネマティックなスクリーンショットを収めます。',
           prompt: '',
           mode: 'capture'
         }
       ];
 
       this.steps = [
-        { id: 'persona', title: 'ChocoDropへようこそ', type: 'choice' },
-        { id: 'service', title: 'サービス接続を整える', type: 'service' },
-        { id: 'prompt', title: '最初のコマンドを仕上げる', type: 'prompt' },
-        { id: 'execute', title: '実験を走らせる', type: 'execute' },
-        { id: 'next', title: '次のステップ', type: 'next' }
+        { id: 'persona', title: 'ChocoDropへようこそ', type: 'choice', icon: '💡', tagline: '作りたいムードを選ぶと、あなたの世界づくりが最短距離になります。' },
+        { id: 'service', title: 'サービス接続を整える', type: 'service', icon: '🔗', tagline: '生成サービスの接続状態をチェックして、滞りなく創作を進めましょう。' },
+        { id: 'prompt', title: '言葉で世界をデザイン', type: 'prompt', icon: '🖋️', tagline: 'フォームに光を当てながら、シーンを導く言葉を仕上げます。' },
+        { id: 'execute', title: 'シーンを動かす', type: 'execute', icon: '🎬', tagline: '準備が整ったら再生。サウンドと光がシーンに息を吹き込みます。' },
+        { id: 'next', title: '次のステップ', type: 'next', icon: '🌈', tagline: 'これからもっと遊ぶためのヒントとショートカットをご案内。' }
       ];
 
       this.backdrop = null;
@@ -6298,6 +6298,9 @@
       this.closeButton = null;
       this.progressBar = null;
       this.spotlightLayer = null;
+      this.focusAuraClass = 'chocodrop-onboarding-focus';
+      this.focusAuraStyleId = 'chocodrop-onboarding-style';
+      this.lastFocusAuraTarget = null;
 
       this.currentHighlightTarget = null;
       this.updateFocusRingPosition = this.updateFocusRingPosition.bind(this);
@@ -6456,6 +6459,39 @@
     initDom() {
       const colors = this.getAdaptiveColors();
 
+      if (!document.getElementById(this.focusAuraStyleId)) {
+        const focusStyle = document.createElement('style');
+        focusStyle.id = this.focusAuraStyleId;
+        focusStyle.textContent = `
+        .${this.focusAuraClass} {
+          position: relative;
+          border-radius: 18px !important;
+          box-shadow:
+            0 0 0 2px rgba(236, 72, 153, 0.32),
+            0 18px 36px rgba(192, 132, 252, 0.22),
+            0 0 38px rgba(236, 72, 153, 0.2);
+          transition: box-shadow 0.35s ease, transform 0.35s ease, filter 0.35s ease;
+          filter: saturate(1.1) brightness(1.02);
+        }
+
+        .${this.focusAuraClass}::after {
+          content: '';
+          position: absolute;
+          inset: -8px;
+          border-radius: inherit;
+          pointer-events: none;
+          background: radial-gradient(circle at 50% 0%, rgba(236, 72, 153, 0.25), transparent 65%);
+          opacity: 0.75;
+          transition: opacity 0.35s ease;
+        }
+
+        .${this.focusAuraClass}:focus-visible {
+          outline: none;
+        }
+      `;
+        document.head.appendChild(focusStyle);
+      }
+
       this.backdrop = document.createElement('div');
       this.backdrop.id = 'chocodrop-onboarding';
       this.backdrop.style.cssText = `
@@ -6563,16 +6599,40 @@
 
       this.progressIndicator = document.createElement('div');
       this.progressIndicator.style.cssText = `
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
       font-size: 12px;
       font-weight: 600;
       color: ${colors.textSecondary};
-      opacity: 0.7;
+      opacity: 0.85;
       white-space: nowrap;
     `;
-      this.progressIndicator.textContent = '1/4';
+      this.progressIcon = document.createElement('span');
+      this.progressIcon.style.cssText = `font-size: 14px; line-height: 1;`;
+
+      this.progressLabel = document.createElement('span');
+      this.progressLabel.style.cssText = `letter-spacing: 0.02em;`;
+
+      this.progressCount = document.createElement('span');
+      this.progressCount.style.cssText = `opacity: 0.7; font-variant-numeric: tabular-nums;`;
+
+      this.progressIndicator.appendChild(this.progressIcon);
+      this.progressIndicator.appendChild(this.progressLabel);
+      this.progressIndicator.appendChild(this.progressCount);
 
       titleRow.appendChild(this.titleEl);
       titleRow.appendChild(this.progressIndicator);
+
+      this.subtitleEl = document.createElement('p');
+      this.subtitleEl.style.cssText = `
+      margin: 0;
+      font-size: 13px;
+      font-weight: 500;
+      color: ${colors.textSecondary};
+      opacity: 0.85;
+      letter-spacing: 0.01em;
+    `;
 
       this.progressBar = document.createElement('div');
       this.progressBar.style.cssText = `
@@ -6626,7 +6686,12 @@
       this.progressBar.appendChild(this.progressValue);
 
       header.appendChild(titleRow);
+      header.appendChild(this.subtitleEl);
       header.appendChild(this.progressBar);
+      this.subtitleEl.textContent = this.steps[0]?.tagline || '';
+      this.progressIcon.textContent = this.steps[0]?.icon || '💡';
+      this.progressLabel.textContent = 'ムード選択';
+      this.progressCount.textContent = '1/4';
 
       const bodyWrapper = document.createElement('div');
       bodyWrapper.style.cssText = 'display: flex; flex-direction: column; gap: 14px; position: relative; z-index: 2;';
@@ -6951,12 +7016,33 @@
       }
 
       this.updateTopControls();
-      this.titleEl.textContent = step.title;
-      const progress = ((this.state.stepIndex + 1) / this.steps.length) * 100;
-      this.progressValue.style.width = `${progress}%`;
 
-      // 進捗インジケーターを更新
-      this.updateProgressIndicator();
+      const colors = this.getAdaptiveColors();
+      const headerMeta = this.getStepMeta(step, selectedPersona);
+      const progressState = this.calculateProgress(step.id, needsServiceConnection);
+
+      this.titleEl.textContent = headerMeta.title;
+
+      if (this.subtitleEl) {
+        this.subtitleEl.style.color = colors.textSecondary;
+        if (headerMeta.tagline) {
+          this.subtitleEl.textContent = headerMeta.tagline;
+          this.subtitleEl.style.display = 'block';
+        } else {
+          this.subtitleEl.textContent = '';
+          this.subtitleEl.style.display = 'none';
+        }
+      }
+
+      const progressPercentage = Math.min(100, (progressState.currentStep / progressState.totalSteps) * 100);
+      this.progressValue.style.width = `${progressPercentage}%`;
+
+      this.updateProgressIndicator({
+        currentStep: progressState.currentStep,
+        totalSteps: progressState.totalSteps,
+        icon: headerMeta.icon,
+        label: headerMeta.progressLabel
+      });
 
       this.bodyEl.innerHTML = '';
       this.secondaryButton.style.display = 'none';
@@ -6997,7 +7083,7 @@
 
       const intro = document.createElement('p');
       intro.style.cssText = `margin: 0; color: ${colors.textSecondary}; line-height: 1.6;`;
-      intro.textContent = '目的に合わせたおすすめフローを選ぶと、初回のセットアップが最短ルートになります。';
+      intro.textContent = '最初に灯したいムードを選びましょう。カードをクリックすると、おすすめのフローが展開されます。';
       this.bodyEl.appendChild(intro);
 
       const grid = document.createElement('div');
@@ -7252,6 +7338,62 @@
       const selectedPersona = this.personaOptions.find(p => p.id === this.state.persona);
       const mode = selectedPersona?.mode;
 
+      const calloutConfig = {
+        import: {
+          icon: '📁',
+          title: 'ドロップのコツ',
+          message: 'ファイルを取り込むと自動で配置キーワードが入力されます。Enter ⏎ で瞬時にシーンへ落とし込みましょう。'
+        },
+        modify: {
+          icon: '🪄',
+          title: '演出のヒント',
+          message: '変更したいオブジェクトをクリックしたら、色・質感・光のニュアンスを短い文章で伝えましょう。'
+        },
+        capture: {
+          icon: '🎥',
+          title: 'シネマティックな撮影',
+          message: 'UIを隠した状態でも WASD とドラッグで微調整できます。息を整えて最高の瞬間をキャプチャ。'
+        },
+        generate: {
+          icon: '✨',
+          title: '想像を言葉に',
+          message: 'モチーフだけでなく、光や素材感、カメラワークまで描写すると生成AIの感性が引き出されます。'
+        }
+      };
+
+      const callout = document.createElement('div');
+      callout.style.cssText = `
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 16px 18px;
+      border-radius: 18px;
+      border: 1px solid ${this.theme.isDark ? 'rgba(168, 85, 247, 0.4)' : 'rgba(129, 140, 248, 0.35)'};
+      background: ${this.theme.isDark ? 'rgba(61, 35, 88, 0.35)' : 'rgba(236, 233, 255, 0.7)'};
+      box-shadow: 0 12px 28px ${this.theme.isDark ? 'rgba(76, 29, 149, 0.25)' : 'rgba(148, 163, 184, 0.32)'};
+    `;
+
+      const calloutIcon = document.createElement('span');
+      calloutIcon.style.cssText = 'font-size: 20px; line-height: 1; filter: drop-shadow(0 6px 12px rgba(168, 85, 247, 0.45));';
+      callout.appendChild(calloutIcon);
+
+      const calloutContent = document.createElement('div');
+      calloutContent.style.cssText = 'display: flex; flex-direction: column; gap: 4px;';
+      const calloutTitle = document.createElement('strong');
+      calloutTitle.style.cssText = 'font-size: 13px; letter-spacing: 0.02em; color: inherit;';
+      const calloutMessage = document.createElement('span');
+      calloutMessage.style.cssText = `font-size: 13px; line-height: 1.6; color: ${colors.textSecondary};`;
+
+      const appliedConfig = calloutConfig[mode] || calloutConfig.generate;
+      calloutIcon.textContent = appliedConfig.icon;
+      calloutTitle.textContent = appliedConfig.title;
+      calloutMessage.textContent = appliedConfig.message;
+
+      calloutContent.appendChild(calloutTitle);
+      calloutContent.appendChild(calloutMessage);
+      callout.appendChild(calloutContent);
+      this.bodyEl.appendChild(callout);
+
       const lead = document.createElement('p');
       lead.style.cssText = `margin: 0; color: ${colors.textSecondary}; line-height: 1.6;`;
 
@@ -7408,29 +7550,29 @@
 
       if (mode === 'import') {
         description.innerHTML = `
-        <p style="margin:0; color:${colors.textSecondary}; line-height:1.6;">📁ボタンをクリックして画像・動画・3Dファイルを選択してください。</p>
-        <p style="margin:12px 0 0 0; font-size:13px; opacity:0.8; color:${colors.textSecondary};">ファイル選択後、自動的にシーンに配置されます（約0.5秒後）。</p>
+        <p style="margin:0; color:${colors.textSecondary}; line-height:1.6;">📁ボタンから素材を選ぶと、ハイライトされたフォームにキーワードが挿入されます。</p>
+        <p style="margin:12px 0 0 0; font-size:13px; opacity:0.85; color:${colors.textSecondary};">Enter ⏎ を押すと約0.5秒後にシーンへふわりと配置されます。位置はあとからコマンドで微調整できます。</p>
       `;
       } else if (mode === 'modify') {
         description.innerHTML = `
-        <p style="margin:0; color:${colors.textSecondary}; line-height:1.6;">まず3Dシーン内のオブジェクトをクリックして選択してから、変更・削除の指示を入力して実行してください。</p>
-        <p style="margin:12px 0 0 0; font-size:13px; opacity:0.8; color:${colors.textSecondary};">選択したオブジェクトの見た目が即座に変更されます。「削除して」でオブジェクト削除も可能です。</p>
+        <p style="margin:0; color:${colors.textSecondary}; line-height:1.6;">演出したいオブジェクトをクリックし、質感や光のニュアンスを文章で伝えてみてください。</p>
+        <p style="margin:12px 0 0 0; font-size:13px; opacity:0.85; color:${colors.textSecondary};">「透明なバニラの光に」「輪郭を少し柔らかく」など、ライブでイメージが切り替わります。</p>
       `;
       } else if (mode === 'capture') {
         description.innerHTML = `
-        <p style="margin:0; color:${colors.textSecondary}; line-height:1.6;">WASDキーでシーンを移動し、×ボタンでUIを非表示にしてみてください。</p>
-        <p style="margin:12px 0 0 0; font-size:13px; opacity:0.8; color:${colors.textSecondary};">UI非表示時は3Dシーン操作（マウスドラッグ等）が有効になります。スクリーンショットで完璧なアングルを保存しましょう。</p>
+        <p style="margin:0; color:${colors.textSecondary}; line-height:1.6;">WASD キーとマウスドラッグで空間を滑り、UIを隠してからスクリーンショットを撮影しましょう。</p>
+        <p style="margin:12px 0 0 0; font-size:13px; opacity:0.85; color:${colors.textSecondary};">光が巡る瞬間を逃さないよう、撮影前に一呼吸おくと映像がやさしくまとまります。</p>
       `;
       } else if (mode === 'generate' && mediaType === 'video') {
         description.innerHTML = `
-        <p style="margin:0; color:${colors.textSecondary}; line-height:1.6;">プロンプトを入力して実行ボタンをクリックすると、動画生成が開始されます。</p>
-        <p style="margin:12px 0 0 0; font-size:13px; opacity:0.8; color:${colors.textSecondary};">ステータスカードで進捗を確認できます。動画生成は30秒〜数分かかることがあります。</p>
+        <p style="margin:0; color:${colors.textSecondary}; line-height:1.6;">プロンプトを送信すると生成が始まります。カメラワークやテンポも一緒にイメージしておくと滑らかです。</p>
+        <p style="margin:12px 0 0 0; font-size:13px; opacity:0.85; color:${colors.textSecondary};">ステータスカードで進捗を確認。生成は30秒〜数分、音も加わるとさらに没入感が増します。</p>
       `;
       } else {
         // Fallback for any other modes
         description.innerHTML = `
-        <p style="margin:0; color:${colors.textSecondary}; line-height:1.6;">準備が整ったら実行ボタンでタスクを開始してください。</p>
-        <p style="margin:12px 0 0 0; font-size:13px; opacity:0.8; color:${colors.textSecondary};">ステータスカードで進捗を確認できます。</p>
+        <p style="margin:0; color:${colors.textSecondary}; line-height:1.6;">準備が整ったら実行ボタンをクリック。シーンが呼吸をはじめる瞬間を見届けましょう。</p>
+        <p style="margin:12px 0 0 0; font-size:13px; opacity:0.85; color:${colors.textSecondary};">進捗はステータスカードに表示されます。完了通知まで創作ノートをメモするのもおすすめです。</p>
       `;
       }
       this.bodyEl.appendChild(description);
@@ -7578,6 +7720,7 @@
       if (!this.active) {
         this.focusRing.style.opacity = '0';
         this.updateSpotlight(null);
+        this.clearFocusAura();
         return;
       }
 
@@ -7585,6 +7728,7 @@
       if (!target) {
         this.focusRing.style.opacity = '0';
         this.updateSpotlight(fallbackRect);
+        this.clearFocusAura();
         return;
       }
 
@@ -7592,6 +7736,7 @@
       if (rect.width === 0 && rect.height === 0) {
         this.focusRing.style.opacity = '0';
         this.updateSpotlight(fallbackRect);
+        this.clearFocusAura();
         return;
       }
 
@@ -7601,6 +7746,7 @@
       this.focusRing.style.height = `${rect.height + 24}px`;
 
       this.updateSpotlight(rect);
+      this.applyFocusAura(target);
     }
 
     getBaseOverlayLayer() {
@@ -7634,35 +7780,108 @@
       this.spotlightLayer.style.background = this.computeSpotlightGradient(rect);
     }
 
-    updateProgressIndicator() {
+    applyFocusAura(target) {
+      if (!target) {
+        this.clearFocusAura();
+        return;
+      }
+
+      if (this.lastFocusAuraTarget && this.lastFocusAuraTarget !== target) {
+        this.lastFocusAuraTarget.classList.remove(this.focusAuraClass);
+      }
+
+      if (!target.classList.contains(this.focusAuraClass)) {
+        target.classList.add(this.focusAuraClass);
+      }
+
+      this.lastFocusAuraTarget = target;
+    }
+
+    clearFocusAura() {
+      if (this.lastFocusAuraTarget) {
+        this.lastFocusAuraTarget.classList.remove(this.focusAuraClass);
+        this.lastFocusAuraTarget = null;
+      }
+    }
+
+    getStepMeta(step, persona) {
+      const personaId = persona?.id;
+      const meta = {
+        icon: step?.icon || '✨',
+        title: step?.title || 'ChocoDrop ガイド',
+        tagline: step?.tagline || '',
+        progressLabel: step?.progressLabel || step?.title || 'ガイド'
+      };
+
+      switch (step?.id) {
+        case 'persona':
+          meta.title = 'ムードを選ぶ';
+          meta.tagline = '最初に描きたい世界観を選ぶと、ガイドが最適な順番を提案します。';
+          meta.progressLabel = 'ムード選択';
+          break;
+        case 'service':
+          meta.title = 'サービス接続を整える';
+          meta.progressLabel = '接続チェック';
+          if (personaId === 'atmos-sculpt') {
+            meta.tagline = '動画生成サービスがオンラインか確認しましょう。接続が完了するとステータスが緑になります。';
+          }
+          break;
+        case 'prompt':
+          meta.progressLabel = '言葉を整える';
+          if (personaId === 'media-import') {
+            meta.title = '素材にひと言添える';
+            meta.tagline = '配置する位置やサイズなど、素材に合わせたワンフレーズを追加しましょう。';
+          } else if (personaId === 'remix-pro') {
+            meta.title = '演出のニュアンスを言葉に';
+            meta.tagline = '光や質感のイメージを自然な文章で伝えると、即座にシーンへ反映されます。';
+          } else if (personaId === 'scene-capture') {
+            meta.title = '撮影メモを残す';
+            meta.tagline = '欲しい画角や時間帯、色味を簡単に控えておくとルートが決まります。';
+          }
+          break;
+        case 'execute':
+          meta.progressLabel = 'シーン再生';
+          if (personaId === 'scene-capture') {
+            meta.tagline = 'UIを隠したら、呼吸を整えてからシャッター。光の揺らぎも録り込みましょう。';
+          }
+          break;
+        case 'next':
+          meta.progressLabel = 'まとめ';
+          meta.tagline = 'ショートカットやおすすめの遊び方をチェックして、次の世界へ踏み出しましょう。';
+          break;
+      }
+
+      return meta;
+    }
+
+    calculateProgress(stepId, needsService) {
+      const flow = needsService
+        ? ['persona', 'service', 'prompt', 'execute', 'next']
+        : ['persona', 'prompt', 'execute', 'next'];
+
+      const index = flow.indexOf(stepId);
+      const currentStep = index >= 0 ? index + 1 : Math.min(this.state.stepIndex + 1, flow.length);
+
+      return {
+        currentStep,
+        totalSteps: flow.length
+      };
+    }
+
+    updateProgressIndicator({ currentStep, totalSteps, icon, label }) {
       if (!this.progressIndicator) return;
 
-      const selectedPersona = this.personaOptions.find(p => p.id === this.state.persona);
-      const needsService = selectedPersona?.mode === 'generate';
-
-      // 総ステップ数を計算（サービス接続が必要な場合は4ステップ、不要な場合は3ステップ）
-      const totalSteps = needsService ? 4 : 3;
-
-      // 現在のステップインデックスを実際の表示番号に変換
-      let currentStep = 1;
-      const stepIndex = this.state.stepIndex;
-
-      if (stepIndex === 0) {
-        currentStep = 1; // Persona selection
-      } else if (stepIndex === 1) {
-        currentStep = needsService ? 2 : 2; // Service step (if needed) or Prompt step
-      } else if (stepIndex === 2) {
-        currentStep = needsService ? 3 : 2; // Prompt step
-      } else if (stepIndex === 3) {
-        currentStep = needsService ? 4 : 3; // Execute step
+      if (this.progressIcon) {
+        this.progressIcon.textContent = icon || '✨';
       }
 
-      // サービス接続ステップをスキップする場合の調整
-      if (!needsService && stepIndex >= 1) {
-        currentStep = stepIndex; // ステップ1をスキップするので、stepIndex = 2 → 2/3, stepIndex = 3 → 3/3
+      if (this.progressLabel) {
+        this.progressLabel.textContent = label || '';
       }
 
-      this.progressIndicator.textContent = `${currentStep}/${totalSteps}`;
+      if (this.progressCount) {
+        this.progressCount.textContent = `${currentStep}/${totalSteps}`;
+      }
     }
 
     highlightModeButton(mode) {
@@ -7745,6 +7964,7 @@
       this.backdrop.style.opacity = '0';
       this.focusRing.style.opacity = '0';
       this.updateSpotlight(null);
+      this.clearFocusAura();
 
       setTimeout(() => {
         this.backdrop.style.display = 'none';
@@ -13799,7 +14019,7 @@
       this.input = document.createElement('textarea');
       this.input.rows = 1;
       this.input.id = 'command-input';
-      this.input.placeholder = '「右上にドラゴンを」「美しい桜の森を中央に」など... ✨';
+      this.input.placeholder = 'どんな世界を描きますか？ 例: 「夕暮れのスタジオに光を落として」 ⏎ ✨';
       this.input.style.cssText = this.getInputStyles();
 
       // 展開ボタン（初期状態は非表示）
@@ -15948,33 +16168,33 @@
     getInputStyles() {
       // 2025 Glassmorphism仕様：入力フィールド
       const glassmorphismDark = {
-        background: 'linear-gradient(135deg, rgba(30, 27, 75, 0.4), rgba(15, 23, 42, 0.5))',
-        border: '1px solid rgba(99, 102, 241, 0.25)',
-        boxShadow: '0 4px 16px rgba(15, 23, 42, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.08)'
+        background: 'linear-gradient(135deg, rgba(53, 41, 72, 0.48), rgba(24, 35, 55, 0.58))',
+        border: '1px solid rgba(192, 132, 252, 0.45)',
+        boxShadow: '0 14px 34px rgba(17, 24, 39, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.12)'
       };
 
       const glassmorphismLight = {
-        background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.2))',
-        border: '1px solid rgba(255, 255, 255, 0.5)',
-        boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.4)'
+        background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.6), rgba(243, 232, 255, 0.5))',
+        border: '1px solid rgba(216, 180, 254, 0.6)',
+        boxShadow: '0 16px 30px rgba(148, 163, 184, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.6)'
       };
 
       const glassmorphismWabiSabi = {
-        background: 'linear-gradient(135deg, rgba(97, 97, 97, 0.4), rgba(66, 66, 66, 0.3))',
-        border: '1px solid rgba(97, 97, 97, 0.5)',
-        boxShadow: '0 4px 16px rgba(66, 66, 66, 0.3), inset 0 1px 0 rgba(189, 189, 189, 0.2)'
+        background: 'linear-gradient(135deg, rgba(117, 101, 92, 0.48), rgba(66, 54, 47, 0.38))',
+        border: '1px solid rgba(205, 174, 142, 0.55)',
+        boxShadow: '0 12px 28px rgba(85, 69, 60, 0.42), inset 0 1px 0 rgba(230, 214, 195, 0.18)'
       };
 
       const theme = this.isWabiSabiMode ? glassmorphismWabiSabi : (this.isDarkMode ? glassmorphismDark : glassmorphismLight);
 
       return `
       width: 100%;
-      padding: 14px 16px;
+      padding: 16px 20px;
       background: ${theme.background};
       border: ${theme.border};
-      border-radius: 14px;
-      color: ${this.isWabiSabiMode ? '#F5F5F5' : (this.isDarkMode ? '#ffffff' : '#1f2937')};
-      font-size: 14px;
+      border-radius: 18px;
+      color: ${this.isWabiSabiMode ? '#F9F5F0' : (this.isDarkMode ? '#f8fafc' : '#1f2937')};
+      font-size: 15px;
       outline: none;
       box-sizing: border-box;
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -15982,12 +16202,14 @@
       backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);
       box-shadow: ${theme.boxShadow};
-      placeholder-color: ${this.isDarkMode ? 'rgba(255, 255, 255, 0.5)' : 'rgba(55, 65, 81, 0.6)'};
+      placeholder-color: ${this.isDarkMode ? 'rgba(248, 250, 252, 0.55)' : 'rgba(55, 65, 81, 0.56)'};
       resize: none;
       overflow-y: hidden;
-      min-height: 22px;
-      max-height: 66px;
-      line-height: 22px;
+      min-height: 26px;
+      max-height: 88px;
+      line-height: 24px;
+      letter-spacing: 0.01em;
+      caret-color: ${this.isWabiSabiMode ? '#f9c784' : '#f472b6'};
     `;
     }
 
@@ -16118,22 +16340,18 @@
       // 入力フィールドのスタイル調整
       this.input.addEventListener('focus', () => {
         if (this.isWabiSabiMode) {
-          this.input.style.borderColor = '#8BC34A';
-          this.input.style.boxShadow = '0 0 5px rgba(139, 195, 74, 0.5)';
+          this.input.style.borderColor = 'rgba(249, 199, 132, 0.65)';
+          this.input.style.boxShadow = '0 0 0 2px rgba(249, 199, 132, 0.3), 0 18px 32px rgba(189, 140, 94, 0.35)';
         } else {
-          this.input.style.borderColor = '#74b9ff';
-          this.input.style.boxShadow = '0 0 5px rgba(116, 185, 255, 0.5)';
+          this.input.style.borderColor = 'rgba(244, 114, 182, 0.65)';
+          this.input.style.boxShadow = '0 0 0 2px rgba(244, 114, 182, 0.35), 0 20px 36px rgba(192, 132, 252, 0.25)';
         }
+        this.input.style.filter = 'brightness(1.05)';
       });
 
       this.input.addEventListener('blur', () => {
-        if (this.isWabiSabiMode) {
-          this.input.style.borderColor = '#8D6E63';
-          this.input.style.boxShadow = 'none';
-        } else {
-          this.input.style.borderColor = '#4a90e2';
-          this.input.style.boxShadow = 'none';
-        }
+        this.input.style.cssText = this.getInputStyles();
+        this.input.placeholder = this.getPlaceholderForMode(this.currentMode);
       });
     }
 
@@ -16257,10 +16475,10 @@
      */
     getPlaceholderForMode(mode) {
       const placeholders = {
-        generate: '「猫の画像を作って」と話しかけて ⏎ ✨',
-        import: 'ファイルを選択して ⏎ 📁',
-        modify: '選択後「透明に変更」と伝えて ⏎ ✏️',
-        delete: '選択後、コマンドをそのまま送って ⏎ 🗑️'
+        generate: '例: 「夕暮れのスタジオで揺れるリボンライトを描いて」⏎ ✨',
+        import: '例: 「📁 で取り込んだ彫刻を中央にそっと置いて」⏎',
+        modify: '例: 「この照明をミルキーゴールドに柔らかくして」⏎',
+        delete: '例: 「足元のスモークをそっと消して」⏎'
       };
       return placeholders[mode] || placeholders.generate;
     }
