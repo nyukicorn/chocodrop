@@ -6300,7 +6300,8 @@
       this.spotlightLayer = null;
       this.focusAuraClass = 'chocodrop-onboarding-focus';
       this.focusAuraStyleId = 'chocodrop-onboarding-style';
-      this.lastFocusAuraTarget = null;
+      this.focusAuraTargets = new Set();
+      this.additionalHighlights = [];
 
       this.currentHighlightTarget = null;
       this.updateFocusRingPosition = this.updateFocusRingPosition.bind(this);
@@ -7045,6 +7046,9 @@
       });
 
       this.bodyEl.innerHTML = '';
+      this.currentHighlightTarget = null;
+      this.setAdditionalHighlights([]);
+      this.updateFocusRingPosition();
       this.secondaryButton.style.display = 'none';
       this.secondaryButton.textContent = '';
       this.secondaryButton.onclick = null;
@@ -7394,6 +7398,8 @@
       callout.appendChild(calloutContent);
       this.bodyEl.appendChild(callout);
 
+      const extraHighlights = [];
+
       const lead = document.createElement('p');
       lead.style.cssText = `margin: 0; color: ${colors.textSecondary}; line-height: 1.6;`;
 
@@ -7409,6 +7415,13 @@
         <li>500ms後に自動実行され、シーンに配置されます</li>
       `;
         this.bodyEl.appendChild(steps);
+
+        const fileButton = typeof this.options.fileButton === 'function'
+          ? this.options.fileButton()
+          : this.options.fileButton || null;
+        if (fileButton) {
+          extraHighlights.push(fileButton);
+        }
       } else if (mode === 'modify') {
         lead.textContent = 'まず3Dシーン内のオブジェクトをクリックして選択してから、変更・削除の指示を入力します。';
         this.bodyEl.appendChild(lead);
@@ -7534,6 +7547,8 @@
         ? this.options.textareaElement()
         : this.options.textareaElement || null;
 
+      this.setAdditionalHighlights(extraHighlights);
+
       // ハイライトを即座に適用
       if (this.currentHighlightTarget) {
         this.updateFocusRing(this.currentHighlightTarget);
@@ -7547,12 +7562,19 @@
       const mediaType = selectedPersona?.mediaType;
 
       const description = document.createElement('div');
+      const extraHighlights = [];
 
       if (mode === 'import') {
         description.innerHTML = `
         <p style="margin:0; color:${colors.textSecondary}; line-height:1.6;">📁ボタンから素材を選ぶと、ハイライトされたフォームにキーワードが挿入されます。</p>
         <p style="margin:12px 0 0 0; font-size:13px; opacity:0.85; color:${colors.textSecondary};">Enter ⏎ を押すと約0.5秒後にシーンへふわりと配置されます。位置はあとからコマンドで微調整できます。</p>
       `;
+        const textareaEl = typeof this.options.textareaElement === 'function'
+          ? this.options.textareaElement()
+          : this.options.textareaElement || null;
+        if (textareaEl) {
+          extraHighlights.push(textareaEl);
+        }
       } else if (mode === 'modify') {
         description.innerHTML = `
         <p style="margin:0; color:${colors.textSecondary}; line-height:1.6;">演出したいオブジェクトをクリックし、質感や光のニュアンスを文章で伝えてみてください。</p>
@@ -7589,12 +7611,21 @@
       // セカンダリボタンを非表示
       this.secondaryButton.style.display = 'none';
 
+      this.setAdditionalHighlights(extraHighlights);
+
       // モードに応じて自動でハイライト
       if (mode === 'import') {
         // Importモードではファイルボタンを自動ハイライト
         this.currentHighlightTarget = typeof this.options.fileButton === 'function'
           ? this.options.fileButton()
           : this.options.fileButton || null;
+        const textareaEl = typeof this.options.textareaElement === 'function'
+          ? this.options.textareaElement()
+          : this.options.textareaElement || null;
+        if (textareaEl) {
+          extraHighlights.push(textareaEl);
+          this.setAdditionalHighlights(extraHighlights);
+        }
       } else if (mode === 'capture') {
         // Captureモードでは×ボタン（UI非表示ボタン）を自動ハイライト
         this.currentHighlightTarget = typeof this.options.closeButton === 'function'
@@ -7608,6 +7639,8 @@
       } else {
         this.currentHighlightTarget = null;
       }
+
+      this.setAdditionalHighlights(extraHighlights);
 
       // ハイライトを即座に適用
       if (this.currentHighlightTarget) {
@@ -7720,7 +7753,7 @@
       if (!this.active) {
         this.focusRing.style.opacity = '0';
         this.updateSpotlight(null);
-        this.clearFocusAura();
+        this.syncFocusAura(null);
         return;
       }
 
@@ -7728,7 +7761,7 @@
       if (!target) {
         this.focusRing.style.opacity = '0';
         this.updateSpotlight(fallbackRect);
-        this.clearFocusAura();
+        this.syncFocusAura(null);
         return;
       }
 
@@ -7736,7 +7769,7 @@
       if (rect.width === 0 && rect.height === 0) {
         this.focusRing.style.opacity = '0';
         this.updateSpotlight(fallbackRect);
-        this.clearFocusAura();
+        this.syncFocusAura(null);
         return;
       }
 
@@ -7746,7 +7779,7 @@
       this.focusRing.style.height = `${rect.height + 24}px`;
 
       this.updateSpotlight(rect);
-      this.applyFocusAura(target);
+      this.syncFocusAura(target);
     }
 
     getBaseOverlayLayer() {
@@ -7780,28 +7813,45 @@
       this.spotlightLayer.style.background = this.computeSpotlightGradient(rect);
     }
 
-    applyFocusAura(target) {
-      if (!target) {
-        this.clearFocusAura();
-        return;
-      }
-
-      if (this.lastFocusAuraTarget && this.lastFocusAuraTarget !== target) {
-        this.lastFocusAuraTarget.classList.remove(this.focusAuraClass);
-      }
-
-      if (!target.classList.contains(this.focusAuraClass)) {
-        target.classList.add(this.focusAuraClass);
-      }
-
-      this.lastFocusAuraTarget = target;
+    clearFocusAura() {
+      this.focusAuraTargets.forEach(target => target.classList.remove(this.focusAuraClass));
+      this.focusAuraTargets.clear();
+      this.additionalHighlights = [];
     }
 
-    clearFocusAura() {
-      if (this.lastFocusAuraTarget) {
-        this.lastFocusAuraTarget.classList.remove(this.focusAuraClass);
-        this.lastFocusAuraTarget = null;
+    setAdditionalHighlights(targets = []) {
+      const uniqueTargets = [];
+      const seen = new Set();
+      targets.forEach(target => {
+        if (target && !seen.has(target)) {
+          seen.add(target);
+          uniqueTargets.push(target);
+        }
+      });
+      this.additionalHighlights = uniqueTargets;
+      this.syncFocusAura(this.currentHighlightTarget);
+    }
+
+    syncFocusAura(primaryTarget) {
+      const desiredTargets = new Set();
+      if (primaryTarget) {
+        desiredTargets.add(primaryTarget);
       }
+      this.additionalHighlights.forEach(target => desiredTargets.add(target));
+
+      this.focusAuraTargets.forEach(target => {
+        if (!desiredTargets.has(target)) {
+          target.classList.remove(this.focusAuraClass);
+          this.focusAuraTargets.delete(target);
+        }
+      });
+
+      desiredTargets.forEach(target => {
+        if (!this.focusAuraTargets.has(target)) {
+          target.classList.add(this.focusAuraClass);
+          this.focusAuraTargets.add(target);
+        }
+      });
     }
 
     getStepMeta(step, persona) {
@@ -8082,6 +8132,9 @@
 
       this.onboardingCoach = null;
       this.onboardingLauncherButton = null;
+      this.handleExternalOnboardingRequest = null;
+      this.handleExternalShortcutsRequest = null;
+      this.hasBoundExternalEvents = false;
       
       // Undo/Redo システム
       this.commandHistory = [];
@@ -8776,7 +8829,10 @@
         modeContainer: () => this.radioModeContainer,
         settingsButton: () => this.settingsButton,
         inputElement: () => this.input,
+        textareaElement: () => this.input,
         executeButton: () => this.container?.querySelector('#execute-btn'),
+        fileButton: () => this.radioModeButtons?.['import']?.button,
+        closeButton: () => this.closeButton,
         onSelectMode: (mode) => this.selectMode(mode, true),
         onInsertPrompt: (prompt) => this.insertOnboardingPrompt(prompt),
         onOpenServiceModal: () => this.openServiceModal(),
@@ -8791,6 +8847,14 @@
           }
         }
       });
+
+      if (!this.hasBoundExternalEvents) {
+        this.handleExternalOnboardingRequest = () => this.launchOnboarding(true);
+        this.handleExternalShortcutsRequest = () => this.showShortcutGuide();
+        window.addEventListener('chocodrop:request-onboarding', this.handleExternalOnboardingRequest);
+        window.addEventListener('chocodrop:show-shortcuts-request', this.handleExternalShortcutsRequest);
+        this.hasBoundExternalEvents = true;
+      }
 
       if (this.config.showGuidedOnboarding !== false) {
         setTimeout(() => this.onboardingCoach?.start({ force: false }), 600);
@@ -10361,6 +10425,22 @@
         return;
       }
       this.onboardingCoach.start({ force });
+    }
+
+    showShortcutGuide() {
+      const shortcuts = [
+        { key: this.config.activationKey || '@', description: 'ChocoDropの表示/非表示を切り替え' },
+        { key: 'Ctrl / ⌘ + Enter', description: '現在のコマンドを実行' },
+        { key: 'WASD + マウス', description: '撮影モードで視点を移動' },
+        { key: 'Shift', description: '撮影モードで移動を加速' }
+      ];
+
+      if (!this.isVisible) {
+        this.show();
+      }
+
+      const messageLines = shortcuts.map(item => ` • ${item.key} … ${item.description}`).join('\n');
+      this.addOutput(`⌨️ ショートカットヒント\n${messageLines}`, 'system');
     }
 
     insertOnboardingPrompt(prompt) {
@@ -13827,6 +13907,9 @@
 
       this.onboardingCoach = null;
       this.onboardingLauncherButton = null;
+      this.handleExternalOnboardingRequest = null;
+      this.handleExternalShortcutsRequest = null;
+      this.hasBoundExternalEvents = false;
 
       this.serverHealthState = {
         available: true,
@@ -14539,6 +14622,14 @@
           }
         }
       });
+
+      if (!this.hasBoundExternalEvents) {
+        this.handleExternalOnboardingRequest = () => this.launchOnboarding(true);
+        this.handleExternalShortcutsRequest = () => this.showShortcutGuide();
+        window.addEventListener('chocodrop:request-onboarding', this.handleExternalOnboardingRequest);
+        window.addEventListener('chocodrop:show-shortcuts-request', this.handleExternalShortcutsRequest);
+        this.hasBoundExternalEvents = true;
+      }
 
       if (this.config.showGuidedOnboarding !== false) {
         setTimeout(() => this.onboardingCoach?.start({ force: false }), 600);
@@ -16372,6 +16463,22 @@
         return;
       }
       this.onboardingCoach.start({ force });
+    }
+
+    showShortcutGuide() {
+      const shortcuts = [
+        { key: this.config.activationKey || '@', description: 'ChocoDropの表示/非表示を切り替え' },
+        { key: 'Ctrl / ⌘ + Enter', description: '現在のコマンドを実行' },
+        { key: 'WASD + マウス', description: '撮影モードで視点を移動' },
+        { key: 'Shift', description: '撮影モードで移動を加速' }
+      ];
+
+      if (!this.isVisible) {
+        this.show();
+      }
+
+      const messageLines = shortcuts.map(item => ` • ${item.key} … ${item.description}`).join('\n');
+      this.addOutput(`⌨️ ショートカットヒント\n${messageLines}`, 'system');
     }
 
     insertOnboardingPrompt(prompt) {

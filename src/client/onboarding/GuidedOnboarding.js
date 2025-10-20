@@ -77,7 +77,8 @@ export class GuidedOnboarding {
     this.spotlightLayer = null;
     this.focusAuraClass = 'chocodrop-onboarding-focus';
     this.focusAuraStyleId = 'chocodrop-onboarding-style';
-    this.lastFocusAuraTarget = null;
+    this.focusAuraTargets = new Set();
+    this.additionalHighlights = [];
 
     this.currentHighlightTarget = null;
     this.updateFocusRingPosition = this.updateFocusRingPosition.bind(this);
@@ -822,6 +823,9 @@ export class GuidedOnboarding {
     });
 
     this.bodyEl.innerHTML = '';
+    this.currentHighlightTarget = null;
+    this.setAdditionalHighlights([]);
+    this.updateFocusRingPosition();
     this.secondaryButton.style.display = 'none';
     this.secondaryButton.textContent = '';
     this.secondaryButton.onclick = null;
@@ -1029,6 +1033,7 @@ export class GuidedOnboarding {
     const isImageMode = selectedPersona?.mediaType === 'image';
 
     const description = document.createElement('div');
+    const extraHighlights = [];
 
     if (isVideoMode) {
       description.innerHTML = `
@@ -1171,6 +1176,8 @@ export class GuidedOnboarding {
     callout.appendChild(calloutContent);
     this.bodyEl.appendChild(callout);
 
+    const extraHighlights = [];
+
     const lead = document.createElement('p');
     lead.style.cssText = `margin: 0; color: ${colors.textSecondary}; line-height: 1.6;`;
 
@@ -1186,6 +1193,13 @@ export class GuidedOnboarding {
         <li>500ms後に自動実行され、シーンに配置されます</li>
       `;
       this.bodyEl.appendChild(steps);
+
+      const fileButton = typeof this.options.fileButton === 'function'
+        ? this.options.fileButton()
+        : this.options.fileButton || null;
+      if (fileButton) {
+        extraHighlights.push(fileButton);
+      }
     } else if (mode === 'modify') {
       lead.textContent = 'まず3Dシーン内のオブジェクトをクリックして選択してから、変更・削除の指示を入力します。';
       this.bodyEl.appendChild(lead);
@@ -1311,6 +1325,8 @@ export class GuidedOnboarding {
       ? this.options.textareaElement()
       : this.options.textareaElement || null;
 
+    this.setAdditionalHighlights(extraHighlights);
+
     // ハイライトを即座に適用
     if (this.currentHighlightTarget) {
       this.updateFocusRing(this.currentHighlightTarget);
@@ -1324,12 +1340,19 @@ export class GuidedOnboarding {
     const mediaType = selectedPersona?.mediaType;
 
     const description = document.createElement('div');
+    const extraHighlights = [];
 
     if (mode === 'import') {
       description.innerHTML = `
         <p style="margin:0; color:${colors.textSecondary}; line-height:1.6;">📁ボタンから素材を選ぶと、ハイライトされたフォームにキーワードが挿入されます。</p>
         <p style="margin:12px 0 0 0; font-size:13px; opacity:0.85; color:${colors.textSecondary};">Enter ⏎ を押すと約0.5秒後にシーンへふわりと配置されます。位置はあとからコマンドで微調整できます。</p>
       `;
+      const textareaEl = typeof this.options.textareaElement === 'function'
+        ? this.options.textareaElement()
+        : this.options.textareaElement || null;
+      if (textareaEl) {
+        extraHighlights.push(textareaEl);
+      }
     } else if (mode === 'modify') {
       description.innerHTML = `
         <p style="margin:0; color:${colors.textSecondary}; line-height:1.6;">演出したいオブジェクトをクリックし、質感や光のニュアンスを文章で伝えてみてください。</p>
@@ -1366,12 +1389,21 @@ export class GuidedOnboarding {
     // セカンダリボタンを非表示
     this.secondaryButton.style.display = 'none';
 
+    this.setAdditionalHighlights(extraHighlights);
+
     // モードに応じて自動でハイライト
     if (mode === 'import') {
       // Importモードではファイルボタンを自動ハイライト
       this.currentHighlightTarget = typeof this.options.fileButton === 'function'
         ? this.options.fileButton()
         : this.options.fileButton || null;
+      const textareaEl = typeof this.options.textareaElement === 'function'
+        ? this.options.textareaElement()
+        : this.options.textareaElement || null;
+      if (textareaEl) {
+        extraHighlights.push(textareaEl);
+        this.setAdditionalHighlights(extraHighlights);
+      }
     } else if (mode === 'capture') {
       // Captureモードでは×ボタン（UI非表示ボタン）を自動ハイライト
       this.currentHighlightTarget = typeof this.options.closeButton === 'function'
@@ -1385,6 +1417,8 @@ export class GuidedOnboarding {
     } else {
       this.currentHighlightTarget = null;
     }
+
+    this.setAdditionalHighlights(extraHighlights);
 
     // ハイライトを即座に適用
     if (this.currentHighlightTarget) {
@@ -1497,7 +1531,7 @@ export class GuidedOnboarding {
     if (!this.active) {
       this.focusRing.style.opacity = '0';
       this.updateSpotlight(null);
-      this.clearFocusAura();
+      this.syncFocusAura(null);
       return;
     }
 
@@ -1505,7 +1539,7 @@ export class GuidedOnboarding {
     if (!target) {
       this.focusRing.style.opacity = '0';
       this.updateSpotlight(fallbackRect);
-      this.clearFocusAura();
+      this.syncFocusAura(null);
       return;
     }
 
@@ -1513,7 +1547,7 @@ export class GuidedOnboarding {
     if (rect.width === 0 && rect.height === 0) {
       this.focusRing.style.opacity = '0';
       this.updateSpotlight(fallbackRect);
-      this.clearFocusAura();
+      this.syncFocusAura(null);
       return;
     }
 
@@ -1523,7 +1557,7 @@ export class GuidedOnboarding {
     this.focusRing.style.height = `${rect.height + 24}px`;
 
     this.updateSpotlight(rect);
-    this.applyFocusAura(target);
+    this.syncFocusAura(target);
   }
 
   getBaseOverlayLayer() {
@@ -1557,28 +1591,45 @@ export class GuidedOnboarding {
     this.spotlightLayer.style.background = this.computeSpotlightGradient(rect);
   }
 
-  applyFocusAura(target) {
-    if (!target) {
-      this.clearFocusAura();
-      return;
-    }
-
-    if (this.lastFocusAuraTarget && this.lastFocusAuraTarget !== target) {
-      this.lastFocusAuraTarget.classList.remove(this.focusAuraClass);
-    }
-
-    if (!target.classList.contains(this.focusAuraClass)) {
-      target.classList.add(this.focusAuraClass);
-    }
-
-    this.lastFocusAuraTarget = target;
+  clearFocusAura() {
+    this.focusAuraTargets.forEach(target => target.classList.remove(this.focusAuraClass));
+    this.focusAuraTargets.clear();
+    this.additionalHighlights = [];
   }
 
-  clearFocusAura() {
-    if (this.lastFocusAuraTarget) {
-      this.lastFocusAuraTarget.classList.remove(this.focusAuraClass);
-      this.lastFocusAuraTarget = null;
+  setAdditionalHighlights(targets = []) {
+    const uniqueTargets = [];
+    const seen = new Set();
+    targets.forEach(target => {
+      if (target && !seen.has(target)) {
+        seen.add(target);
+        uniqueTargets.push(target);
+      }
+    });
+    this.additionalHighlights = uniqueTargets;
+    this.syncFocusAura(this.currentHighlightTarget);
+  }
+
+  syncFocusAura(primaryTarget) {
+    const desiredTargets = new Set();
+    if (primaryTarget) {
+      desiredTargets.add(primaryTarget);
     }
+    this.additionalHighlights.forEach(target => desiredTargets.add(target));
+
+    this.focusAuraTargets.forEach(target => {
+      if (!desiredTargets.has(target)) {
+        target.classList.remove(this.focusAuraClass);
+        this.focusAuraTargets.delete(target);
+      }
+    });
+
+    desiredTargets.forEach(target => {
+      if (!this.focusAuraTargets.has(target)) {
+        target.classList.add(this.focusAuraClass);
+        this.focusAuraTargets.add(target);
+      }
+    });
   }
 
   getStepMeta(step, persona) {

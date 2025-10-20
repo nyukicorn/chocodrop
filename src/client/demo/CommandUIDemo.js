@@ -105,6 +105,9 @@ export class CommandUIDemo {
 
     this.onboardingCoach = null;
     this.onboardingLauncherButton = null;
+    this.handleExternalOnboardingRequest = null;
+    this.handleExternalShortcutsRequest = null;
+    this.hasBoundExternalEvents = false;
     
     // Undo/Redo システム
     this.commandHistory = [];
@@ -802,7 +805,10 @@ export class CommandUIDemo {
       modeContainer: () => this.radioModeContainer,
       settingsButton: () => this.settingsButton,
       inputElement: () => this.input,
+      textareaElement: () => this.input,
       executeButton: () => this.container?.querySelector('#execute-btn'),
+      fileButton: () => this.radioModeButtons?.['import']?.button,
+      closeButton: () => this.closeButton,
       onSelectMode: (mode) => this.selectMode(mode, true),
       onInsertPrompt: (prompt) => this.insertOnboardingPrompt(prompt),
       onOpenServiceModal: () => this.openServiceModal(),
@@ -817,6 +823,14 @@ export class CommandUIDemo {
         }
       }
     });
+
+    if (!this.hasBoundExternalEvents) {
+      this.handleExternalOnboardingRequest = () => this.launchOnboarding(true);
+      this.handleExternalShortcutsRequest = () => this.showShortcutGuide();
+      window.addEventListener('chocodrop:request-onboarding', this.handleExternalOnboardingRequest);
+      window.addEventListener('chocodrop:show-shortcuts-request', this.handleExternalShortcutsRequest);
+      this.hasBoundExternalEvents = true;
+    }
 
     if (this.config.showGuidedOnboarding !== false) {
       setTimeout(() => this.onboardingCoach?.start({ force: false }), 600);
@@ -2414,6 +2428,22 @@ export class CommandUIDemo {
       return;
     }
     this.onboardingCoach.start({ force });
+  }
+
+  showShortcutGuide() {
+    const shortcuts = [
+      { key: this.config.activationKey || '@', description: 'ChocoDropの表示/非表示を切り替え' },
+      { key: 'Ctrl / ⌘ + Enter', description: '現在のコマンドを実行' },
+      { key: 'WASD + マウス', description: '撮影モードで視点を移動' },
+      { key: 'Shift', description: '撮影モードで移動を加速' }
+    ];
+
+    if (!this.isVisible) {
+      this.show();
+    }
+
+    const messageLines = shortcuts.map(item => ` • ${item.key} … ${item.description}`).join('\n');
+    this.addOutput(`⌨️ ショートカットヒント\n${messageLines}`, 'system');
   }
 
   insertOnboardingPrompt(prompt) {
