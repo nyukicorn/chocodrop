@@ -2010,6 +2010,7 @@
       const colorMap = {
         '赤': 0xff0000, '赤色': 0xff0000,
         '青': 0x0000ff, '青色': 0x0000ff,
+        'ブルー': 0x0000ff,
         '緑': 0x00ff00, '緑色': 0x00ff00,
         '黄': 0xffff00, '黄色': 0xffff00, '黄色い': 0xffff00,
         '紫': 0xff00ff, '紫色': 0xff00ff,
@@ -6247,7 +6248,7 @@
         {
           id: 'media-import',
           label: 'メディアインポート',
-          emoji: '📥',
+          icon: { start: '#a855f7', end: '#ec4899', rotation: 28, type: 'import' },
           description: '手元の画像・動画・3D素材をそのまま配置。ショーケースのレイアウト作りにぴったりなモードです。',
           prompt: '中央に飾って',
           mode: 'import'
@@ -6255,7 +6256,7 @@
         {
           id: 'remix-pro',
           label: '雰囲気演出',
-          emoji: '🌌',
+          icon: { start: '#38bdf8', end: '#a855f7', rotation: -12, type: 'modify' },
           description: '選択したオブジェクトに自然言語で光と色をまとわせます。ライブ演出の微調整に最適。',
           prompt: '背景の白い光を透明なブルーにして',
           mode: 'modify'
@@ -6263,16 +6264,16 @@
         {
           id: 'atmos-sculpt',
           label: 'ビジュアル生成',
-          emoji: '🎨',
+          icon: { start: '#f472b6', end: '#facc15', rotation: 40, type: 'generate' },
           description: '接続した生成サービスで新しいビジュアルやアニメーションを生み出します。壮大なシーンの起点に。',
-          prompt: '虹色のガラスで編んだユニコーンのドローンショットを作って',
+          prompt: '虹色のガラスで編んだユニコーンのドローンショットの動画を作って',
           mode: 'generate',
           mediaType: 'video'
         },
         {
           id: 'scene-capture',
           label: 'シーン撮影',
-          emoji: '🎬',
+          icon: { start: '#60a5fa', end: '#4ade80', rotation: -5, type: 'capture' },
           description: 'WASD操作で少しずつアングルを整え、UIを隠してシネマティックなスクリーンショットを収めます。',
           prompt: '',
           mode: 'capture'
@@ -6302,6 +6303,9 @@
       this.focusAuraStyleId = 'chocodrop-onboarding-style';
       this.focusAuraTargets = new Set();
       this.additionalHighlights = [];
+      this.badgeIndicators = {};
+      this.stepCompletionStates = {};
+      this.completedSteps = new Set();
 
       this.currentHighlightTarget = null;
       this.updateFocusRingPosition = this.updateFocusRingPosition.bind(this);
@@ -6312,6 +6316,84 @@
 
       window.addEventListener('resize', this.updateFocusRingPosition);
       window.addEventListener('scroll', this.updateFocusRingPosition, true);
+    }
+
+    createPersonaIcon(spec = {}) {
+      const {
+        start = '#6366f1',
+        end = '#a855f7',
+        rotation = 0,
+        type = 'default'
+      } = spec;
+
+      const icon = document.createElement('div');
+      icon.style.cssText = `
+      width: 36px;
+      height: 36px;
+      border-radius: 14px;
+      background: linear-gradient(${rotation}deg, ${start}, ${end});
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow:
+        0 4px 12px rgba(99, 102, 241, 0.35),
+        inset 0 1px 0 rgba(255, 255, 255, 0.35);
+    `;
+
+      const svg = this.createPersonaGlyph(type);
+      if (svg) {
+        icon.appendChild(svg);
+      }
+
+      return icon;
+    }
+
+    createPersonaGlyph(type) {
+      const svgNS = 'http://www.w3.org/2000/svg';
+      const svg = document.createElementNS(svgNS, 'svg');
+      svg.setAttribute('width', '20');
+      svg.setAttribute('height', '20');
+      svg.setAttribute('viewBox', '0 0 24 24');
+      svg.setAttribute('fill', 'none');
+      svg.setAttribute('stroke', 'white');
+      svg.setAttribute('stroke-width', '1.6');
+      svg.setAttribute('stroke-linecap', 'round');
+      svg.setAttribute('stroke-linejoin', 'round');
+      svg.style.filter = 'drop-shadow(0 3px 6px rgba(255,255,255,0.2))';
+
+      const addPath = (d, attrs = {}) => {
+        const path = document.createElementNS(svgNS, 'path');
+        path.setAttribute('d', d);
+        Object.entries(attrs).forEach(([key, value]) => path.setAttribute(key, value));
+        svg.appendChild(path);
+      };
+
+      switch (type) {
+        case 'import':
+          addPath('M12 3v10');
+          addPath('M8 9l4 4 4-4');
+          addPath('M5 17h14');
+          addPath('M7 21h10', { 'stroke-width': '1.2' });
+          break;
+        case 'modify':
+          addPath('M7 17v3');
+          addPath('M7 15l9-9c.83-.83 2.17-.83 3 0v0c.83.83.83 2.17 0 3l-9 9H7z');
+          addPath('M12 6l6 6', { 'stroke-width': '1.1' });
+          break;
+        case 'generate':
+          addPath('M12 4l1.76 4.27L18.5 9l-3.25 3.08L16 16.5 12 14.5 8 16.5l.75-4.42L5.5 9l4.74-.73L12 4z');
+          break;
+        case 'capture':
+          addPath('M4 8h2l1.2-2.4A2 2 0 0 1 9 4h6a2 2 0 0 1 1.8 1.04L18 8h2a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2z', { 'stroke-width': '1.2' });
+          addPath('M12 10.5a3.5 3.5 0 1 1 0 7 3.5 3.5 0 0 1 0-7z');
+          break;
+        default:
+          addPath('M6 6h12v12H6z', { 'stroke-width': '1.2' });
+          addPath('M9 9h6v6H9z');
+          break;
+      }
+
+      return svg;
     }
 
     /**
@@ -6440,15 +6522,38 @@
 
     storeCompletion(meta = {}) {
       try {
-        window.localStorage?.setItem(this.storageKey, JSON.stringify({
+        const payload = {
           completed: true,
           version: ONBOARDING_VERSION,
           completedAt: new Date().toISOString(),
           persona: this.state.persona,
+          stepCompletionStates: this.stepCompletionStates,
           ...meta
-        }));
+        };
+        window.localStorage?.setItem(this.storageKey, JSON.stringify(payload));
       } catch (_) {
         // ストレージが使えない環境では黙って継続
+      }
+    }
+
+    loadProgressFromStorage() {
+      try {
+        const raw = window.localStorage?.getItem(this.storageKey);
+        if (!raw) {
+          return;
+        }
+        const parsed = JSON.parse(raw);
+        if (parsed?.version !== ONBOARDING_VERSION) {
+          return;
+        }
+        if (parsed?.stepCompletionStates && typeof parsed.stepCompletionStates === 'object') {
+          this.stepCompletionStates = parsed.stepCompletionStates;
+          Object.entries(this.stepCompletionStates).forEach(([stepId, state]) => {
+            this.updateBadgeState(stepId, state);
+          });
+        }
+      } catch (error) {
+        console.warn('Failed to restore onboarding progress:', error);
       }
     }
 
@@ -6459,6 +6564,81 @@
 
     initDom() {
       const colors = this.getAdaptiveColors();
+
+      if (!document.getElementById('chocodrop-onboarding-gamify-style')) {
+        const style = document.createElement('style');
+        style.id = 'chocodrop-onboarding-gamify-style';
+        style.textContent = `
+        .chocodrop-badge-row {
+          display: flex;
+          gap: 10px;
+          align-items: center;
+          margin-top: 6px;
+          flex-wrap: wrap;
+        }
+        .chocodrop-badge {
+          width: 28px;
+          height: 28px;
+          border-radius: 50%;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 12px;
+          font-weight: 600;
+          color: rgba(255,255,255,0.65);
+          background: rgba(148, 163, 184, 0.2);
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.25);
+          transition: transform 0.35s ease, box-shadow 0.35s ease, color 0.35s ease;
+          position: relative;
+        }
+        .chocodrop-badge.completed {
+          color: rgba(255,255,255,0.95);
+          transform: scale(1.08);
+          box-shadow: 0 0 0 1px rgba(236, 72, 153, 0.35), 0 12px 26px rgba(236, 72, 153, 0.28);
+        }
+        .chocodrop-badge.completed::after {
+          content: '✔';
+          font-size: 10px;
+          position: absolute;
+          bottom: -6px;
+          right: -4px;
+          width: 16px;
+          height: 16px;
+          border-radius: 50%;
+          background: linear-gradient(135deg, #f472b6, #c084fc);
+          color: white;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          box-shadow: 0 4px 10px rgba(236, 72, 153, 0.35);
+        }
+        .chocodrop-badge.skipped {
+          opacity: 0.5;
+          box-shadow: inset 0 1px 0 rgba(148, 163, 184, 0.2);
+        }
+        .chocodrop-confetti {
+          position: absolute;
+          inset: 0;
+          pointer-events: none;
+          overflow: visible;
+          z-index: 6;
+        }
+        .chocodrop-confetti span {
+          position: absolute;
+          width: 6px;
+          height: 14px;
+          border-radius: 2px;
+          opacity: 0;
+          animation: chocodropConfetti 0.9s ease-out forwards;
+        }
+        @keyframes chocodropConfetti {
+          0% { transform: translate3d(0,0,0) rotate(0deg); opacity: 0; }
+          15% { opacity: 1; }
+          100% { transform: translate3d(var(--x), var(--y), 0) rotate(var(--r)); opacity: 0; }
+        }
+      `;
+        document.head.appendChild(style);
+      }
 
       if (!document.getElementById(this.focusAuraStyleId)) {
         const focusStyle = document.createElement('style');
@@ -6580,10 +6760,10 @@
       this.panel.appendChild(glassOverlay);
 
       const header = document.createElement('div');
-      header.style.cssText = 'display: flex; flex-direction: column; gap: 10px; position: relative; z-index: 2;';
+      header.style.cssText = 'display: flex; flex-direction: column; gap: 10px; position: relative; z-index: 2; padding-right: 140px;';
 
       const titleRow = document.createElement('div');
-      titleRow.style.cssText = 'display: flex; justify-content: space-between; align-items: baseline; gap: 12px;';
+      titleRow.style.cssText = 'display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding-right: 8px;';
 
       this.titleEl = document.createElement('h3');
       this.titleEl.style.cssText = `
@@ -6634,6 +6814,9 @@
       opacity: 0.85;
       letter-spacing: 0.01em;
     `;
+
+      this.badgeRow = document.createElement('div');
+      this.badgeRow.className = 'chocodrop-badge-row';
 
       this.progressBar = document.createElement('div');
       this.progressBar.style.cssText = `
@@ -6688,11 +6871,14 @@
 
       header.appendChild(titleRow);
       header.appendChild(this.subtitleEl);
+      header.appendChild(this.badgeRow);
       header.appendChild(this.progressBar);
       this.subtitleEl.textContent = this.steps[0]?.tagline || '';
       this.progressIcon.textContent = this.steps[0]?.icon || '💡';
       this.progressLabel.textContent = 'ムード選択';
       this.progressCount.textContent = '1/4';
+
+      this.initializeBadges();
 
       const bodyWrapper = document.createElement('div');
       bodyWrapper.style.cssText = 'display: flex; flex-direction: column; gap: 14px; position: relative; z-index: 2;';
@@ -6956,6 +7142,8 @@
       this.state.persona = null;
       this.state.samplePrompt = '';
       this.state.hasInsertedPrompt = false;
+      this.resetBadgeStates();
+      this.loadProgressFromStorage();
 
       // Re-detect background brightness when starting
       this.detectBackgroundBrightness();
@@ -7011,6 +7199,7 @@
 
       if (step.type === 'service' && !needsServiceConnection) {
         // サービス接続が不要な場合はステップをスキップ
+        this.handleStepCompletion(step.id, { skipped: true });
         this.state.stepIndex += 1;
         this.renderCurrentStep();
         return;
@@ -7202,12 +7391,20 @@
         font-size: 15px;
         display: flex;
         align-items: center;
-        gap: 8px;
+        gap: 10px;
         color: ${colors.textPrimary};
         position: relative;
         z-index: 1;
       `;
-        title.innerHTML = `<span style="font-size: 20px;">${option.emoji}</span> ${option.label}`;
+
+        const iconEl = this.createPersonaIcon(option.icon);
+        iconEl.style.flexShrink = '0';
+
+        const labelSpan = document.createElement('span');
+        labelSpan.textContent = option.label;
+
+        title.appendChild(iconEl);
+        title.appendChild(labelSpan);
 
         const desc = document.createElement('div');
         desc.style.cssText = `
@@ -7361,7 +7558,7 @@
         generate: {
           icon: '✨',
           title: '想像を言葉に',
-          message: 'モチーフだけでなく、光や素材感、カメラワークまで描写すると生成AIの感性が引き出されます。'
+          message: 'モチーフだけでなく、光や素材感、カメラワークまで描写すると生成AIの感性が引き出されます。※現在は画像・動画のみ対応（3D生成は未対応）'
         }
       };
 
@@ -7445,13 +7642,32 @@
         promptPreview.textContent = this.state.samplePrompt || '背景の白色を透明にして';
         this.bodyEl.appendChild(promptPreview);
 
-        const note = document.createElement('p');
-        note.style.cssText = `font-size: 13px; margin: 0; opacity: 0.8; color: ${colors.textSecondary};`;
-        note.textContent = 'サービス接続不要。「削除して」で選択オブジェクトを削除、色の変更や背景の透明化も可能です。';
+        const note = document.createElement('div');
+        note.style.cssText = `
+        font-size: 13px;
+        margin: 0;
+        opacity: 0.85;
+        color: ${colors.textSecondary};
+        display: grid;
+        gap: 4px;
+      `;
+        note.innerHTML = `
+        <span>・ 選択されていない状態で実行するとエラーになります。まず対象をクリックしてハイライトさせてください。</span>
+        <span>・ そのまま「大きく」「小さく」「音を鳴らして」などと入力すると、即座に反映されます。</span>
+        <span>・ 削除は「削除して」、透明感は「透明なブルーに」など自然文で指定できます。</span>
+      `;
         this.bodyEl.appendChild(note);
       } else if (mode === 'capture') {
         lead.textContent = 'WASDキーでシーンを移動し、完璧なアングルを見つけます。';
         this.bodyEl.appendChild(lead);
+
+        const interactionTip = document.createElement('p');
+        interactionTip.style.cssText = `margin: 8px 0 0 0; color: ${colors.textSecondary}; font-size: 13px; line-height: 1.6; opacity: 0.9;`;
+        interactionTip.innerHTML = `
+        <span style="display:block;">・ ChocoDropを開いたままでも、選択したオブジェクトをドラッグやコマンドで調整できます。</span>
+        <span style="display:block;">・ ChocoDropを閉じると、シーン全体をマウスドラッグで滑らかに動かせます。</span>
+      `;
+        this.bodyEl.appendChild(interactionTip);
 
         const keyGuide = document.createElement('div');
         keyGuide.style.cssText = `
@@ -7491,7 +7707,7 @@
 
         const note = document.createElement('p');
         note.style.cssText = `font-size: 13px; margin: 12px 0 0 0; opacity: 0.8; color: ${colors.textSecondary}; text-align: center;`;
-        note.textContent = 'UI非表示でシーン操作も可能。スクリーンショットで完璧な一枚を。';
+        note.textContent = 'UIを隠した状態でシャッター。スクリーンショットで仕上げましょう。';
         this.bodyEl.appendChild(note);
       } else if (mode === 'generate') {
         lead.textContent = '自然言語でオブジェクトの生成指示を入力します。';
@@ -7583,12 +7799,14 @@
       } else if (mode === 'capture') {
         description.innerHTML = `
         <p style="margin:0; color:${colors.textSecondary}; line-height:1.6;">WASD キーとマウスドラッグで空間を滑り、UIを隠してからスクリーンショットを撮影しましょう。</p>
+        <p style="margin:12px 0 0 0; font-size:13px; opacity:0.85; color:${colors.textSecondary};">ChocoDropを開いたままならオブジェクト単位で移動や回転ができ、閉じるとシーン全体をドラッグ操作できます。</p>
         <p style="margin:12px 0 0 0; font-size:13px; opacity:0.85; color:${colors.textSecondary};">光が巡る瞬間を逃さないよう、撮影前に一呼吸おくと映像がやさしくまとまります。</p>
       `;
       } else if (mode === 'generate' && mediaType === 'video') {
         description.innerHTML = `
         <p style="margin:0; color:${colors.textSecondary}; line-height:1.6;">プロンプトを送信すると生成が始まります。カメラワークやテンポも一緒にイメージしておくと滑らかです。</p>
         <p style="margin:12px 0 0 0; font-size:13px; opacity:0.85; color:${colors.textSecondary};">ステータスカードで進捗を確認。生成は30秒〜数分、音も加わるとさらに没入感が増します。</p>
+        <p style="margin:12px 0 0 0; font-size:12px; opacity:0.85; color:${colors.textSecondary};">Enter ⏎ でプロンプトを送信すると生成がスタートします。現在は画像・動画のみ対応（3Dモデル生成は未対応）です。</p>
       `;
       } else {
         // Fallback for any other modes
@@ -7601,7 +7819,7 @@
 
       const buttonTextSpan = this.primaryButton.querySelector('span');
       if (buttonTextSpan) {
-        buttonTextSpan.textContent = '実行しました';
+        buttonTextSpan.textContent = (mode === 'generate') ? 'Enterで送信しました' : '実行しました';
       }
       this.primaryButton.disabled = false;
       this.primaryButton.style.opacity = '1';
@@ -7653,14 +7871,26 @@
 
       const summary = document.createElement('div');
       summary.innerHTML = `
-      <p style="margin:0; color:${colors.textSecondary}; line-height:1.6;">お疲れさまでした。ChocoDrop の4つの操作モードを覚えておきましょう。</p>
-      <ul style="margin:12px 0 0 20px; padding:0; font-size:14px; line-height:1.7; opacity:0.85; color:${colors.textSecondary};">
-        <li style="margin-bottom:6px;">📥 <strong>メディアインポート</strong>: 📁ボタンから画像・動画・3Dファイルを配置（サービス不要）</li>
-        <li style="margin-bottom:6px;">🌌 <strong>雰囲気演出</strong>: 動画サービスでアニメーション演出を生成（⚙️で動画サービス接続）</li>
-        <li style="margin-bottom:6px;">🛠️ <strong>既存シーン磨き</strong>: オブジェクト選択後、見た目を自然言語で変更（サービス不要）</li>
-        <li style="margin-bottom:6px;">🎨 <strong>ビジュアル生成</strong>: 画像サービスで新規オブジェクトを生成（⚙️で画像サービス接続）</li>
-        <li>💡 🍫アイコン右クリックでショートカットを確認</li>
-      </ul>
+      <p style="margin:0; color:${colors.textSecondary}; line-height:1.6; font-weight:600;">すべてのモードをひとめで振り返りましょう。</p>
+      <div style="display:grid; gap:10px; margin-top:12px;">
+        <div style="display:flex; gap:10px; align-items:flex-start;">
+          <span style="font-size:18px;">📥</span>
+          <span style="font-size:13px; line-height:1.6; color:${colors.textSecondary};"><strong>インポート</strong> — ドロップして配置。Enter ⏎ で即座にシーンへ。</span>
+        </div>
+        <div style="display:flex; gap:10px; align-items:flex-start;">
+          <span style="font-size:18px;">✏️</span>
+          <span style="font-size:13px; line-height:1.6; color:${colors.textSecondary};"><strong>雰囲気演出 / 削除</strong> — 選択→言葉で光や質感を調整。"削除して" で除去。</span>
+        </div>
+        <div style="display:flex; gap:10px; align-items:flex-start;">
+          <span style="font-size:18px;">🎨</span>
+          <span style="font-size:13px; line-height:1.6; color:${colors.textSecondary};"><strong>ビジュアル生成</strong> — 画像/動画生成に対応（3Dは未対応）。Enter ⏎ で送信。</span>
+        </div>
+        <div style="display:flex; gap:10px; align-items:flex-start;">
+          <span style="font-size:18px;">🎬</span>
+          <span style="font-size:13px; line-height:1.6; color:${colors.textSecondary};"><strong>シーン撮影</strong> — UIを隠し、WASDで理想のアングルに。</span>
+        </div>
+      </div>
+      <p style="margin:14px 0 0 0; font-size:12px; color:${colors.textSecondary}; opacity:0.85;">ショートカットは 🍫 メニューからいつでも呼び出せます。</p>
     `;
       this.bodyEl.appendChild(summary);
 
@@ -7671,7 +7901,10 @@
       this.primaryButton.disabled = false;
       this.primaryButton.style.opacity = '1';
       this.primaryButton.style.cursor = 'pointer';
-      this.primaryButton.onclick = () => this.complete('finished');
+      this.primaryButton.onclick = () => {
+        this.handleStepCompletion('next', { skipped: false });
+        this.complete('finished');
+      };
 
       this.secondaryButton.style.display = 'none';
 
@@ -7700,6 +7933,11 @@
         return;
       }
 
+      const current = this.steps[this.state.stepIndex];
+      if (current) {
+        this.handleStepCompletion(current.id, { skipped: true });
+      }
+
       const nextIndex = this.state.stepIndex + 1;
       if (nextIndex >= this.steps.length) {
         this.complete('skipped');
@@ -7711,6 +7949,11 @@
     }
 
     nextStep() {
+      const current = this.steps[this.state.stepIndex];
+      if (current) {
+        this.handleStepCompletion(current.id, { skipped: false });
+      }
+
       this.state.stepIndex += 1;
       if (this.state.stepIndex >= this.steps.length) {
         this.complete('finished');
@@ -7852,6 +8095,95 @@
           this.focusAuraTargets.add(target);
         }
       });
+    }
+
+    initializeBadges() {
+      if (!this.badgeRow) return;
+      this.badgeRow.innerHTML = '';
+      this.badgeIndicators = {};
+
+      const badgeSteps = this.steps.filter(step => step.id !== 'next');
+      badgeSteps.forEach(step => {
+        const badge = document.createElement('div');
+        badge.className = 'chocodrop-badge';
+        badge.dataset.stepId = step.id;
+        badge.textContent = step.icon || '•';
+        this.badgeRow.appendChild(badge);
+        this.badgeIndicators[step.id] = badge;
+      });
+
+      this.resetBadgeStates();
+    }
+
+    resetBadgeStates() {
+      Object.values(this.badgeIndicators).forEach(badge => {
+        badge.classList.remove('completed', 'skipped');
+      });
+      this.stepCompletionStates = {};
+      this.completedSteps = new Set();
+    }
+
+    updateBadgeState(stepId, state) {
+      const badge = this.badgeIndicators?.[stepId];
+      if (!badge) return;
+      badge.classList.remove('completed', 'skipped');
+      if (state === 'completed') {
+        badge.classList.add('completed');
+      } else if (state === 'skipped') {
+        badge.classList.add('skipped');
+      }
+    }
+
+    handleStepCompletion(stepId, { skipped = false } = {}) {
+      if (!stepId || this.stepCompletionStates[stepId]) {
+        if (skipped) {
+          this.updateBadgeState(stepId, 'skipped');
+        }
+        return;
+      }
+
+      this.stepCompletionStates[stepId] = skipped ? 'skipped' : 'completed';
+      if (skipped) {
+        this.updateBadgeState(stepId, 'skipped');
+        this.storeCompletion();
+        return;
+      }
+
+      this.updateBadgeState(stepId, 'completed');
+      this.launchConfetti();
+      this.storeCompletion();
+    }
+
+    launchConfetti() {
+      if (!this.panel) return;
+
+      const container = document.createElement('div');
+      container.className = 'chocodrop-confetti';
+      this.panel.appendChild(container);
+
+      const palette = ['#f472b6', '#c084fc', '#60a5fa', '#facc15', '#4ade80'];
+      const pieces = 14;
+      for (let i = 0; i < pieces; i++) {
+        const piece = document.createElement('span');
+        const color = palette[i % palette.length];
+        piece.style.background = color;
+        const angle = (Math.random() * 120) - 60; // spread
+        const distance = 120 + Math.random() * 60;
+        const x = Math.cos(angle * Math.PI / 180) * distance;
+        const y = Math.sin((angle + 90) * Math.PI / 180) * distance;
+        const rotate = (Math.random() * 260 - 130) + 'deg';
+        const left = 40 + Math.random() * 20;
+        piece.style.left = `${left}%`;
+        piece.style.top = '10%';
+        piece.style.setProperty('--x', `${x}px`);
+        piece.style.setProperty('--y', `${y}px`);
+        piece.style.setProperty('--r', rotate);
+        container.appendChild(piece);
+      }
+
+      setTimeout(() => {
+        container.remove();
+      }, 900);
     }
 
     getStepMeta(step, persona) {

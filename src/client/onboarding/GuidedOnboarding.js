@@ -298,15 +298,38 @@ export class GuidedOnboarding {
 
   storeCompletion(meta = {}) {
     try {
-      window.localStorage?.setItem(this.storageKey, JSON.stringify({
+      const payload = {
         completed: true,
         version: ONBOARDING_VERSION,
         completedAt: new Date().toISOString(),
         persona: this.state.persona,
+        stepCompletionStates: this.stepCompletionStates,
         ...meta
-      }));
+      };
+      window.localStorage?.setItem(this.storageKey, JSON.stringify(payload));
     } catch (_) {
       // ストレージが使えない環境では黙って継続
+    }
+  }
+
+  loadProgressFromStorage() {
+    try {
+      const raw = window.localStorage?.getItem(this.storageKey);
+      if (!raw) {
+        return;
+      }
+      const parsed = JSON.parse(raw);
+      if (parsed?.version !== ONBOARDING_VERSION) {
+        return;
+      }
+      if (parsed?.stepCompletionStates && typeof parsed.stepCompletionStates === 'object') {
+        this.stepCompletionStates = parsed.stepCompletionStates;
+        Object.entries(this.stepCompletionStates).forEach(([stepId, state]) => {
+          this.updateBadgeState(stepId, state);
+        });
+      }
+    } catch (error) {
+      console.warn('Failed to restore onboarding progress:', error);
     }
   }
 
@@ -896,6 +919,7 @@ export class GuidedOnboarding {
     this.state.samplePrompt = '';
     this.state.hasInsertedPrompt = false;
     this.resetBadgeStates();
+    this.loadProgressFromStorage();
 
     // Re-detect background brightness when starting
     this.detectBackgroundBrightness();
@@ -1898,11 +1922,13 @@ export class GuidedOnboarding {
     this.stepCompletionStates[stepId] = skipped ? 'skipped' : 'completed';
     if (skipped) {
       this.updateBadgeState(stepId, 'skipped');
+      this.storeCompletion();
       return;
     }
 
     this.updateBadgeState(stepId, 'completed');
     this.launchConfetti();
+    this.storeCompletion();
   }
 
   launchConfetti() {
