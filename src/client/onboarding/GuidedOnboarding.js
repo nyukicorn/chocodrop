@@ -79,6 +79,9 @@ export class GuidedOnboarding {
     this.focusAuraStyleId = 'chocodrop-onboarding-style';
     this.focusAuraTargets = new Set();
     this.additionalHighlights = [];
+    this.badgeIndicators = {};
+    this.stepCompletionStates = {};
+    this.completedSteps = new Set();
 
     this.currentHighlightTarget = null;
     this.updateFocusRingPosition = this.updateFocusRingPosition.bind(this);
@@ -315,6 +318,81 @@ export class GuidedOnboarding {
   initDom() {
     const colors = this.getAdaptiveColors();
 
+    if (!document.getElementById('chocodrop-onboarding-gamify-style')) {
+      const style = document.createElement('style');
+      style.id = 'chocodrop-onboarding-gamify-style';
+      style.textContent = `
+        .chocodrop-badge-row {
+          display: flex;
+          gap: 10px;
+          align-items: center;
+          margin-top: 6px;
+          flex-wrap: wrap;
+        }
+        .chocodrop-badge {
+          width: 28px;
+          height: 28px;
+          border-radius: 50%;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 12px;
+          font-weight: 600;
+          color: rgba(255,255,255,0.65);
+          background: rgba(148, 163, 184, 0.2);
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.25);
+          transition: transform 0.35s ease, box-shadow 0.35s ease, color 0.35s ease;
+          position: relative;
+        }
+        .chocodrop-badge.completed {
+          color: rgba(255,255,255,0.95);
+          transform: scale(1.08);
+          box-shadow: 0 0 0 1px rgba(236, 72, 153, 0.35), 0 12px 26px rgba(236, 72, 153, 0.28);
+        }
+        .chocodrop-badge.completed::after {
+          content: '✔';
+          font-size: 10px;
+          position: absolute;
+          bottom: -6px;
+          right: -4px;
+          width: 16px;
+          height: 16px;
+          border-radius: 50%;
+          background: linear-gradient(135deg, #f472b6, #c084fc);
+          color: white;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          box-shadow: 0 4px 10px rgba(236, 72, 153, 0.35);
+        }
+        .chocodrop-badge.skipped {
+          opacity: 0.5;
+          box-shadow: inset 0 1px 0 rgba(148, 163, 184, 0.2);
+        }
+        .chocodrop-confetti {
+          position: absolute;
+          inset: 0;
+          pointer-events: none;
+          overflow: visible;
+          z-index: 6;
+        }
+        .chocodrop-confetti span {
+          position: absolute;
+          width: 6px;
+          height: 14px;
+          border-radius: 2px;
+          opacity: 0;
+          animation: chocodropConfetti 0.9s ease-out forwards;
+        }
+        @keyframes chocodropConfetti {
+          0% { transform: translate3d(0,0,0) rotate(0deg); opacity: 0; }
+          15% { opacity: 1; }
+          100% { transform: translate3d(var(--x), var(--y), 0) rotate(var(--r)); opacity: 0; }
+        }
+      `;
+      document.head.appendChild(style);
+    }
+
     if (!document.getElementById(this.focusAuraStyleId)) {
       const focusStyle = document.createElement('style');
       focusStyle.id = this.focusAuraStyleId;
@@ -490,6 +568,9 @@ export class GuidedOnboarding {
       letter-spacing: 0.01em;
     `;
 
+    this.badgeRow = document.createElement('div');
+    this.badgeRow.className = 'chocodrop-badge-row';
+
     this.progressBar = document.createElement('div');
     this.progressBar.style.cssText = `
       position: relative;
@@ -543,11 +624,14 @@ export class GuidedOnboarding {
 
     header.appendChild(titleRow);
     header.appendChild(this.subtitleEl);
+    header.appendChild(this.badgeRow);
     header.appendChild(this.progressBar);
     this.subtitleEl.textContent = this.steps[0]?.tagline || '';
     this.progressIcon.textContent = this.steps[0]?.icon || '💡';
     this.progressLabel.textContent = 'ムード選択';
     this.progressCount.textContent = '1/4';
+
+    this.initializeBadges();
 
     const bodyWrapper = document.createElement('div');
     bodyWrapper.style.cssText = 'display: flex; flex-direction: column; gap: 14px; position: relative; z-index: 2;';
@@ -811,6 +895,7 @@ export class GuidedOnboarding {
     this.state.persona = null;
     this.state.samplePrompt = '';
     this.state.hasInsertedPrompt = false;
+    this.resetBadgeStates();
 
     // Re-detect background brightness when starting
     this.detectBackgroundBrightness();
@@ -866,6 +951,7 @@ export class GuidedOnboarding {
 
     if (step.type === 'service' && !needsServiceConnection) {
       // サービス接続が不要な場合はステップをスキップ
+      this.handleStepCompletion(step.id, { skipped: true });
       this.state.stepIndex += 1;
       this.renderCurrentStep();
       return;
@@ -1568,7 +1654,10 @@ export class GuidedOnboarding {
     this.primaryButton.disabled = false;
     this.primaryButton.style.opacity = '1';
     this.primaryButton.style.cursor = 'pointer';
-    this.primaryButton.onclick = () => this.complete('finished');
+    this.primaryButton.onclick = () => {
+      this.handleStepCompletion('next', { skipped: false });
+      this.complete('finished');
+    };
 
     this.secondaryButton.style.display = 'none';
 
@@ -1597,6 +1686,11 @@ export class GuidedOnboarding {
       return;
     }
 
+    const current = this.steps[this.state.stepIndex];
+    if (current) {
+      this.handleStepCompletion(current.id, { skipped: true });
+    }
+
     const nextIndex = this.state.stepIndex + 1;
     if (nextIndex >= this.steps.length) {
       this.complete('skipped');
@@ -1608,6 +1702,11 @@ export class GuidedOnboarding {
   }
 
   nextStep() {
+    const current = this.steps[this.state.stepIndex];
+    if (current) {
+      this.handleStepCompletion(current.id, { skipped: false });
+    }
+
     this.state.stepIndex += 1;
     if (this.state.stepIndex >= this.steps.length) {
       this.complete('finished');
@@ -1749,6 +1848,93 @@ export class GuidedOnboarding {
         this.focusAuraTargets.add(target);
       }
     });
+  }
+
+  initializeBadges() {
+    if (!this.badgeRow) return;
+    this.badgeRow.innerHTML = '';
+    this.badgeIndicators = {};
+
+    const badgeSteps = this.steps.filter(step => step.id !== 'next');
+    badgeSteps.forEach(step => {
+      const badge = document.createElement('div');
+      badge.className = 'chocodrop-badge';
+      badge.dataset.stepId = step.id;
+      badge.textContent = step.icon || '•';
+      this.badgeRow.appendChild(badge);
+      this.badgeIndicators[step.id] = badge;
+    });
+
+    this.resetBadgeStates();
+  }
+
+  resetBadgeStates() {
+    Object.values(this.badgeIndicators).forEach(badge => {
+      badge.classList.remove('completed', 'skipped');
+    });
+    this.stepCompletionStates = {};
+    this.completedSteps = new Set();
+  }
+
+  updateBadgeState(stepId, state) {
+    const badge = this.badgeIndicators?.[stepId];
+    if (!badge) return;
+    badge.classList.remove('completed', 'skipped');
+    if (state === 'completed') {
+      badge.classList.add('completed');
+    } else if (state === 'skipped') {
+      badge.classList.add('skipped');
+    }
+  }
+
+  handleStepCompletion(stepId, { skipped = false } = {}) {
+    if (!stepId || this.stepCompletionStates[stepId]) {
+      if (skipped) {
+        this.updateBadgeState(stepId, 'skipped');
+      }
+      return;
+    }
+
+    this.stepCompletionStates[stepId] = skipped ? 'skipped' : 'completed';
+    if (skipped) {
+      this.updateBadgeState(stepId, 'skipped');
+      return;
+    }
+
+    this.updateBadgeState(stepId, 'completed');
+    this.launchConfetti();
+  }
+
+  launchConfetti() {
+    if (!this.panel) return;
+
+    const container = document.createElement('div');
+    container.className = 'chocodrop-confetti';
+    this.panel.appendChild(container);
+
+    const palette = ['#f472b6', '#c084fc', '#60a5fa', '#facc15', '#4ade80'];
+    const pieces = 14;
+    for (let i = 0; i < pieces; i++) {
+      const piece = document.createElement('span');
+      const color = palette[i % palette.length];
+      piece.style.background = color;
+      const angle = (Math.random() * 120) - 60; // spread
+      const distance = 120 + Math.random() * 60;
+      const x = Math.cos(angle * Math.PI / 180) * distance;
+      const y = Math.sin((angle + 90) * Math.PI / 180) * distance;
+      const rotate = (Math.random() * 260 - 130) + 'deg';
+      const left = 40 + Math.random() * 20;
+      piece.style.left = `${left}%`;
+      piece.style.top = '10%';
+      piece.style.setProperty('--x', `${x}px`);
+      piece.style.setProperty('--y', `${y}px`);
+      piece.style.setProperty('--r', rotate);
+      container.appendChild(piece);
+    }
+
+    setTimeout(() => {
+      container.remove();
+    }, 900);
   }
 
   getStepMeta(step, persona) {
