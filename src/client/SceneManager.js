@@ -1300,6 +1300,7 @@ export class SceneManager {
     const colorMap = {
       '赤': 0xff0000, '赤色': 0xff0000,
       '青': 0x0000ff, '青色': 0x0000ff,
+      'ブルー': 0x0000ff,
       '緑': 0x00ff00, '緑色': 0x00ff00,
       '黄': 0xffff00, '黄色': 0xffff00, '黄色い': 0xffff00,
       '紫': 0xff00ff, '紫色': 0xff00ff,

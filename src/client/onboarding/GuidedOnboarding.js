@@ -42,7 +42,7 @@ export class GuidedOnboarding {
         label: 'ビジュアル生成',
         emoji: '🎨',
         description: '接続した生成サービスで新しいビジュアルやアニメーションを生み出します。壮大なシーンの起点に。',
-        prompt: '虹色のガラスで編んだユニコーンのドローンショットを作って',
+        prompt: '虹色のガラスで編んだユニコーンのドローンショットの動画を作って',
         mode: 'generate',
         mediaType: 'video'
       },
@@ -1139,7 +1139,7 @@ export class GuidedOnboarding {
       generate: {
         icon: '✨',
         title: '想像を言葉に',
-        message: 'モチーフだけでなく、光や素材感、カメラワークまで描写すると生成AIの感性が引き出されます。'
+        message: 'モチーフだけでなく、光や素材感、カメラワークまで描写すると生成AIの感性が引き出されます。※現在は画像・動画のみ対応（3D生成は未対応）'
       }
     };
 
@@ -1367,6 +1367,7 @@ export class GuidedOnboarding {
       description.innerHTML = `
         <p style="margin:0; color:${colors.textSecondary}; line-height:1.6;">プロンプトを送信すると生成が始まります。カメラワークやテンポも一緒にイメージしておくと滑らかです。</p>
         <p style="margin:12px 0 0 0; font-size:13px; opacity:0.85; color:${colors.textSecondary};">ステータスカードで進捗を確認。生成は30秒〜数分、音も加わるとさらに没入感が増します。</p>
+        <p style="margin:12px 0 0 0; font-size:12px; opacity:0.85; color:${colors.textSecondary};">Enter ⏎ でプロンプトを送信すると生成がスタートします。現在は画像・動画のみ対応（3Dモデル生成は未対応）です。</p>
       `;
     } else {
       // Fallback for any other modes
@@ -1379,7 +1380,7 @@ export class GuidedOnboarding {
 
     const buttonTextSpan = this.primaryButton.querySelector('span');
     if (buttonTextSpan) {
-      buttonTextSpan.textContent = '実行しました';
+      buttonTextSpan.textContent = (mode === 'generate') ? 'Enterで送信しました' : '実行しました';
     }
     this.primaryButton.disabled = false;
     this.primaryButton.style.opacity = '1';
