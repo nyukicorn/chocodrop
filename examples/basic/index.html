@@ -702,7 +702,13 @@
             scheduleInfoPanelAutoHide();
         };
 
-        addCandidate(localLoaderBase);
+        const localHostnames = new Set(['localhost', '127.0.0.1', '::1']);
+        const isLanIp = /^\d{1,3}(?:\.\d{1,3}){3}$/.test(window.location.hostname);
+        const shouldUseLocalLoader = !isGitHubPages && (localHostnames.has(window.location.hostname) || window.location.hostname.endsWith('.local') || isLanIp);
+
+        if (shouldUseLocalLoader) {
+            addCandidate(localLoaderBase);
+        }
         addCandidate(fallbackBase);
         addCandidate(window.CHOCODROP_PUBLIC_BASE);
         addCandidate(new URL('../../public/load-chocodrop.js', import.meta.url).href);
