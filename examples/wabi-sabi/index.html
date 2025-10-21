@@ -36,7 +36,7 @@
             border-radius: 8px;
             font-size: 12px;
             font-weight: 400;
-            z-index: 100;
+            z-index: 2000;
             max-width: 280px;
             line-height: 1.5;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04);
@@ -2468,12 +2468,8 @@
             autoHideTimer = setTimeout(window.hideInfoPanel, 30000);
         };
 
-        // 30秒後の自動非表示タイマー開始（初回訪問時のみ表示されるため）
-        if (localStorage.getItem('wabisabi_visited')) {
-            // 2回目以降は自動非表示タイマーは不要
-        } else {
-            autoHideTimer = setTimeout(window.hideInfoPanel, 30000);
-        }
+        // 30秒後の自動非表示タイマー開始
+        autoHideTimer = setTimeout(window.hideInfoPanel, 30000);
 
         console.log('✅ 侘寂の世界が準備完了！🎨 音楽入り動画で墨絵に魂を宿らせましょう');
 
