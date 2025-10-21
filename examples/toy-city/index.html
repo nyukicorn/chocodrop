@@ -1765,6 +1765,7 @@
             beatDetected: false,
             isPlaying: false
         };
+        const connectedVideos = new WeakSet(); // 接続済みのvideoを追跡
         const audioStatusEl = document.getElementById('audio-status');
         const audioTextEl = document.getElementById('audio-text');
 
@@ -1780,6 +1781,12 @@
 
         // 動画要素を音響分析に接続
         function connectVideoToAudio(videoElement) {
+            // すでに接続済みの場合はスキップ
+            if (connectedVideos.has(videoElement)) {
+                console.log('🎵 Video already connected, skipping');
+                return;
+            }
+
             if (!audioContext || !analyser) {
                 setupAudioAnalysis();
             }
@@ -1792,6 +1799,8 @@
                 const source = audioContext.createMediaElementSource(videoElement);
                 source.connect(analyser);
                 analyser.connect(audioContext.destination);
+
+                connectedVideos.add(videoElement); // 接続済みとしてマーク
 
                 musicData.isPlaying = true;
                 if (audioStatusEl) {
