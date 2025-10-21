@@ -548,6 +548,60 @@
     <script type="module">
     import ensureChocoDrop from '../../public/load-chocodrop.js';
 
+    // 🎯 情報パネルをローダー前に初期化（早期に閉じられるように）
+    let autoHideTimer = null;
+
+    const getInfoPanel = () => document.getElementById('info');
+
+    const clearInfoPanelAutoHide = () => {
+        if (autoHideTimer) {
+            clearTimeout(autoHideTimer);
+            autoHideTimer = null;
+        }
+    };
+
+    const scheduleInfoPanelAutoHide = () => {
+        clearInfoPanelAutoHide();
+        autoHideTimer = window.setTimeout(() => {
+            if (typeof window.hideInfoPanel === 'function') {
+                window.hideInfoPanel();
+            }
+        }, 30000);
+    };
+
+    window.scheduleInfoPanelAutoHide = scheduleInfoPanelAutoHide;
+
+    window.hideInfoPanel = function hideInfoPanel() {
+        const infoPanel = getInfoPanel();
+        if (!infoPanel) {
+            clearInfoPanelAutoHide();
+            return;
+        }
+
+        infoPanel.classList.add('hidden');
+        window.setTimeout(() => {
+            if (infoPanel.classList.contains('hidden')) {
+                infoPanel.style.display = 'none';
+            }
+        }, 300);
+
+        clearInfoPanelAutoHide();
+    };
+
+    window.showInfoPanel = function showInfoPanel() {
+        const infoPanel = getInfoPanel();
+        if (!infoPanel) {
+            return;
+        }
+
+        infoPanel.style.display = 'block';
+        window.requestAnimationFrame(() => {
+            infoPanel.classList.remove('hidden');
+        });
+
+        scheduleInfoPanelAutoHide();
+    };
+
     (async () => {
         await ensureChocoDrop();
 
@@ -2440,36 +2494,10 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
         });
 
-        // 🎯 ヒントパネル管理システム（グローバル関数として定義）
-        let autoHideTimer = null;
-
-        window.hideInfoPanel = function() {
-            const infoPanel = document.getElementById('info');
-
-            infoPanel.classList.add('hidden');
-            setTimeout(() => {
-                infoPanel.style.display = 'none';
-            }, 300);
-
-            if (autoHideTimer) {
-                clearTimeout(autoHideTimer);
-            }
-        };
-
-        window.showInfoPanel = function() {
-            const infoPanel = document.getElementById('info');
-
-            infoPanel.style.display = 'block';
-            setTimeout(() => {
-                infoPanel.classList.remove('hidden');
-            }, 10);
-
-            // 30秒後に自動非表示
-            autoHideTimer = setTimeout(window.hideInfoPanel, 30000);
-        };
-
         // 30秒後の自動非表示タイマー開始
-        autoHideTimer = setTimeout(window.hideInfoPanel, 30000);
+        if (typeof window.scheduleInfoPanelAutoHide === 'function') {
+            window.scheduleInfoPanelAutoHide();
+        }
 
         console.log('✅ 侘寂の世界が準備完了！🎨 音楽入り動画で墨絵に魂を宿らせましょう');
 
