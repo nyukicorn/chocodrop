@@ -127,23 +127,44 @@
     poll();
   }
 
-  function loadSDK() {
-    if (document.getElementById('__chocodrop_sdk')) return;
+  function findThreeObjects(w) {
+    let scene, camera, renderer;
+    for (const key in w) {
+      const val = w[key];
+      if (val?.isScene) scene = val;
+      if (val?.isCamera) camera = val;
+      if (val?.isWebGLRenderer) renderer = val;
+    }
+    return { scene, camera, renderer };
+  }
 
-    const s = document.createElement('script');
+  async function attachChoco(targetWindow) {
+    await targetWindow.chocodrop.ready();
+    const three = findThreeObjects(targetWindow);
+    const opts = three.scene ? { camera: three.camera, renderer: three.renderer } : {};
+    await targetWindow.chocodrop.attach(three.scene || null, opts);
+  }
+
+  function loadSDK() {
+    const iframe = document.querySelector('iframe');
+    const targetWindow = iframe?.contentWindow || window;
+    const targetDoc = iframe?.contentDocument || document;
+    const existing = targetDoc.getElementById('__chocodrop_sdk');
+
+    if (existing && targetWindow.chocodrop) {
+      attachChoco(targetWindow).catch(e => console.warn('ChocoDrop:', e));
+      return;
+    }
+
+    const s = targetDoc.createElement('script');
     s.id = '__chocodrop_sdk';
     s.src = b + '/sdk.js';
     s.onload = () => {
       console.log('✅ SDK loaded');
-      window.chocodrop?.ready?.()
-        .then(() => window.chocodrop.attach(window.scene || null, {
-          camera: window.camera,
-          renderer: window.renderer
-        }))
-        .catch(e => console.warn('ChocoDrop:', e));
+      attachChoco(targetWindow).catch(e => console.warn('ChocoDrop:', e));
     };
     s.onerror = () => console.error('❌ SDK load failed');
-    document.head.appendChild(s);
+    targetDoc.head.appendChild(s);
   }
 
   console.log('🍫 ChocoDrop Bookmarklet v2');

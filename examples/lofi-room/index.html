@@ -36,7 +36,7 @@
             border-radius: 12px;
             font-size: 12px;
             font-weight: 400;
-            z-index: 100;
+            z-index: 2000;
             max-width: 280px;
             line-height: 1.6;
             box-shadow: 0 8px 20px rgba(142, 197, 252, 0.3);
@@ -2383,9 +2383,8 @@
             autoHideTimer = setTimeout(window.hideInfoPanel, 30000);
         };
 
-        if (!localStorage.getItem('lofi_room_visited')) {
-            autoHideTimer = setTimeout(window.hideInfoPanel, 30000);
-        }
+        // 30秒後の自動非表示タイマー開始
+        autoHideTimer = setTimeout(window.hideInfoPanel, 30000);
 
         console.log('✅ Lo-fi Room準備完了！🎧');
 

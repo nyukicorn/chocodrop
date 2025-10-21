@@ -33,7 +33,7 @@
             border-radius: 12px;
             font-size: 12px;
             font-weight: 400;
-            z-index: 100;
+            z-index: 2000;
             max-width: 280px;
             line-height: 1.5;
             box-shadow: 0 4px 16px rgba(139, 92, 246, 0.15),
@@ -2109,12 +2109,8 @@
         // ヒントトグルボタンのクリックイベント
         document.getElementById('hint-toggle').onclick = window.showInfoPanel;
 
-        // 30秒後の自動非表示タイマー開始（初回訪問時のみ表示されるため）
-        if (localStorage.getItem('music_garden_visited')) {
-            // 2回目以降は自動非表示タイマーは不要
-        } else {
-            autoHideTimer = setTimeout(window.hideInfoPanel, 30000);
-        }
+        // 30秒後の自動非表示タイマー開始
+        autoHideTimer = setTimeout(window.hideInfoPanel, 30000);
 
         console.log('✅ 音楽の花園が準備完了！🎵 歌ってお花を咲かせましょう');
     })();

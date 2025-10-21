@@ -35,7 +35,7 @@
             border-radius: 18px;
             font-size: 13px;
             font-weight: 500;
-            z-index: 100;
+            z-index: 2000;
             max-width: 320px;
             line-height: 1.6;
             box-shadow: 0 18px 38px rgba(15, 23, 42, 0.25);
@@ -1514,12 +1514,8 @@
             autoHideTimer = setTimeout(window.hideInfoPanel, 30000);
         };
 
-        // 30秒後の自動非表示タイマー開始（初回訪問時のみ表示されるため）
-        if (localStorage.getItem('basic_visited')) {
-            // 2回目以降は自動非表示タイマーは不要
-        } else {
-            autoHideTimer = setTimeout(window.hideInfoPanel, 30000);
-        }
+        // 30秒後の自動非表示タイマー開始
+        autoHideTimer = setTimeout(window.hideInfoPanel, 30000);
 
         console.log('✅ ベーシックな世界が準備完了！🍫 ChocoDrop でコンテンツを配置しましょう');
 
