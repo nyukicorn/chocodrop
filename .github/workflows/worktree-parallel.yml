@@ -1,0 +1,319 @@
+name: Worktree Parallel Testing
+
+on:
+  workflow_dispatch:
+    inputs:
+      branches:
+        description: 'Comma-separated branch names to test (e.g., task/feature-a,task/feature-b,task/feature-c)'
+        required: true
+        type: string
+      run_build:
+        description: 'Run build for each branch'
+        required: false
+        type: boolean
+        default: true
+      run_tests:
+        description: 'Run tests for each branch'
+        required: false
+        type: boolean
+        default: true
+      compare_results:
+        description: 'Generate comparison report'
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  prepare:
+    name: Prepare branch matrix
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+      branch_count: ${{ steps.set-matrix.outputs.count }}
+
+    steps:
+      - name: Parse branches
+        id: set-matrix
+        run: |
+          BRANCHES="${{ github.event.inputs.branches }}"
+          # カンマ区切りを配列に変換
+          IFS=',' read -ra BRANCH_ARRAY <<< "$BRANCHES"
+
+          # スペースをトリム
+          CLEANED_BRANCHES=()
+          for branch in "${BRANCH_ARRAY[@]}"; do
+            trimmed=$(echo "$branch" | xargs)
+            CLEANED_BRANCHES+=("\"$trimmed\"")
+          done
+
+          # JSON配列を作成
+          BRANCH_JSON="[${CLEANED_BRANCHES[*]}]"
+          BRANCH_JSON="${BRANCH_JSON// /,}"
+
+          echo "matrix=$BRANCH_JSON" >> $GITHUB_OUTPUT
+          echo "count=${#BRANCH_ARRAY[@]}" >> $GITHUB_OUTPUT
+
+          echo "🌳 Testing ${#BRANCH_ARRAY[@]} branches:"
+          for branch in "${BRANCH_ARRAY[@]}"; do
+            echo "  - $(echo $branch | xargs)"
+          done
+
+  # 各ブランチを並行実行
+  test-branch:
+    name: Test ${{ matrix.branch }}
+    runs-on: ubuntu-latest
+    needs: prepare
+    strategy:
+      fail-fast: false
+      matrix:
+        branch: ${{ fromJson(needs.prepare.outputs.matrix) }}
+        node: [20]
+
+    steps:
+      - name: Checkout branch ${{ matrix.branch }}
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ matrix.branch }}
+          fetch-depth: 0
+
+      - name: Setup Node.js ${{ matrix.node }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: 'npm'
+
+      - name: Get branch info
+        id: branch_info
+        run: |
+          BRANCH_NAME="${{ matrix.branch }}"
+          COMMIT_SHA=$(git rev-parse --short HEAD)
+          COMMIT_MSG=$(git log -1 --pretty=%s)
+          BRANCH_SAFE=$(echo "$BRANCH_NAME" | sed 's/[^a-zA-Z0-9]/-/g')
+
+          echo "branch_safe=$BRANCH_SAFE" >> $GITHUB_OUTPUT
+          echo "commit_sha=$COMMIT_SHA" >> $GITHUB_OUTPUT
+          echo "commit_msg=$COMMIT_MSG" >> $GITHUB_OUTPUT
+
+          echo "📋 Branch: $BRANCH_NAME"
+          echo "📝 Commit: $COMMIT_SHA - $COMMIT_MSG"
+
+      - name: Install dependencies
+        run: |
+          echo "📦 Installing dependencies for ${{ matrix.branch }}..."
+          npm ci
+
+      - name: Run linting
+        id: lint
+        run: |
+          echo "🔍 Running linting..."
+          npm run lint > lint-output.txt 2>&1 || true
+          cat lint-output.txt
+
+          if grep -q "error" lint-output.txt; then
+            echo "status=failed" >> $GITHUB_OUTPUT
+          else
+            echo "status=passed" >> $GITHUB_OUTPUT
+          fi
+        continue-on-error: true
+
+      - name: Run build
+        id: build
+        if: github.event.inputs.run_build == 'true'
+        run: |
+          echo "🔨 Building ${{ matrix.branch }}..."
+          START_TIME=$(date +%s)
+
+          npm run build > build-output.txt 2>&1 || BUILD_FAILED=1
+
+          END_TIME=$(date +%s)
+          BUILD_TIME=$((END_TIME - START_TIME))
+
+          echo "duration=$BUILD_TIME" >> $GITHUB_OUTPUT
+
+          if [ "$BUILD_FAILED" == "1" ]; then
+            echo "status=failed" >> $GITHUB_OUTPUT
+            cat build-output.txt
+            exit 1
+          else
+            echo "status=passed" >> $GITHUB_OUTPUT
+            echo "✅ Build completed in ${BUILD_TIME}s"
+          fi
+        continue-on-error: true
+
+      - name: Run tests
+        id: test
+        if: github.event.inputs.run_tests == 'true'
+        run: |
+          echo "🧪 Running tests for ${{ matrix.branch }}..."
+          START_TIME=$(date +%s)
+
+          npm test > test-output.txt 2>&1 || TEST_FAILED=1
+
+          END_TIME=$(date +%s)
+          TEST_TIME=$((END_TIME - START_TIME))
+
+          echo "duration=$TEST_TIME" >> $GITHUB_OUTPUT
+
+          if [ "$TEST_FAILED" == "1" ]; then
+            echo "status=failed" >> $GITHUB_OUTPUT
+            cat test-output.txt
+          else
+            echo "status=passed" >> $GITHUB_OUTPUT
+            echo "✅ Tests completed in ${TEST_TIME}s"
+          fi
+
+          # テスト結果をカウント
+          PASS_COUNT=$(grep -c "# pass" test-output.txt || echo "0")
+          FAIL_COUNT=$(grep -c "# fail" test-output.txt || echo "0")
+
+          echo "pass_count=$PASS_COUNT" >> $GITHUB_OUTPUT
+          echo "fail_count=$FAIL_COUNT" >> $GITHUB_OUTPUT
+        continue-on-error: true
+
+      - name: Generate branch report
+        run: |
+          REPORT_DIR="reports/${{ steps.branch_info.outputs.branch_safe }}"
+          mkdir -p "$REPORT_DIR"
+
+          cat > "$REPORT_DIR/summary.json" << EOF
+          {
+            "branch": "${{ matrix.branch }}",
+            "commit": "${{ steps.branch_info.outputs.commit_sha }}",
+            "commit_message": "${{ steps.branch_info.outputs.commit_msg }}",
+            "node_version": "${{ matrix.node }}",
+            "lint_status": "${{ steps.lint.outputs.status }}",
+            "build_status": "${{ steps.build.outputs.status }}",
+            "build_duration": "${{ steps.build.outputs.duration }}",
+            "test_status": "${{ steps.test.outputs.status }}",
+            "test_duration": "${{ steps.test.outputs.duration }}",
+            "test_pass": "${{ steps.test.outputs.pass_count }}",
+            "test_fail": "${{ steps.test.outputs.fail_count }}",
+            "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          }
+          EOF
+
+          # Markdown レポート生成
+          cat > "$REPORT_DIR/report.md" << EOF
+          # Test Report: ${{ matrix.branch }}
+
+          ## Branch Information
+          - **Branch**: \`${{ matrix.branch }}\`
+          - **Commit**: \`${{ steps.branch_info.outputs.commit_sha }}\`
+          - **Message**: ${{ steps.branch_info.outputs.commit_msg }}
+          - **Node.js**: ${{ matrix.node }}
+
+          ## Results
+
+          | Check | Status | Duration |
+          |-------|--------|----------|
+          | Lint | ${{ steps.lint.outputs.status == 'passed' && '✅ Passed' || '❌ Failed' }} | - |
+          | Build | ${{ steps.build.outputs.status == 'passed' && '✅ Passed' || steps.build.outputs.status == 'failed' && '❌ Failed' || '⏭️ Skipped' }} | ${{ steps.build.outputs.duration }}s |
+          | Tests | ${{ steps.test.outputs.status == 'passed' && '✅ Passed' || steps.test.outputs.status == 'failed' && '❌ Failed' || '⏭️ Skipped' }} | ${{ steps.test.outputs.duration }}s |
+
+          ### Test Details
+          - **Passed**: ${{ steps.test.outputs.pass_count }}
+          - **Failed**: ${{ steps.test.outputs.fail_count }}
+          EOF
+
+          cat "$REPORT_DIR/report.md"
+
+      - name: Upload branch artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: report-${{ steps.branch_info.outputs.branch_safe }}
+          path: reports/
+          retention-days: 30
+
+  # 全ブランチの結果を比較
+  compare:
+    name: Compare results
+    runs-on: ubuntu-latest
+    needs: [prepare, test-branch]
+    if: github.event.inputs.compare_results == 'true'
+
+    steps:
+      - name: Download all reports
+        uses: actions/download-artifact@v4
+        with:
+          path: all-reports
+
+      - name: Generate comparison report
+        run: |
+          mkdir -p comparison
+
+          cat > comparison/README.md << 'EOF'
+          # Worktree Parallel Testing - Comparison Report
+
+          ## Overview
+          This report compares the results of parallel testing across multiple branches.
+
+          ## Tested Branches
+          EOF
+
+          echo "Testing ${{ needs.prepare.outputs.branch_count }} branches" >> comparison/README.md
+          echo "" >> comparison/README.md
+
+          # 各ブランチのレポートを統合
+          cat >> comparison/README.md << 'EOF'
+          ## Comparison Table
+
+          | Branch | Commit | Lint | Build | Build Time | Tests | Test Time | Pass | Fail |
+          |--------|--------|------|-------|------------|-------|-----------|------|------|
+          EOF
+
+          for report_dir in all-reports/report-*/; do
+            if [ -f "$report_dir/*/summary.json" ]; then
+              JSON_FILE=$(find "$report_dir" -name "summary.json" | head -1)
+
+              BRANCH=$(jq -r '.branch' "$JSON_FILE")
+              COMMIT=$(jq -r '.commit' "$JSON_FILE")
+              LINT=$(jq -r '.lint_status' "$JSON_FILE")
+              BUILD=$(jq -r '.build_status' "$JSON_FILE")
+              BUILD_DUR=$(jq -r '.build_duration' "$JSON_FILE")
+              TEST=$(jq -r '.test_status' "$JSON_FILE")
+              TEST_DUR=$(jq -r '.test_duration' "$JSON_FILE")
+              PASS=$(jq -r '.test_pass' "$JSON_FILE")
+              FAIL=$(jq -r '.test_fail' "$JSON_FILE")
+
+              LINT_ICON=$([[ "$LINT" == "passed" ]] && echo "✅" || echo "❌")
+              BUILD_ICON=$([[ "$BUILD" == "passed" ]] && echo "✅" || [[ "$BUILD" == "failed" ]] && echo "❌" || echo "⏭️")
+              TEST_ICON=$([[ "$TEST" == "passed" ]] && echo "✅" || [[ "$TEST" == "failed" ]] && echo "❌" || echo "⏭️")
+
+              echo "| $BRANCH | \`$COMMIT\` | $LINT_ICON | $BUILD_ICON | ${BUILD_DUR}s | $TEST_ICON | ${TEST_DUR}s | $PASS | $FAIL |" >> comparison/README.md
+            fi
+          done
+
+          cat >> comparison/README.md << 'EOF'
+
+          ## Recommendations
+
+          Based on the test results:
+          1. ✅ Branches with all tests passing are ready for merge
+          2. ⚠️  Branches with build failures need attention
+          3. ❌ Branches with test failures require fixes
+
+          ## Next Steps
+          1. Review failed branches
+          2. Fix any issues
+          3. Choose the best implementation
+          4. Merge to main branch
+          EOF
+
+          cat comparison/README.md
+
+      - name: Upload comparison report
+        uses: actions/upload-artifact@v4
+        with:
+          name: comparison-report
+          path: comparison/
+          retention-days: 90
+
+      - name: Comment on workflow
+        run: |
+          echo "📊 Comparison report generated successfully"
+          echo "Download artifacts to view detailed results"

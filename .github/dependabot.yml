@@ -1,0 +1,71 @@
+version: 2
+updates:
+  # メインプロジェクトの依存関係
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Tokyo"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "automated"
+    commit-message:
+      prefix: "⬆️"
+      include: "scope"
+    reviewers:
+      - "nyukicorn"
+    assignees:
+      - "nyukicorn"
+
+  # daemon パッケージの依存関係
+  - package-ecosystem: "npm"
+    directory: "/packages/daemon"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Tokyo"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "daemon"
+      - "automated"
+    commit-message:
+      prefix: "⬆️ [daemon]"
+      include: "scope"
+
+  # SDK パッケージの依存関係
+  - package-ecosystem: "npm"
+    directory: "/packages/sdk"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Tokyo"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "sdk"
+      - "automated"
+    commit-message:
+      prefix: "⬆️ [sdk]"
+      include: "scope"
+
+  # GitHub Actions ワークフローの依存関係
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Tokyo"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "github-actions"
+      - "automated"
+    commit-message:
+      prefix: "⬆️ [actions]"

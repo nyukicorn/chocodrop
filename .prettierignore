@@ -1,0 +1,9 @@
+node_modules/
+dist/
+public/
+vendor/
+.worktrees/
+test-npm-install/
+*.min.js
+*.bundle.js
+package-lock.json

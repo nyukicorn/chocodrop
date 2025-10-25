@@ -28,6 +28,10 @@
     "build:watch": "rollup -c -w",
     "prebuild": "mkdir -p dist",
     "test": "node --test tests/*.test.js",
+    "lint": "eslint src/ scripts/ --ext .js,.mjs",
+    "lint:fix": "eslint src/ scripts/ --ext .js,.mjs --fix",
+    "format": "prettier --write \"**/*.{js,mjs,json,md,html,css}\"",
+    "format:check": "prettier --check \"**/*.{js,mjs,json,md,html,css}\"",
     "setup:mcp": "node scripts/setup-mcp-config.mjs",
     "example:basic": "python -m http.server 8000 --directory examples",
     "example:server": "node src/server/server.js --port 3011"
@@ -63,6 +67,8 @@
     "@rollup/plugin-terser": "^0.4.4",
     "@types/node": "^20.0.0",
     "@types/three": "^0.170.0",
+    "eslint": "^8.57.0",
+    "prettier": "^3.2.5",
     "rollup": "^4.52.0"
   },
   "peerDependencies": {

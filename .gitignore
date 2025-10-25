@@ -49,6 +49,13 @@ temp/
 # MCP specific
 .serena/
 .claude/
+.kamui/
+
+# Git worktrees
+.worktrees/
+
+# npm cache
+.npm-cache/
 
 # Internal development docs (exclude *.md which are public documentation)
 docs/*
