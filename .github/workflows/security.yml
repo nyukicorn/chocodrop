@@ -2,9 +2,9 @@ name: Security
 
 on:
   push:
-    branches: [main]
+    branches: ['**']  # すべてのブランチで実行
   pull_request:
-    branches: [main]
+    branches: ['**']  # すべてのブランチへの PR で実行
   schedule:
     # Run security checks weekly on Monday at 00:00 UTC
     - cron: '0 0 * * 1'
