@@ -673,7 +673,7 @@ jobs:
             - 最終的なマージ判断と次のアクション
 
             頑張ってください！🚀
-          claude_code_oauth_token: ${{ secrets.CLAUDE_ACCESS_TOKEN }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
 
       - name: Upload comparison report
         uses: actions/upload-artifact@v4
