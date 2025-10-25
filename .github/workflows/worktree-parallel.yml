@@ -1,5 +1,4 @@
 name: Worktree Parallel Testing
-# AI-powered parallel branch comparison workflow
 
 on:
   workflow_dispatch:
@@ -176,16 +175,105 @@ jobs:
           echo "fail_count=$FAIL_COUNT" >> $GITHUB_OUTPUT
         continue-on-error: true
 
+      - name: Start dev server for dynamic evaluation
+        id: dev_server
+        run: |
+          echo "🚀 Starting dev server for visual and performance evaluation..."
+          npm run dev &
+          DEV_PID=$!
+          echo "pid=$DEV_PID" >> $GITHUB_OUTPUT
+
+          # Wait for server to be ready
+          npx wait-on http://localhost:8000 --timeout 60000 || echo "Server timeout"
+        continue-on-error: true
+
+      - name: Install Playwright
+        run: |
+          npx playwright install --with-deps chromium
+
+      - name: Take screenshots
+        id: screenshots
+        run: |
+          mkdir -p screenshots
+
+          echo "📸 Taking screenshots of examples..."
+
+          # ChocoDrop examples
+          EXAMPLES=("basic" "lofi-room" "lofi-city" "music-garden" "space" "toy-city" "wabi-sabi")
+
+          for example in "${EXAMPLES[@]}"; do
+            # Desktop
+            npx playwright screenshot \
+              "http://localhost:8000/examples/$example/" \
+              "screenshots/$example-desktop.png" \
+              --viewport-size=1920,1080 \
+              --timeout=30000 || echo "Screenshot failed: $example desktop"
+
+            # Mobile
+            npx playwright screenshot \
+              "http://localhost:8000/examples/$example/" \
+              "screenshots/$example-mobile.png" \
+              --viewport-size=375,667 \
+              --timeout=30000 || echo "Screenshot failed: $example mobile"
+          done
+
+          echo "status=completed" >> $GITHUB_OUTPUT
+        continue-on-error: true
+
+      - name: Run Lighthouse performance audit
+        id: lighthouse
+        run: |
+          echo "⚡ Running Lighthouse performance audit..."
+          npm install -g lighthouse
+
+          # Test key examples
+          KEY_EXAMPLES=("basic" "lofi-room" "music-garden")
+
+          for example in "${KEY_EXAMPLES[@]}"; do
+            lighthouse "http://localhost:8000/examples/$example/" \
+              --output json \
+              --output-path "performance-$example.json" \
+              --chrome-flags="--headless" \
+              --only-categories=performance \
+              --preset=desktop \
+              --quiet || echo "Lighthouse failed: $example"
+          done
+
+          echo "status=completed" >> $GITHUB_OUTPUT
+        continue-on-error: true
+
+      - name: Stop dev server
+        if: always()
+        run: |
+          if [ -n "${{ steps.dev_server.outputs.pid }}" ]; then
+            kill ${{ steps.dev_server.outputs.pid }} || true
+          fi
+          # Kill any remaining node processes
+          pkill -f "npm run dev" || true
+
       - name: Generate branch report
         run: |
           REPORT_DIR="reports/${{ steps.branch_info.outputs.branch_safe }}"
           mkdir -p "$REPORT_DIR"
+
+          # Get branch statistics
+          TOTAL_COMMITS=$(git rev-list --count HEAD)
+          TOTAL_FILES=$(git ls-tree -r --name-only HEAD | wc -l | xargs)
+
+          # Get bundle size if build succeeded
+          BUNDLE_SIZE="0"
+          if [ "${{ steps.build.outputs.status }}" == "passed" ] && [ -d "dist" ]; then
+            BUNDLE_SIZE=$(du -sk dist | cut -f1)
+          fi
 
           cat > "$REPORT_DIR/summary.json" << EOF
           {
             "branch": "${{ matrix.branch }}",
             "commit": "${{ steps.branch_info.outputs.commit_sha }}",
             "commit_message": "${{ steps.branch_info.outputs.commit_msg }}",
+            "total_commits": "$TOTAL_COMMITS",
+            "total_files": "$TOTAL_FILES",
+            "bundle_size_kb": "$BUNDLE_SIZE",
             "node_version": "${{ matrix.node }}",
             "lint_status": "${{ steps.lint.outputs.status }}",
             "build_status": "${{ steps.build.outputs.status }}",
@@ -194,7 +282,10 @@ jobs:
             "test_duration": "${{ steps.test.outputs.duration }}",
             "test_pass": "${{ steps.test.outputs.pass_count }}",
             "test_fail": "${{ steps.test.outputs.fail_count }}",
-            "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            "screenshots_status": "${{ steps.screenshots.outputs.status }}",
+            "lighthouse_status": "${{ steps.lighthouse.outputs.status }}",
+            "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "evaluation_note": "This represents the final state of the branch (all commits, all files), not individual commits"
           }
           EOF
 
@@ -230,6 +321,16 @@ jobs:
           path: reports/
           retention-days: 30
 
+      - name: Upload dynamic evaluation artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dynamic-eval-${{ steps.branch_info.outputs.branch_safe }}
+          path: |
+            screenshots/
+            performance-*.json
+          retention-days: 30
+        continue-on-error: true
+
   # 全ブランチの結果を比較
   compare:
     name: Compare results
@@ -238,7 +339,6 @@ jobs:
     if: github.event.inputs.compare_results == 'true'
     permissions:
       contents: read
-      id-token: write
 
     steps:
       - name: Checkout repository
@@ -318,156 +418,260 @@ jobs:
         with:
           mode: agent
           direct_prompt: |
-            # 複数ブランチの実装比較評価タスク
+            # 🚀 複数ブランチの最終成果物比較評価タスク（改善版 v2.0）
 
-            あなたは経験豊富なシニアエンジニアです。複数の実装を深く分析し、最良の選択を提案してください。
+            あなたは経験豊富なシニアエンジニアです。複数のブランチを**最終成果物**として深く分析し、最良の選択を提案してください。
+
+            ## 🎯 重要な前提条件
+
+            **各ブランチは並列実装されており、途中のコミットは異なります。**
+            **❌ コミット単位で比較しないでください。**
+            **✅ 各ブランチの最終状態（全ファイル・全機能）を評価してください。**
+
+            ---
 
             ## 📋 タスク概要
 
-            `all-reports/` ディレクトリに複数のブランチのテスト結果が保存されています。
-            **必ず全ブランチの実装コードを読み込んで**、詳細な比較評価を行ってください。
+            `all-reports/` ディレクトリに以下のデータが保存されています：
+            - テスト結果（`summary.json`）
+            - スクリーンショット（`screenshots/`）
+            - パフォーマンスデータ（`performance-*.json`）
 
-            ## 🔍 実施内容
+            これらを**全て確認**し、総合的な比較評価を行ってください。
 
-            ### Phase 1: ブランチとコードの把握
+            ---
 
-            1. `all-reports/` 内の各レポートから `summary.json` を読み込む
-            2. **各ブランチのメインコードを必ず読み込む**
-               - `git show <branch>:<file-path>` または checkout して読む
-               - 主要な変更ファイルを特定して全て確認
-               - 実装の全体像を把握する
+            ## 🔍 Phase 1: ブランチの最終成果物を把握
 
-            ### Phase 2: 評価軸の決定
+            ### 1-1. テスト結果の読み込み
+            - `all-reports/report-*/reports/*/summary.json` を全て読み込む
+            - ビルド時間、テスト成功率、バンドルサイズを把握
+            - **注意**: `evaluation_note` に「最終状態を評価」と明記されています
 
-            **コードを読んだ上で**、このプロジェクトに最適な評価軸を自分で考えてください。
+            ### 1-2. ブランチ全体のコードを読み込む（必須 🚨）
 
-            例（参考）：
-            - パフォーマンス（実行速度、メモリ使用量）
-            - コード品質（可読性、保守性、設計パターン）
-            - テスト品質（カバレッジ、テストの質）
-            - セキュリティ（脆弱性、安全性）
-            - 拡張性（将来の機能追加のしやすさ）
-            - 技術的負債（リファクタリングの必要性）
+            **各ブランチについて**、以下を実施してください：
 
-            **プロジェクトの特性に応じて、独自の評価軸を追加してください。**
+            a. **プロジェクト構成の把握**
+            ```bash
+            # ブランチのファイル一覧を取得
+            git ls-tree -r --name-only <branch>
+            ```
 
-            ### Phase 3: 詳細評価
+            b. **主要ディレクトリを全て確認**
+            - `src/` - ソースコード全体を読む
+            - `examples/` - 実装例・デモを確認
+            - `test/` - テストコードを確認
+            - `package.json` - 依存関係を確認
+            - その他設定ファイル
 
-            各ブランチについて、Phase 2 で決定した評価軸で詳細に分析してください。
-            **必ずコードの具体的な箇所を引用**して根拠を示してください。
+            c. **実装内容の全体像を把握**
+            - どんな機能が実装されているか（全て列挙）
+            - どんなファイル構成になっているか
+            - どんな設計パターンを使っているか
+            - どんな外部ライブラリを使っているか
 
-            ### Phase 4: HTML レポート生成
+            **❌ やってはいけないこと**:
+            - コミット単位で比較する
+            - 「変更ファイル」だけを見る
+            - `git diff` だけを見る
+
+            **✅ やるべきこと**:
+            - ブランチ全体のファイルを読む
+            - 実装されている機能を全て列挙
+            - 最終成果物として評価
+
+            ### 1-3. ビジュアル評価データの確認
+            - `all-reports/dynamic-eval-*/screenshots/` のスクリーンショットを確認
+            - デスクトップ版とモバイル版を比較
+            - デザインの一貫性、レイアウト、配色を評価
+
+            ### 1-4. パフォーマンスデータの確認
+            - `all-reports/dynamic-eval-*/performance-*.json` を読み込む
+            - Lighthouse スコア（LCP, FID, CLS）を比較
+            - パフォーマンスのボトルネックを特定
+
+            ---
+
+            ## 🔍 Phase 2: 機能の差異分析（超重要 🆕）
+
+            ### Step 1: 機能リストの作成
+
+            各ブランチについて、実装された機能を列挙：
+
+            ```markdown
+            #### Branch A (task-xxx)
+            実装機能:
+            - ✅ 機能1: [詳細]
+            - ✅ 機能2: [詳細]
+            - ❌ 機能3: 未実装
+
+            #### Branch B (task-yyy)
+            実装機能:
+            - ✅ 機能1: [詳細、Aとの違い]
+            - ❌ 機能2: 未実装
+            - ✅ 機能3: [詳細]
+            ```
+
+            ### Step 2: 差異比較表の作成
+
+            | 機能 | Branch A | Branch B | Branch C | 評価 |
+            |------|----------|----------|----------|------|
+            | 機能1 | ✅ 実装方法A | ✅ 実装方法B | ❌ 未実装 | 🥇 A の方が優れている理由 |
+            | 機能2 | ❌ 未実装 | ✅ 実装 | ✅ 実装 | 🚨 A に追加すべき |
+            | 機能3 | ✅ 過剰実装 | ❌ 未実装 | ❌ 未実装 | ⚠️ A は削除を検討 |
+
+            ### Step 3: 改善提案
+
+            **追加すべき機能**:
+            - Branch A に機能2を追加すべき理由: [具体的な根拠]
+            - Branch B に機能4を追加すると良い理由: [具体的な根拠]
+
+            **削除すべき過剰な機能**:
+            - Branch A の機能3は要件外で複雑性を増している → 削除推奨
+
+            **実装方法の改善**:
+            - Branch B の機能1の実装は Branch A の方が優れている理由: [コード引用]
+
+            ---
+
+            ## 🔍 Phase 3: Web検索による最新事例の調査（可能な場合のみ 🌐）
+
+            **注意**: WebSearch ツールが使えない場合は、このフェーズはスキップしてください。
+
+            変更内容を分析した上で、関連する最新のベストプラクティスを検索：
+
+            1. **技術スタックの最新動向**
+               - 例: "React 19 best practices 2025"
+               - 例: "Three.js performance optimization 2025"
+
+            2. **デザイントレンド**（UI/UX変更がある場合）
+               - 例: "Web design trends 2025"
+               - 例: "3D web experience UI patterns"
+
+            3. **具体的な実装パターン**
+               - 例: "[使用ライブラリ] best practices GitHub"
+
+            検索結果を評価に反映：
+            - 最新トレンドとの比較
+            - ベストプラクティスの適用度
+            - 具体的な改善提案（検索で見つけた事例を引用）
+
+            ---
+
+            ## 📏 Phase 4: 評価軸の決定（固定5軸 + AI 🤖）
+
+            ### ✅ 必須評価軸（必ず評価）
+
+            以下の5つの軸は**必ず評価**してください：
+
+            **1. コード品質** (20点満点)
+            - 可読性、保守性、設計パターン
+            - 具体的なコードを引用して評価
+            - 技術的負債の有無
+
+            **2. パフォーマンス** (20点満点)
+            - ビルド時間（`summary.json` の `build_duration`）
+            - Lighthouse スコア（`performance-*.json`）
+            - バンドルサイズ（`summary.json` の `bundle_size_kb`）
+            - 具体的な数値で比較
+
+            **3. デザイン・UI/UX** (20点満点) 🆕
+            - スクリーンショットで視覚的品質を確認
+            - レイアウト、配色、タイポグラフィ
+            - レスポンシブ対応（デスクトップ・モバイル）
+            - **新規機能でもデザイン評価は必須**
+            - アクセシビリティ（コントラスト、フォントサイズ）
+
+            **4. テスト品質** (20点満点)
+            - テストカバレッジ、成功率（`summary.json`）
+            - テストコードの充実度
+            - エッジケースの処理
+
+            **5. 実装の完全性** (20点満点) 🆕
+            - Phase 2 で作成した機能比較表を元に評価
+            - 必要な機能が実装されているか
+            - 過剰な機能がないか
+            - 実装の一貫性
+
+            ### 🤖 AI が考える追加評価軸
+
+            **プロジェクトの特性を分析し**、以下のような独自軸を**自由に追加**してください：
+
+            - セキュリティ（認証、暗号化、入力検証）
+            - 国際化対応（i18n, l10n）
+            - エラーハンドリング
+            - ドキュメント品質
+            - 拡張性・スケーラビリティ
+            - **[その他、このプロジェクト固有の重要な観点]**
+
+            各追加軸には配点（10点満点推奨）と評価理由を明記してください。
+
+            ---
+
+            ## 🔬 Phase 5: 詳細評価
+
+            各ブランチについて、Phase 4 で決定した評価軸で詳細に分析してください。
+
+            **重要**:
+            - 必ず**具体的なコードを引用**
+            - スクリーンショットを参照
+            - Lighthouse スコアなどの数値を明示
+            - 主観的な評価には根拠を示す
+
+            ---
+
+            ## 📄 Phase 6: HTML レポート生成
 
             `comparison/ai-analysis.html` ファイルを作成してください。
 
-            **必須構成**：
+            **必須セクション**:
 
-            ```html
-            <!DOCTYPE html>
-            <html lang="ja">
-            <head>
-              <meta charset="UTF-8">
-              <meta name="viewport" content="width=device-width, initial-scale=1.0">
-              <title>AI Code Comparison Report</title>
-              <style>
-                body { font-family: system-ui, -apple-system, sans-serif; max-width: 1200px; margin: 0 auto; padding: 20px; line-height: 1.6; }
-                h1 { color: #2563eb; border-bottom: 3px solid #2563eb; padding-bottom: 10px; }
-                h2 { color: #1e40af; margin-top: 40px; }
-                .executive-summary { background: #eff6ff; padding: 20px; border-left: 4px solid #2563eb; margin: 20px 0; }
-                .ranking { display: flex; flex-direction: column; gap: 20px; margin: 20px 0; }
-                .rank-item { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; }
-                .rank-1 { border-left: 6px solid #10b981; background: #f0fdf4; }
-                .rank-2 { border-left: 6px solid #3b82f6; background: #eff6ff; }
-                .rank-3 { border-left: 6px solid #f59e0b; background: #fffbeb; }
-                .code-ref { background: #1e293b; color: #e2e8f0; padding: 2px 6px; border-radius: 4px; font-family: monospace; font-size: 0.9em; }
-                table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-                th, td { border: 1px solid #e5e7eb; padding: 12px; text-align: left; }
-                th { background: #f3f4f6; font-weight: 600; }
-                .metric-good { color: #10b981; font-weight: 600; }
-                .metric-warn { color: #f59e0b; font-weight: 600; }
-                .metric-bad { color: #ef4444; font-weight: 600; }
-              </style>
-            </head>
-            <body>
-              <h1>🤖 AI Code Comparison Report</h1>
+            1. **Executive Summary** - 評価対象、推奨ブランチ、推奨理由
+            2. **総合ランキング** - 1位〜順位付け（スコア表示）
+            3. **機能の差異分析** - Phase 2 の比較表と改善提案
+            4. **評価軸の説明** - 必須5軸 + AI追加軸
+            5. **デザイン・UI/UX評価** - スクリーンショット参照
+            6. **詳細分析** - 各ブランチの評価（コード引用）
+            7. **Web検索結果**（可能な場合） - 最新事例との比較
+            8. **推奨事項** - 今すぐ実施、次のステップ、長期的改善
+            9. **結論** - 最終推奨とマージ前の対応
 
-              <!-- 1. Executive Summary（必須） -->
-              <div class="executive-summary">
-                <h2>📊 Executive Summary</h2>
-                <p><strong>評価対象</strong>: [ブランチ数] 個のブランチ</p>
-                <p><strong>推奨ブランチ</strong>: [最も優れたブランチ名]</p>
-                <p><strong>推奨理由（要約）</strong>: [1-2文で簡潔に]</p>
-                <p><strong>主な発見</strong>: [重要なポイントを3-5個箇条書き]</p>
-              </div>
+            **HTMLスタイル**:
+            - レスポンシブデザイン
+            - グラデーション、シャドウ、ホバーエフェクト
+            - スクリーンショット表示エリア
+            - スコアバー（視覚的に表示）
+            - コードハイライト
+            - 色分け（良い=緑、警告=オレンジ、悪い=赤）
 
-              <!-- 2. ランキング（必須） -->
-              <h2>🏆 総合ランキング</h2>
-              <div class="ranking">
-                <div class="rank-item rank-1">
-                  <h3>🥇 1位: [ブランチ名]</h3>
-                  <p><strong>総合評価</strong>: ⭐⭐⭐⭐⭐ (5/5)</p>
-                  <p><strong>選定理由</strong>: ...</p>
-                  <p><strong>強み</strong>: ...</p>
-                  <p><strong>弱み</strong>: ...</p>
-                </div>
-                <!-- 2位、3位... -->
-              </div>
+            ---
 
-              <!-- 3. 評価軸の説明 -->
-              <h2>📏 評価軸</h2>
-              <p>このプロジェクトの特性を考慮し、以下の評価軸を設定しました：</p>
-              <table>
-                <tr><th>評価軸</th><th>重要度</th><th>説明</th></tr>
-                <!-- AI が決定した評価軸をここに記載 -->
-              </table>
+            ## ⚠️ 重要な指示（必読）
 
-              <!-- 4. 詳細分析（各ブランチごと） -->
-              <h2>🔍 詳細分析</h2>
+            1. **ブランチ全体を評価**: コミット単位ではなく、最終成果物として評価
+            2. **固定5軸は必須**: コード品質、パフォーマンス、デザイン、テスト、実装完全性
+            3. **機能の差異分析は必須**: 各ブランチの機能を列挙し、追加・削除提案
+            4. **デザイン評価は必須**: 新規機能でもスクリーンショットを確認
+            5. **具体的な根拠を示す**: コード引用、数値、スクショ参照
+            6. **HTML 形式で出力**: Markdown ではなく HTML
+            7. **プロジェクト固有の分析**: ChocoDrop に合った評価
+            8. **Web検索はオプション**: 使えない場合はスキップ
 
-              <h3>[ブランチ1]</h3>
-              <table>
-                <tr><th>評価項目</th><th>スコア</th><th>詳細</th></tr>
-                <tr>
-                  <td>パフォーマンス</td>
-                  <td class="metric-good">90/100</td>
-                  <td>ビルド時間: 15s（最速）<br>具体的なコード: <code class="code-ref">src/main.js:45-67</code> で最適化されている</td>
-                </tr>
-                <!-- 他の評価項目 -->
-              </table>
-              <p><strong>コードハイライト</strong>:</p>
-              <pre><code>// src/main.js:45-67
-              [実際のコードを引用]
-              </code></pre>
+            ---
 
-              <!-- 5. プロジェクト固有の分析 -->
-              <h2>🎯 [プロジェクト固有のセクション]</h2>
-              <p>このプロジェクトの特性を考慮した追加分析...</p>
+            ## 🎯 期待される成果物
 
-              <!-- 6. 推奨事項 -->
-              <h2>💡 推奨事項</h2>
-              <ol>
-                <li><strong>今すぐ実施</strong>: [最優先のアクション]</li>
-                <li><strong>次のステップ</strong>: [次に実施すべきこと]</li>
-                <li><strong>長期的改善</strong>: [将来的な改善案]</li>
-              </ol>
+            - `comparison/ai-analysis.html` - リッチな HTML レポート
+            - 各ブランチの総合スコア（100点満点）
+            - 明確な推奨ブランチと理由
+            - 具体的な改善提案（機能追加・削除・実装方法の改善）
+            - ビジュアル評価（スクリーンショット参照）
+            - パフォーマンス評価（Lighthouse スコア）
+            - 最終的なマージ判断と次のアクション
 
-              <!-- 7. 結論 -->
-              <h2>🎯 結論</h2>
-              <p>総合的に判断して、<strong>[ブランチ名]</strong> を main にマージすることを推奨します。</p>
-              <p><strong>根拠</strong>: [詳細な理由を記載]</p>
-            </body>
-            </html>
-            ```
-
-            ## ⚠️ 重要な指示
-
-            1. **コードは必ず読む**: 「可能なら」ではなく、必須です
-            2. **評価軸は自分で考える**: プロジェクトに最適な軸を設定
-            3. **具体的なコード引用**: 評価の根拠を示す
-            4. **HTML 形式**: Markdown ではなく HTML で生成
-            5. **構成厳守**: Executive Summary → ランキング → 詳細
-            6. **プロジェクト固有**: 画一的ではなく、このプロジェクトに合った分析
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+            頑張ってください！🚀
+          claude_code_oauth_token: ${{ secrets.CLAUDE_ACCESS_TOKEN }}
 
       - name: Upload comparison report
         uses: actions/upload-artifact@v4

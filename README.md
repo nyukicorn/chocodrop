@@ -3,120 +3,83 @@
 ちょこっとDrop。世界が咲く。
 Drop a little, bloom a lot.
 
-**Three.js シーンに UI とインタラクション機能を追加できるブラウザツール**
+**テキストや音声で、Three.js シーンに瞬時にオブジェクトを追加できるブラウザツール**
 
-A browser-based tool for adding UI and interaction features to Three.js scenes.
+A browser-based tool that enables instant 3D object creation and scene manipulation in Three.js using natural language commands.
 
 <div align="center">
 
-**[🌐 Website](https://nyukicorn.github.io/chocodrop/)** | **[🎮 Try Demo](https://nyukicorn.github.io/chocodrop/examples/basic/)** | **[📚 Docs](./docs/INTEGRATION.md)**
+**[🌐 Website](https://nyukicorn.github.io/chocodrop/)** | **[🎮 Try Demo](https://nyukicorn.github.io/chocodrop/examples/basic/)** | **[📚 Docs](./docs/SETUP.md)**
 
 </div>
 
 ---
 
-## 🚀 使い方（目的に合わせて選べます）
+## ✨ できること / What You Can Do
 
-### 1. ブラウザで雰囲気を感じたい
+### 誰でもすぐ試せる
 
-複数の世界観を用意しています：
-- [Basic](https://nyukicorn.github.io/chocodrop/examples/basic/) - 雲の上でふわふわと浮かぶ、創造の種を落とす場所
-- [Music Garden](https://nyukicorn.github.io/chocodrop/examples/music-garden/) - 散らばった硝子のかけらたちが集まり寄り添い、新たな花をそっと咲かせる世界
-- [Wabi-Sabi](https://nyukicorn.github.io/chocodrop/examples/wabi-sabi/) - 音楽に共鳴する、墨が紡ぐ不完全な美の世界
-- [Toy City](https://nyukicorn.github.io/chocodrop/examples/toy-city/) - 観覧車やメリーゴーランド、そして可愛いAIたちが回ってます！
-- [Space](https://nyukicorn.github.io/chocodrop/examples/space/) - 銀河が広がり、3つの星雲が煌めく無限の宇宙
-- その他 → [examples/](examples/)
+**1. 多彩なデモで雰囲気を体験**
 
-**できること**: ✅ インポート（画像/動画をファイルから読み込み）
+ChocoDrop には複数の世界観のデモが用意されています：
+- [Basic (基本)](https://nyukicorn.github.io/chocodrop/examples/basic/) - シンプルな操作体験
+- [Music Garden (音楽の庭)](https://nyukicorn.github.io/chocodrop/examples/music-garden/) - 夜桜と音楽
+- [Space (宇宙)](https://nyukicorn.github.io/chocodrop/examples/space/) - 宇宙空間
+- [Toy City (おもちゃの街)](https://nyukicorn.github.io/chocodrop/examples/toy-city/) - カラフルな街
+- その他多数 → [examples/](examples/)
 
----
+**2. ブックマークから Three.js サイトにも導入可能**
 
-### 2. 既存サイトで使いたい（ブックマークレット）
+threejs.org など、Three.js を使っている既存サイトにも ChocoDrop UI を表示できます。
+※技術的には「ブックマークレット (bookmarklet)」と呼ばれる機能です
 
-daemon を起動してブックマークレット経由で統合：
+詳細: [B. Three.js サイトにワンクリック注入](#b-threejs-サイトにワンクリック注入)
 
-```bash
-npx --yes @chocodrop/daemon@alpha
-```
+### 開発者向け: AI生成機能も使える
 
-[ブックマークレット登録ページ](https://nyukicorn.github.io/chocodrop/examples/bookmarklet-v2.html) → threejs.org 等で実行
+**daemon (配布版) を起動すると:**
+- ✅ ChocoDrop UI が使える
+- ✅ シーンの操作やスクリーンショットが可能
+- ❌ AI生成機能は使えない（KAMUI Code 設定が必要）
 
-**できること**: ✅ インポート（画像/動画をファイルから読み込み）
+**さらに KAMUI Code を設定すると:**
+- ✅ "右上に桜の3Dモデルを置いて" → AI が生成・配置
+- ✅ "このオブジェクトをモノクロにして" → AI が変換
 
-詳細: [セクション B](#b-外部サイトにワンクリック注入ブックマークレット)
-
----
-
-### 3. 自分のプロジェクトに組み込みたい
-
-daemon を起動して SDK を読み込む：
-
-```bash
-npx --yes @chocodrop/daemon@alpha
-```
-
-```html
-<script src="http://127.0.0.1:43110/sdk.js"></script>
-```
-
-**できること**: ✅ インポート（画像/動画をファイルから読み込み）
-
-詳細: [統合ガイド](docs/INTEGRATION.md) / [セクション C](#c-自分の-threejs-プロジェクトに組み込む配布版)
+⚠️ **AI生成機能を使うには**: リポジトリをcloneし、KAMUI Code設定が必要です。
+詳細: [D. 生成機能まで有効化する](#d-生成機能まで有効化するkamui-code--ローカルサーバー)
 
 ---
 
-### 4. AI生成機能も使いたい
+## 🚀 クイックスタート
 
-リポジトリをクローンしてフル機能を利用できます：
+### 1. まずは目的に合わせてルートを選ぶ
 
-```bash
-git clone https://github.com/nyukicorn/chocodrop.git
-cd chocodrop
-npm install
-npm run setup:mcp  # KAMUI Code 設定
-npm run dev        # サーバー起動
-```
-
-**できること**: ✅ インポート（画像/動画をファイルから読み込み） + ✅ 生成（AIで画像/動画を生成）
-
-⚠️ **注意**: AI生成には KAMUI Code の設定が必要です。
-詳細: [AI生成セットアップ](docs/SETUP.md)
-
-詳細な手順は下の「シナリオ別ガイド」を参照してください。
-
----
-
-## 📖 シナリオ別ガイド
-
-まずは目的に合わせてルートを選びましょう：
-
-| 目的 | 方法 | 所要時間 | 主な手順 |
+| 目的 | 推奨ルート | 所要時間 | 主な手順 |
 | --- | --- | --- | --- |
-| **雰囲気をすぐ体験したい** | オンライン体験 | 1 分 | ブラウザでサンプルを開くだけ |
-| **threejs.org 等の既存サイトで試したい** | ブックマークレット + daemon | 2–3 分 | daemon 起動 → ブックマークレット登録 → 対象ページで実行 |
+| **雰囲気をすぐ体験したい** | デモ版（ホスト済み） | 1 分 | ブラウザでサンプルを開くだけ |
+| **threejs.org 等の Three.js サイトで試したい** | ブックマークから注入 + daemon | 2–3 分 | daemon 起動 → ブックマーク登録 → 対象ページで実行 |
 | **自分のプロジェクトに組み込みたい** | daemon + SDK | 5–10 分 | daemon 起動 → SDK 読み込み → `ready()` `attach()` |
 | **AI生成機能も使いたい** | リポジトリ clone + KAMUI Code 設定 | 10 分〜 | clone → `npm run setup:mcp` → `npm run dev` |
 
-気になる行をクリック（またはスクロール）して、下記の手順をたどってください。
+気になる行をクリック（またはスクロール）して、下記の詳細セクションから該当手順をたどってください。
 
----
+### 2. シナリオ別ガイド
 
-### A. ブラウザで体験
+#### A. ブラウザで今すぐ試す（デモ版）
 
-複数の世界観を用意しています：
-- [Basic](https://nyukicorn.github.io/chocodrop/examples/basic/) - 雲の上でふわふわと浮かぶ、創造の種を落とす場所
-- [Music Garden](https://nyukicorn.github.io/chocodrop/examples/music-garden/) - 散らばった硝子のかけらたちが集まり寄り添い、新たな花をそっと咲かせる世界
-- [Wabi-Sabi](https://nyukicorn.github.io/chocodrop/examples/wabi-sabi/) - 音楽に共鳴する、墨が紡ぐ不完全な美の世界
-- [Toy City](https://nyukicorn.github.io/chocodrop/examples/toy-city/) - 観覧車やメリーゴーランド、そして可愛いAIたちが回ってます！
-- [Space](https://nyukicorn.github.io/chocodrop/examples/space/) - 銀河が広がり、3つの星雲が煌めく無限の宇宙
-- その他 → [examples/](examples/)
+- **オンラインですぐ試す:** [Basic Demo](https://nyukicorn.github.io/chocodrop/examples/basic/) を開くだけで UI を体験できます。
+- **ローカルで試す:**
+  ```bash
+  npm run example:basic
+  ```
+  ブラウザで `http://localhost:8000/basic/index.html` を開きます。ネットワークが制限されている環境でも動作確認できます。
+- さらに世界観を試したい場合は `examples/` ディレクトリに複数のシーンが用意されています。
 
-**ローカルで体験:**
-```bash
-npm run example:basic  # または他の例
-```
+#### B. Three.js サイトにワンクリック注入
 
-#### B. 外部サイトにワンクリック注入（ブックマークレット）
+ブックマークバーに登録したボタンをクリックするだけで、Three.js を使っている既存サイトに ChocoDrop を導入できます。
+※技術的には「ブックマークレット (bookmarklet)」と呼ばれる機能です
 
 1. **daemon を起動**（初回のみ）
    ```bash
@@ -126,8 +89,8 @@ npm run example:basic  # または他の例
    # または pnpm
    pnpm dlx @chocodrop/daemon@alpha
    ```
-   起動すると、ブラウザから ChocoDrop が使えるようになります（`http://127.0.0.1:43110` で ChocoDrop の機能（SDK）が配信されます）。
-2. **ブックマークレットを登録**
+   起動後は `http://127.0.0.1:43110` で SDK/UI が配信されます。
+2. **ブックマークを登録**
    [Bookmarklet v2](https://nyukicorn.github.io/chocodrop/examples/bookmarklet-v2.html) を開き、「🍫 ChocoDrop v2」ボタンをブックマークバーへドラッグ＆ドロップします。
 3. **対象ページで実行**
    threejs.org など任意の Three.js ページで登録したブックマークをクリックすると、右下に ChocoDrop UI が表示されます。daemon が停止している場合は Toast UI が起動コマンドを案内します。
@@ -172,7 +135,7 @@ npm run example:basic  # または他の例
    const choco = createChocoDrop(scene, {
      camera,
      renderer,
-     serverUrl: null  // サーバーレスモード（UIのみ）
+     serverUrl: 'http://127.0.0.1:43110'
    });
    ```
    bundler 向けの詳細手順は [`docs/INTEGRATION.md`](docs/INTEGRATION.md) を参照してください。
@@ -210,14 +173,14 @@ const result = await window.chocodrop.reload();
 console.log(result); // {ok: true, message: "Configuration reloaded"}
 ```
 
-### 🌐 外部サイト対応 - Full UI表示
-Bookmarkletやコンソールスニペットで外部サイト（threejs.org、CodePen、Glitch等）に統合した場合も、**フル機能のUIが表示されます**（プレースホルダーUIではありません）。
+### 🌐 Three.js サイト対応 - Full UI表示
+ブックマークから Three.js を使っている外部サイト（threejs.org、CodePen、Glitch等）に統合した場合も、**フル機能のUIが表示されます**（プレースホルダーUIではありません）。
 
 **特徴:**
 - ✅ 完全なChocoDrop UIが表示
 - ✅ THREE.jsが未読み込みでも自動的にCDNから取得
 - ✅ ローカルデーモン(127.0.0.1)との通信のみ（外部送信なし）
-- ⚠️ UI表示と操作のみ（AI生成は daemon では使えません。リポジトリ clone + KAMUI Code 設定が必要）
+- ⚠️ 現在は読み取り専用モード（AI生成機能はローカル環境でのKAMUI Code設定が必要）
 
 ### 🏢 企業ポリシー配慮 - CDN制御
 企業ネットワークでCDNアクセスが制限されている環境向けに、THREE.js読み込み動作をカスタマイズできます:
@@ -307,7 +270,7 @@ ChocoDrop は常駐 daemon + ブラウザ SDK の構成で動作します。
 
 ## ❓ トラブルシューティング
 
-**Bookmarkletが動かない**
+**ブックマークから注入できない**
 - ブラウザのコンソール（F12）でエラーを確認
 - デーモンが起動しているか確認: `http://127.0.0.1:43110/v1/health` にアクセス
 
@@ -316,9 +279,8 @@ ChocoDrop は常駐 daemon + ブラウザ SDK の構成で動作します。
 - ページをリロードしてもう一度試す
 
 **CORSエラー**
-- allowlist設定が必要な場合があります
+- allowlist設定が必要な場合があります（詳細なガイドは次バージョンで追加予定）
 - `~/.config/chocodrop/allowlist.json` で設定可能
-- 詳細: [トラブルシューティング](docs/TROUBLESHOOTING.md#0-daemon-関連98の人向け)
 
 ---
 
