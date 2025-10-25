@@ -393,17 +393,17 @@ jobs:
               <!-- 1. Executive Summary（必須） -->
               <div class="executive-summary">
                 <h2>📊 Executive Summary</h2>
-                <p><strong>評価対象</strong>: [ブランチ数] 個のブランチ</p>
-                <p><strong>推奨ブランチ</strong>: [最も優れたブランチ名]</p>
-                <p><strong>推奨理由（要約）</strong>: [1-2文で簡潔に]</p>
-                <p><strong>主な発見</strong>: [重要なポイントを3-5個箇条書き]</p>
+                <p><strong>評価対象</strong>: (ブランチ数) 個のブランチ</p>
+                <p><strong>推奨ブランチ</strong>: (最も優れたブランチ名)</p>
+                <p><strong>推奨理由（要約）</strong>: (1-2文で簡潔に)</p>
+                <p><strong>主な発見</strong>: (重要なポイントを3-5個箇条書き)</p>
               </div>
 
               <!-- 2. ランキング（必須） -->
               <h2>🏆 総合ランキング</h2>
               <div class="ranking">
                 <div class="rank-item rank-1">
-                  <h3>🥇 1位: [ブランチ名]</h3>
+                  <h3>🥇 1位: (ブランチ名)</h3>
                   <p><strong>総合評価</strong>: ⭐⭐⭐⭐⭐ (5/5)</p>
                   <p><strong>選定理由</strong>: ...</p>
                   <p><strong>強み</strong>: ...</p>
@@ -423,7 +423,7 @@ jobs:
               <!-- 4. 詳細分析（各ブランチごと） -->
               <h2>🔍 詳細分析</h2>
 
-              <h3>[ブランチ1]</h3>
+              <h3>(ブランチ1)</h3>
               <table>
                 <tr><th>評価項目</th><th>スコア</th><th>詳細</th></tr>
                 <tr>
@@ -435,25 +435,25 @@ jobs:
               </table>
               <p><strong>コードハイライト</strong>:</p>
               <pre><code>// src/main.js:45-67
-[実際のコードを引用]
+実際のコードを引用してください
 </code></pre>
 
               <!-- 5. プロジェクト固有の分析 -->
-              <h2>🎯 [プロジェクト固有のセクション]</h2>
+              <h2>🎯 (プロジェクト固有のセクション)</h2>
               <p>このプロジェクトの特性を考慮した追加分析...</p>
 
               <!-- 6. 推奨事項 -->
               <h2>💡 推奨事項</h2>
               <ol>
-                <li><strong>今すぐ実施</strong>: [最優先のアクション]</li>
-                <li><strong>次のステップ</strong>: [次に実施すべきこと]</li>
-                <li><strong>長期的改善</strong>: [将来的な改善案]</li>
+                <li><strong>今すぐ実施</strong>: (最優先のアクション)</li>
+                <li><strong>次のステップ</strong>: (次に実施すべきこと)</li>
+                <li><strong>長期的改善</strong>: (将来的な改善案)</li>
               </ol>
 
               <!-- 7. 結論 -->
               <h2>🎯 結論</h2>
-              <p>総合的に判断して、<strong>[ブランチ名]</strong> を main にマージすることを推奨します。</p>
-              <p><strong>根拠</strong>: [詳細な理由を記載]</p>
+              <p>総合的に判断して、<strong>(ブランチ名)</strong> を main にマージすることを推奨します。</p>
+              <p><strong>根拠</strong>: (詳細な理由を記載)</p>
             </body>
             </html>
             ```
