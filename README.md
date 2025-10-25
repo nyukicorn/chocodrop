@@ -154,6 +154,43 @@ threejs.org など、Three.js を使っている既存サイトにも ChocoDrop 
 
 > 🔍 **ヒント**: daemon や `sdk.js` のレスポンスヘッダーに `X-ChocoDrop-SDK-Source: dist` が表示されていれば、ビルド済みバンドルが正しく配信されています。ブラウザで `await window.chocodrop.ready()` を実行して接続状況をチェックできます。
 
+#### E. GitHub Actions で並列実装・評価（開発者向け）
+
+複数のアプローチを AI に並列実装させ、自動的に比較評価するワークフローです。
+
+**使用ワークフロー:** `.github/workflows/ai-parallel-implementation.yml`
+
+1. **前提条件**
+   - GitHub リポジトリに `CLAUDE_CODE_OAUTH_TOKEN` シークレットが設定済み
+   - ローカルで `/install-github-app` を実行済み
+
+2. **コマンドラインから実行**
+   ```bash
+   gh workflow run ai-parallel-implementation.yml \
+     -f task_description="VR/AR機能を追加して、没入感のある体験を提供" \
+     -f num_approaches=3
+   ```
+
+3. **GitHub UI から実行**
+   - [Actions タブ](../../actions/workflows/ai-parallel-implementation.yml) を開く
+   - 「Run workflow」をクリック
+   - パラメータを入力：
+     - **task_description**: 実装したい機能の説明
+     - **num_approaches**: 1〜5（異なるアプローチの数）
+
+4. **実行の流れ**
+   - 指定した数のアプローチで並列実装開始
+   - Claude AI が各アプローチで異なる実装を作成
+   - 各ブランチを自動的に push
+   - 自動的に比較評価ワークフローを実行
+   - 比較レポート（HTML）が Artifacts に生成される
+
+5. **結果の確認**
+   - 実行完了後、Artifacts から `comparison-report` をダウンロード
+   - `ai-analysis.html` を開いて、各アプローチの詳細な比較分析を確認
+
+> ⚠️ **注意**: AI による実装は GitHub Actions の ubuntu-latest 環境で実行されます。ローカル環境ではありません。
+
 ---
 
 ## 💡 主な機能
