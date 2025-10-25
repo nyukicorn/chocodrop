@@ -43,7 +43,7 @@ jobs:
           NUM=${{ inputs.num_approaches }}
 
           # 1からNUMまでの配列を生成
-          MATRIX=$(seq 1 $NUM | jq -R . | jq -s .)
+          MATRIX=$(seq 1 $NUM | jq -R . | jq -s -c .)
           echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
 
           # タイムスタンプを生成（ブランチ名に使用）
