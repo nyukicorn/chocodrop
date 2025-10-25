@@ -3,6 +3,7 @@ import * as THREEModule from 'three';
 const THREE = globalThis.THREE || THREEModule;
 import { ChocoDropClient, ChocoDroClient, LiveCommandClient } from './LiveCommandClient.js';
 import { createObjectKeywords, matchKeywordWithFilename } from '../common/translation-dictionary.js';
+import XRBridge, { detectSpatialEnvironment } from './xr/XRBridge.js';
 
 /**
  * Scene Manager - 3D scene integration for ChocoDrop System
@@ -64,6 +65,9 @@ export class SceneManager {
       defaultObjectScale: options.defaultObjectScale || 1.0,
       enableObjectSelection: options.enableObjectSelection !== false,
       enableMouseInteraction: options.enableMouseInteraction,
+      enableSpatialMode: options.enableSpatialMode === true,
+      autoStartSpatialSession: options.autoStartSpatialSession !== false,
+      spatialHitTest: options.spatialHitTest !== false,
       enableDebugLogging: options.enableDebugLogging === true,
       defaultModelSize: options.defaultModelSize || 6,
       dracoDecoderPath: options.dracoDecoderPath || null,
@@ -74,6 +78,23 @@ export class SceneManager {
     this.setupClickEvents();
     
     console.log('🧪 SceneManager initialized with click selection');
+
+    this.environmentInfo = detectSpatialEnvironment();
+    this.xrBridge = null;
+    this.spatialState = {
+      enabled: this.config.enableSpatialMode,
+      anchorPosition: null,
+      anchorQuaternion: null,
+      lastUpdatedAt: 0
+    };
+    this.xrFrameRequestId = null;
+    this.xrHitTestSession = null;
+
+    if (this.spatialState.enabled && this.renderer && this.config.autoStartSpatialSession) {
+      this.enableSpatialMode().catch((error) => {
+        console.warn('⚠️ Failed to auto-start spatial session:', error);
+      });
+    }
 
     // デバッグやコンソール操作を容易にするためグローバル参照を保持
     if (typeof globalThis !== 'undefined') {
@@ -94,6 +115,146 @@ export class SceneManager {
     } else {
       console.log('🖱️ Mouse interaction disabled (safe mode). Set enableMouseInteraction: true to enable.');
     }
+  }
+
+  async enableSpatialMode(options = {}) {
+    if (this.spatialState.enabled && this.xrBridge) {
+      return true;
+    }
+
+    if (!this.renderer) {
+      throw new Error('XR/ARモードを有効化するには renderer の参照が必要です');
+    }
+
+    if (!this.xrBridge) {
+      this.xrBridge = options.xrBridge || new XRBridge(this.renderer);
+    }
+
+    if (!this.xrBridge.isSupported) {
+      throw new Error('このブラウザは WebXR/visionOS セッションをサポートしていません');
+    }
+
+    this.spatialState.enabled = true;
+    await this.initializeSpatialSession(options);
+    return true;
+  }
+
+  disableSpatialMode() {
+    this.stopXRHitTestLoop();
+    this.spatialState.enabled = false;
+    this.spatialState.anchorPosition = null;
+    this.spatialState.anchorQuaternion = null;
+    this.xrHitTestSession = null;
+  }
+
+  async initializeSpatialSession(options = {}) {
+    if (!this.xrBridge) {
+      this.xrBridge = new XRBridge(this.renderer);
+    }
+
+    const session = await this.xrBridge.ensureSession(options.sessionOptions || {});
+    if (!session) {
+      throw new Error('XRセッションの初期化に失敗しました');
+    }
+
+    session.addEventListener('end', () => {
+      this.stopXRHitTestLoop();
+      this.spatialState.anchorPosition = null;
+      this.spatialState.anchorQuaternion = null;
+    }, { once: true });
+
+    if (this.config.spatialHitTest) {
+      await this.xrBridge.ensureHitTestSource();
+      this.startXRHitTestLoop();
+    }
+
+    return session;
+  }
+
+  startXRHitTestLoop() {
+    if (!this.xrBridge || !this.xrBridge.session || !this.xrBridge.hitTestSource || this.xrFrameRequestId) {
+      return;
+    }
+
+    const session = this.xrBridge.session;
+    const referenceSpace = this.xrBridge.referenceSpace;
+    const hitTestSource = this.xrBridge.hitTestSource;
+
+    if (!referenceSpace || !hitTestSource) {
+      return;
+    }
+
+    const onXRFrame = (time, frame) => {
+      if (frame && this.spatialState.enabled) {
+        const hitResults = frame.getHitTestResults(hitTestSource);
+        if (hitResults && hitResults.length > 0) {
+          const pose = hitResults[0].getPose(referenceSpace);
+          if (pose && pose.transform) {
+            this.updateSpatialAnchorFromTransform(pose.transform);
+          }
+        }
+      }
+
+      if (this.xrBridge?.session && this.spatialState.enabled) {
+        this.xrFrameRequestId = session.requestAnimationFrame(onXRFrame);
+      }
+    };
+
+    this.xrHitTestSession = session;
+    this.xrFrameRequestId = session.requestAnimationFrame(onXRFrame);
+  }
+
+  stopXRHitTestLoop() {
+    const session = this.xrHitTestSession || this.xrBridge?.session;
+    if (session && typeof session.cancelAnimationFrame === 'function' && this.xrFrameRequestId) {
+      try {
+        session.cancelAnimationFrame(this.xrFrameRequestId);
+      } catch (error) {
+        console.warn('⚠️ Failed to cancel XR hit test loop:', error);
+      }
+    }
+    this.xrFrameRequestId = null;
+    this.xrHitTestSession = null;
+  }
+
+  updateSpatialAnchorFromTransform(transform) {
+    if (!transform) {
+      return null;
+    }
+
+    const matrix = new THREE.Matrix4();
+    if (transform.matrix && transform.matrix.length === 16) {
+      matrix.fromArray(Array.from(transform.matrix));
+    } else {
+      const pos = transform.position || { x: 0, y: 0, z: 0 };
+      const rot = transform.orientation || { x: 0, y: 0, z: 0, w: 1 };
+      const tempMatrix = new THREE.Matrix4();
+      const translation = new THREE.Matrix4().makeTranslation(pos.x, pos.y, pos.z);
+      const rotation = new THREE.Matrix4().makeRotationFromQuaternion(new THREE.Quaternion(rot.x, rot.y, rot.z, rot.w));
+      matrix.copy(translation).multiply(rotation);
+    }
+
+    const position = new THREE.Vector3();
+    position.setFromMatrixPosition(matrix);
+
+    const quaternion = new THREE.Quaternion();
+    quaternion.setFromRotationMatrix(matrix);
+
+    this.spatialState.anchorPosition = position;
+    this.spatialState.anchorQuaternion = quaternion;
+    this.spatialState.lastUpdatedAt = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+
+    return { position, quaternion };
+  }
+
+  getSpatialAnchorInfo() {
+    return {
+      enabled: this.spatialState.enabled,
+      position: this.spatialState.anchorPosition ? this.spatialState.anchorPosition.clone() : null,
+      quaternion: this.spatialState.anchorQuaternion ? this.spatialState.anchorQuaternion.clone() : null,
+      lastUpdatedAt: this.spatialState.lastUpdatedAt,
+      environment: this.environmentInfo
+    };
   }
 
   /**
@@ -4341,10 +4502,31 @@ export class SceneManager {
     console.log('🧹 Loading states cleared from scene');
   }
 
+  calculateSpatialAnchorRelativePosition(relativePosition = { x: 0, y: 0, z: 0 }) {
+    if (!this.spatialState.enabled || !this.spatialState.anchorPosition) {
+      return null;
+    }
+
+    const base = this.spatialState.anchorPosition.clone();
+    const offset = new THREE.Vector3(relativePosition.x, relativePosition.y, relativePosition.z);
+    if (this.spatialState.anchorQuaternion) {
+      offset.applyQuaternion(this.spatialState.anchorQuaternion);
+    }
+
+    const finalPosition = base.add(offset);
+    this.logDebug?.('📌 Spatial anchor placement:', finalPosition);
+    return finalPosition;
+  }
+
   /**
    * カメラ相対位置計算（画面座標対応）
    */
   calculateCameraRelativePosition(relativePosition) {
+    const spatialPosition = this.calculateSpatialAnchorRelativePosition(relativePosition);
+    if (spatialPosition) {
+      return spatialPosition;
+    }
+
     if (!this.camera) {
       if (this.config.enableDebugLogging) {
         console.warn('📷 Camera not available, using fallback positioning');
@@ -5506,6 +5688,7 @@ export class SceneManager {
    * クリーンアップ
    */
   dispose() {
+    this.disableSpatialMode();
     this.clearAll();
     if (this.experimentGroup.parent) {
       this.experimentGroup.parent.remove(this.experimentGroup);
