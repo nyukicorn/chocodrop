@@ -238,6 +238,7 @@ jobs:
     if: github.event.inputs.compare_results == 'true'
     permissions:
       contents: read
+      id-token: write
 
     steps:
       - name: Checkout repository
