@@ -467,7 +467,7 @@ jobs:
             4. **HTML 形式**: Markdown ではなく HTML で生成
             5. **構成厳守**: Executive Summary → ランキング → 詳細
             6. **プロジェクト固有**: 画一的ではなく、このプロジェクトに合った分析
-          claude_code_oauth_token: ${{ secrets.CLAUDE_ACCESS_TOKEN }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
 
       - name: Upload comparison report
         uses: actions/upload-artifact@v4
