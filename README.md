@@ -336,3 +336,14 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 - **GitHub:** https://github.com/nyukicorn/chocodrop
 - **Examples:** [examples/](examples/)
+
+## 🎉 完成！
+
+ChocoDrop の設定と導入が完了しました！これで Three.js シーンにテキストや音声でオブジェクトを瞬時に追加できます。
+
+**次のステップ:**
+- [Basic Demo](https://nyukicorn.github.io/chocodrop/examples/basic/) で体験してみる
+- 自分のプロジェクトに [SDK を組み込む](#c-自分の-threejs-プロジェクトに組み込む配布版)
+- [AI生成機能](#d-生成機能まで有効化するkamui-code--ローカルサーバー) を試す
+
+何か問題が発生した場合は [トラブルシューティング](#-トラブルシューティング) をご確認ください。
