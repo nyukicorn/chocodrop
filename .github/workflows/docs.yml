@@ -1,0 +1,129 @@
+name: Documentation
+
+on:
+  push:
+    branches: ['**']  # すべてのブランチで実行
+    paths:
+      - 'src/**/*.js'
+      - 'docs/**/*.md'
+      - '.github/workflows/docs.yml'
+  pull_request:
+    branches: ['**']  # すべてのブランチへの PR で実行
+    paths:
+      - 'src/**/*.js'
+      - 'docs/**/*.md'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  # JSDoc 生成（将来的に追加予定）
+  generate-jsdoc:
+    name: Generate JSDoc
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate JSDoc (placeholder)
+        run: |
+          echo "📚 JSDoc generation will be added in future"
+          echo "Current docs structure:"
+          ls -la docs/
+
+      # 将来的にここに JSDoc 生成を追加
+      # - name: Generate JSDoc
+      #   run: npm run docs:generate
+      #
+      # - name: Upload JSDoc artifacts
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: jsdoc
+      #     path: docs/api/
+
+  # マークダウンドキュメントの検証
+  validate-markdown:
+    name: Validate Markdown
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check markdown files
+        run: |
+          echo "📝 Checking markdown files..."
+          find docs -name "*.md" -type f | while read file; do
+            echo "✓ $file"
+          done
+
+      - name: Check for broken links (placeholder)
+        run: |
+          echo "🔗 Link checking will be added in future"
+          # npm run docs:check-links
+
+  # HTML ドキュメントの生成
+  generate-html-docs:
+    name: Generate HTML Documentation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Generate HTML from Markdown
+        run: |
+          echo "📄 Generating HTML documentation..."
+          mkdir -p docs/html
+
+          # 将来的にここで Markdown → HTML 変換を実行
+          # 例: marked や markdown-it を使用
+          echo "HTML generation placeholder" > docs/html/index.html
+
+      - name: Upload HTML documentation
+        uses: actions/upload-artifact@v4
+        with:
+          name: html-docs
+          path: docs/html/
+          retention-days: 30
+
+  # GitHub Pages へのデプロイ（main ブランチのみ）
+  deploy-docs:
+    name: Deploy to GitHub Pages
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: [generate-html-docs, validate-markdown]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download HTML documentation
+        uses: actions/download-artifact@v4
+        with:
+          name: html-docs
+          path: docs/html/
+
+      - name: Deploy to GitHub Pages
+        run: |
+          echo "🚀 Deploying documentation to GitHub Pages..."
+          echo "This is a placeholder for actual deployment"
+          # 実際のデプロイは deploy.yml で実行されている

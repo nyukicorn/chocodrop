@@ -1,0 +1,133 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version bump type'
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+          - prerelease
+      prerelease_tag:
+        description: 'Prerelease tag (e.g., alpha, beta, rc)'
+        required: false
+        default: 'alpha'
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
+
+      - name: Build packages
+        run: npm run build
+
+      - name: Bump version
+        id: version
+        run: |
+          if [ "${{ github.event.inputs.version }}" == "prerelease" ]; then
+            npm version prerelease --preid=${{ github.event.inputs.prerelease_tag }} --no-git-tag-version
+          else
+            npm version ${{ github.event.inputs.version }} --no-git-tag-version
+          fi
+
+          NEW_VERSION=$(node -p "require('./package.json').version")
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "📦 New version: $NEW_VERSION"
+
+      - name: Update CHANGELOG
+        run: |
+          VERSION="${{ steps.version.outputs.new_version }}"
+          DATE=$(date +%Y-%m-%d)
+
+          cat > CHANGELOG.tmp << EOF
+          ## [$VERSION] - $DATE
+
+          ### Added
+          - Release $VERSION
+
+          EOF
+
+          if [ -f CHANGELOG.md ]; then
+            tail -n +2 CHANGELOG.md >> CHANGELOG.tmp
+            mv CHANGELOG.tmp CHANGELOG.md
+          else
+            mv CHANGELOG.tmp CHANGELOG.md
+          fi
+
+      - name: Commit version bump
+        run: |
+          VERSION="${{ steps.version.outputs.new_version }}"
+          git add package.json package-lock.json CHANGELOG.md
+          git commit -m "🔖 Release v$VERSION"
+          git tag -a "v$VERSION" -m "Release v$VERSION"
+
+      - name: Push changes
+        run: |
+          git push origin main
+          git push origin --tags
+
+      - name: Create GitHub Release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ steps.version.outputs.new_version }}
+          release_name: Release v${{ steps.version.outputs.new_version }}
+          body: |
+            ## ChocoDrop v${{ steps.version.outputs.new_version }}
+
+            ### Changes
+            See [CHANGELOG.md](https://github.com/nyukicorn/chocodrop/blob/main/CHANGELOG.md) for details.
+
+            ### Installation
+            ```bash
+            npm install chocodrop@${{ steps.version.outputs.new_version }}
+            ```
+
+            ### Documentation
+            - [Setup Guide](https://github.com/nyukicorn/chocodrop/blob/main/docs/SETUP.md)
+            - [API Documentation](https://github.com/nyukicorn/chocodrop/blob/main/docs/API.md)
+            - [Integration Guide](https://github.com/nyukicorn/chocodrop/blob/main/docs/INTEGRATION.md)
+          draft: false
+          prerelease: ${{ contains(steps.version.outputs.new_version, 'alpha') || contains(steps.version.outputs.new_version, 'beta') || contains(steps.version.outputs.new_version, 'rc') }}
+
+      # NPM への公開（オプション: secrets.NPM_TOKEN が設定されている場合のみ）
+      - name: Publish to NPM
+        if: env.NPM_TOKEN != ''
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
