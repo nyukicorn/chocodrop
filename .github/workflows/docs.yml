@@ -2,13 +2,13 @@ name: Documentation
 
 on:
   push:
-    branches: [main]
+    branches: ['**']  # すべてのブランチで実行
     paths:
       - 'src/**/*.js'
       - 'docs/**/*.md'
       - '.github/workflows/docs.yml'
   pull_request:
-    branches: [main]
+    branches: ['**']  # すべてのブランチへの PR で実行
     paths:
       - 'src/**/*.js'
       - 'docs/**/*.md'

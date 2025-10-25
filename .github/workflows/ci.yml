@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: ['**']  # すべてのブランチで実行
   pull_request:
-    branches: [main]
+    branches: ['**']  # すべてのブランチへの PR で実行
 
 jobs:
   test:
