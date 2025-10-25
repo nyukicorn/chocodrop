@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Hello page demonstrating semantic HTML structure with accessibility focus">
+    <title>Hello - Approach 1: Semantic HTML</title>
+    <style>
+        /* Approach 1: Vanilla CSS with semantic structure and accessibility focus */
+        :root {
+            --primary-color: #2563eb;
+            --background-color: #f8fafc;
+            --text-color: #1e293b;
+            --shadow-color: rgba(0, 0, 0, 0.1);
+            --accent-gradient: linear-gradient(135deg, #2563eb, #3b82f6, #8b5cf6);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            background: var(--accent-gradient);
+            color: white;
+            padding: 1rem;
+            box-shadow: 0 2px 10px var(--shadow-color);
+        }
+
+        main {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+        }
+
+        .hello-container {
+            text-align: center;
+            max-width: 600px;
+            padding: 3rem;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px var(--shadow-color);
+            animation: fadeInUp 0.8s ease-out;
+        }
+
+        .hello-title {
+            font-size: 3rem;
+            color: var(--primary-color);
+            margin-bottom: 1rem;
+            font-weight: 700;
+            background: var(--accent-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hello-subtitle {
+            font-size: 1.2rem;
+            color: #64748b;
+            margin-bottom: 2rem;
+        }
+
+        .decorative-element {
+            width: 60px;
+            height: 4px;
+            background: var(--accent-gradient);
+            margin: 0 auto 2rem;
+            border-radius: 2px;
+        }
+
+        .feature-list {
+            text-align: left;
+            margin-top: 1rem;
+            color: #64748b;
+        }
+
+        .feature-list li {
+            margin: 0.5rem 0;
+            padding-left: 1rem;
+            position: relative;
+        }
+
+        .feature-list li::before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: var(--primary-color);
+            font-weight: bold;
+        }
+
+        footer {
+            background-color: #e2e8f0;
+            padding: 1rem;
+            text-align: center;
+            color: #64748b;
+            font-size: 0.9rem;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Accessibility: Reduce motion for users who prefer it */
+        @media (prefers-reduced-motion: reduce) {
+            .hello-container {
+                animation: none;
+            }
+        }
+
+        /* Responsive design */
+        @media (max-width: 768px) {
+            .hello-title {
+                font-size: 2.5rem;
+            }
+            
+            .hello-container {
+                padding: 2rem;
+                margin: 1rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .hello-title {
+                font-size: 2rem;
+            }
+        }
+
+        /* Focus styles for accessibility */
+        *:focus {
+            outline: 2px solid var(--primary-color);
+            outline-offset: 2px;
+        }
+
+        /* High contrast mode support */
+        @media (prefers-contrast: high) {
+            :root {
+                --primary-color: #000;
+                --background-color: #fff;
+                --text-color: #000;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Approach 1: Semantic HTML structure with accessibility features -->
+    <header role="banner">
+        <h1>Approach 1: Semantic HTML Implementation</h1>
+    </header>
+
+    <main role="main">
+        <section class="hello-container" aria-labelledby="hello-heading">
+            <div class="decorative-element" aria-hidden="true"></div>
+            <h2 id="hello-heading" class="hello-title">Hello</h2>
+            <p class="hello-subtitle">Welcome to our semantic, accessible HTML page</p>
+            <p>This implementation focuses on:</p>
+            <ul class="feature-list">
+                <li>Semantic HTML5 structure with proper ARIA roles</li>
+                <li>CSS custom properties for maintainability</li>
+                <li>Responsive design with mobile-first approach</li>
+                <li>Accessibility features (screen reader support, focus management)</li>
+                <li>Smooth animations with reduced motion support</li>
+                <li>High contrast mode compatibility</li>
+            </ul>
+        </section>
+    </main>
+
+    <footer role="contentinfo">
+        <p>&copy; 2024 Hello Page - Approach 1: Vanilla HTML/CSS with Semantic Structure</p>
+    </footer>
+</body>
+</html>
