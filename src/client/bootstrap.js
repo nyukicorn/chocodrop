@@ -63,6 +63,15 @@ export function createChocoDrop(scene, options = {}) {
   };
 }
 
+export function createChocoDropSpatial(scene, options = {}) {
+  return createChocoDrop(scene, {
+    ...options,
+    enableSpatialMode: true,
+    autoStartSpatialSession: options.autoStartSpatialSession ?? true
+  });
+}
+
 // 旧API名の互換エクスポート
 export const createChocoDro = createChocoDrop;
 export const createLiveCommand = createChocoDrop;
+export const createSpatialChocoDrop = createChocoDropSpatial;

@@ -38,6 +38,31 @@
     );
   }
 
+  function detectSpatialEnvironment() {
+    const nav = typeof navigator !== 'undefined' ? navigator : null;
+    const ua = nav?.userAgent ? nav.userAgent.toLowerCase() : '';
+    const platform = nav?.platform ? nav.platform.toLowerCase() : '';
+    const hasXR = !!(nav && nav.xr);
+
+    const isVisionOS = /visionos|applevision|xr os/.test(ua);
+    const isQuest = /quest|oculus|meta/.test(ua);
+    const isIOS = /iphone|ipad|ipod/.test(ua) && /safari/.test(ua) && !/crios|fxios|android/.test(ua);
+
+    let device = 'web';
+    if (isVisionOS) device = 'visionos';
+    else if (isQuest) device = 'quest';
+    else if (isIOS) device = 'ios';
+    else if (/android/.test(ua)) device = 'android';
+    else if (/mac/.test(platform)) device = 'mac';
+
+    return {
+      platform: device,
+      hasXR,
+      userAgent: nav?.userAgent || '',
+      maxTouchPoints: nav?.maxTouchPoints ?? 0
+    };
+  }
+
   /**
    * Ping daemon health
    */
@@ -178,6 +203,36 @@
     // Daemon not running - show friendly toast UI
     showStartToast({ base: BASE });
     throw new Error('ChocoDrop daemon not running - please start it');
+  }
+
+  async function readySpatial(options = {}) {
+    const context = detectSpatialEnvironment();
+    const requireDaemon = options.requireDaemon !== false;
+    if (requireDaemon) {
+      await ready();
+    }
+
+    const nav = typeof navigator !== 'undefined' ? navigator : null;
+    const mode = options.mode || 'immersive-ar';
+    let sessionSupported = false;
+
+    if (context.hasXR && nav?.xr?.isSessionSupported) {
+      try {
+        sessionSupported = await nav.xr.isSessionSupported(mode);
+      } catch (error) {
+        console.warn('ChocoDrop readySpatial: session support check failed', error);
+      }
+    }
+
+    if (options.ensureSession === true && !sessionSupported) {
+      throw new Error(`XR session mode "${mode}" is not supported in this environment.`);
+    }
+
+    return {
+      ...context,
+      sessionSupported,
+      mode
+    };
   }
 
   /**
@@ -380,11 +435,17 @@
 
   // Export to window
   if (typeof window !== 'undefined') {
-    window.chocodrop = { ready, attach, reload };
+    window.chocodrop = {
+      ready,
+      readySpatial,
+      attach,
+      reload,
+      detectSpatialEnvironment
+    };
   }
 
   // Export for ES modules
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { ready, attach, reload };
+    module.exports = { ready, readySpatial, attach, reload, detectSpatialEnvironment };
   }
 })();
