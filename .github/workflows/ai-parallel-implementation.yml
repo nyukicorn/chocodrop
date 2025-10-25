@@ -111,6 +111,7 @@ jobs:
             - 完成したら必ずpushしてください
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
+          allowed_tools: Edit,MultiEdit,Glob,Grep,LS,Read,Write,Bash
 
       - name: Verify branch was pushed
         run: |
