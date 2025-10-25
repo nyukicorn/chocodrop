@@ -1,4 +1,5 @@
 name: Worktree Parallel Testing
+# AI-powered parallel branch comparison workflow
 
 on:
   workflow_dispatch:
