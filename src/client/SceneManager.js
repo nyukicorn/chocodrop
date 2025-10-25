@@ -3,6 +3,8 @@ import * as THREEModule from 'three';
 const THREE = globalThis.THREE || THREEModule;
 import { ChocoDropClient, ChocoDroClient, LiveCommandClient } from './LiveCommandClient.js';
 import { createObjectKeywords, matchKeywordWithFilename } from '../common/translation-dictionary.js';
+import XRAnchorManager from './xr/XRAnchorManager.js';
+import { findXRDeviceProfile, inferXRProfileFromUserAgent } from '../common/xr-device-profiles.js';
 
 /**
  * Scene Manager - 3D scene integration for ChocoDrop System
@@ -69,7 +71,10 @@ export class SceneManager {
       dracoDecoderPath: options.dracoDecoderPath || null,
       ...options.config
     };
-    
+
+    // XR/Spatialコンテキスト
+    this.xr = this.setupXR(options.xr || {});
+
     // クリックイベントの設定
     this.setupClickEvents();
     
@@ -94,6 +99,158 @@ export class SceneManager {
     } else {
       console.log('🖱️ Mouse interaction disabled (safe mode). Set enableMouseInteraction: true to enable.');
     }
+  }
+
+  setupXR(xrOptions = {}) {
+    const deviceProfile = this.resolveXRDeviceProfile(
+      xrOptions.deviceProfile || xrOptions.deviceProfileId
+    );
+
+    const anchorManager = xrOptions.anchorManager || (xrOptions.enabled
+      ? new XRAnchorManager({
+          referenceSpace: xrOptions.referenceSpace || null,
+          deviceProfile
+        })
+      : null);
+
+    return {
+      enabled: !!xrOptions.enabled && !!anchorManager,
+      session: xrOptions.session || null,
+      referenceSpace: xrOptions.referenceSpace || null,
+      deviceProfile,
+      inputHints: xrOptions.inputHints || (deviceProfile?.inputs || []),
+      anchorManager
+    };
+  }
+
+  resolveXRDeviceProfile(input) {
+    if (input && typeof input === 'object') {
+      return input;
+    }
+    if (typeof input === 'string') {
+      return findXRDeviceProfile(input) || null;
+    }
+    return inferXRProfileFromUserAgent();
+  }
+
+  enableXR(xrContext = {}) {
+    if (!this.xr) {
+      this.xr = this.setupXR(xrContext);
+    }
+
+    this.xr.enabled = true;
+    if (xrContext.session) {
+      this.xr.session = xrContext.session;
+    }
+    if (xrContext.referenceSpace) {
+      this.xr.referenceSpace = xrContext.referenceSpace;
+    }
+
+    if (!this.xr.anchorManager) {
+      this.xr.anchorManager = xrContext.anchorManager || new XRAnchorManager({
+        referenceSpace: this.xr.referenceSpace || null,
+        deviceProfile: this.resolveXRDeviceProfile(
+          xrContext.deviceProfile || xrContext.deviceProfileId || this.xr.deviceProfile
+        )
+      });
+    }
+
+    if (this.xr.referenceSpace) {
+      this.xr.anchorManager.setReferenceSpace(this.xr.referenceSpace);
+    }
+
+    const nextProfile = this.resolveXRDeviceProfile(
+      xrContext.deviceProfile || xrContext.deviceProfileId || this.xr.deviceProfile
+    );
+    this.xr.deviceProfile = nextProfile;
+    if (this.xr.deviceProfile) {
+      this.xr.anchorManager.setDeviceProfile(this.xr.deviceProfile);
+    }
+
+    this.xr.inputHints = xrContext.inputHints || (this.xr.deviceProfile?.inputs || []);
+
+    if (this.commandUI && xrContext.silent !== true) {
+      this.commandUI.addOutput('🧭 XRモードを有効化しました', 'system');
+      if (this.xr.inputHints.length > 0) {
+        this.commandUI.addOutput(`   入力ヒント: ${this.xr.inputHints.join(', ')}`, 'hint');
+      }
+    }
+
+    return this.xr;
+  }
+
+  disableXR(options = {}) {
+    if (!this.xr) return;
+    this.xr.enabled = false;
+    if (options.resetAnchors && this.xr.anchorManager) {
+      this.xr.anchorManager.clear();
+    }
+    if (this.commandUI && options.silent !== true) {
+      this.commandUI.addOutput('🪁 XRモードを無効化しました', 'system');
+    }
+  }
+
+  async createAnchorFromHit(hitResult, metadata = {}) {
+    if (!this.xr?.anchorManager) {
+      throw new Error('XRアンカーが初期化されていません');
+    }
+    const anchor = await this.xr.anchorManager.createAnchorFromHit(hitResult, {
+      referenceSpace: this.xr.referenceSpace,
+      metadata: {
+        createdAt: Date.now(),
+        deviceId: this.xr.deviceProfile?.id || 'unknown-device',
+        ...metadata
+      }
+    });
+
+    if (this.commandUI) {
+      this.commandUI.addOutput(`📍 XRアンカー作成: ${anchor.id}`, 'info');
+    }
+
+    return anchor;
+  }
+
+  attachObjectToAnchor(objectOrId, anchorId, attachOptions = {}) {
+    if (!this.xr?.anchorManager) {
+      throw new Error('XRアンカーが初期化されていません');
+    }
+    const object = typeof objectOrId === 'string'
+      ? this.spawnedObjects.get(objectOrId)
+      : objectOrId;
+    if (!object) {
+      throw new Error('指定したオブジェクトが見つかりません');
+    }
+    const anchor = this.xr.anchorManager.attachObjectToAnchor(object, anchorId, attachOptions);
+    if (this.commandUI && attachOptions.silent !== true) {
+      this.commandUI.addOutput(`🔗 オブジェクトをアンカー ${anchorId} に結び付けました`, 'info');
+    }
+    return anchor;
+  }
+
+  listXRAnchors() {
+    if (!this.xr?.anchorManager) return [];
+    return this.xr.anchorManager.listAnchors();
+  }
+
+  setXRReferenceSpace(referenceSpace) {
+    if (!this.xr) {
+      this.xr = this.setupXR({ referenceSpace });
+    } else {
+      this.xr.referenceSpace = referenceSpace;
+    }
+    if (this.xr.anchorManager && referenceSpace) {
+      this.xr.anchorManager.setReferenceSpace(referenceSpace);
+    }
+  }
+
+  updateXRFrame(xrFrame, referenceSpace) {
+    if (!this.xr?.anchorManager) return;
+    const refSpace = referenceSpace || this.xr.referenceSpace;
+    this.xr.anchorManager.updateAnchorsFromFrame(xrFrame, refSpace);
+  }
+
+  getXRInputHints() {
+    return this.xr?.inputHints || [];
   }
 
   /**
