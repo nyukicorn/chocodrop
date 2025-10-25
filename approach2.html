@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hello World - Component Architecture</title>
+    <style>
+        /* Global reset and base styles */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        /* Component container styles */
+        .app-container {
+            perspective: 1000px;
+        }
+
+        /* Loading state */
+        .loading {
+            color: white;
+            font-size: 1.2em;
+            opacity: 0.7;
+        }
+
+        /* Error boundary styles */
+        .error-boundary {
+            background: #ff6b6b;
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Custom component will be injected here -->
+        <hello-component id="mainHello"></hello-component>
+        
+        <!-- Fallback content for progressive enhancement -->
+        <noscript>
+            <div style="color: white; text-align: center; padding: 20px;">
+                <h1>Hello</h1>
+                <p>This page requires JavaScript for enhanced features.</p>
+            </div>
+        </noscript>
+    </div>
+
+    <script>
+        /**
+         * Approach 2: Component-Based Architecture with Web Components
+         * 
+         * This implementation uses:
+         * - Custom Elements (Web Components) for encapsulation
+         * - Shadow DOM for style isolation
+         * - Progressive enhancement pattern
+         * - Error boundaries and performance monitoring
+         * - CSS-in-JS for dynamic styling
+         * - Observable pattern for state management
+         */
+
+        // Performance monitoring utility
+        class PerformanceMonitor {
+            static startTiming(label) {
+                performance.mark(`${label}-start`);
+            }
+            
+            static endTiming(label) {
+                performance.mark(`${label}-end`);
+                performance.measure(label, `${label}-start`, `${label}-end`);
+                const measure = performance.getEntriesByName(label)[0];
+                console.log(`${label}: ${measure.duration.toFixed(2)}ms`);
+            }
+        }
+
+        // Error boundary utility
+        class ErrorBoundary {
+            static handleError(error, component) {
+                console.error('Component Error:', error);
+                const errorElement = document.createElement('div');
+                errorElement.className = 'error-boundary';
+                errorElement.innerHTML = `
+                    <h3>⚠️ Something went wrong</h3>
+                    <p>${error.message}</p>
+                    <button onclick="location.reload()">Reload Page</button>
+                `;
+                component.parentNode?.replaceChild(errorElement, component);
+            }
+        }
+
+        // Observable state management
+        class StateManager {
+            constructor(initialState = {}) {
+                this.state = { ...initialState };
+                this.observers = new Set();
+            }
+
+            subscribe(callback) {
+                this.observers.add(callback);
+                return () => this.observers.delete(callback);
+            }
+
+            setState(newState) {
+                this.state = { ...this.state, ...newState };
+                this.observers.forEach(callback => callback(this.state));
+            }
+
+            getState() {
+                return { ...this.state };
+            }
+        }
+
+        // CSS-in-JS utility for dynamic styling
+        class StyleManager {
+            static createStyles(styles) {
+                return Object.entries(styles)
+                    .map(([selector, rules]) => {
+                        const ruleString = Object.entries(rules)
+                            .map(([prop, value]) => `${prop.replace(/([A-Z])/g, '-$1').toLowerCase()}: ${value}`)
+                            .join('; ');
+                        return `${selector} { ${ruleString} }`;
+                    })
+                    .join('\n');
+            }
+
+            static injectStyles(element, styles) {
+                const styleElement = document.createElement('style');
+                styleElement.textContent = this.createStyles(styles);
+                element.appendChild(styleElement);
+            }
+        }
+
+        // Main Hello Component using Web Components
+        class HelloComponent extends HTMLElement {
+            constructor() {
+                super();
+                
+                // Performance monitoring
+                PerformanceMonitor.startTiming('HelloComponent-render');
+                
+                // State management
+                this.stateManager = new StateManager({
+                    message: 'Hello',
+                    animated: false,
+                    theme: 'default'
+                });
+
+                // Create shadow DOM for encapsulation
+                this.attachShadow({ mode: 'open' });
+                
+                // Initialize component
+                this.init();
+            }
+
+            init() {
+                try {
+                    this.render();
+                    this.bindEvents();
+                    this.startAnimations();
+                    
+                    // Subscribe to state changes
+                    this.stateManager.subscribe((state) => {
+                        this.onStateChange(state);
+                    });
+                    
+                    PerformanceMonitor.endTiming('HelloComponent-render');
+                } catch (error) {
+                    ErrorBoundary.handleError(error, this);
+                }
+            }
+
+            render() {
+                // Dynamic CSS-in-JS styles
+                const styles = {
+                    ':host': {
+                        display: 'block',
+                        fontFamily: 'inherit'
+                    },
+                    '.hello-container': {
+                        background: 'rgba(255, 255, 255, 0.1)',
+                        backdropFilter: 'blur(10px)',
+                        borderRadius: '20px',
+                        padding: '40px 60px',
+                        textAlign: 'center',
+                        border: '1px solid rgba(255, 255, 255, 0.2)',
+                        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+                        transform: 'rotateX(0deg)',
+                        transition: 'all 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
+                        cursor: 'pointer'
+                    },
+                    '.hello-container:hover': {
+                        transform: 'rotateX(-5deg) translateY(-10px)',
+                        boxShadow: '0 20px 40px rgba(0, 0, 0, 0.2)'
+                    },
+                    '.hello-text': {
+                        fontSize: '4rem',
+                        fontWeight: '300',
+                        color: 'white',
+                        margin: '0',
+                        textShadow: '0 2px 10px rgba(0, 0, 0, 0.3)',
+                        opacity: '0',
+                        animation: 'fadeInUp 1s ease-out 0.3s forwards'
+                    },
+                    '.hello-subtitle': {
+                        fontSize: '1.2rem',
+                        color: 'rgba(255, 255, 255, 0.8)',
+                        marginTop: '15px',
+                        opacity: '0',
+                        animation: 'fadeInUp 1s ease-out 0.6s forwards'
+                    },
+                    '.interaction-hint': {
+                        fontSize: '0.9rem',
+                        color: 'rgba(255, 255, 255, 0.6)',
+                        marginTop: '20px',
+                        opacity: '0',
+                        animation: 'fadeInUp 1s ease-out 0.9s forwards'
+                    },
+                    '@keyframes fadeInUp': {
+                        from: {
+                            opacity: '0',
+                            transform: 'translateY(30px)'
+                        },
+                        to: {
+                            opacity: '1',
+                            transform: 'translateY(0)'
+                        }
+                    },
+                    '@keyframes pulse': {
+                        '0%, 100%': {
+                            transform: 'scale(1)'
+                        },
+                        '50%': {
+                            transform: 'scale(1.05)'
+                        }
+                    },
+                    '.animated .hello-text': {
+                        animation: 'pulse 2s infinite'
+                    }
+                };
+
+                // Inject styles using CSS-in-JS utility
+                StyleManager.injectStyles(this.shadowRoot, styles);
+
+                // Render HTML template
+                this.shadowRoot.innerHTML += `
+                    <div class="hello-container" id="container">
+                        <h1 class="hello-text" id="helloText">${this.stateManager.getState().message}</h1>
+                        <p class="hello-subtitle">Component-Based Architecture</p>
+                        <p class="interaction-hint">Click to interact • Hover for 3D effect</p>
+                    </div>
+                `;
+            }
+
+            bindEvents() {
+                const container = this.shadowRoot.getElementById('container');
+                const helloText = this.shadowRoot.getElementById('helloText');
+
+                // Click interaction
+                container.addEventListener('click', () => {
+                    this.handleClick();
+                });
+
+                // Enhanced hover effects
+                container.addEventListener('mouseenter', () => {
+                    this.stateManager.setState({ animated: true });
+                });
+
+                container.addEventListener('mouseleave', () => {
+                    this.stateManager.setState({ animated: false });
+                });
+
+                // Keyboard accessibility
+                container.setAttribute('tabindex', '0');
+                container.setAttribute('role', 'button');
+                container.setAttribute('aria-label', 'Interactive hello component');
+                
+                container.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        this.handleClick();
+                    }
+                });
+            }
+
+            handleClick() {
+                const messages = ['Hello', 'こんにちは', 'Hola', 'Bonjour', '안녕하세요', 'Ciao'];
+                const currentMessage = this.stateManager.getState().message;
+                const currentIndex = messages.indexOf(currentMessage);
+                const nextMessage = messages[(currentIndex + 1) % messages.length];
+                
+                // Update state
+                this.stateManager.setState({ 
+                    message: nextMessage,
+                    theme: nextMessage === 'Hello' ? 'default' : 'international'
+                });
+
+                // Dispatch custom event for external listeners
+                this.dispatchEvent(new CustomEvent('hello-change', {
+                    detail: { message: nextMessage },
+                    bubbles: true
+                }));
+            }
+
+            onStateChange(state) {
+                const helloText = this.shadowRoot.getElementById('helloText');
+                const container = this.shadowRoot.getElementById('container');
+                
+                if (helloText) {
+                    helloText.textContent = state.message;
+                }
+                
+                if (container) {
+                    container.classList.toggle('animated', state.animated);
+                }
+            }
+
+            startAnimations() {
+                // Progressive enhancement: Add subtle animations
+                requestAnimationFrame(() => {
+                    const container = this.shadowRoot.getElementById('container');
+                    if (container) {
+                        container.style.opacity = '1';
+                    }
+                });
+            }
+
+            // Lifecycle callbacks
+            connectedCallback() {
+                console.log('HelloComponent connected to DOM');
+            }
+
+            disconnectedCallback() {
+                console.log('HelloComponent disconnected from DOM');
+            }
+
+            attributeChangedCallback(name, oldValue, newValue) {
+                console.log(`Attribute ${name} changed from ${oldValue} to ${newValue}`);
+            }
+
+            static get observedAttributes() {
+                return ['message', 'theme'];
+            }
+        }
+
+        // Application initialization with error handling
+        class App {
+            static async init() {
+                try {
+                    PerformanceMonitor.startTiming('App-init');
+                    
+                    // Register custom elements
+                    customElements.define('hello-component', HelloComponent);
+                    
+                    // Wait for component to be ready
+                    await customElements.whenDefined('hello-component');
+                    
+                    // Add global event listeners
+                    document.addEventListener('hello-change', (e) => {
+                        console.log('Hello message changed:', e.detail.message);
+                    });
+
+                    // Performance optimization: Preload resources
+                    App.preloadResources();
+                    
+                    PerformanceMonitor.endTiming('App-init');
+                    
+                    console.log('🚀 Approach 2: Component-based architecture initialized successfully');
+                    
+                } catch (error) {
+                    console.error('Failed to initialize app:', error);
+                    ErrorBoundary.handleError(error, document.body);
+                }
+            }
+
+            static preloadResources() {
+                // Preload any additional resources if needed
+                // This is where we would preload fonts, images, etc.
+                console.log('Resources preloaded for optimal performance');
+            }
+        }
+
+        // Initialize application when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', App.init);
+        } else {
+            App.init();
+        }
+
+        // Performance monitoring
+        window.addEventListener('load', () => {
+            PerformanceMonitor.startTiming('Page-load');
+            setTimeout(() => {
+                PerformanceMonitor.endTiming('Page-load');
+            }, 100);
+        });
+    </script>
+</body>
+</html>
