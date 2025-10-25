@@ -110,6 +110,7 @@ jobs:
             - 他のアプローチと明確に異なる実装を心がけてください
             - 完成したら必ずpushしてください
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Verify branch was pushed
         run: |
