@@ -54,8 +54,17 @@ const chocoDrop = createChocoDrop(scene, options);
   client: ChocoDropClient,        // 既存クライアント注入
   onControlsToggle: function,     // UI開閉時コールバック
   sceneOptions: Object,           // SceneManager追加オプション
-  uiOptions: Object              // CommandUI追加オプション
+  uiOptions: Object,             // CommandUI追加オプション
+  enableSpatialMode: boolean,    // 空間配置モードを即時ON
+  autoStartSpatialSession: boolean, // XRセッション自動開始（デフォルトtrue）
+  spatialHitTest: boolean        // WebXRヒットテストを有効化（デフォルトtrue）
 }
+
+**Spatial関連オプション**
+
+- `enableSpatialMode`: `true`にすると初期化時から空間アンカー配置モードが有効になります。
+- `autoStartSpatialSession`: `true`（デフォルト）で `enableSpatialMode` 時に WebXR / visionOS セッションを即時開始します。
+- `spatialHitTest`: WebXR HitTestを使用して現実空間の平面を検出します（ブラウザが未対応の場合は自動フォールバック）。
 ```
 
 #### 戻り値
@@ -67,6 +76,22 @@ const chocoDrop = createChocoDrop(scene, options);
   ui: CommandUI,               // ユーザーインターフェース
   dispose: function            // リソース解放
 }
+
+### createChocoDropSpatial()
+
+`createChocoDrop()` の糖衣関数で、Spatialモード関連フラグを自動で有効化します。
+
+```javascript
+import { createChocoDropSpatial } from '@chocodrop/core';
+
+const spatial = createChocoDropSpatial(scene, {
+  camera,
+  renderer,
+  uiOptions: { enableDebugLogging: true }
+});
+
+// spatial.sceneManager.enableSpatialMode() は既に実行済み
+```
 ```
 
 ### 基本的な統合例
@@ -263,6 +288,31 @@ sceneManager.clearAll();
 const objects = sceneManager.getObjects();
 ```
 
+### enableSpatialMode()
+
+WebXR / visionOS の空間アンカー連携を開始します（`renderer` が必須）。
+
+```javascript
+await sceneManager.enableSpatialMode({ sessionOptions: { mode: 'immersive-ar' } });
+```
+
+### disableSpatialMode()
+
+空間モードとヒットテストループを停止します。
+
+```javascript
+sceneManager.disableSpatialMode();
+```
+
+### getSpatialAnchorInfo()
+
+現在のアンカー座標やプラットフォーム情報を取得します。
+
+```javascript
+const anchor = sceneManager.getSpatialAnchorInfo();
+// anchor.enabled, anchor.position, anchor.environment.platform など
+```
+
 ## 🎨 CommandUI API
 
 ユーザーインターフェースを管理します。
@@ -290,6 +340,10 @@ chocoDrop.ui.hide();
 ```javascript
 chocoDrop.ui.toggle();
 ```
+
+### Spatialトグル（UI）
+
+CommandUI は初期化時に "🕶 Spatial" ボタンを表示します。ブラウザが WebXR / visionOS をサポートしている場合はワンクリックで `SceneManager.enableSpatialMode()` を呼び出し、未対応環境では自動的にグレーアウトされます。
 
 ## 🖥️ サーバー API
 
@@ -384,6 +438,20 @@ REST APIエンドポイント（サーバー側）
     }
   ],
   "video": [...]
+}
+```
+
+## 🌐 ブラウザ SDK (`window.chocodrop`)
+
+ChocoDrop のデーモン / CDN が提供する `window.chocodrop` オブジェクトに Spatial 対応ヘルパーが追加されました。
+
+- `readySpatial(options)` — `mode`（デフォルト `immersive-ar`）のサポート有無をチェックし、必要であれば `ready()` と同様にデーモン起動を待ちます。`options.ensureSession = true` で未対応時に例外を投げることもできます。
+- `detectSpatialEnvironment()` — プラットフォーム（`visionos`, `quest`, `ios`, `android`, `web` など）と `hasXR` フラグ、`maxTouchPoints` を返します。
+
+```javascript
+const status = await window.chocodrop.readySpatial({ ensureSession: false });
+if (status.sessionSupported) {
+  console.log('XR ready on', status.platform);
 }
 ```
 

@@ -63,6 +63,11 @@ export class CommandUI {
     this.pendingVideoService = null;
     this.feedbackAutoClearTimer = null;
     this.currentFeedback = null;
+    this.spatialToggleButton = null;
+    this.spatialStatus = {
+      supported: this.sceneManager?.environmentInfo?.hasXR || false,
+      platform: this.sceneManager?.environmentInfo?.platform || 'web'
+    };
 
     this.onboardingCoach = null;
     this.onboardingLauncherButton = null;
@@ -397,6 +402,7 @@ export class CommandUI {
     this.container.appendChild(modeSelector);
     this.container.appendChild(this.inputWrapper);
     this.container.appendChild(actionContainer);
+    this.createSpatialToggle();
 
     // フローティングカードコンテナをbodyに直接追加
     document.body.appendChild(this.floatingContainer);
@@ -2668,6 +2674,105 @@ export class CommandUI {
       this.input.style.cssText = this.getInputStyles();
       this.input.placeholder = this.getPlaceholderForMode(this.currentMode);
     });
+  }
+
+  createSpatialToggle() {
+    if (!this.sceneManager) {
+      return;
+    }
+
+    if (this.spatialToggleButton && this.spatialToggleButton.parentNode) {
+      this.spatialToggleButton.parentNode.removeChild(this.spatialToggleButton);
+    }
+
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'chocodrop-spatial-toggle';
+    button.style.cssText = `
+      position: absolute;
+      top: 10px;
+      left: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 999px;
+      padding: 6px 14px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      color: ${this.isDarkMode ? '#f9fafb' : '#1f2937'};
+      background: rgba(99, 102, 241, 0.15);
+      display: inline-flex;
+      gap: 6px;
+      align-items: center;
+      z-index: 12;
+      transition: all 0.2s ease;
+    `;
+
+    button.addEventListener('mouseenter', () => {
+      button.style.transform = 'translateY(-1px)';
+      button.style.boxShadow = '0 4px 12px rgba(99, 102, 241, 0.35)';
+    });
+    button.addEventListener('mouseleave', () => {
+      button.style.transform = 'translateY(0)';
+      button.style.boxShadow = 'none';
+    });
+
+    button.addEventListener('click', async () => {
+      if (!this.sceneManager) {
+        return;
+      }
+      const isEnabled = !!this.sceneManager.spatialState?.enabled;
+      try {
+        if (isEnabled) {
+          this.sceneManager.disableSpatialMode();
+          this.addOutput('🕶 空間配置モードを終了しました', 'system');
+        } else {
+          await this.sceneManager.enableSpatialMode();
+          this.addOutput('🕶 空間配置モードを開始しました', 'system');
+        }
+        this.updateSpatialToggleButton(button);
+      } catch (error) {
+        console.warn('XR spatial toggle failed:', error);
+        this.showInputFeedback(`XR初期化に失敗しました: ${error?.message || '不明なエラー'}`, 'error');
+      }
+    });
+
+    this.container.appendChild(button);
+    this.spatialToggleButton = button;
+    this.updateSpatialToggleButton(button);
+  }
+
+  updateSpatialToggleButton(button = this.spatialToggleButton) {
+    if (!button) {
+      return;
+    }
+
+    const info = this.sceneManager?.getSpatialAnchorInfo ? this.sceneManager.getSpatialAnchorInfo() : null;
+    const supported = !!(this.sceneManager?.xrBridge?.isSupported || info?.environment?.hasXR || this.spatialStatus.supported);
+    const enabled = info?.enabled ?? this.sceneManager?.spatialState?.enabled ?? false;
+
+    button.disabled = !supported;
+    if (!supported) {
+      button.textContent = '🕶 XR未対応';
+      button.style.opacity = '0.6';
+      button.style.cursor = 'not-allowed';
+      button.setAttribute('data-state', 'disabled');
+      return;
+    }
+
+    button.style.opacity = '1';
+    button.style.cursor = 'pointer';
+    button.setAttribute('data-state', enabled ? 'on' : 'off');
+    if (enabled) {
+      button.style.background = 'linear-gradient(120deg, rgba(99,102,241,0.85), rgba(236,72,153,0.75))';
+      button.style.borderColor = 'rgba(255, 255, 255, 0.35)';
+      button.textContent = '🕶 Spatial ON';
+    } else {
+      button.style.background = 'rgba(99, 102, 241, 0.15)';
+      button.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+      button.textContent = '🕶 Spatial OFF';
+    }
   }
 
   /**
