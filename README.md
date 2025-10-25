@@ -219,6 +219,13 @@ Bookmarkletやコンソールスニペットで外部サイト（threejs.org、C
 - ✅ ローカルデーモン(127.0.0.1)との通信のみ（外部送信なし）
 - ⚠️ UI表示と操作のみ（AI生成は daemon では使えません。リポジトリ clone + KAMUI Code 設定が必要）
 
+### 🕶️ XRアンカー + 空間ドロップ（NEW）
+- `SceneManager.enableXR()` で WebXR セッション/リファレンス空間を登録し、空間編集モードに切り替え
+- `sceneManager.createAnchorFromHit(hitResult, { label: 'デスク' })` でヒットテスト結果からアンカー生成
+- `sceneManager.attachObjectToAnchor(objectId, anchorId)` で生成済みオブジェクトを任意アンカーへ固定（空間に“ポン”と配置）
+- `sceneManager.updateXRFrame(xrFrame)` を `requestAnimationFrame` から呼び出すだけでアンカーに紐付いたオブジェクトが同期
+- 端末固有の入力ヒントやアンカー精度は `src/common/xr-device-profiles.js` で定義済み。Vision Pro / Quest / Spectacles / Lightship などを識別してUIに表示できます。
+
 ### 🏢 企業ポリシー配慮 - CDN制御
 企業ネットワークでCDNアクセスが制限されている環境向けに、THREE.js読み込み動作をカスタマイズできます:
 

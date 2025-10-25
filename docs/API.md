@@ -400,6 +400,71 @@ const chocoDrop = createChocoDrop(scene, {
     controls.enabled = !disabled;
   }
 });
+
+## 🕶️ XR / Spatial API（NEW）
+
+ChocoDrop は WebXR や各種MR端末と連携できるように、`SceneManager` に空間アンカー管理を追加しました。
+
+### SceneManager.enableXR(options)
+
+```javascript
+sceneManager.enableXR({
+  session,                // WebXRSession
+  referenceSpace,         // XRReferenceSpace (例: local-floor)
+  deviceProfile: 'apple-vision-pro',
+  inputHints: ['gaze', 'pinch']
+});
+```
+
+### sceneManager.createAnchorFromHit(hitResult, metadata)
+
+- WebXR のヒットテスト結果からアンカーを生成します。
+- `metadata.label` や `metadata.color` 等を保存し、UIに表示できます。
+
+```javascript
+const anchor = await sceneManager.createAnchorFromHit(hitResult, { label: 'デスク' });
+```
+
+### sceneManager.attachObjectToAnchor(objectIdOr3D, anchorId, options)
+
+- 生成済みオブジェクトをアンカーに紐付け、位置/向きを自動追従させます。
+- `options.lockOrientation` でアンカーの回転を無視することも可能です。
+
+```javascript
+sceneManager.attachObjectToAnchor(result.objectId, anchor.id, {
+  lockOrientation: true
+});
+```
+
+### sceneManager.updateXRFrame(xrFrame)
+
+- `requestAnimationFrame` から呼び出してアンカー座標を最新化します。
+
+```javascript
+function onXRFrame(time, frame) {
+  const session = frame.session;
+  session.requestAnimationFrame(onXRFrame);
+  sceneManager.updateXRFrame(frame);
+}
+```
+
+### XRAnchorManager クラス
+
+`src/client/xr/XRAnchorManager.js` でエクスポートされる軽量ユーティリティ。SceneManager経由で初期化済みなので、単体利用も可能です。
+
+主要メソッド：
+
+| メソッド | 説明 |
+| --- | --- |
+| `createAnchorFromHit(hitResult, { referenceSpace, metadata })` | ヒットテストからアンカー生成 |
+| `createAnchorFromPose(pose)` | 任意のXR Poseからアンカー生成 |
+| `attachObjectToAnchor(object3D, anchorId, options)` | Three.jsオブジェクトをアンカーへ追従させる |
+| `updateAnchorsFromFrame(xrFrame, referenceSpace)` | WebXRフレームから全アンカーを更新 |
+| `listAnchors()` | 既存アンカーのメタデータを取得 |
+
+### XRデバイスプロファイル
+
+`src/common/xr-device-profiles.js` に Vision Pro / Quest / Spectacles / Lightship Skyline などのプリセットを用意。`findXRDeviceProfile(id)` や `inferXRProfileFromUserAgent()` を使うと、入力ヒントや推奨スケールをUIに表示できます。
 ```
 
 ### カスタムイベント
