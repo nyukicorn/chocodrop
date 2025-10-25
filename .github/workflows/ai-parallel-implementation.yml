@@ -1,0 +1,178 @@
+name: AI Parallel Implementation
+# AI に複数のアプローチで並列実装させ、自動評価するワークフロー
+
+on:
+  workflow_dispatch:
+    inputs:
+      task_description:
+        description: '実装タスクの説明（例: VR/AR機能を追加）'
+        required: true
+        type: string
+      num_approaches:
+        description: '実装アプローチの数（1-5）'
+        required: false
+        type: number
+        default: 3
+  workflow_call:
+    inputs:
+      task_description:
+        required: true
+        type: string
+      num_approaches:
+        required: false
+        type: number
+        default: 3
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  # 並列実装の準備
+  prepare:
+    name: Prepare implementation matrix
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+      timestamp: ${{ steps.set-matrix.outputs.timestamp }}
+
+    steps:
+      - name: Generate matrix
+        id: set-matrix
+        run: |
+          NUM=${{ inputs.num_approaches }}
+
+          # 1からNUMまでの配列を生成
+          MATRIX=$(seq 1 $NUM | jq -R . | jq -s .)
+          echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
+
+          # タイムスタンプを生成（ブランチ名に使用）
+          TIMESTAMP=$(date +%s)
+          echo "timestamp=$TIMESTAMP" >> $GITHUB_OUTPUT
+
+          echo "🌳 Will create $NUM implementation approaches"
+
+  # 各アプローチを並列実装
+  implement:
+    name: Implement approach ${{ matrix.approach }}
+    runs-on: ubuntu-latest
+    needs: prepare
+    strategy:
+      matrix:
+        approach: ${{ fromJson(needs.prepare.outputs.matrix) }}
+      fail-fast: false  # 一つが失敗しても他は続行
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Git
+        run: |
+          git config --global user.name "Claude Code AI"
+          git config --global user.email "ai@chocodrop.dev"
+
+      - name: 🤖 AI Implementation - Approach ${{ matrix.approach }}
+        uses: anthropics/claude-code-action@beta
+        with:
+          mode: agent
+          direct_prompt: |
+            # 並列実装タスク - アプローチ ${{ matrix.approach }} / ${{ inputs.num_approaches }}
+
+            ## タスク内容
+            ${{ inputs.task_description }}
+
+            ## 実装要件
+
+            1. **ブランチ作成**
+               - ブランチ名: `ai/approach-${{ matrix.approach }}-${{ needs.prepare.outputs.timestamp }}`
+               - このブランチを新規作成してチェックアウト
+
+            2. **実装アプローチ**
+               - あなたは **アプローチ ${{ matrix.approach }}** を担当しています
+               - **他のアプローチとは異なる実装方法**を採用してください
+               - 以下のような観点で差別化してください：
+                 * アーキテクチャパターン（MVC、コンポーネント設計など）
+                 * 使用する技術やライブラリ
+                 * パフォーマンス最適化の方法
+                 * コードの構造や抽象化レベル
+
+            3. **実装品質**
+               - 動作するコードを書く
+               - 適切なエラーハンドリング
+               - コメントで実装方針を説明
+
+            4. **完了処理**
+               - 実装完了後、変更をコミット
+               - ブランチをリモートにpush: `git push origin ai/approach-${{ matrix.approach }}-${{ needs.prepare.outputs.timestamp }}`
+
+            ## 重要
+            - このアプローチは **${{ matrix.approach }} / ${{ inputs.num_approaches }}** です
+            - 他のアプローチと明確に異なる実装を心がけてください
+            - 完成したら必ずpushしてください
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+
+      - name: Verify branch was pushed
+        run: |
+          BRANCH="ai/approach-${{ matrix.approach }}-${{ needs.prepare.outputs.timestamp }}"
+          if git ls-remote --heads origin "$BRANCH" | grep -q "$BRANCH"; then
+            echo "✅ Branch $BRANCH was successfully pushed"
+          else
+            echo "❌ Branch $BRANCH was not found on remote"
+            exit 1
+          fi
+
+  # 全実装完了後、比較評価を実行
+  evaluate:
+    name: Evaluate all approaches
+    runs-on: ubuntu-latest
+    needs: [prepare, implement]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build branch list
+        id: branches
+        run: |
+          TIMESTAMP="${{ needs.prepare.outputs.timestamp }}"
+          NUM=${{ inputs.num_approaches }}
+
+          # ブランチ名をカンマ区切りで生成
+          BRANCHES=""
+          for i in $(seq 1 $NUM); do
+            if [ $i -eq 1 ]; then
+              BRANCHES="ai/approach-${i}-${TIMESTAMP}"
+            else
+              BRANCHES="${BRANCHES},ai/approach-${i}-${TIMESTAMP}"
+            fi
+          done
+
+          echo "branches=$BRANCHES" >> $GITHUB_OUTPUT
+          echo "📊 Will compare branches: $BRANCHES"
+
+      - name: Trigger comparison workflow
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh workflow run worktree-parallel.yml \
+            -f branches="${{ steps.branches.outputs.branches }}" \
+            -f run_build=true \
+            -f run_tests=true \
+            -f compare_results=true
+
+          echo "✅ Comparison workflow triggered"
+          echo "📊 Check results at: https://github.com/${{ github.repository }}/actions/workflows/worktree-parallel.yml"
+
+      - name: Summary
+        run: |
+          echo "## 🎉 AI Parallel Implementation Complete!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Task:** ${{ inputs.task_description }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Approaches:** ${{ inputs.num_approaches }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Branches created:**" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "${{ steps.branches.outputs.branches }}" | tr ',' '\n' >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Next:** Check the comparison workflow for AI analysis" >> $GITHUB_STEP_SUMMARY
+          echo "https://github.com/${{ github.repository }}/actions/workflows/worktree-parallel.yml" >> $GITHUB_STEP_SUMMARY
