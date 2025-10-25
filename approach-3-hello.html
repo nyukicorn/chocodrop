@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hello - Approach 3: PWA Web Components</title>
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="data:application/json;base64,eyJuYW1lIjoiSGVsbG8gUFdBIiwic2hvcnRfbmFtZSI6IkhlbGxvIiwic3RhcnRfdXJsIjoiLiIsImRpc3BsYXkiOiJzdGFuZGFsb25lIiwidGhlbWVfY29sb3IiOiIjNDA4MGZmIiwiYmFja2dyb3VuZF9jb2xvciI6IiNmZmZmZmYiLCJpY29ucyI6W3sic3JjIjoiZGF0YTppbWFnZS9zdmcreG1sO2Jhc2U2NCxQSE4yWnlCNGJXeHVjejBpYUhSMGNEb3ZMM2QzZHk1M00zTXZNakF3TUM5emRtY2lJSGRwWkhSb1BTSXlOQ0lpSUdobGFXZG9kRDBpTWpRaUlIWnBaWGRDYjNnOUlqQWdNQ0F5TkNBeU5DSStQSEpsWTNRZ2VEMGlNaUlnZVQwaU1pSWdkMmxrZEdnOUlqSXdJaUJvWldsbmFIUTlJakl3SWlCbWFXeHNQU0lqTkRBNE1HWm1JaTgrUEhSbGVIUWdlRDBpTVRJaUlIazlJakUySWlCbWFXeHNQU0lqWm1abVptWm1JaUJtYjI1MExYTnBlbVU5SWpGd2VDSWdabTl1ZEMxbVlXMXBiSGs5SW0xdmJtOXpjR0ZqWlNJK1NHVnNiRzg4TDNSbGVIUStQQzl6ZG1jKyIsInNpemVzIjoiMjR4MjQiLCJ0eXBlIjoiaW1hZ2Uvc3ZnK3htbCJ9XX0=">
+    
+    <style>
+        /* Global styles for error boundary and loading states */
+        .error-boundary {
+            background: #ffe6e6;
+            border: 2px solid #ff4444;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px;
+            text-align: center;
+        }
+        
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: system-ui, -apple-system, sans-serif;
+        }
+        
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #4080ff;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <!-- Fallback content for when components fail to load -->
+    <div id="loading" class="loading">
+        <div class="spinner"></div>
+        <span>Loading Hello Component...</span>
+    </div>
+    
+    <!-- Custom Web Component will replace this -->
+    <hello-app></hello-app>
+    
+    <script>
+        /**
+         * APPROACH 3: PWA Web Components Architecture
+         * 
+         * This implementation uses:
+         * 1. Custom Web Components with Shadow DOM encapsulation
+         * 2. Service Worker for PWA capabilities and offline support
+         * 3. Error boundary pattern for graceful failure handling
+         * 4. Event-driven architecture for component communication
+         * 5. Progressive enhancement with fallback content
+         */
+        
+        // Error Boundary Class for graceful error handling
+        class ErrorBoundary {
+            static handleError(error, component) {
+                console.error(`Error in ${component}:`, error);
+                
+                // Create error UI
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'error-boundary';
+                errorDiv.innerHTML = `
+                    <h3>⚠️ Component Error</h3>
+                    <p>The ${component} component failed to load properly.</p>
+                    <details>
+                        <summary>Error Details</summary>
+                        <pre>${error.message}</pre>
+                    </details>
+                    <button onclick="location.reload()">Reload Page</button>
+                `;
+                
+                return errorDiv;
+            }
+        }
+        
+        // Hello App Web Component
+        class HelloApp extends HTMLElement {
+            constructor() {
+                super();
+                this.attachShadow({ mode: 'open' });
+                this.state = {
+                    message: 'Hello',
+                    timestamp: new Date().toISOString(),
+                    clickCount: 0
+                };
+            }
+            
+            connectedCallback() {
+                try {
+                    this.render();
+                    this.attachEventListeners();
+                    this.hideLoading();
+                    
+                    // Dispatch custom event for analytics/tracking
+                    this.dispatchEvent(new CustomEvent('hello-loaded', {
+                        detail: { timestamp: this.state.timestamp },
+                        bubbles: true
+                    }));
+                } catch (error) {
+                    this.handleError(error);
+                }
+            }
+            
+            render() {
+                const styles = `
+                    <style>
+                        :host {
+                            display: block;
+                            font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+                            max-width: 600px;
+                            margin: 0 auto;
+                            padding: 20px;
+                            text-align: center;
+                        }
+                        
+                        .hello-container {
+                            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                            color: white;
+                            padding: 60px 40px;
+                            border-radius: 16px;
+                            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+                            transition: transform 0.3s ease, box-shadow 0.3s ease;
+                        }
+                        
+                        .hello-container:hover {
+                            transform: translateY(-5px);
+                            box-shadow: 0 25px 50px rgba(0,0,0,0.2);
+                        }
+                        
+                        .hello-title {
+                            font-size: 3.5rem;
+                            font-weight: 700;
+                            margin: 0 0 20px 0;
+                            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+                            cursor: pointer;
+                            user-select: none;
+                        }
+                        
+                        .hello-subtitle {
+                            font-size: 1.2rem;
+                            opacity: 0.9;
+                            margin-bottom: 30px;
+                        }
+                        
+                        .stats {
+                            background: rgba(255,255,255,0.1);
+                            border-radius: 8px;
+                            padding: 15px;
+                            backdrop-filter: blur(10px);
+                        }
+                        
+                        .stats-item {
+                            margin: 5px 0;
+                            font-size: 0.9rem;
+                        }
+                        
+                        .pwa-badge {
+                            position: fixed;
+                            top: 20px;
+                            right: 20px;
+                            background: #4080ff;
+                            color: white;
+                            padding: 8px 12px;
+                            border-radius: 20px;
+                            font-size: 0.8rem;
+                            font-weight: bold;
+                        }
+                        
+                        @media (max-width: 480px) {
+                            .hello-title {
+                                font-size: 2.5rem;
+                            }
+                            
+                            .hello-container {
+                                padding: 40px 20px;
+                            }
+                        }
+                    </style>
+                `;
+                
+                const template = `
+                    ${styles}
+                    <div class="pwa-badge">📱 PWA Ready</div>
+                    <div class="hello-container">
+                        <h1 class="hello-title" id="title">${this.state.message}</h1>
+                        <p class="hello-subtitle">Approach 3: Progressive Web Component</p>
+                        <div class="stats">
+                            <div class="stats-item">🕒 Loaded: ${new Date(this.state.timestamp).toLocaleTimeString()}</div>
+                            <div class="stats-item">👆 Clicks: <span id="click-count">${this.state.clickCount}</span></div>
+                            <div class="stats-item">🔧 Web Components + Shadow DOM</div>
+                        </div>
+                    </div>
+                `;
+                
+                this.shadowRoot.innerHTML = template;
+            }
+            
+            attachEventListeners() {
+                const title = this.shadowRoot.getElementById('title');
+                title.addEventListener('click', () => {
+                    this.state.clickCount++;
+                    this.updateClickCount();
+                    
+                    // Animate on click
+                    title.style.transform = 'scale(1.1)';
+                    setTimeout(() => {
+                        title.style.transform = 'scale(1)';
+                    }, 150);
+                });
+            }
+            
+            updateClickCount() {
+                const clickCountEl = this.shadowRoot.getElementById('click-count');
+                if (clickCountEl) {
+                    clickCountEl.textContent = this.state.clickCount;
+                }
+            }
+            
+            hideLoading() {
+                const loading = document.getElementById('loading');
+                if (loading) {
+                    loading.style.display = 'none';
+                }
+            }
+            
+            handleError(error) {
+                console.error('HelloApp Error:', error);
+                const errorElement = ErrorBoundary.handleError(error, 'HelloApp');
+                this.shadowRoot.appendChild(errorElement);
+            }
+        }
+        
+        // Service Worker for PWA capabilities
+        if ('serviceWorker' in navigator) {
+            const swCode = `
+                const CACHE_NAME = 'hello-pwa-v1';
+                const urlsToCache = ['/'];
+                
+                self.addEventListener('install', event => {
+                    event.waitUntil(
+                        caches.open(CACHE_NAME)
+                            .then(cache => cache.addAll(urlsToCache))
+                    );
+                });
+                
+                self.addEventListener('fetch', event => {
+                    event.respondWith(
+                        caches.match(event.request)
+                            .then(response => response || fetch(event.request))
+                    );
+                });
+            `;
+            
+            // Create service worker as blob URL
+            const swBlob = new Blob([swCode], { type: 'application/javascript' });
+            const swUrl = URL.createObjectURL(swBlob);
+            
+            navigator.serviceWorker.register(swUrl)
+                .then(registration => {
+                    console.log('Service Worker registered:', registration);
+                })
+                .catch(error => {
+                    console.log('Service Worker registration failed:', error);
+                });
+        }
+        
+        // Register custom element
+        try {
+            customElements.define('hello-app', HelloApp);
+        } catch (error) {
+            console.error('Failed to define custom element:', error);
+            
+            // Fallback for browsers that don't support custom elements
+            document.addEventListener('DOMContentLoaded', () => {
+                const helloApp = document.querySelector('hello-app');
+                if (helloApp && !customElements.get('hello-app')) {
+                    helloApp.innerHTML = `
+                        <div style="text-align: center; padding: 50px; font-family: sans-serif;">
+                            <h1 style="color: #4080ff; font-size: 3rem;">Hello</h1>
+                            <p>Fallback mode - Custom elements not supported</p>
+                        </div>
+                    `;
+                }
+                
+                // Hide loading
+                const loading = document.getElementById('loading');
+                if (loading) loading.style.display = 'none';
+            });
+        }
+        
+        // Global error handler
+        window.addEventListener('error', (event) => {
+            console.error('Global error:', event.error);
+        });
+        
+        // Listen for custom events
+        document.addEventListener('hello-loaded', (event) => {
+            console.log('Hello component loaded at:', event.detail.timestamp);
+        });
+        
+        console.log('🚀 Approach 3: PWA Web Components architecture initialized');
+    </script>
+</body>
+</html>
