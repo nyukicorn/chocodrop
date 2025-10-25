@@ -50,7 +50,12 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Check code quality (placeholder)
-        run: |
-          echo "✅ Lint check placeholder - will add eslint/prettier in Phase 2b"
-          # npm run lint --if-present
+      - name: Run ESLint
+        run: npm run lint
+        continue-on-error: true
+        # TODO: 既存コードの lint エラーを修正後、continue-on-error を削除
+
+      - name: Check formatting with Prettier
+        run: npm run format:check
+        continue-on-error: true
+        # TODO: 既存コードのフォーマットを修正後、continue-on-error を削除
