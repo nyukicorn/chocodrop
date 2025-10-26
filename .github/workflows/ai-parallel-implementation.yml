@@ -123,19 +123,13 @@ jobs:
             exit 1
           fi
 
-  # 全実装完了後、比較評価を実行
-  evaluate:
-    name: Evaluate all approaches
+  # サマリー生成
+  summary:
+    name: Generate summary
     runs-on: ubuntu-latest
     needs: [prepare, implement]
-    permissions:
-      contents: read
-      actions: write  # 他のワークフローをトリガーするために必要
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
       - name: Build branch list
         id: branches
         run: |
@@ -153,20 +147,7 @@ jobs:
           done
 
           echo "branches=$BRANCHES" >> $GITHUB_OUTPUT
-          echo "📊 Will compare branches: $BRANCHES"
-
-      - name: Trigger comparison workflow
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh workflow run worktree-parallel.yml \
-            -f branches="${{ steps.branches.outputs.branches }}" \
-            -f run_build=true \
-            -f run_tests=true \
-            -f compare_results=true
-
-          echo "✅ Comparison workflow triggered"
-          echo "📊 Check results at: https://github.com/${{ github.repository }}/actions/workflows/worktree-parallel.yml"
+          echo "📊 Created branches: $BRANCHES"
 
       - name: Summary
         run: |
@@ -179,5 +160,12 @@ jobs:
           echo "${{ steps.branches.outputs.branches }}" | tr ',' '\n' >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Next:** Check the comparison workflow for AI analysis" >> $GITHUB_STEP_SUMMARY
-          echo "https://github.com/${{ github.repository }}/actions/workflows/worktree-parallel.yml" >> $GITHUB_STEP_SUMMARY
+          echo "**評価方法:**" >> $GITHUB_STEP_SUMMARY
+          echo '評価したい場合は、以下のコマンドを実行してください：' >> $GITHUB_STEP_SUMMARY
+          echo '```bash' >> $GITHUB_STEP_SUMMARY
+          echo "gh workflow run worktree-parallel.yml \\" >> $GITHUB_STEP_SUMMARY
+          echo "  -f branches=\"${{ steps.branches.outputs.branches }}\" \\" >> $GITHUB_STEP_SUMMARY
+          echo "  -f run_build=true \\" >> $GITHUB_STEP_SUMMARY
+          echo "  -f run_tests=true \\" >> $GITHUB_STEP_SUMMARY
+          echo "  -f compare_results=true" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY

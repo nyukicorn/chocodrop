@@ -154,9 +154,9 @@ threejs.org など、Three.js を使っている既存サイトにも ChocoDrop 
 
 > 🔍 **ヒント**: daemon や `sdk.js` のレスポンスヘッダーに `X-ChocoDrop-SDK-Source: dist` が表示されていれば、ビルド済みバンドルが正しく配信されています。ブラウザで `await window.chocodrop.ready()` を実行して接続状況をチェックできます。
 
-#### E. GitHub Actions で並列実装・評価（開発者向け）
+#### E. GitHub Actions で並列実装（開発者向け）
 
-複数のアプローチを AI に並列実装させ、自動的に比較評価するワークフローです。
+複数のアプローチを AI に並列実装させるワークフローです。評価は別途実行します。
 
 ---
 
@@ -199,14 +199,13 @@ gh workflow run ai-parallel-implementation.yml \
    - ブランチ名: `ai/approach-1-[timestamp]`, `ai/approach-2-[timestamp]`, ...
    - 各ブランチに自動 push
 
-2. **比較評価** - `worktree-parallel.yml` が自動実行
-   - ビルド・テスト・Lint を並列実行
-   - Lighthouse でパフォーマンス測定
-   - Claude AI による比較分析レポート生成
+2. **実装完了** - ワークフロー完了時に評価コマンドが表示される
+   - Summary に作成されたブランチ一覧が表示される
+   - 評価したい場合のコマンドも表示される
 
 ---
 
-##### 結果の確認
+##### 実装結果の確認
 
 ```bash
 # 実行状況を確認
@@ -215,8 +214,23 @@ gh run list --workflow=ai-parallel-implementation.yml --limit 5
 # 特定の実行を監視
 gh run watch [RUN_ID]
 
-# ブラウザで確認
+# ブラウザで確認（Summary に作成されたブランチが表示される）
 gh run view [RUN_ID] --web
+```
+
+---
+
+##### 評価（任意・完成後のみ）
+
+実装が完成し、比較評価したい場合は、ワークフロー Summary に表示されたコマンドを実行：
+
+```bash
+# Summary に表示されたブランチ名をコピーして実行
+gh workflow run worktree-parallel.yml \
+  -f branches="ai/approach-1-XXXXX,ai/approach-2-XXXXX,ai/approach-3-XXXXX" \
+  -f run_build=true \
+  -f run_tests=true \
+  -f compare_results=true
 ```
 
 **比較レポート:**
@@ -224,7 +238,7 @@ gh run view [RUN_ID] --web
 - Artifacts から `comparison-report` をダウンロード
 - `ai-analysis.html` を開いて詳細な比較分析を確認
 
-> ⚠️ **注意**: AI による実装は GitHub Actions の ubuntu-latest 環境で実行されます。
+> ⚠️ **注意**: AI による実装は GitHub Actions の ubuntu-latest 環境で実行されます。評価は自動実行されません。
 
 #### F. ローカル worktree で並列実装
 
