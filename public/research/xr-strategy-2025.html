@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ChocoDrop XR リサーチブリーフ（2025年10月26日）</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      font-family: "Helvetica Neue", Arial, sans-serif;
+      line-height: 1.6;
+      --accent: #ff6fb7;
+    }
+    body {
+      margin: 0;
+      padding: 2rem 1.25rem 4rem;
+      max-width: 960px;
+      margin-inline: auto;
+    }
+    h1, h2, h3 {
+      color: var(--accent);
+      margin-top: 2.5rem;
+      letter-spacing: 0.04em;
+    }
+    h1 {
+      margin-top: 0;
+      font-size: 1.95rem;
+    }
+    section {
+      border-left: 3px solid var(--accent);
+      padding-left: 1rem;
+      margin-bottom: 2rem;
+    }
+    ul {
+      padding-left: 1.25rem;
+    }
+    .footnotes {
+      font-size: 0.9rem;
+      border-top: 1px solid rgba(255,255,255,0.2);
+      margin-top: 3rem;
+      padding-top: 1rem;
+    }
+    .pill {
+      display: inline-block;
+      background: rgba(255, 111, 183, 0.12);
+      border: 1px solid rgba(255, 111, 183, 0.3);
+      border-radius: 999px;
+      padding: 0.1rem 0.75rem;
+      font-size: 0.85rem;
+      margin-inline-end: 0.35rem;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1rem;
+    }
+    .card {
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-radius: 0.75rem;
+      padding: 1rem;
+      background: rgba(255, 255, 255, 0.02);
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <p class="pill">更新日: 2025-10-26</p>
+    <p class="pill">配信対象: XR実装チーム / サーバー 192.168.1.15</p>
+    <h1>ChocoDrop XR リサーチブリーフ</h1>
+    <p>Meta Quest 3 を主軸に XR（VR/MR/AR）機能を追加するための市場調査、方向性、機能要件のまとめ。</p>
+  </header>
+
+  <section>
+    <h2>1. マーケット & デバイス動向</h2>
+    <div class="grid">
+      <article class="card">
+        <h3>エコシステム</h3>
+        <ul>
+          <li>Meta Horizon OS が ASUS・Lenovo など外部 OEM へ拡張予定。Quest 4 は 2027 年以降との見方で、2025-26 年は現行ハード＋パートナー端末で需要を維持する方針。<sup><a href="#fn1">1</a></sup></li>
+          <li>Apple visionOS 2.4 で Apple Intelligence、Spatial Gallery、Guest User 拡張など “共有・生成” 系機能が揃い、空間 UX 競争が可視化。<sup><a href="#fn2">2</a></sup></li>
+          <li>Samsung Galaxy XR が $1,799 で発売、Snapdragon XR2+ Gen 2・109° FOV・即日出荷で「Vision Pro より軽く安い」ポジションを確立。<sup><a href="#fn3">3</a></sup></li>
+        </ul>
+      </article>
+      <article class="card">
+        <h3>ブラウザ & SDK</h3>
+        <ul>
+          <li>Quest Browser v39 で WebXR Shared Spaces（共通座標）が実験提供され、ローカル複数台での自動位置合わせが可能に。<sup><a href="#fn4">4</a></sup></li>
+          <li>Niantic 8th Wall Runtime 2.x が Asset Lab、物理エンジン刷新、デスクトップアプリを追加し、WebXR→ネイティブ書き出しの導線が強化。<sup><a href="#fn5">5</a></sup></li>
+        </ul>
+      </article>
+      <article class="card">
+        <h3>半導体 & 未来性</h3>
+        <ul>
+          <li>Qualcomm XR2+ Gen 2 は 4.3K/eye・12 カメラ・15% GPU 向上で MR パススルー精度を改善。Samsung / Google 向け高性能 HMD の標準 SoC として提示。<sup><a href="#fn6">6</a></sup></li>
+          <li>IDC は 2025 年の AR/VR+スマートグラス市場 14.3M 台（+39.2%）を予測し、MR/ER が VR 単体より高速に成長すると試算。<sup><a href="#fn7">7</a></sup></li>
+        </ul>
+      </article>
+    </div>
+  </section>
+
+  <section>
+    <h2>2. インサイトと示唆</h2>
+    <ul>
+      <li><strong>XR = 混在体験へのシフト</strong>：各社とも「現実とのブレンディング」「AIアシスタンス」軸で共通しており、ChocoDrop でも WebXR/Three.js ベース UI を “空間 UI” として再構築する必要あり。</li>
+      <li><strong>WebXR の戦略的価値</strong>：Quest Browser の共有空間と 8th Wall/Lightship の VPS 機能が揃い、ブラウザ配信でもマルチユーザー MR が実現可能。アプリ審査を経ずに 192.168.1.15 で配信できるため、現行スタックを活かせる。</li>
+      <li><strong>ブラウザ→ネイティブ輸出</strong>：Samsung / Apple / Meta で API 差異が広がるため、WebXR＋OpenXR 層を標準化しつつ、将来的に 8th Wall の Native Export や Capacitor を介したハイブリッド配信を検討。</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>3. 必要機能リスト（初期スコープ案）</h2>
+    <ol>
+      <li><strong>WebXR ブリッジ</strong>：Quest Browser で自動的に MR セッションへ入るためのエントリーページと、機器判定に応じたフォールバック。</li>
+      <li><strong>パススルー UI</strong>：Three.js レイヤーに MR 透過（`XRCompositionLayer` & `alpha: true`）を適用し、現実背景上で ChocoDrop HUD を配置。Apple/Samsung 向けには Safari/Samsung XR Browser の互換実装を抽象化。</li>
+      <li><strong>共有アンカー</strong>：Quest Shared Spaces + WebRTC でプレゼンス同期。Apple visionOS では SharePlay/GroupActivities 併用を想定。</li>
+      <li><strong>Spatial Input</strong>：ハンドトラッキング操作（pinch/drag）とコントローラ操作両対応。XR2+ Gen 2 の 12 カメラ構成や Apple Hand Tracking API を意識し、入力抽象層を整理。</li>
+      <li><strong>AI アシスト接合</strong>：visionOS の Writing Tools や Meta Ray-Ban の音声アシストを踏まえ、ChocoDrop のシーン生成機能に音声→LLM→Three.js の最短パスを用意。</li>
+      <li><strong>192.168.1.15 配信基盤</strong>：HTTPS + WebSocket/TCP 43110 の現行デーモンを XR ルームごとにプロキシし、Quest/visionOS から同一プライベートネットでアクセスできるようにする。</li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>4. 実装へのステップ</h2>
+    <div class="grid">
+      <article class="card">
+        <h3>短期（〜2週間）</h3>
+        <ul>
+          <li>192.168.1.15 上で HTTPS 証明書と WebXR Feature Policy を整備。</li>
+          <li>現行 Three.js UI を WebXR 対応（`navigator.xr.requestSession('immersive-vr')`）。</li>
+          <li>Quest Browser Shared Spaces 実験を有効化し、2 台での座標同期 PoC。</li>
+        </ul>
+      </article>
+      <article class="card">
+        <h3>中期（〜6週間）</h3>
+        <ul>
+          <li>8th Wall Runtime 2.x で Asset Lab / Native Export の試行と、社内テンプレート化。</li>
+          <li>visionOS Safari/SharePlay、Galaxy XR Browser（Android XR）の互換検証。</li>
+          <li>LLM ベースのシーン生成フローを音声入力込みで Quest / visionOS 両対応に。</li>
+        </ul>
+      </article>
+      <article class="card">
+        <h3>長期（Q1 2026〜）</h3>
+        <ul>
+          <li>メッシュ共有（VPS/Lightship）と物理ベース編集の統合。</li>
+          <li>Qualcomm XR2+ Gen 2 対応 HMD（Samsung XR 等）での 4K/eye レンダリング最適化。</li>
+          <li>App Lab / Apple Vision Pro App Store へのハイブリッド配信を視野に入れた署名フロー整備。</li>
+        </ul>
+      </article>
+    </div>
+  </section>
+
+  <section>
+    <h2>5. デプロイ留意点（Meta Quest 3）</h2>
+    <ul>
+      <li>Meta Browser Flags: <code>chrome://flags/#webxr-shared-spaces</code> を有効化し、社内 Quest へ共通イメージを配布。</li>
+      <li>ホスト: 192.168.1.15 は <code>https://192.168.1.15</code> で自己署名 → Quest 信頼済み証明書としてサイドロード。</li>
+      <li>アクセス制御: 他チームと競合しないよう、XR ポートレンジを <code>443 + /xr-demo</code> に固定。</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>6. 次のアクション</h2>
+    <ul>
+      <li>本ブリーフを基に、XR 機能の詳細タスクをプランモード（Codex Plan Tool）で確定する。</li>
+      <li>デモ用ブラウザ HTML（Quest 3 試験ページ）を <code>public/xr-demo/index.html</code> に配置し、社内テスト URL を共有。</li>
+      <li>2 週間ごとに市場アップデートを反映し、Feature リストをローリングリビュー。</li>
+    </ul>
+  </section>
+
+  <footer class="footnotes">
+    <ol>
+      <li id="fn1">Meta Horizon OS パートナー計画と Quest 4 時期に関する Road to VR 記事（2025-09-18）。<a href="https://www.roadtovr.com/meta-horizon-os-asus-lenovo-quest-connect-2025/" target="_blank" rel="noopener">source</a></li>
+      <li id="fn2">visionOS 2.4（2025-03-31）リリースノート。<a href="https://www.apple.com/newsroom/2025/03/apple-intelligence-comes-to-apple-vision-pro-today-with-visionos-2-4/" target="_blank" rel="noopener">source</a></li>
+      <li id="fn3">Samsung Galaxy XR の価格・仕様（Tom's Guide, 2025-10-21）。<a href="https://www.tomsguide.com/computing/vr-ar/samsung-galaxy-xr-launches-for-usd1-700-less-than-apple-vision-pro-release-date-price-specs-and-more" target="_blank" rel="noopener">source</a></li>
+      <li id="fn4">Quest Browser Shared Spaces（UploadVR, 2025-06-05）。<a href="https://www.uploadvr.com/quest-web-browser-experimental-colocation-webxr/" target="_blank" rel="noopener">source</a></li>
+      <li id="fn5">8th Wall Studio リリースノート（2025-10）。<a href="https://www.8thwall.com/docs/studio/release-notes/" target="_blank" rel="noopener">source</a></li>
+      <li id="fn6">Qualcomm XR2+ Gen 2 の CES 2024 アップデート（RCR Wireless, 2024-01-08）。<a href="https://www.rcrwireless.com/20240108/devices/qualcomm-launches-new-xr-platform-ahead-of-ces" target="_blank" rel="noopener">source</a></li>
+      <li id="fn7">IDC AR/VR 市場インサイト（2025-10-21 更新）。<a href="https://www.idc.com/promo/arvr" target="_blank" rel="noopener">source</a></li>
+    </ol>
+  </footer>
+</body>
+</html>
