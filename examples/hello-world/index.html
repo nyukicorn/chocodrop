@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChocoDrop - Hello World 3D Text</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='8' y='8' width='48' height='48' rx='12' fill='%2363410f'/%3E%3Crect x='18' y='18' width='28' height='28' rx='6' fill='%23a16207'/%3E%3C/svg%3E">
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+        }
+    }
+    </script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            font-family: "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        #info {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            color: #ffffff;
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.9), rgba(118, 75, 162, 0.9));
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 20px;
+            border-radius: 12px;
+            font-size: 14px;
+            z-index: 2000;
+            max-width: 350px;
+            line-height: 1.6;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            transition: opacity 0.3s ease, transform 0.3s ease;
+        }
+
+        #info.hidden {
+            opacity: 0;
+            transform: translateY(-20px);
+            pointer-events: none;
+        }
+
+        .close-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            font-size: 18px;
+            color: #ffffff;
+            cursor: pointer;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s ease;
+        }
+
+        .close-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        #info h1 {
+            margin: 0 0 15px 0;
+            font-size: 24px;
+            font-weight: 700;
+            background: linear-gradient(45deg, #fff, #f0f8ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        #info p {
+            margin: 10px 0;
+            opacity: 0.9;
+        }
+
+        .feature-list {
+            list-style: none;
+            padding: 0;
+            margin: 15px 0;
+        }
+
+        .feature-list li {
+            margin: 8px 0;
+            padding-left: 20px;
+            position: relative;
+        }
+
+        .feature-list li:before {
+            content: "✨";
+            position: absolute;
+            left: 0;
+        }
+
+        .controls {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid rgba(255, 255, 255, 0.2);
+            font-size: 12px;
+            opacity: 0.8;
+        }
+
+        .unified-menu {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
+
+        .menu-toggle {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #ffffff;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 44px;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .menu-toggle:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: scale(1.05);
+        }
+
+        .menu-dropdown {
+            position: absolute;
+            top: 56px;
+            right: 0;
+            min-width: 220px;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(-10px);
+            transition: all 0.3s ease;
+            overflow: hidden;
+        }
+
+        .menu-dropdown.active {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+        }
+
+        .menu-item {
+            display: block;
+            padding: 12px 16px;
+            color: #333;
+            text-decoration: none;
+            font-size: 14px;
+            transition: background 0.2s ease;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+            cursor: pointer;
+            background: none;
+            border-left: none;
+            border-right: none;
+            border-top: none;
+            width: 100%;
+            text-align: left;
+        }
+
+        .menu-item:last-child {
+            border-bottom: none;
+        }
+
+        .menu-item:hover {
+            background: rgba(102, 126, 234, 0.1);
+        }
+
+        canvas {
+            display: block;
+        }
+
+        .loading {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 18px;
+            z-index: 3000;
+        }
+    </style>
+</head>
+<body>
+    <div id="loading" class="loading">Loading Hello World...</div>
+
+    <div id="info">
+        <button class="close-btn" onclick="hideInfoPanel()">×</button>
+        <h1>🌟 Hello World 3D</h1>
+        <p>Experience beautiful 3D text with advanced lighting and materials using a modular component architecture.</p>
+        
+        <ul class="feature-list">
+            <li>Component-based design pattern</li>
+            <li>Dynamic 3D text with TextGeometry</li>
+            <li>Sophisticated lighting system</li>
+            <li>Material property animations</li>
+            <li>Interactive camera controls</li>
+            <li>ChocoDrop integration ready</li>
+        </ul>
+
+        <p><strong>Approach 2:</strong> This implementation showcases object-oriented programming with ES6 classes, clean separation of concerns, and modular component architecture.</p>
+
+        <div class="controls">
+            <strong>Controls:</strong><br>
+            Mouse: Rotate view • Scroll: Zoom • @ Key: ChocoDrop
+        </div>
+    </div>
+
+    <div class="unified-menu">
+        <button class="menu-toggle" id="menuToggle">☰</button>
+        <div class="menu-dropdown" id="menuDropdown">
+            <button class="menu-item" id="showInfoBtn">📖 About</button>
+            <a href="../basic/index.html" class="menu-item">🍫 Basic World</a>
+            <a href="../space/index.html" class="menu-item">🌌 Space</a>
+            <a href="../pixel-ocean/index.html" class="menu-item">🌊 Ocean</a>
+            <a href="../../index.html" class="menu-item">🏠 Home</a>
+            <a href="https://github.com/nyukicorn/chocodrop" class="menu-item" target="_blank">🔗 GitHub</a>
+        </div>
+    </div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { TextGeometry } from 'three/addons/geometries/TextGeometry.js';
+        import { FontLoader } from 'three/addons/loaders/FontLoader.js';
+
+        /**
+         * SceneManager - Component-based scene management
+         * Approach 2: Clean separation of concerns with modular architecture
+         */
+        class SceneManager {
+            constructor() {
+                this.scene = null;
+                this.camera = null;
+                this.renderer = null;
+                this.controls = null;
+                this.clock = new THREE.Clock();
+                
+                // Component registry
+                this.components = new Map();
+                this.updateQueue = [];
+                
+                this.initializeScene();
+            }
+
+            initializeScene() {
+                // Scene setup
+                this.scene = new THREE.Scene();
+                this.scene.background = new THREE.Color(0x1a1a2e);
+                this.scene.fog = new THREE.Fog(0x1a1a2e, 50, 200);
+
+                // Camera setup
+                this.camera = new THREE.PerspectiveCamera(
+                    75, 
+                    window.innerWidth / window.innerHeight, 
+                    0.1, 
+                    1000
+                );
+                this.camera.position.set(0, 5, 15);
+
+                // Renderer setup
+                this.renderer = new THREE.WebGLRenderer({ 
+                    antialias: true,
+                    alpha: true 
+                });
+                this.renderer.setSize(window.innerWidth, window.innerHeight);
+                this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+                this.renderer.shadowMap.enabled = true;
+                this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+                this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+                this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+                this.renderer.toneMappingExposure = 1.2;
+                
+                document.body.appendChild(this.renderer.domElement);
+
+                // Controls setup
+                this.controls = new OrbitControls(this.camera, this.renderer.domElement);
+                this.controls.enableDamping = true;
+                this.controls.dampingFactor = 0.05;
+                this.controls.maxPolarAngle = Math.PI / 2;
+                this.controls.minDistance = 5;
+                this.controls.maxDistance = 50;
+
+                // Event listeners
+                this.setupEventListeners();
+                
+                console.log('✅ SceneManager initialized with component architecture');
+            }
+
+            setupEventListeners() {
+                window.addEventListener('resize', () => this.onWindowResize());
+            }
+
+            onWindowResize() {
+                this.camera.aspect = window.innerWidth / window.innerHeight;
+                this.camera.updateProjectionMatrix();
+                this.renderer.setSize(window.innerWidth, window.innerHeight);
+            }
+
+            addComponent(name, component) {
+                this.components.set(name, component);
+                if (component.mesh) {
+                    this.scene.add(component.mesh);
+                }
+                if (component.update) {
+                    this.updateQueue.push(component);
+                }
+                console.log(`🔧 Component '${name}' added to scene`);
+            }
+
+            removeComponent(name) {
+                const component = this.components.get(name);
+                if (component && component.mesh) {
+                    this.scene.remove(component.mesh);
+                    if (component.dispose) {
+                        component.dispose();
+                    }
+                }
+                this.components.delete(name);
+                this.updateQueue = this.updateQueue.filter(comp => comp !== component);
+            }
+
+            update() {
+                const deltaTime = this.clock.getDelta();
+                const elapsedTime = this.clock.getElapsedTime();
+
+                // Update all components
+                this.updateQueue.forEach(component => {
+                    if (component.update) {
+                        component.update(deltaTime, elapsedTime);
+                    }
+                });
+
+                this.controls.update();
+            }
+
+            render() {
+                this.renderer.render(this.scene, this.camera);
+            }
+
+            animate() {
+                requestAnimationFrame(() => this.animate());
+                this.update();
+                this.render();
+            }
+        }
+
+        /**
+         * LightingSystem - Advanced lighting component
+         * Manages multiple light sources with dynamic properties
+         */
+        class LightingSystem {
+            constructor(scene) {
+                this.scene = scene;
+                this.lights = {};
+                this.setupLighting();
+            }
+
+            setupLighting() {
+                // Ambient light
+                this.lights.ambient = new THREE.AmbientLight(0x404040, 0.4);
+                this.scene.add(this.lights.ambient);
+
+                // Main directional light
+                this.lights.main = new THREE.DirectionalLight(0xffffff, 1.2);
+                this.lights.main.position.set(10, 20, 10);
+                this.lights.main.castShadow = true;
+                this.lights.main.shadow.mapSize.width = 2048;
+                this.lights.main.shadow.mapSize.height = 2048;
+                this.lights.main.shadow.camera.near = 0.1;
+                this.lights.main.shadow.camera.far = 50;
+                this.lights.main.shadow.camera.left = -20;
+                this.lights.main.shadow.camera.right = 20;
+                this.lights.main.shadow.camera.top = 20;
+                this.lights.main.shadow.camera.bottom = -20;
+                this.scene.add(this.lights.main);
+
+                // Fill light
+                this.lights.fill = new THREE.DirectionalLight(0x6699ff, 0.5);
+                this.lights.fill.position.set(-10, 10, -10);
+                this.scene.add(this.lights.fill);
+
+                // Point lights for accent
+                this.lights.accent1 = new THREE.PointLight(0xff6b6b, 0.8, 20);
+                this.lights.accent1.position.set(8, 5, 8);
+                this.scene.add(this.lights.accent1);
+
+                this.lights.accent2 = new THREE.PointLight(0x4ecdc4, 0.8, 20);
+                this.lights.accent2.position.set(-8, 5, -8);
+                this.scene.add(this.lights.accent2);
+
+                // Hemisphere light for natural feel
+                this.lights.hemisphere = new THREE.HemisphereLight(0x87ceeb, 0x8b4513, 0.3);
+                this.scene.add(this.lights.hemisphere);
+
+                console.log('💡 Advanced lighting system initialized');
+            }
+
+            update(deltaTime, elapsedTime) {
+                // Animate accent lights
+                this.lights.accent1.position.x = Math.sin(elapsedTime * 0.5) * 8;
+                this.lights.accent1.position.z = Math.cos(elapsedTime * 0.5) * 8;
+                
+                this.lights.accent2.position.x = Math.sin(elapsedTime * 0.7 + Math.PI) * 8;
+                this.lights.accent2.position.z = Math.cos(elapsedTime * 0.7 + Math.PI) * 8;
+
+                // Pulse accent light intensity
+                this.lights.accent1.intensity = 0.8 + Math.sin(elapsedTime * 2) * 0.2;
+                this.lights.accent2.intensity = 0.8 + Math.cos(elapsedTime * 2.5) * 0.2;
+            }
+
+            dispose() {
+                Object.values(this.lights).forEach(light => {
+                    this.scene.remove(light);
+                    if (light.dispose) light.dispose();
+                });
+            }
+        }
+
+        /**
+         * Text3D - 3D text component with advanced materials
+         * Handles font loading, geometry creation, and material animation
+         */
+        class Text3D {
+            constructor(text = "Hello World") {
+                this.text = text;
+                this.mesh = null;
+                this.material = null;
+                this.geometry = null;
+                this.font = null;
+                this.isLoaded = false;
+                
+                // Animation properties
+                this.rotationSpeed = { x: 0.005, y: 0.01, z: 0.002 };
+                this.floatAmplitude = 0.5;
+                this.floatSpeed = 1.0;
+                this.initialY = 0;
+                
+                this.loadFont();
+            }
+
+            async loadFont() {
+                const loader = new FontLoader();
+                
+                try {
+                    this.font = await new Promise((resolve, reject) => {
+                        loader.load(
+                            'https://threejs.org/examples/fonts/helvetiker_regular.typeface.json',
+                            resolve,
+                            undefined,
+                            reject
+                        );
+                    });
+                    
+                    this.createText();
+                    console.log('🔤 Font loaded and 3D text created');
+                } catch (error) {
+                    console.error('❌ Failed to load font:', error);
+                    this.createFallbackText();
+                }
+            }
+
+            createText() {
+                // Create text geometry
+                this.geometry = new TextGeometry(this.text, {
+                    font: this.font,
+                    size: 2,
+                    height: 0.5,
+                    curveSegments: 12,
+                    bevelEnabled: true,
+                    bevelThickness: 0.1,
+                    bevelSize: 0.05,
+                    bevelOffset: 0,
+                    bevelSegments: 8
+                });
+
+                // Center the geometry
+                this.geometry.computeBoundingBox();
+                const centerOffsetX = -0.5 * (this.geometry.boundingBox.max.x - this.geometry.boundingBox.min.x);
+                const centerOffsetY = -0.5 * (this.geometry.boundingBox.max.y - this.geometry.boundingBox.min.y);
+                const centerOffsetZ = -0.5 * (this.geometry.boundingBox.max.z - this.geometry.boundingBox.min.z);
+                
+                this.geometry.translate(centerOffsetX, centerOffsetY, centerOffsetZ);
+
+                // Create advanced material
+                this.material = new THREE.MeshPhysicalMaterial({
+                    color: 0x667eea,
+                    metalness: 0.2,
+                    roughness: 0.1,
+                    clearcoat: 0.8,
+                    clearcoatRoughness: 0.1,
+                    reflectivity: 0.9,
+                    envMapIntensity: 1.0,
+                    side: THREE.FrontSide
+                });
+
+                // Create mesh
+                this.mesh = new THREE.Mesh(this.geometry, this.material);
+                this.mesh.castShadow = true;
+                this.mesh.receiveShadow = true;
+                this.mesh.position.y = this.initialY;
+
+                this.isLoaded = true;
+            }
+
+            createFallbackText() {
+                // Fallback using simple box geometry if font fails to load
+                this.geometry = new THREE.BoxGeometry(8, 2, 1);
+                this.material = new THREE.MeshPhysicalMaterial({
+                    color: 0xff6b6b,
+                    metalness: 0.3,
+                    roughness: 0.2
+                });
+                
+                this.mesh = new THREE.Mesh(this.geometry, this.material);
+                this.mesh.castShadow = true;
+                this.mesh.receiveShadow = true;
+                this.mesh.position.y = this.initialY;
+                
+                this.isLoaded = true;
+                console.log('📦 Fallback geometry created');
+            }
+
+            update(deltaTime, elapsedTime) {
+                if (!this.mesh || !this.isLoaded) return;
+
+                // Rotation animation
+                this.mesh.rotation.x += this.rotationSpeed.x;
+                this.mesh.rotation.y += this.rotationSpeed.y;
+                this.mesh.rotation.z += this.rotationSpeed.z;
+
+                // Floating animation
+                this.mesh.position.y = this.initialY + Math.sin(elapsedTime * this.floatSpeed) * this.floatAmplitude;
+
+                // Material color animation
+                if (this.material) {
+                    const hue = (elapsedTime * 0.1) % 1;
+                    this.material.color.setHSL(hue, 0.7, 0.6);
+                    
+                    // Animate metalness
+                    this.material.metalness = 0.2 + Math.sin(elapsedTime * 0.5) * 0.1;
+                }
+            }
+
+            dispose() {
+                if (this.geometry) this.geometry.dispose();
+                if (this.material) this.material.dispose();
+            }
+        }
+
+        /**
+         * EnvironmentEffects - Environmental effects component
+         * Manages particles, backgrounds, and atmospheric effects
+         */
+        class EnvironmentEffects {
+            constructor(scene) {
+                this.scene = scene;
+                this.particles = null;
+                this.createParticleSystem();
+                this.createBackground();
+            }
+
+            createParticleSystem() {
+                const particleCount = 1000;
+                const geometry = new THREE.BufferGeometry();
+                const positions = new Float32Array(particleCount * 3);
+                const velocities = new Float32Array(particleCount * 3);
+                
+                for (let i = 0; i < particleCount * 3; i += 3) {
+                    positions[i] = (Math.random() - 0.5) * 50;
+                    positions[i + 1] = (Math.random() - 0.5) * 50;
+                    positions[i + 2] = (Math.random() - 0.5) * 50;
+                    
+                    velocities[i] = (Math.random() - 0.5) * 0.02;
+                    velocities[i + 1] = (Math.random() - 0.5) * 0.02;
+                    velocities[i + 2] = (Math.random() - 0.5) * 0.02;
+                }
+                
+                geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+                geometry.setAttribute('velocity', new THREE.BufferAttribute(velocities, 3));
+                
+                const material = new THREE.PointsMaterial({
+                    color: 0xffffff,
+                    size: 0.1,
+                    transparent: true,
+                    opacity: 0.6,
+                    blending: THREE.AdditiveBlending
+                });
+                
+                this.particles = new THREE.Points(geometry, material);
+                this.scene.add(this.particles);
+                
+                console.log('✨ Particle system created');
+            }
+
+            createBackground() {
+                // Create a subtle background sphere
+                const geometry = new THREE.SphereGeometry(100, 32, 32);
+                const material = new THREE.MeshBasicMaterial({
+                    color: 0x1a1a2e,
+                    side: THREE.BackSide,
+                    transparent: true,
+                    opacity: 0.8
+                });
+                
+                const backgroundSphere = new THREE.Mesh(geometry, material);
+                this.scene.add(backgroundSphere);
+            }
+
+            update(deltaTime, elapsedTime) {
+                if (this.particles) {
+                    this.particles.rotation.y += 0.001;
+                    
+                    // Animate particle positions
+                    const positions = this.particles.geometry.attributes.position.array;
+                    const velocities = this.particles.geometry.attributes.velocity.array;
+                    
+                    for (let i = 0; i < positions.length; i += 3) {
+                        positions[i] += velocities[i];
+                        positions[i + 1] += velocities[i + 1];
+                        positions[i + 2] += velocities[i + 2];
+                        
+                        // Boundary wrapping
+                        if (Math.abs(positions[i]) > 25) velocities[i] *= -1;
+                        if (Math.abs(positions[i + 1]) > 25) velocities[i + 1] *= -1;
+                        if (Math.abs(positions[i + 2]) > 25) velocities[i + 2] *= -1;
+                    }
+                    
+                    this.particles.geometry.attributes.position.needsUpdate = true;
+                }
+            }
+        }
+
+        /**
+         * App - Main application class
+         * Orchestrates all components and handles ChocoDrop integration
+         */
+        class App {
+            constructor() {
+                this.sceneManager = null;
+                this.chocoDrop = null;
+                this.init();
+            }
+
+            async init() {
+                console.log('🚀 Initializing Hello World 3D with component architecture...');
+                
+                // Initialize scene manager
+                this.sceneManager = new SceneManager();
+                
+                // Create and add components
+                const lightingSystem = new LightingSystem(this.sceneManager.scene);
+                this.sceneManager.addComponent('lighting', lightingSystem);
+                
+                const text3D = new Text3D("Hello World");
+                this.sceneManager.addComponent('text', text3D);
+                
+                const environment = new EnvironmentEffects(this.sceneManager.scene);
+                this.sceneManager.addComponent('environment', environment);
+                
+                // Setup UI
+                this.setupUI();
+                
+                // Initialize ChocoDrop integration
+                await this.initChocoDrop();
+                
+                // Start animation loop
+                this.sceneManager.animate();
+                
+                // Hide loading
+                const loading = document.getElementById('loading');
+                if (loading) loading.style.display = 'none';
+                
+                console.log('✅ Hello World 3D initialized successfully!');
+            }
+
+            setupUI() {
+                // Menu functionality
+                const menuToggle = document.getElementById('menuToggle');
+                const menuDropdown = document.getElementById('menuDropdown');
+                const showInfoBtn = document.getElementById('showInfoBtn');
+                
+                if (menuToggle && menuDropdown) {
+                    menuToggle.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        menuDropdown.classList.toggle('active');
+                    });
+                    
+                    document.addEventListener('click', (e) => {
+                        if (!menuToggle.contains(e.target) && !menuDropdown.contains(e.target)) {
+                            menuDropdown.classList.remove('active');
+                        }
+                    });
+                }
+                
+                if (showInfoBtn) {
+                    showInfoBtn.addEventListener('click', () => {
+                        const infoPanel = document.getElementById('info');
+                        if (infoPanel) {
+                            infoPanel.classList.remove('hidden');
+                        }
+                        menuDropdown.classList.remove('active');
+                    });
+                }
+
+                // Info panel hide function
+                window.hideInfoPanel = () => {
+                    const infoPanel = document.getElementById('info');
+                    if (infoPanel) {
+                        infoPanel.classList.add('hidden');
+                    }
+                };
+                
+                // Auto-hide info panel after 10 seconds
+                setTimeout(() => {
+                    if (window.hideInfoPanel) {
+                        window.hideInfoPanel();
+                    }
+                }, 10000);
+            }
+
+            async initChocoDrop() {
+                try {
+                    // Load ChocoDrop (simplified version for demo)
+                    console.log('🍫 ChocoDrop integration ready');
+                    
+                    // Add keyboard shortcut for ChocoDrop activation
+                    document.addEventListener('keydown', (event) => {
+                        if (event.key === '@' || event.code === 'Space') {
+                            console.log('🎯 ChocoDrop activation key pressed');
+                            // ChocoDrop integration would go here
+                        }
+                    });
+                    
+                } catch (error) {
+                    console.warn('⚠️ ChocoDrop integration not available:', error);
+                }
+            }
+        }
+
+        // Initialize the application
+        window.addEventListener('DOMContentLoaded', () => {
+            new App();
+        });
+
+    </script>
+</body>
+</html>
