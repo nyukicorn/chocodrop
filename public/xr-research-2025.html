@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ChocoDrop XRリサーチ 2025</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      font-family: "Inter", "Hiragino Sans", "Yu Gothic", sans-serif;
+    }
+    body {
+      margin: 2rem auto;
+      padding: 0 1.25rem 3rem;
+      max-width: 960px;
+      line-height: 1.7;
+      background: #f9fafb;
+      color: #222;
+    }
+    header h1 {
+      font-size: clamp(1.8rem, 3vw, 2.6rem);
+      margin-bottom: 0.25rem;
+    }
+    header p {
+      margin: 0;
+      color: #555;
+    }
+    section {
+      margin-top: 2rem;
+      padding: 1.5rem;
+      background: #fff;
+      border-radius: 0.6rem;
+      box-shadow: 0 8px 20px rgba(15, 23, 42, 0.05);
+    }
+    h2 {
+      margin-top: 0;
+      border-bottom: 2px solid #e2e8f0;
+      padding-bottom: 0.4rem;
+      font-size: 1.25rem;
+    }
+    ul, ol {
+      padding-left: 1.4rem;
+    }
+    .grid {
+      display: grid;
+      gap: 1rem;
+    }
+    @media (min-width: 720px) {
+      .grid-2 {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.95rem;
+    }
+    th, td {
+      border: 1px solid #e2e8f0;
+      padding: 0.6rem;
+      text-align: left;
+    }
+    th {
+      background: #f1f5f9;
+      font-weight: 600;
+    }
+    .tag {
+      display: inline-block;
+      padding: 0.15rem 0.5rem;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      background: #e0e7ff;
+      color: #3730a3;
+      margin-right: 0.4rem;
+    }
+    footer {
+      margin-top: 3rem;
+      font-size: 0.85rem;
+      color: #555;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>ChocoDrop XRリサーチサマリー（2025年10月）</h1>
+    <p>Meta Quest 3/3SとWebXRブラウザ対応を前提にした実装準備メモ</p>
+  </header>
+
+  <section id="overview">
+    <h2>主要インサイト</h2>
+    <ul>
+      <li>OpenXR 1.1.49では空間エンティティ、アンカー、平面・マーカー追跡など複数のマルチベンダー拡張が中核化され、WebXRレイヤーでも空間理解APIの差分が縮小している。<sup><a href="#ref-1">[1]</a></sup></li>
+      <li>Meta Quest 3Sが299ドルから提供され、Quest 3と同じXR2 Gen 2とフルカラーMRを維持することでXR体験の下限スペックが実質的にQuest 3世代へ統一されつつある。<sup><a href="#ref-2">[2]</a></sup></li>
+      <li>Quest Passthrough Camera APIは2025年前半ローンチに向けてヘッドセットカメラ権限が準備され、Niantic Spatial SDK v3.15が既にQuest 3のRGBカメラを使ったVPS・メッシング・セマンティクスを提供し始めている。<sup><a href="#ref-3">[3]</a></sup><sup><a href="#ref-4">[4]</a></sup></li>
+      <li>Meta Browser v38系ではWebXRセッション時のコンテキストロスや手追跡不具合が報告されており、`xrCompatible: true` 初期化や実験的フラグ無効化など堅牢化が必須。<sup><a href="#ref-5">[5]</a></sup></li>
+      <li>Meta Quest Runtime Optimizer（Unityパッケージ、2025年7月初版）がボトルネック分析とWhat-if検証をGUI化し、90Hzターゲット最適化の高速化が可能。<sup><a href="#ref-6">[6]</a></sup></li>
+      <li>ガートナーは空間コンピューティング市場が2023年の1100億ドルから2033年に1.7兆ドルへ拡大すると予測しており、混合現実を業務用途へ展開するロードマップが投資家向けにも求められる。<sup><a href="#ref-7">[7]</a></sup></li>
+    </ul>
+  </section>
+
+  <section id="landscape">
+    <h2>最新XRトレンドとChocoDropへの示唆</h2>
+    <div class="grid grid-2">
+      <div>
+        <h3>標準・ブラウザ</h3>
+        <ul>
+          <li><span class="tag">OpenXR 1.1</span> 空間系拡張の統合により、WebXR実装もXR_EXT系APIの取り込みを進める流れ。将来の`navigator.xr.requestSession()`拡張を見越した抽象化が必要。</li>
+          <li><span class="tag">Meta Browser 38.x</span> Chromium 134ベースでWebGPU統合を進行中だが、WebXR-WebGPUバインディングは未安定のためフォールバック描画（WebGL2 + Multiview）必須。</li>
+          <li><span class="tag">QuestボタンUI</span> Meta独自のオーバーレイ呼び出しAPI要望がW3Cで議論中。DOMOverlayとシーン内UIの役割分担を再検討。</li>
+        </ul>
+      </div>
+      <div>
+        <h3>ハード・SDK</h3>
+        <ul>
+          <li><span class="tag">Quest 3/3S</span> Snapdragon XR2 Gen 2 + 8GB RAM構成を前提に最低60 FPS／推奨90 FPSターゲットを策定。</li>
+          <li><span class="tag">Passthrough API</span> RGBカメラ映像にアクセスするアプリ権限設計とデータ最小化ポリシー（オンデバイス処理、ログ非保持）が求められる。</li>
+          <li><span class="tag">Niantic Spatial SDK</span> VPS/メッシング/セマンティクスをQuestで動かす初のサードパーティ例。自前実装ではなくSDK連携でPoC加速が可能。</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section id="functions">
+    <h2>ChocoDropに必要なXR機能セット（初期スコープ案）</h2>
+    <ol>
+      <li><strong>WebXRセッション抽象化</strong>：OpenXR 1.1の空間エンティティ/アンカー拡張を見据えた`XRSpaceManager`を作り、XR_EXT系の利用と非対応ブラウザのフォールバック（fixed-reference）を両立。</li>
+      <li><strong>MRレイヤー統合</strong>：Passthrough API登場時に差し替え可能なレイヤー設計。現状は`opaque`と`additive`ブレンドをWebXR Layer APIで切り替え、後日カメラテクスチャを差し込めるようUniform設計。</li>
+      <li><strong>セマンティック・アンカー</strong>：Niantic Spatial SDK（Unity/Three.jsブリッジ）やXR_EXT_spatial_entity対応ランタイムを選択的に読み込み、空間タグをChocoDropのオブジェクト生成フローへ受け渡す。</li>
+      <li><strong>Questブラウザ耐性</strong>：`xrCompatible: true`なWebGL2初期化、手追跡向け`hand-tracking-fat`プロファイルの検出、Chrome flags依存を避ける診断モードを実装。</li>
+      <li><strong>パフォーマンスガードレール</strong>：Quest Runtime Optimizerや`EXT_disjoint_timer_query_webgl2`を使い、フレームタイム計測→UI表示→`renderer.setPixelRatio`自動調整までをテンプレ化。</li>
+      <li><strong>192.168.1.15対応のローカルホスティング</strong>：社内LAN向けに`NEXT_PUBLIC_CHOCODROP_HOST=http://192.168.1.15`などの設定テンプレを用意し、Meta Browserブックマークレットで競合チームとポートが衝突しないよう手順を文書化。</li>
+    </ol>
+  </section>
+
+  <section id="roadmap">
+    <h2>実装ロードマップ（提案）</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>期間</th>
+          <th>主なゴール</th>
+          <th>成果物</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Phase 0<br>（現在〜11月）</td>
+          <td>ブラウザ検証と最小WebXR demo構築。Quest Browserの文脈で192.168.1.15ホスティングを整備。</td>
+          <td>本HTMLレポート／Meta QuestデモHTML／`xrCompatible`ベースのThree.js雛形。</td>
+        </tr>
+        <tr>
+          <td>Phase 1<br>（12月〜2026年1Q）</td>
+          <td>Passthrough API早期アクセス追随。Niantic Spatial SDKやXR_EXT_spatial_entityを抽象化。</td>
+          <td>MR中間レイヤー、Anchor/Planeダッシュボード、Quest Runtime Optimizerレポート自動取り込み。</td>
+        </tr>
+        <tr>
+          <td>Phase 2<br>（2026年上期）</td>
+          <td>商用化準備：セキュリティ評価、Gartner系投資ストーリー整備、社外PoC。</td>
+          <td>プライバシー影響評価（PIA）、マルチテナントサーバ構成、外部顧客向けMRテンプレ。</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="references">
+    <h2>参考文献</h2>
+    <ol>
+      <li id="ref-1"><a href="https://github.com/KhronosGroup/OpenXR-Docs/releases/tag/release-1.1.49">Khronos Group, “OpenXR Specification 1.1.49,” 2025-06-10.</a></li>
+      <li id="ref-2"><a href="https://about.fb.com/news/2024/09/meta-quest-3s-our-most-affordable-mixed-reality-headset/">Meta, “Meta Quest 3S, Our Most Affordable Mixed Reality Headset,” 2024-09-25.</a></li>
+      <li id="ref-3"><a href="https://www.uploadvr.com/meta-headset-camera-permission-support-page-quest-passthrough-api/">UploadVR, “Meta Support Page Suggests Quest Passthrough API Is Imminent,” 2025-03-03.</a></li>
+      <li id="ref-4"><a href="https://www.nianticspatial.com/blog/niantic-spatial-sdk-meta-quest-3-passthrough-camera-api">Niantic Spatial, “Spatial SDK Brings Immersive Reality to Meta Quest 3,” 2025-08-06.</a></li>
+      <li id="ref-5"><a href="https://forum.needle.tools/t/vr-mode-rendering-problems-on-meta-headsets-with-latest-updates/2535">Needle Engine Forum, “VR Mode Rendering Problems on Meta Headsets,” 2025-05-13.</a></li>
+      <li id="ref-6"><a href="https://www.uploadvr.com/meta-quest-runtime-optimizer-helps-unity-developers-fix-performance-bottlenecks/">UploadVR, “Meta Quest Runtime Optimizer Helps Unity Developers Fix Performance Bottlenecks,” 2025-08-11.</a></li>
+      <li id="ref-7"><a href="https://www.gartner.com/en/documents/4878231">Gartner, “Revenue Opportunity Projection of Spatial Computing,” 2023-10-26.</a></li>
+    </ol>
+  </section>
+
+  <footer>
+    <p>作成者: Codex XRリサーチ（生成日: 2025年10月26日）</p>
+  </footer>
+</body>
+</html>
