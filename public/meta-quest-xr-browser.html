@@ -34,14 +34,14 @@
       padding: 1rem clamp(1rem, 4vw, 3rem) 2rem;
       box-sizing: border-box;
     }
-    .panel, .preview, .stage-wrapper {
+    .panel, .preview, .stage-wrapper, .settings, .status-card {
       background: rgba(15,23,42,0.85);
       border-radius: 1rem;
       padding: 1.2rem;
       box-shadow: 0 20px 45px rgba(2,6,23,0.65);
       border: 1px solid rgba(248,250,252,0.08);
     }
-    .panel h2, .preview h2, .stage-wrapper h2 {
+    .panel h2, .preview h2, .stage-wrapper h2, .settings h2, .status-card h2 {
       margin-top: 0;
       font-size: 1.1rem;
     }
@@ -108,6 +108,59 @@
       color: #fca5a5;
       border-color: rgba(248,113,113,0.4);
     }
+    .feature-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      margin: 0.75rem 0 0.25rem;
+    }
+    .feature-grid label {
+      padding: 0.35rem 0.8rem;
+      border-radius: 999px;
+      border: 1px solid rgba(148,163,184,0.5);
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      font-size: 0.85rem;
+      cursor: pointer;
+    }
+    .feature-grid input {
+      accent-color: #38bdf8;
+    }
+    .status-card ul {
+      list-style: none;
+      margin: 0.5rem 0 0;
+      padding: 0;
+      display: grid;
+      gap: 0.4rem;
+    }
+    .status-card li {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.9rem;
+    }
+    .badge {
+      padding: 0.15rem 0.65rem;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      border: 1px solid rgba(148,163,184,0.4);
+    }
+    .badge[data-state="ok"] {
+      background: rgba(34,197,94,0.15);
+      color: #4ade80;
+      border-color: rgba(74,222,128,0.35);
+    }
+    .badge[data-state="ng"] {
+      background: rgba(248,113,113,0.15);
+      color: #fca5a5;
+      border-color: rgba(248,113,113,0.35);
+    }
+    .badge[data-state="pending"] {
+      background: rgba(147,197,253,0.15);
+      color: #bae6fd;
+      border-color: rgba(147,197,253,0.35);
+    }
     footer {
       padding: 0 1.5rem 1.5rem;
       font-size: 0.85rem;
@@ -139,16 +192,45 @@
       <div id="support-indicator" aria-live="polite">WebXRサポートを確認しています…</div>
     </section>
 
+    <section class="settings">
+      <h2>2. セッション構成</h2>
+      <form id="feature-form">
+        <p class="note">VR起動前に要求/任意機能を切り替えられます。Quest 3のパススルーを使う場合は hand-tracking と layers を有効にしてください。</p>
+        <h3>必須</h3>
+        <div class="feature-grid">
+          <label><input type="checkbox" name="required" value="local-floor" checked disabled />local-floor</label>
+        </div>
+        <h3>オプション</h3>
+        <div class="feature-grid">
+          <label><input type="checkbox" name="optional" value="local-floor" checked />local-floor</label>
+          <label><input type="checkbox" name="optional" value="bounded-floor" checked />bounded-floor</label>
+          <label><input type="checkbox" name="optional" value="hand-tracking" checked />hand-tracking</label>
+          <label><input type="checkbox" name="optional" value="layers" checked />layers</label>
+          <label><input type="checkbox" name="optional" value="depth-sensing" />depth-sensing</label>
+        </div>
+      </form>
+      <p id="session-preview" class="note">optionalFeatures: local-floor, bounded-floor, hand-tracking, layers</p>
+    </section>
+
     <section class="preview">
-      <h2>2. 2D プレビュー</h2>
+      <h2>3. 2D プレビュー</h2>
       <iframe id="preview-frame" title="XRプレビュー枠" src="https://192.168.1.15/examples/basic/"></iframe>
       <p class="note"><a id="open-tab" href="https://192.168.1.15/examples/basic/" target="_blank" rel="noreferrer">新しいタブで開く</a></p>
     </section>
 
     <section class="stage-wrapper">
-      <h2>3. WebXR シーン</h2>
+      <h2>4. WebXR シーン</h2>
       <div id="xr-stage" aria-label="WebXR シーン領域"></div>
       <p class="note">VRボタンを押すとQuest 3のパススルー空間に星空グリッドが表示されます。local-floor / hand-tracking / layers を optional features として要求しています。</p>
+    </section>
+
+    <section class="status-card">
+      <h2>5. サポート診断</h2>
+      <ul>
+        <li>immersive-vr <span class="badge" data-state="pending" id="diag-vr">checking</span></li>
+        <li>immersive-ar <span class="badge" data-state="pending" id="diag-ar">checking</span></li>
+      </ul>
+      <p class="note">Quest Browserでは immersive-ar=パススルー。Chromeデスクトップの場合は通常falseになります。</p>
     </section>
   </main>
   <footer>
@@ -162,6 +244,10 @@
     const urlInput = document.getElementById('target-url');
     const iframe = document.getElementById('preview-frame');
     const openTab = document.getElementById('open-tab');
+    const featureForm = document.getElementById('feature-form');
+    const sessionPreview = document.getElementById('session-preview');
+    const diagVr = document.getElementById('diag-vr');
+    const diagAr = document.getElementById('diag-ar');
 
     form.addEventListener('submit', (event) => {
       event.preventDefault();
@@ -171,19 +257,62 @@
       openTab.href = value;
     });
 
+    const sessionState = {
+      requiredFeatures: ['local-floor'],
+      optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking', 'layers'],
+      depthSensing: undefined
+    };
+
+    function updateSessionPreview() {
+      const list = sessionState.optionalFeatures.filter((item, index, arr) => arr.indexOf(item) === index);
+      sessionPreview.textContent = `optionalFeatures: ${list.join(', ') || 'なし'}` + (sessionState.depthSensing ? ' / depthSensing: cpu & luminance-alpha' : '');
+    }
+
+    featureForm.addEventListener('change', () => {
+      const optional = Array.from(featureForm.querySelectorAll('input[name="optional"]'))
+        .filter((input) => input.checked)
+        .map((input) => input.value);
+      sessionState.optionalFeatures = optional;
+      sessionState.depthSensing = optional.includes('depth-sensing')
+        ? {
+            usagePreference: ['cpu-optimized'],
+            dataFormatPreference: ['luminance-alpha']
+          }
+        : undefined;
+      updateSessionPreview();
+      if (window.__xrApplySessionInit) {
+        window.__xrApplySessionInit();
+      }
+    });
+
+    function setDiag(el, state, text) {
+      el.dataset.state = state;
+      el.textContent = text;
+    }
+
     if (!('xr' in navigator)) {
       supportIndicator.dataset.supported = 'false';
       supportIndicator.textContent = 'WebXR未対応のブラウザです。Quest Browserか最新のChromeを利用してください。';
+      setDiag(diagVr, 'ng', 'unsupported');
+      setDiag(diagAr, 'ng', 'unsupported');
     } else {
       navigator.xr.isSessionSupported('immersive-vr').then((supported) => {
         supportIndicator.dataset.supported = supported ? 'true' : 'false';
         supportIndicator.textContent = supported
           ? 'WebXR: immersive-vr サポートあり。QuestブラウザでVRボタンが使えます。'
           : 'WebXR: immersive-vr サポートなし。2Dプレビューのみ動作します。';
+        setDiag(diagVr, supported ? 'ok' : 'ng', supported ? 'available' : 'missing');
       }).catch((error) => {
         console.error(error);
         supportIndicator.dataset.supported = 'false';
         supportIndicator.textContent = 'WebXRサポート確認中にエラーが発生しました。コンソールを確認してください。';
+        setDiag(diagVr, 'ng', 'error');
+      });
+
+      navigator.xr.isSessionSupported('immersive-ar').then((supported) => {
+        setDiag(diagAr, supported ? 'ok' : 'ng', supported ? 'available' : 'missing');
+      }).catch(() => {
+        setDiag(diagAr, 'ng', 'error');
       });
     }
 
@@ -196,10 +325,15 @@
       const renderer = new WebGLRenderer({ antialias: true, alpha: true });
       renderer.xr.enabled = true;
       renderer.xr.setReferenceSpaceType('local-floor');
-      renderer.xr.setSessionInit({
-        optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking', 'layers'],
-        requiredFeatures: ['local-floor']
-      });
+
+      window.__xrApplySessionInit = () => {
+        renderer.xr.setSessionInit({
+          optionalFeatures: sessionState.optionalFeatures,
+          requiredFeatures: sessionState.requiredFeatures,
+          depthSensing: sessionState.depthSensing
+        });
+      };
+      window.__xrApplySessionInit();
       renderer.setPixelRatio(window.devicePixelRatio);
       renderer.setSize(stage.clientWidth, stage.clientHeight);
       stage.appendChild(renderer.domElement);
@@ -261,6 +395,8 @@
       const observer = new ResizeObserver(resize);
       observer.observe(stage);
     }
+
+    updateSessionPreview();
 
     initThree().catch((error) => {
       console.error('[XR demo] 初期化失敗', error);
