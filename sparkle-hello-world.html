@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sparkling Hello World - Approach 1</title>
+    <style>
+        /* アプローチ1: CSS-onlyアニメーションシステム */
+        /* モジュラーコンポーネント設計パターン */
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            height: 100vh;
+            background: linear-gradient(135deg, #0f0f23 0%, #1a1a3a 50%, #0f0f23 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Arial', sans-serif;
+            overflow: hidden;
+        }
+        
+        /* メインテキストコンポーネント */
+        .sparkle-text {
+            position: relative;
+            font-size: 4rem;
+            font-weight: bold;
+            color: #fff;
+            text-shadow: 
+                0 0 20px #fff,
+                0 0 40px #4fc3f7,
+                0 0 80px #4fc3f7;
+            animation: textGlow 3s ease-in-out infinite alternate;
+        }
+        
+        /* テキストグロー効果 */
+        @keyframes textGlow {
+            0% {
+                text-shadow: 
+                    0 0 20px #fff,
+                    0 0 40px #4fc3f7,
+                    0 0 80px #4fc3f7;
+            }
+            100% {
+                text-shadow: 
+                    0 0 30px #fff,
+                    0 0 60px #e91e63,
+                    0 0 120px #e91e63;
+            }
+        }
+        
+        /* スパークルパーティクルシステム */
+        .sparkle-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        
+        /* スパークル基本クラス */
+        .sparkle {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background: #fff;
+            border-radius: 50%;
+            box-shadow: 0 0 10px #fff;
+        }
+        
+        /* スパークルアニメーション1 - フローティング */
+        .sparkle-float {
+            animation: sparkleFloat 4s linear infinite;
+        }
+        
+        @keyframes sparkleFloat {
+            0% {
+                transform: translateY(100vh) scale(0);
+                opacity: 0;
+            }
+            10% {
+                opacity: 1;
+            }
+            90% {
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(-100px) scale(1);
+                opacity: 0;
+            }
+        }
+        
+        /* スパークルアニメーション2 - パルス */
+        .sparkle-pulse {
+            animation: sparklePulse 2s ease-in-out infinite;
+        }
+        
+        @keyframes sparklePulse {
+            0%, 100% {
+                transform: scale(0);
+                opacity: 0;
+            }
+            50% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+        
+        /* スパークルアニメーション3 - 回転 */
+        .sparkle-rotate {
+            animation: sparkleRotate 6s linear infinite;
+        }
+        
+        @keyframes sparkleRotate {
+            0% {
+                transform: rotate(0deg) translateX(200px) rotate(0deg);
+                opacity: 0;
+            }
+            10%, 90% {
+                opacity: 1;
+            }
+            100% {
+                transform: rotate(360deg) translateX(200px) rotate(-360deg);
+                opacity: 0;
+            }
+        }
+        
+        /* 文字別スパークル効果 */
+        .char {
+            position: relative;
+            display: inline-block;
+            animation: charBounce 2s ease-in-out infinite;
+        }
+        
+        .char:nth-child(1) { animation-delay: 0s; }
+        .char:nth-child(2) { animation-delay: 0.1s; }
+        .char:nth-child(3) { animation-delay: 0.2s; }
+        .char:nth-child(4) { animation-delay: 0.3s; }
+        .char:nth-child(5) { animation-delay: 0.4s; }
+        .char:nth-child(6) { animation-delay: 0.5s; }
+        .char:nth-child(7) { animation-delay: 0.6s; }
+        .char:nth-child(8) { animation-delay: 0.7s; }
+        .char:nth-child(9) { animation-delay: 0.8s; }
+        .char:nth-child(10) { animation-delay: 0.9s; }
+        .char:nth-child(11) { animation-delay: 1s; }
+        
+        @keyframes charBounce {
+            0%, 100% {
+                transform: translateY(0);
+            }
+            50% {
+                transform: translateY(-10px);
+            }
+        }
+        
+        /* 文字周りのスパークル */
+        .char::before,
+        .char::after {
+            content: '';
+            position: absolute;
+            width: 3px;
+            height: 3px;
+            background: #ffd700;
+            border-radius: 50%;
+            box-shadow: 0 0 8px #ffd700;
+        }
+        
+        .char::before {
+            top: -20px;
+            left: 50%;
+            animation: charSparkle1 3s ease-in-out infinite;
+        }
+        
+        .char::after {
+            bottom: -20px;
+            right: 10px;
+            animation: charSparkle2 3s ease-in-out infinite reverse;
+        }
+        
+        @keyframes charSparkle1 {
+            0%, 100% {
+                transform: translateX(-50%) scale(0);
+                opacity: 0;
+            }
+            50% {
+                transform: translateX(-50%) scale(1);
+                opacity: 1;
+            }
+        }
+        
+        @keyframes charSparkle2 {
+            0%, 100% {
+                transform: scale(0);
+                opacity: 0;
+            }
+            50% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+        
+        /* レスポンシブデザイン */
+        @media (max-width: 768px) {
+            .sparkle-text {
+                font-size: 2.5rem;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .sparkle-text {
+                font-size: 1.8rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- メインコンテンツ -->
+    <div class="sparkle-text">
+        <span class="char">H</span>
+        <span class="char">e</span>
+        <span class="char">l</span>
+        <span class="char">l</span>
+        <span class="char">o</span>
+        <span class="char"> </span>
+        <span class="char">W</span>
+        <span class="char">o</span>
+        <span class="char">r</span>
+        <span class="char">l</span>
+        <span class="char">d</span>
+    </div>
+    
+    <!-- スパークルパーティクルコンテナ -->
+    <div class="sparkle-container" id="sparkleContainer"></div>
+    
+    <script>
+        // アプローチ1: 最適化されたDOMベースパーティクルシステム
+        // エラーハンドリングとパフォーマンス最適化を重視
+        
+        class SparkleSystem {
+            constructor(container) {
+                this.container = container;
+                this.sparkles = [];
+                this.maxSparkles = 50;
+                this.init();
+            }
+            
+            init() {
+                try {
+                    this.createSparkles();
+                    this.startAnimation();
+                } catch (error) {
+                    console.error('SparkleSystem initialization failed:', error);
+                }
+            }
+            
+            createSparkles() {
+                // 3種類のスパークルを生成
+                const sparkleTypes = ['sparkle-float', 'sparkle-pulse', 'sparkle-rotate'];
+                
+                for (let i = 0; i < this.maxSparkles; i++) {
+                    const sparkle = document.createElement('div');
+                    sparkle.className = `sparkle ${sparkleTypes[i % 3]}`;
+                    
+                    // ランダムポジション設定
+                    sparkle.style.left = Math.random() * 100 + '%';
+                    sparkle.style.top = Math.random() * 100 + '%';
+                    
+                    // ランダムカラー設定
+                    const colors = ['#fff', '#4fc3f7', '#e91e63', '#ffd700', '#9c27b0'];
+                    sparkle.style.background = colors[Math.floor(Math.random() * colors.length)];
+                    sparkle.style.boxShadow = `0 0 10px ${sparkle.style.background}`;
+                    
+                    // アニメーション遅延設定
+                    sparkle.style.animationDelay = Math.random() * 4 + 's';
+                    
+                    this.container.appendChild(sparkle);
+                    this.sparkles.push(sparkle);
+                }
+            }
+            
+            startAnimation() {
+                // 定期的にスパークルを再配置してバリエーションを追加
+                setInterval(() => {
+                    try {
+                        this.refreshSparkles();
+                    } catch (error) {
+                        console.error('Sparkle refresh failed:', error);
+                    }
+                }, 10000);
+            }
+            
+            refreshSparkles() {
+                this.sparkles.forEach(sparkle => {
+                    // 新しいポジションを設定
+                    sparkle.style.left = Math.random() * 100 + '%';
+                    sparkle.style.top = Math.random() * 100 + '%';
+                });
+            }
+        }
+        
+        // システム初期化
+        document.addEventListener('DOMContentLoaded', () => {
+            try {
+                const container = document.getElementById('sparkleContainer');
+                if (container) {
+                    new SparkleSystem(container);
+                } else {
+                    throw new Error('Sparkle container not found');
+                }
+            } catch (error) {
+                console.error('Failed to initialize sparkle system:', error);
+            }
+        });
+        
+        // パフォーマンス監視
+        if ('performance' in window) {
+            window.addEventListener('load', () => {
+                const loadTime = performance.now();
+                console.log(`Sparkle Hello World loaded in ${loadTime.toFixed(2)}ms`);
+            });
+        }
+    </script>
+</body>
+</html>
