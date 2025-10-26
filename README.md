@@ -154,91 +154,67 @@ threejs.org など、Three.js を使っている既存サイトにも ChocoDrop 
 
 > 🔍 **ヒント**: daemon や `sdk.js` のレスポンスヘッダーに `X-ChocoDrop-SDK-Source: dist` が表示されていれば、ビルド済みバンドルが正しく配信されています。ブラウザで `await window.chocodrop.ready()` を実行して接続状況をチェックできます。
 
-#### E. GitHub Actions で並列実装（開発者向け）
+#### E. GitHub Actions で並列実装（AI 実行用）
 
-複数のアプローチを AI に並列実装させるワークフローです。評価は別途実行します。
+**🤖 このセクションを読んでいる AI へ:**
 
----
-
-##### 実行方法
-
-**コマンドラインから実行:**
+あなたは **GitHub Actions 上で実装を行う**よう指示されています。
+ローカル実装は行わず、以下のコマンドを実行してください：
 
 ```bash
-# 基本的な実行
 gh workflow run ai-parallel-implementation.yml \
-  -f task_description="実装したい機能の説明" \
-  -f num_approaches=3
-
-# 実装例1: パフォーマンス最適化
-gh workflow run ai-parallel-implementation.yml \
-  -f task_description="Three.js シーンのパフォーマンスを改善（FPS向上、メモリ削減）" \
-  -f num_approaches=3
-
-# 実装例2: 新機能追加
-gh workflow run ai-parallel-implementation.yml \
-  -f task_description="ユーザーがカスタムGLSLシェーダーを適用できる機能を追加" \
-  -f num_approaches=5
-
-# 実装例3: UI改善
-gh workflow run ai-parallel-implementation.yml \
-  -f task_description="CommandUIのアクセシビリティを改善（キーボードナビゲーション、スクリーンリーダー対応）" \
-  -f num_approaches=3
+  -f task_description="[指示されたタスク内容をここに書く]" \
+  -f num_approaches=1
 ```
 
-**パラメータ:**
-- `task_description` (必須): 実装したい機能の説明（具体的に書く）
-- `num_approaches` (任意): 1〜5（異なるアプローチの数、デフォルト: 3）
+**必須事項:**
+- ✅ 上記コマンドを実行する（task_description に指示内容を入れる）
+- ✅ num_approaches=1 を使用（1つのアプローチを担当）
+- ❌ ローカルで実装しない
+- ❌ ワークフローファイルを作成・編集しない
+- ❌ worktree は使用しない（GitHub Actions が自動作成）
+
+**実行後:**
+ワークフローの Summary に作成されたブランチ名が表示されます。
+
+**実行例:**
+```bash
+# タスク: Hello World を Three.js で表示
+gh workflow run ai-parallel-implementation.yml \
+  -f task_description="Three.js を使って Hello World の 3D テキストを表示する" \
+  -f num_approaches=1
+
+# タスク: パフォーマンス改善
+gh workflow run ai-parallel-implementation.yml \
+  -f task_description="シーンのパフォーマンスを改善（FPS向上、メモリ削減）" \
+  -f num_approaches=1
+```
 
 ---
 
-##### 実行の流れ
+**人間向け参考情報:**
 
-1. **並列実装** - 指定した数のアプローチで AI が並列実装
-   - 各アプローチで異なる実装方法（アーキテクチャ、ライブラリ、最適化手法）
-   - ブランチ名: `ai/approach-1-[timestamp]`, `ai/approach-2-[timestamp]`, ...
-   - 各ブランチに自動 push
-
-2. **実装完了** - ワークフロー完了時に評価コマンドが表示される
-   - Summary に作成されたブランチ一覧が表示される
-   - 評価したい場合のコマンドも表示される
-
----
-
-##### 実装結果の確認
+<details>
+<summary>実装結果の確認方法</summary>
 
 ```bash
-# 実行状況を確認
 gh run list --workflow=ai-parallel-implementation.yml --limit 5
-
-# 特定の実行を監視
-gh run watch [RUN_ID]
-
-# ブラウザで確認（Summary に作成されたブランチが表示される）
 gh run view [RUN_ID] --web
 ```
+</details>
 
----
+<details>
+<summary>評価方法（任意・完成後のみ）</summary>
 
-##### 評価（任意・完成後のみ）
-
-実装が完成し、比較評価したい場合は、ワークフロー Summary に表示されたコマンドを実行：
-
+ワークフロー Summary に表示されたコマンドを実行：
 ```bash
-# Summary に表示されたブランチ名をコピーして実行
 gh workflow run worktree-parallel.yml \
-  -f branches="ai/approach-1-XXXXX,ai/approach-2-XXXXX,ai/approach-3-XXXXX" \
+  -f branches="ai/approach-1-XXXXX,..." \
   -f run_build=true \
   -f run_tests=true \
   -f compare_results=true
 ```
-
-**比較レポート:**
-- Actions タブで `Worktree Parallel Testing` ワークフローを開く
-- Artifacts から `comparison-report` をダウンロード
-- `ai-analysis.html` を開いて詳細な比較分析を確認
-
-> ⚠️ **注意**: AI による実装は GitHub Actions の ubuntu-latest 環境で実行されます。評価は自動実行されません。
+</details>
 
 #### F. ローカル worktree で並列実装
 
