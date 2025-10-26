@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🥽 ChocoDrop XR Demo - QR Code</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+
+    .container {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(10px);
+      border-radius: 20px;
+      padding: 40px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      text-align: center;
+      max-width: 500px;
+      width: 100%;
+    }
+
+    h1 {
+      font-size: 2rem;
+      margin-bottom: 10px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .subtitle {
+      color: #666;
+      margin-bottom: 30px;
+      font-size: 1.1rem;
+    }
+
+    #qrcode {
+      display: inline-block;
+      padding: 20px;
+      background: white;
+      border-radius: 15px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+      margin: 20px 0;
+    }
+
+    .url {
+      background: #f0f0f0;
+      padding: 15px;
+      border-radius: 10px;
+      font-family: 'Courier New', monospace;
+      font-size: 0.9rem;
+      color: #333;
+      margin: 20px 0;
+      word-break: break-all;
+    }
+
+    .instructions {
+      background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+      padding: 20px;
+      border-radius: 10px;
+      margin-top: 20px;
+      text-align: left;
+    }
+
+    .instructions h3 {
+      color: #667eea;
+      margin-bottom: 10px;
+      font-size: 1.2rem;
+    }
+
+    .instructions ol {
+      padding-left: 20px;
+      color: #555;
+      line-height: 1.8;
+    }
+
+    .instructions li {
+      margin: 8px 0;
+    }
+
+    .features {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .feature {
+      background: rgba(102, 126, 234, 0.1);
+      padding: 10px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      color: #555;
+    }
+
+    @media print {
+      body {
+        background: white;
+      }
+      .container {
+        box-shadow: none;
+      }
+      .instructions {
+        page-break-before: always;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🥽 ChocoDrop XR Demo</h1>
+    <p class="subtitle">Meta Quest 3 でスキャンしてアクセス</p>
+
+    <div id="qrcode"></div>
+
+    <div class="url">
+      <strong>URL:</strong><br>
+      <span id="url-text">https://192.168.1.15:3011/examples/xr-demo/</span>
+    </div>
+
+    <div class="features">
+      <div class="feature">🎮 VRモード</div>
+      <div class="feature">🌍 ARモード</div>
+      <div class="feature">✋ ハンドトラッキング</div>
+      <div class="feature">👌 ジェスチャー操作</div>
+    </div>
+
+    <div class="instructions">
+      <h3>📱 使い方</h3>
+      <ol>
+        <li><strong>Meta Quest 3</strong> でブラウザを起動</li>
+        <li>QRコードをスキャン（または手動入力）</li>
+        <li><strong>「VRモード開始」</strong>ボタンをタップ</li>
+        <li>👌 <strong>ピンチ</strong>でオブジェクトをスケール</li>
+        <li>✊ <strong>グラブ</strong>で移動・回転</li>
+        <li>🙌 <strong>両手</strong>でマルチ操作</li>
+      </ol>
+    </div>
+
+    <div class="instructions" style="margin-top: 15px;">
+      <h3>✨ 実装機能</h3>
+      <ol style="list-style: none; padding-left: 0;">
+        <li>📱 ヘッドセット内UIオーバーレイ</li>
+        <li>🎯 距離ベース自動選択</li>
+        <li>🔔 リアルタイム通知システム</li>
+        <li>👁️ カメラ追従パネル</li>
+      </ol>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script>
+    // QRコード生成
+    const url = 'https://192.168.1.15:3011/examples/xr-demo/';
+
+    new QRCode(document.getElementById('qrcode'), {
+      text: url,
+      width: 256,
+      height: 256,
+      colorDark: '#667eea',
+      colorLight: '#ffffff',
+      correctLevel: QRCode.CorrectLevel.H
+    });
+
+    // URL自動選択
+    document.getElementById('url-text').addEventListener('click', function() {
+      const range = document.createRange();
+      range.selectNode(this);
+      window.getSelection().removeAllRanges();
+      window.getSelection().addRange(range);
+    });
+  </script>
+</body>
+</html>
