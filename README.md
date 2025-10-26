@@ -160,21 +160,20 @@ threejs.org など、Three.js を使っている既存サイトにも ChocoDrop 
 
 **重要：あなたが worktree ディレクトリにいても、ローカルで実装しないでください。**
 
-あなたの役割は、以下の `gh workflow run` コマンドを実行することだけです。
+あなたの役割は、以下のスクリプトを実行することだけです。
 実装作業は GitHub Actions 上の別の AI が行います。
 
 **実行するコマンド：**
 
 ```bash
-gh workflow run ai-parallel-implementation.yml \
-  -f task_description="指示されたタスクの内容をここに書く" \
-  -f num_approaches=1
+./scripts/run-ai-implementation.sh -p "指示されたタスクの内容をここに書く"
 ```
 
 **説明：**
-- このコマンドは GitHub Actions ワークフローを起動します
+- このスクリプトは GitHub Actions ワークフローを起動します
+- 同じタスクを実行する複数の AI は自動的にグループ化されます（セッションID）
 - ワークフロー内で別の AI が実装を行い、ブランチに push します
-- あなたはコマンドを実行するだけで、実装作業は行いません
+- あなたはスクリプトを実行するだけで、実装作業は行いません
 
 **やってはいけないこと：**
 - ディレクトリを作成しない
@@ -186,14 +185,13 @@ gh workflow run ai-parallel-implementation.yml \
 
 ```bash
 # 例1: Hello World を表示
-gh workflow run ai-parallel-implementation.yml \
-  -f task_description="Three.js を使って Hello World の 3D テキストを表示する" \
-  -f num_approaches=1
+./scripts/run-ai-implementation.sh -p "Three.js を使って Hello World の 3D テキストを表示する"
 
 # 例2: パフォーマンス改善
-gh workflow run ai-parallel-implementation.yml \
-  -f task_description="シーンのパフォーマンスを改善する" \
-  -f num_approaches=1
+./scripts/run-ai-implementation.sh -p "シーンのパフォーマンスを改善する"
+
+# STDIN から実行する場合
+echo "タスクはキラキラと光る3Dオブジェクトを作成すること" | ./scripts/run-ai-implementation.sh
 ```
 
 ---

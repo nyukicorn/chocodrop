@@ -13,6 +13,10 @@ on:
         required: false
         type: number
         default: 3
+      session_id:
+        description: 'セッションID（同じタスクのAI間で共有、省略時は自動生成）'
+        required: false
+        type: string
   workflow_call:
     inputs:
       task_description:
@@ -22,6 +26,9 @@ on:
         required: false
         type: number
         default: 3
+      session_id:
+        required: false
+        type: string
 
 permissions:
   contents: write
@@ -34,7 +41,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
-      timestamp: ${{ steps.set-matrix.outputs.timestamp }}
+      session_id: ${{ steps.set-matrix.outputs.session_id }}
 
     steps:
       - name: Generate matrix
@@ -46,9 +53,15 @@ jobs:
           MATRIX=$(seq 1 $NUM | jq -R . | jq -s -c .)
           echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
 
-          # タイムスタンプを生成（ブランチ名に使用）
-          TIMESTAMP=$(date +%s)
-          echo "timestamp=$TIMESTAMP" >> $GITHUB_OUTPUT
+          # セッションIDを決定（指定されていればそれを使用、なければタイムスタンプ）
+          if [[ -n "${{ inputs.session_id }}" ]]; then
+            SESSION_ID="${{ inputs.session_id }}"
+            echo "📎 Using provided session ID: $SESSION_ID"
+          else
+            SESSION_ID="task-$(date +%s)"
+            echo "🆕 Generated session ID: $SESSION_ID"
+          fi
+          echo "session_id=$SESSION_ID" >> $GITHUB_OUTPUT
 
           echo "🌳 Will create $NUM implementation approaches"
 
@@ -84,7 +97,7 @@ jobs:
             ## 実装要件
 
             1. **ブランチ作成**
-               - ブランチ名: `ai/approach-${{ matrix.approach }}-${{ needs.prepare.outputs.timestamp }}`
+               - ブランチ名: `ai/approach-${{ matrix.approach }}-${{ needs.prepare.outputs.session_id }}`
                - このブランチを新規作成してチェックアウト
 
             2. **実装アプローチ**
@@ -103,7 +116,7 @@ jobs:
 
             4. **完了処理**
                - 実装完了後、変更をコミット
-               - ブランチをリモートにpush: `git push origin ai/approach-${{ matrix.approach }}-${{ needs.prepare.outputs.timestamp }}`
+               - ブランチをリモートにpush: `git push origin ai/approach-${{ matrix.approach }}-${{ needs.prepare.outputs.session_id }}`
 
             ## 重要
             - このアプローチは **${{ matrix.approach }} / ${{ inputs.num_approaches }}** です
@@ -115,7 +128,7 @@ jobs:
 
       - name: Verify branch was pushed
         run: |
-          BRANCH="ai/approach-${{ matrix.approach }}-${{ needs.prepare.outputs.timestamp }}"
+          BRANCH="ai/approach-${{ matrix.approach }}-${{ needs.prepare.outputs.session_id }}"
           if git ls-remote --heads origin "$BRANCH" | grep -q "$BRANCH"; then
             echo "✅ Branch $BRANCH was successfully pushed"
           else
@@ -133,21 +146,23 @@ jobs:
       - name: Build branch list
         id: branches
         run: |
-          TIMESTAMP="${{ needs.prepare.outputs.timestamp }}"
+          SESSION_ID="${{ needs.prepare.outputs.session_id }}"
           NUM=${{ inputs.num_approaches }}
 
           # ブランチ名をカンマ区切りで生成
           BRANCHES=""
           for i in $(seq 1 $NUM); do
             if [ $i -eq 1 ]; then
-              BRANCHES="ai/approach-${i}-${TIMESTAMP}"
+              BRANCHES="ai/approach-${i}-${SESSION_ID}"
             else
-              BRANCHES="${BRANCHES},ai/approach-${i}-${TIMESTAMP}"
+              BRANCHES="${BRANCHES},ai/approach-${i}-${SESSION_ID}"
             fi
           done
 
           echo "branches=$BRANCHES" >> $GITHUB_OUTPUT
+          echo "session_id=$SESSION_ID" >> $GITHUB_OUTPUT
           echo "📊 Created branches: $BRANCHES"
+          echo "📎 Session ID: $SESSION_ID"
 
       - name: Summary
         run: |
