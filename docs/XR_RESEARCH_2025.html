@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChocoDrop XR機能実装調査報告 2025</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.8;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 60px 40px;
+            text-align: center;
+        }
+
+        header h1 {
+            font-size: 3em;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+
+        header p {
+            font-size: 1.3em;
+            opacity: 0.95;
+        }
+
+        .content {
+            padding: 60px 40px;
+        }
+
+        h2 {
+            color: #667eea;
+            font-size: 2.2em;
+            margin: 40px 0 20px 0;
+            padding-bottom: 15px;
+            border-bottom: 3px solid #667eea;
+        }
+
+        h3 {
+            color: #764ba2;
+            font-size: 1.6em;
+            margin: 30px 0 15px 0;
+        }
+
+        h4 {
+            color: #555;
+            font-size: 1.3em;
+            margin: 20px 0 10px 0;
+        }
+
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            margin: 30px 0;
+        }
+
+        .feature-card {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 15px 30px rgba(0,0,0,0.2);
+        }
+
+        .feature-card h4 {
+            color: #667eea;
+            margin-bottom: 15px;
+        }
+
+        .timeline {
+            position: relative;
+            padding-left: 50px;
+            margin: 30px 0;
+        }
+
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 20px;
+            top: 0;
+            bottom: 0;
+            width: 3px;
+            background: linear-gradient(to bottom, #667eea, #764ba2);
+        }
+
+        .timeline-item {
+            position: relative;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #f5f7fa;
+            border-radius: 10px;
+        }
+
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: -38px;
+            top: 25px;
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            background: #667eea;
+            border: 3px solid white;
+            box-shadow: 0 0 0 3px #667eea;
+        }
+
+        .priority-high {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            display: inline-block;
+            font-weight: bold;
+            margin: 5px;
+        }
+
+        .priority-medium {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            display: inline-block;
+            font-weight: bold;
+            margin: 5px;
+        }
+
+        .priority-low {
+            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            display: inline-block;
+            font-weight: bold;
+            margin: 5px;
+        }
+
+        ul, ol {
+            margin: 20px 0 20px 30px;
+        }
+
+        li {
+            margin: 10px 0;
+        }
+
+        code {
+            background: #f5f7fa;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            color: #667eea;
+        }
+
+        .tech-stack {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .tech-badge {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 25px;
+            font-weight: bold;
+            box-shadow: 0 4px 10px rgba(102, 126, 234, 0.3);
+        }
+
+        .warning {
+            background: #fff3cd;
+            border-left: 5px solid #ffc107;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+
+        .info {
+            background: #d1ecf1;
+            border-left: 5px solid #17a2b8;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+
+        .success {
+            background: #d4edda;
+            border-left: 5px solid #28a745;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        th {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px;
+            text-align: left;
+        }
+
+        td {
+            padding: 12px 15px;
+            border-bottom: 1px solid #ddd;
+        }
+
+        tr:hover {
+            background-color: #f5f7fa;
+        }
+
+        footer {
+            background: #333;
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🍫 ChocoDrop XR機能実装</h1>
+            <p>2025年最新調査報告と実装戦略</p>
+            <p style="font-size: 0.9em; margin-top: 10px;">調査日: 2025年1月</p>
+        </header>
+
+        <div class="content">
+            <section>
+                <h2>📋 エグゼクティブサマリー</h2>
+                <p>本調査は、ChocoDrop本体にXR（VR/AR）機能を統合するための技術調査報告です。2025年1月時点での最新技術動向、Meta Quest 3のハードウェア能力、WebXR APIの成熟度、Three.jsとの統合パターンを分析し、今後の実装戦略を提示します。</p>
+
+                <div class="success">
+                    <h4>重要な発見</h4>
+                    <ul>
+                        <li>WebXR APIは2025年10月にW3C Candidate Recommendation Draft達成</li>
+                        <li>Meta Quest 3はカラーパススルー、Depth API、ハンドトラッキング、メッシュ検出を完全サポート</li>
+                        <li>Meta公式のReality Accelerator Toolkit (RATK)がThree.js専用に提供されている</li>
+                        <li>Three.js r170でWebXR完全サポート、ChocoDrop既存アーキテクチャとの統合が容易</li>
+                    </ul>
+                </div>
+            </section>
+
+            <section>
+                <h2>🌐 2025年WebXR技術の現状</h2>
+
+                <h3>W3C標準化状況</h3>
+                <div class="timeline">
+                    <div class="timeline-item">
+                        <strong>2025年10月</strong> - WebXR Device API: Candidate Recommendation Draft達成
+                    </div>
+                    <div class="timeline-item">
+                        <strong>2025年Q4（予定）</strong> - WebXR Anchors Module完成
+                    </div>
+                    <div class="timeline-item">
+                        <strong>2026年Q4（予定）</strong> - WebXR Hand Input Module完成
+                    </div>
+                </div>
+
+                <h3>ブラウザサポート状況</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ブラウザ</th>
+                            <th>VR対応</th>
+                            <th>AR対応</th>
+                            <th>推奨度</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Chrome (Desktop/Android)</td>
+                            <td>✅ 完全対応</td>
+                            <td>✅ 完全対応</td>
+                            <td>⭐⭐⭐⭐⭐</td>
+                        </tr>
+                        <tr>
+                            <td>Edge (Chromium)</td>
+                            <td>✅ 完全対応</td>
+                            <td>✅ 完全対応</td>
+                            <td>⭐⭐⭐⭐⭐</td>
+                        </tr>
+                        <tr>
+                            <td>Meta Quest Browser</td>
+                            <td>✅ ネイティブ対応</td>
+                            <td>✅ ネイティブ対応</td>
+                            <td>⭐⭐⭐⭐⭐</td>
+                        </tr>
+                        <tr>
+                            <td>Safari (iOS)</td>
+                            <td>❌ 未対応</td>
+                            <td>❌ 未対応</td>
+                            <td>⭐</td>
+                        </tr>
+                        <tr>
+                            <td>Firefox</td>
+                            <td>⚠️ 部分対応</td>
+                            <td>⚠️ 部分対応</td>
+                            <td>⭐⭐</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div class="warning">
+                    <strong>⚠️ ブラウザサポートに関する注意</strong>
+                    <p>ChocoDrop XR機能は<strong>Chrome/Edge（Chromium）およびMeta Quest Browser</strong>での使用を強く推奨します。iOS SafariはWebXRをサポートしておらず、当面対応予定もありません。</p>
+                </div>
+            </section>
+
+            <section>
+                <h2>🥽 Meta Quest 3 ハードウェア能力</h2>
+
+                <div class="feature-grid">
+                    <div class="feature-card">
+                        <h4>🎨 カラーパススルー</h4>
+                        <p>Quest 2の<strong>10倍のピクセル数</strong>を持つ高解像度カラーパススルー。4MP RGBカメラにより、フルカラーでリアルタイムに現実世界を表示。</p>
+                    </div>
+
+                    <div class="feature-card">
+                        <h4>🔍 Depth API</h4>
+                        <p>リアルタイム環境深度推定により、<strong>動的オクルージョン</strong>を実現。仮想オブジェクトが現実の物体の前後に正しく配置される。</p>
+                    </div>
+
+                    <div class="feature-card">
+                        <h4>✋ ハンドトラッキング</h4>
+                        <p>コントローラー不要のジェスチャー操作。各関節の3D座標をリアルタイムで取得可能。</p>
+                    </div>
+
+                    <div class="feature-card">
+                        <h4>📐 平面検出</h4>
+                        <p>床、壁、テーブルなどの平面を自動検出。水平・垂直の矩形として取得でき、オブジェクト配置に最適。</p>
+                    </div>
+
+                    <div class="feature-card">
+                        <h4>🌐 メッシュ検出</h4>
+                        <p>部屋全体の3Dメッシュを取得。複雑な形状の環境を理解し、より高度なMR体験を実現。</p>
+                    </div>
+
+                    <div class="feature-card">
+                        <h4>⚓ 空間アンカー</h4>
+                        <p><strong>永続的アンカー</strong>対応。一度配置したオブジェクトの位置を保存し、次回セッションでも同じ場所に表示。</p>
+                    </div>
+                </div>
+
+                <div class="info">
+                    <h4>🚀 2025年早期リリース予定機能</h4>
+                    <p><strong>Passthrough Camera API</strong> - 前面カメラへの直接アクセスが可能になり、コンピュータビジョンと機械学習のユースケースが大幅に拡大します。</p>
+                </div>
+            </section>
+
+            <section>
+                <h2>🔧 Three.js統合技術</h2>
+
+                <h3>Meta公式ツールキット</h3>
+                <div class="success">
+                    <h4>Reality Accelerator Toolkit (RATK)</h4>
+                    <p>Meta公式がThree.js開発者向けに提供する包括的なWebXRユーティリティライブラリ。低レベルのWebXR APIと高レベルのThree.js APIを橋渡しし、以下の機能を簡単に統合できます：</p>
+                    <ul>
+                        <li>平面検出の自動Object3D変換</li>
+                        <li>メッシュ管理と視覚化</li>
+                        <li>空間アンカーの簡易管理</li>
+                        <li>ヒットテスト（現実世界へのレイキャスト）</li>
+                    </ul>
+                    <p><strong>GitHub:</strong> <a href="https://github.com/meta-quest/reality-accelerator-toolkit" target="_blank">meta-quest/reality-accelerator-toolkit</a></p>
+                </div>
+
+                <h3>Three.js r170のWebXR機能</h3>
+                <div class="tech-stack">
+                    <span class="tech-badge">VRButton</span>
+                    <span class="tech-badge">ARButton</span>
+                    <span class="tech-badge">XRControllerModelFactory</span>
+                    <span class="tech-badge">XRHandModelFactory</span>
+                    <span class="tech-badge">OculusHandModel</span>
+                </div>
+
+                <h4>既存ChocoDrop統合における利点</h4>
+                <ul>
+                    <li>✅ ChocoDrop既存のThree.jsシーン管理をそのまま活用可能</li>
+                    <li>✅ OrbitControlsとWebXRコントローラーの切り替えが容易</li>
+                    <li>✅ 既存の3Dオブジェクト生成機能をVR/AR空間にそのまま配置可能</li>
+                    <li>✅ スクリーンショット機能をVR/ARビューでも利用可能</li>
+                </ul>
+            </section>
+
+            <section>
+                <h2>🎯 ChocoDrop XR実装戦略</h2>
+
+                <h3>フェーズ1: 基本VR対応 <span class="priority-high">最優先</span></h3>
+                <ul>
+                    <li>VRButtonの追加と基本セッション管理</li>
+                    <li>既存Three.jsシーンのVR表示</li>
+                    <li>コントローラー入力対応（移動、選択、操作）</li>
+                    <li>VR空間でのUI表示（WebXR Layers API活用）</li>
+                </ul>
+                <p><strong>目標成果物:</strong> Meta Quest 3でChocoDrop UIを使ってVR空間に3Dオブジェクトを配置できる</p>
+
+                <h3>フェーズ2: AR基礎機能 <span class="priority-high">最優先</span></h3>
+                <ul>
+                    <li>ARButtonの追加と"immersive-ar"セッション</li>
+                    <li>カラーパススルー有効化</li>
+                    <li>平面検出とヒットテスト実装</li>
+                    <li>現実空間への3Dオブジェクト配置</li>
+                </ul>
+                <p><strong>目標成果物:</strong> Meta Quest 3で部屋の床やテーブルに3Dオブジェクトを配置できる</p>
+
+                <h3>フェーズ3: ハンドトラッキング <span class="priority-medium">中優先</span></h3>
+                <ul>
+                    <li>ハンドトラッキング有効化（"hand-tracking"機能記述子）</li>
+                    <li>ジェスチャー認識（ピンチ、グラブなど）</li>
+                    <li>手のビジュアル表示（generic-handモデル）</li>
+                    <li>素手でのオブジェクト操作</li>
+                </ul>
+                <p><strong>目標成果物:</strong> コントローラーなしで手だけでオブジェクトを配置・操作できる</p>
+
+                <h3>フェーズ4: 高度なMR機能 <span class="priority-medium">中優先</span></h3>
+                <ul>
+                    <li>Depth APIによる動的オクルージョン</li>
+                    <li>メッシュ検出による環境理解</li>
+                    <li>空間アンカー（永続化対応）</li>
+                    <li>RATK統合による開発効率化</li>
+                </ul>
+                <p><strong>目標成果物:</strong> 仮想オブジェクトが現実の物体に隠れ、セッションをまたいで位置を保持できる</p>
+
+                <h3>フェーズ5: AI統合とマルチユーザー <span class="priority-low">低優先</span></h3>
+                <ul>
+                    <li>音声コマンドでVR/AR空間にオブジェクト生成</li>
+                    <li>AI生成3DモデルのVR/ARプレビュー</li>
+                    <li>マルチユーザーコラボレーション（WebRTC）</li>
+                    <li>空間音響対応</li>
+                </ul>
+                <p><strong>目標成果物:</strong> 複数人が同じAR空間で協働し、音声でオブジェクトを生成できる</p>
+            </section>
+
+            <section>
+                <h2>🔮 将来展望（2025-2027）</h2>
+
+                <h3>技術トレンド予測</h3>
+                <div class="timeline">
+                    <div class="timeline-item">
+                        <strong>2025年前半</strong>
+                        <ul>
+                            <li>Meta Quest 3でPassthrough Camera API正式リリース</li>
+                            <li>WebXR Anchors Module標準化完了</li>
+                            <li>Snap OS 2.0によるWebXR普及加速</li>
+                        </ul>
+                    </div>
+                    <div class="timeline-item">
+                        <strong>2025年後半</strong>
+                        <ul>
+                            <li>Apple Vision Pro Web対応強化（可能性）</li>
+                            <li>AI生成3Dコンテンツのリアルタイム統合</li>
+                            <li>WebGPUとWebXRの統合による性能向上</li>
+                        </ul>
+                    </div>
+                    <div class="timeline-item">
+                        <strong>2026年</strong>
+                        <ul>
+                            <li>WebXR Hand Input Module標準化完了</li>
+                            <li>Snap Spectacles消費者版リリース</li>
+                            <li>5G普及による高品質MRストリーミング</li>
+                        </ul>
+                    </div>
+                    <div class="timeline-item">
+                        <strong>2027年</strong>
+                        <ul>
+                            <li>WebXRがモバイルARの標準に</li>
+                            <li>AIエージェントとXRの融合</li>
+                            <li>ソーシャルMRプラットフォームの成熟</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <h3>ChocoDrop XRの将来像</h3>
+                <div class="feature-grid">
+                    <div class="feature-card">
+                        <h4>🤖 AI駆動型MR創造</h4>
+                        <p>「この部屋に合う桜の木を置いて」と言うだけで、AIが環境を理解し、適切なサイズ・位置・スタイルの3Dモデルを生成・配置</p>
+                    </div>
+
+                    <div class="feature-card">
+                        <h4>👥 ソーシャルコラボレーション</h4>
+                        <p>複数人が異なる場所から同じMR空間にアクセスし、リアルタイムで3Dコンテンツを共同編集</p>
+                    </div>
+
+                    <div class="feature-card">
+                        <h4>🌍 永続化AR世界</h4>
+                        <p>一度作成したAR空間が永続化され、他のユーザーも同じ場所で同じコンテンツを体験できる</p>
+                    </div>
+
+                    <div class="feature-card">
+                        <h4>🎨 ジェネレーティブAR</h4>
+                        <p>ユーザーの環境や好みを学習し、自動的に最適な3Dコンテンツを提案・生成するAIアシスタント</p>
+                    </div>
+                </div>
+            </section>
+
+            <section>
+                <h2>🛠️ 技術スタック推奨構成</h2>
+
+                <table>
+                    <thead>
+                        <tr>
+                            <th>レイヤー</th>
+                            <th>技術</th>
+                            <th>理由</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>3Dエンジン</td>
+                            <td>Three.js r170+</td>
+                            <td>既存ChocoDrop資産活用、WebXR完全サポート</td>
+                        </tr>
+                        <tr>
+                            <td>WebXRユーティリティ</td>
+                            <td>RATK (Meta公式)</td>
+                            <td>平面・メッシュ・アンカー管理の簡易化</td>
+                        </tr>
+                        <tr>
+                            <td>ハンドトラッキング</td>
+                            <td>WebXR Hand Input API + generic-handモデル</td>
+                            <td>W3C標準、Meta Quest 3完全対応</td>
+                        </tr>
+                        <tr>
+                            <td>UI/UX</td>
+                            <td>WebXR Layers API + 既存ChocoDrop UI</td>
+                            <td>VR/AR空間でも既存UIを活用</td>
+                        </tr>
+                        <tr>
+                            <td>状態管理</td>
+                            <td>既存ChocoDrop状態管理拡張</td>
+                            <td>デスクトップ/VR/ARモード統一管理</td>
+                        </tr>
+                        <tr>
+                            <td>テスト</td>
+                            <td>Immersive Web Emulator (Chrome拡張)</td>
+                            <td>実機なしでWebXR開発・テスト可能</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </section>
+
+            <section>
+                <h2>📊 実装優先順位マトリックス</h2>
+
+                <table>
+                    <thead>
+                        <tr>
+                            <th>機能</th>
+                            <th>ユーザー価値</th>
+                            <th>実装難易度</th>
+                            <th>優先度</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>基本VRモード</td>
+                            <td>⭐⭐⭐⭐⭐</td>
+                            <td>低</td>
+                            <td><span class="priority-high">最優先</span></td>
+                        </tr>
+                        <tr>
+                            <td>ARパススルー + 平面検出</td>
+                            <td>⭐⭐⭐⭐⭐</td>
+                            <td>低</td>
+                            <td><span class="priority-high">最優先</span></td>
+                        </tr>
+                        <tr>
+                            <td>コントローラー操作</td>
+                            <td>⭐⭐⭐⭐</td>
+                            <td>低</td>
+                            <td><span class="priority-high">最優先</span></td>
+                        </tr>
+                        <tr>
+                            <td>ハンドトラッキング</td>
+                            <td>⭐⭐⭐⭐</td>
+                            <td>中</td>
+                            <td><span class="priority-medium">中優先</span></td>
+                        </tr>
+                        <tr>
+                            <td>Depth API（オクルージョン）</td>
+                            <td>⭐⭐⭐⭐</td>
+                            <td>中</td>
+                            <td><span class="priority-medium">中優先</span></td>
+                        </tr>
+                        <tr>
+                            <td>空間アンカー（永続化）</td>
+                            <td>⭐⭐⭐</td>
+                            <td>中</td>
+                            <td><span class="priority-medium">中優先</span></td>
+                        </tr>
+                        <tr>
+                            <td>メッシュ検出</td>
+                            <td>⭐⭐⭐</td>
+                            <td>高</td>
+                            <td><span class="priority-low">低優先</span></td>
+                        </tr>
+                        <tr>
+                            <td>マルチユーザー</td>
+                            <td>⭐⭐⭐</td>
+                            <td>高</td>
+                            <td><span class="priority-low">低優先</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </section>
+
+            <section>
+                <h2>⚠️ リスクと対策</h2>
+
+                <div class="warning">
+                    <h4>技術的リスク</h4>
+                    <ul>
+                        <li><strong>ブラウザ互換性:</strong> iOS Safari非対応。ChromeベースのWebXRのみをサポート対象とし、明示的に案内。</li>
+                        <li><strong>パフォーマンス:</strong> VR/ARは90fps必要。Three.js最適化、LOD、オクルージョンカリングを徹底。</li>
+                        <li><strong>ユーザビリティ:</strong> 3D UI操作の学習曲線。段階的チュートリアルと直感的ジェスチャー設計。</li>
+                    </ul>
+                </div>
+
+                <div class="info">
+                    <h4>ビジネスリスク</h4>
+                    <ul>
+                        <li><strong>ハードウェア普及率:</strong> Meta Quest 3はまだニッチ。デスクトップ版と並行開発し、XRは付加価値として提供。</li>
+                        <li><strong>WebXR標準の変化:</strong> W3C仕様は進化中。抽象化レイヤーを設け、将来の仕様変更に対応しやすい設計。</li>
+                    </ul>
+                </div>
+            </section>
+
+            <section>
+                <h2>🎯 次のステップ</h2>
+
+                <ol>
+                    <li><strong>プロトタイプ開発</strong> - 基本VRモードとARパススルーの最小実装（1-2週間）</li>
+                    <li><strong>ユーザーテスト</strong> - Meta Quest 3での実機検証（1週間）</li>
+                    <li><strong>フィードバック反映</strong> - UX改善とパフォーマンス最適化（1週間）</li>
+                    <li><strong>段階的機能追加</strong> - フェーズ1→2→3の順で実装（各2-3週間）</li>
+                    <li><strong>ドキュメント整備</strong> - 開発者向けAPI文書、ユーザー向けチュートリアル</li>
+                </ol>
+
+                <div class="success">
+                    <h4>🚀 推奨される開始点</h4>
+                    <p>まず<strong>基本VRモード（フェーズ1）</strong>から着手することを強く推奨します。Three.js VRButtonとWebXR Device APIの基本統合は比較的容易で、既存ChocoDrop資産を最大限活用できます。これによりXR開発の基礎を固め、ARやハンドトラッキングなど高度な機能への橋渡しとなります。</p>
+                </div>
+            </section>
+        </div>
+
+        <footer>
+            <p>&copy; 2025 ChocoDrop Project - XR Research Report</p>
+            <p style="margin-top: 10px; opacity: 0.8;">本報告書は2025年1月時点の公開情報に基づいています</p>
+        </footer>
+    </div>
+</body>
+</html>
