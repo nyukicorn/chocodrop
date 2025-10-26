@@ -226,6 +226,69 @@ gh run view [RUN_ID] --web
 
 > ⚠️ **注意**: AI による実装は GitHub Actions の ubuntu-latest 環境で実行されます。
 
+#### F. ローカル worktree で並列実装
+
+ローカル環境で複数のアプローチを並列実装し、完成後に評価できます。
+
+---
+
+##### 実装方法
+
+**1. Worktree を作成**
+
+```bash
+# タスク用のブランチを複数作成
+git worktree add .worktrees/approach-1 -b feature/approach-1
+git worktree add .worktrees/approach-2 -b feature/approach-2
+git worktree add .worktrees/approach-3 -b feature/approach-3
+```
+
+**2. 各 worktree で並列実装**
+
+```bash
+# ターミナルを複数開いて並列作業
+cd .worktrees/approach-1  # アプローチ1を実装
+cd .worktrees/approach-2  # アプローチ2を実装
+cd .worktrees/approach-3  # アプローチ3を実装
+```
+
+**3. コミット & Push**
+
+```bash
+# 各 worktree で
+git add .
+git commit -m "実装内容"
+git push origin feature/approach-1  # ブランチ名に合わせて変更
+```
+
+---
+
+##### 評価（任意・完成後のみ）
+
+実装が完成し、評価したい場合のみ以下を実行：
+
+```bash
+# 比較したいブランチを指定
+gh workflow run worktree-parallel.yml \
+  -f branches="feature/approach-1,feature/approach-2,feature/approach-3" \
+  -f run_build=true \
+  -f run_tests=true \
+  -f compare_results=true
+
+# 実行状況を確認
+gh run list --workflow=worktree-parallel.yml --limit 5
+
+# 結果を監視
+gh run watch [RUN_ID]
+```
+
+**比較レポート:**
+- Actions タブで `Worktree Parallel Testing` ワークフローを開く
+- Artifacts から `comparison-report` をダウンロード
+- `ai-analysis.html` を開いて詳細な比較分析を確認
+
+> 💡 **ヒント**: 評価は任意です。実装途中や未完成の状態では実行しないでください。
+
 ---
 
 ## 💡 主な機能
