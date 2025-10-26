@@ -3,6 +3,8 @@ import * as THREEModule from 'three';
 const THREE = globalThis.THREE || THREEModule;
 import { ChocoDropClient, ChocoDroClient, LiveCommandClient } from './LiveCommandClient.js';
 import { createObjectKeywords, matchKeywordWithFilename } from '../common/translation-dictionary.js';
+import { XRControllerModelFactory } from 'three/addons/webxr/XRControllerModelFactory.js';
+import { XRHandModelFactory } from 'three/addons/webxr/XRHandModelFactory.js';
 import { XRManager } from './xr/XRManager.js';
 import { XRController } from './xr/XRController.js';
 import { XRHands } from './xr/XRHands.js';
@@ -5561,10 +5563,49 @@ export class SceneManager {
         anchorMarkerSize: 0.05
       });
 
+      // XR対応のレンダリングループをセットアップ
+      this.startXRRenderLoop();
+
       console.log('🥽 XR functionality initialized (Manager, Controller, Hands, PlaneDetector, AnchorManager)');
     } catch (error) {
       console.error('Failed to initialize XR:', error);
     }
+  }
+
+  /**
+   * XR対応のレンダリングループを開始
+   */
+  startXRRenderLoop() {
+    if (!this.renderer) {
+      console.warn('⚠️ Renderer not available for XR render loop');
+      return;
+    }
+
+    // XR対応のアニメーションループ（XRフレームまたは通常フレーム両対応）
+    this.renderer.setAnimationLoop((time, frame) => {
+      // XRセッションがアクティブな場合、フレーム情報を使ってXRコンポーネントを更新
+      if (frame && this.xrManager && this.xrManager.isSessionActive()) {
+        this.updateXR(frame);
+      }
+
+      // 通常のアニメーション更新
+      const hasCustomAnimations = this.animations && this.animations.size > 0;
+      const hasMixers = this.animationMixers && this.animationMixers.size > 0;
+
+      if (hasCustomAnimations || hasMixers) {
+        this.updateAnimations();
+      }
+
+      // レンダリング
+      this.renderer.render(this.scene, this.camera);
+
+      // ラベルレンダラーも更新
+      if (this.labelRenderer) {
+        this.labelRenderer.render(this.scene, this.camera);
+      }
+    });
+
+    console.log('🔄 XR render loop started');
   }
 
   /**
@@ -5582,11 +5623,17 @@ export class SceneManager {
     // インタラクション可能なオブジェクトを更新
     if (this.xrController) {
       this.xrController.setInteractableObjects(Array.from(this.spawnedObjects.values()));
+
+      // コントローラーモデルをロード
+      this.xrController.loadControllerModels(XRControllerModelFactory);
     }
 
     // XRHands のセットアップ
     if (this.xrHands) {
       this.xrHands.setInteractableObjects(Array.from(this.spawnedObjects.values()));
+
+      // ハンドモデルをロード
+      this.xrHands.loadHandModels(XRHandModelFactory);
     }
 
     // XRPlaneDetector のセットアップ（AR専用）
