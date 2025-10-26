@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ChocoDrop XR Browser Demo</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family: "Inter", "Hiragino Sans", "Yu Gothic", sans-serif;
+    }
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      margin: 0;
+      background: #030712;
+      color: #f8fafc;
+      overflow: hidden;
+    }
+    #overlay {
+      position: fixed;
+      top: 1.5rem;
+      left: 1.5rem;
+      max-width: 420px;
+      padding: 1.25rem;
+      border-radius: 0.75rem;
+      background: rgba(2, 6, 23, 0.78);
+      backdrop-filter: blur(14px);
+      border: 1px solid rgba(148, 163, 184, 0.3);
+      box-shadow: 0 30px 60px rgba(2, 6, 23, 0.45);
+    }
+    #overlay h1 {
+      font-size: 1.35rem;
+      margin: 0 0 0.35rem;
+    }
+    #overlay p {
+      margin: 0 0 0.6rem;
+      font-size: 0.95rem;
+      color: #cbd5f5;
+    }
+    .status {
+      display: grid;
+      grid-template-columns: max-content 1fr;
+      gap: 0.25rem 0.6rem;
+      font-size: 0.88rem;
+      margin-bottom: 0.75rem;
+    }
+    .status dt {
+      color: #9ca3af;
+    }
+    .status dd {
+      margin: 0;
+      font-weight: 600;
+    }
+    .buttons {
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+    button {
+      appearance: none;
+      border: none;
+      border-radius: 999px;
+      padding: 0.65rem 1.5rem;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      color: #030712;
+      background: linear-gradient(120deg, #38bdf8, #6366f1);
+      min-width: 140px;
+      transition: opacity 0.2s ease;
+    }
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.35;
+    }
+    #logs {
+      margin-top: 0.9rem;
+      font-size: 0.8rem;
+      line-height: 1.4;
+      color: #c7d2fe;
+      max-height: 120px;
+      overflow-y: auto;
+    }
+    #host-note {
+      margin-top: 0.4rem;
+      font-size: 0.8rem;
+      color: #fcd34d;
+    }
+  </style>
+</head>
+<body>
+  <div id="overlay">
+    <h1>ChocoDrop XR ブラウザデモ</h1>
+    <p>Meta Quest 3/3S のブラウザで <strong id="expected-origin">http://192.168.1.15:3011</strong> を開き、下のボタンからVR/MRを開始してください。</p>
+    <dl class="status">
+      <dt>現在のURL</dt>
+      <dd id="current-origin">-</dd>
+      <dt>XRサポート</dt>
+      <dd id="xr-support">未確認</dd>
+    </dl>
+    <div class="buttons">
+      <button id="vrButton" disabled>VRチェック中…</button>
+      <button id="arButton" disabled>MRチェック中…</button>
+    </div>
+    <p id="host-note"></p>
+    <div id="logs"></div>
+  </div>
+
+  <script src="/vendor/three-0.170.0.min.js"></script>
+  <script>
+    (function () {
+      const logs = document.getElementById('logs');
+      const vrButton = document.getElementById('vrButton');
+      const arButton = document.getElementById('arButton');
+      const xrSupport = document.getElementById('xr-support');
+      const currentOrigin = document.getElementById('current-origin');
+      const expectedOrigin = document.getElementById('expected-origin');
+      const hostNote = document.getElementById('host-note');
+      const targetOrigin = 'http://192.168.1.15:3011';
+
+      currentOrigin.textContent = window.location.origin;
+      expectedOrigin.textContent = targetOrigin;
+      if (!window.location.origin.includes('192.168.1.15')) {
+        hostNote.textContent = '⚠️ Quest でテストする際は `npm run dev -- --host 192.168.1.15 --port 3011` 等でLAN公開してください。';
+      } else {
+        hostNote.textContent = '✅ 期待ホスト上で表示されています。';
+      }
+
+      const canvas = document.createElement('canvas');
+      const gl = canvas.getContext('webgl2', { xrCompatible: true, antialias: true }) ||
+                 canvas.getContext('webgl', { xrCompatible: true, antialias: true });
+      if (!gl) {
+        xrSupport.textContent = 'WebGL初期化失敗';
+        appendLog('WebGLコンテキストを作成できませんでした。');
+        return;
+      }
+
+      const renderer = new THREE.WebGLRenderer({ canvas, context: gl, antialias: true, alpha: true });
+      renderer.setPixelRatio(window.devicePixelRatio);
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.xr.enabled = true;
+      renderer.xr.setReferenceSpaceType('local-floor');
+      renderer.outputEncoding = THREE.sRGBEncoding;
+      renderer.setClearColor(0x030712, 1);
+      document.body.appendChild(renderer.domElement);
+
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 100);
+      camera.position.set(0, 1.6, 3);
+
+      const hemi = new THREE.HemisphereLight(0xffffff, 0x111122, 0.8);
+      scene.add(hemi);
+      const dir = new THREE.DirectionalLight(0xffffff, 0.6);
+      dir.position.set(5, 10, 2);
+      scene.add(dir);
+
+      const grid = new THREE.GridHelper(20, 40, 0x38bdf8, 0x1e293b);
+      grid.position.y = 0;
+      scene.add(grid);
+
+      const ringGeometry = new THREE.TorusKnotGeometry(0.45, 0.16, 220, 32);
+      const ringMaterial = new THREE.MeshStandardMaterial({
+        color: 0x60a5fa,
+        emissive: 0x1d4ed8,
+        metalness: 0.65,
+        roughness: 0.25
+      });
+      const ring = new THREE.Mesh(ringGeometry, ringMaterial);
+      ring.position.set(0, 1.5, -1.5);
+      scene.add(ring);
+
+      const pulseGeometry = new THREE.RingGeometry(0.2, 0.25, 32);
+      const pulseMaterial = new THREE.MeshBasicMaterial({
+        color: 0x22d3ee,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.85
+      });
+      const pulse = new THREE.Mesh(pulseGeometry, pulseMaterial);
+      pulse.rotation.x = -Math.PI / 2;
+      pulse.position.y = 0.01;
+      scene.add(pulse);
+
+      const clock = new THREE.Clock();
+
+      function animate() {
+        const t = clock.getElapsedTime();
+        ring.rotation.x = t * 0.35;
+        ring.rotation.y = t * 0.42;
+        pulse.scale.setScalar(1.5 + Math.sin(t * 2) * 0.15);
+        renderer.render(scene, camera);
+      }
+      renderer.setAnimationLoop(animate);
+
+      window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+
+      renderer.xr.addEventListener('sessionstart', (event) => {
+        const mode = event.session.environmentBlendMode;
+        appendLog(`XRセッション開始: ${mode}`);
+        if (mode === 'additive' || mode === 'alpha-blend') {
+          renderer.setClearColor(0x000000, 0);
+        } else {
+          renderer.setClearColor(0x030712, 1);
+        }
+      });
+
+      renderer.xr.addEventListener('sessionend', () => {
+        appendLog('XRセッション終了');
+        renderer.setClearColor(0x030712, 1);
+      });
+
+      if (!navigator.xr) {
+        xrSupport.textContent = 'navigator.xr未対応';
+        vrButton.textContent = 'XR未対応';
+        arButton.textContent = 'XR未対応';
+        appendLog('このブラウザはWebXRをサポートしていません。');
+        return;
+      }
+
+      xrSupport.textContent = 'WebXR検出済み';
+      setupXRButton(vrButton, 'immersive-vr');
+      setupXRButton(arButton, 'immersive-ar');
+
+      function appendLog(message) {
+        const time = new Date().toLocaleTimeString();
+        logs.innerHTML = `<div>[${time}] ${message}</div>` + logs.innerHTML;
+      }
+
+      async function setupXRButton(button, mode) {
+        try {
+          const supported = await navigator.xr.isSessionSupported(mode);
+          if (!supported) {
+            button.textContent = mode === 'immersive-vr' ? 'VR未対応' : 'MR未対応';
+            button.disabled = true;
+            appendLog(`${mode} は未サポートです。`);
+            return;
+          }
+
+          button.textContent = mode === 'immersive-vr' ? 'VR開始' : 'MR開始';
+          button.disabled = false;
+
+          button.addEventListener('click', async () => {
+            button.disabled = true;
+            button.textContent = '接続中…';
+            appendLog(`${mode} セッションを要求します。`);
+            try {
+              const init = buildSessionInit(mode);
+              const session = await navigator.xr.requestSession(mode, init);
+              session.addEventListener('end', () => {
+                button.textContent = mode === 'immersive-vr' ? 'VR開始' : 'MR開始';
+                button.disabled = false;
+                appendLog(`${mode} セッションが終了しました。`);
+              });
+              await renderer.xr.setSession(session);
+              button.textContent = 'セッション中';
+              appendLog('セッションが確立されました。');
+            } catch (error) {
+              console.error(error);
+              button.textContent = mode === 'immersive-vr' ? 'VR開始' : 'MR開始';
+              button.disabled = false;
+              appendLog(`セッション開始に失敗: ${error.message}`);
+            }
+          });
+        } catch (error) {
+          button.textContent = 'チェック失敗';
+          appendLog(`XRサポート確認に失敗: ${error.message}`);
+        }
+      }
+
+      function buildSessionInit(mode) {
+        const base = {
+          optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking', 'layers'],
+        };
+        if (mode === 'immersive-ar') {
+          base.requiredFeatures = ['local-floor'];
+          base.optionalFeatures.push('dom-overlay');
+          base.domOverlay = { root: document.body };
+        }
+        return base;
+      }
+    })();
+  </script>
+</body>
+</html>
