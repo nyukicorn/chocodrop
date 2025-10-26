@@ -1,8 +1,21 @@
 name: Worktree Parallel Testing
+run-name: "${{ github.event.inputs.session_id || 'manual-session' }} · ${{ github.event.inputs.agent_name || github.actor }} · #${{ github.run_number }}"
 
 on:
   workflow_dispatch:
     inputs:
+      session_id:
+        description: 'Stable session identifier (e.g., task-abc123)'
+        required: true
+        type: string
+      agent_name:
+        description: 'Originating agent or human operator'
+        required: true
+        type: string
+      prompt_seed:
+        description: 'Normalized task description (<=512 chars)'
+        required: false
+        type: string
       branches:
         description: 'Comma-separated branch names to test (e.g., task/feature-a,task/feature-b,task/feature-c)'
         required: true
@@ -29,6 +42,11 @@ permissions:
   issues: write
   id-token: write
 
+env:
+  SESSION_ID: ${{ github.event.inputs.session_id }}
+  AGENT_NAME: ${{ github.event.inputs.agent_name }}
+  PROMPT_SEED: ${{ github.event.inputs.prompt_seed }}
+
 jobs:
   prepare:
     name: Prepare branch matrix
@@ -38,6 +56,26 @@ jobs:
       branch_count: ${{ steps.set-matrix.outputs.count }}
 
     steps:
+      - name: Validate session metadata
+        run: |
+          if [[ -z "${{ github.event.inputs.session_id }}" ]]; then
+            echo "::error::session_id input is required."
+            exit 1
+          fi
+          if [[ -z "${{ github.event.inputs.agent_name }}" ]]; then
+            echo "::error::agent_name input is required."
+            exit 1
+          fi
+          if ! [[ "${{ github.event.inputs.session_id }}" =~ ^[a-zA-Z0-9._-]+$ ]]; then
+            echo "::error::session_id must be alphanumeric plus ._-"
+            exit 1
+          fi
+          echo "📌 Session: ${{ github.event.inputs.session_id }}"
+          echo "🤖 Agent: ${{ github.event.inputs.agent_name }}"
+          if [[ -n "${{ github.event.inputs.prompt_seed }}" ]]; then
+            echo "📝 Prompt seed: ${{ github.event.inputs.prompt_seed }}"
+          fi
+
       - name: Parse branches
         id: set-matrix
         run: |
@@ -69,6 +107,10 @@ jobs:
     name: Test ${{ matrix.branch }}
     runs-on: ubuntu-latest
     needs: prepare
+    env:
+      SESSION_ID: ${{ github.event.inputs.session_id }}
+      AGENT_NAME: ${{ github.event.inputs.agent_name }}
+      PROMPT_SEED: ${{ github.event.inputs.prompt_seed }}
     strategy:
       fail-fast: false
       matrix:
@@ -315,22 +357,165 @@ jobs:
 
           cat "$REPORT_DIR/report.md"
 
+      - name: Capture session metadata
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const path = require('path');
+
+          const payload = {
+            session_id: process.env.SESSION_ID,
+            agent: process.env.AGENT_NAME,
+            branch: process.env.BRANCH_NAME,
+            branch_safe: process.env.BRANCH_SAFE,
+            run_id: process.env.RUN_ID,
+            run_url: process.env.RUN_URL,
+            lint_status: process.env.LINT_STATUS || 'skipped',
+            build_status: process.env.BUILD_STATUS || 'skipped',
+            build_duration: Number(process.env.BUILD_DURATION || 0),
+            test_status: process.env.TEST_STATUS || 'skipped',
+            test_duration: Number(process.env.TEST_DURATION || 0),
+            test_pass: Number(process.env.TEST_PASS || 0),
+            test_fail: Number(process.env.TEST_FAIL || 0),
+            prompt_seed: process.env.PROMPT_SEED || '',
+            timestamp: new Date().toISOString()
+          };
+
+          const metaDir = path.join('session-metadata', payload.session_id);
+          fs.mkdirSync(metaDir, { recursive: true });
+          const target = path.join(metaDir, `${payload.branch_safe}.json`);
+          fs.writeFileSync(target, JSON.stringify(payload, null, 2));
+          console.log(`Saved session metadata to ${target}`);
+          NODE
+        env:
+          BRANCH_NAME: ${{ matrix.branch }}
+          BRANCH_SAFE: ${{ steps.branch_info.outputs.branch_safe }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          LINT_STATUS: ${{ steps.lint.outputs.status || 'skipped' }}
+          BUILD_STATUS: ${{ steps.build.outputs.status || 'skipped' }}
+          BUILD_DURATION: ${{ steps.build.outputs.duration || '0' }}
+          TEST_STATUS: ${{ steps.test.outputs.status || 'skipped' }}
+          TEST_DURATION: ${{ steps.test.outputs.duration || '0' }}
+          TEST_PASS: ${{ steps.test.outputs.pass_count || '0' }}
+          TEST_FAIL: ${{ steps.test.outputs.fail_count || '0' }}
+
       - name: Upload branch artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: report-${{ steps.branch_info.outputs.branch_safe }}
+          name: session-${{ github.event.inputs.session_id }}-report-${{ steps.branch_info.outputs.branch_safe }}
           path: reports/
           retention-days: 30
 
       - name: Upload dynamic evaluation artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: dynamic-eval-${{ steps.branch_info.outputs.branch_safe }}
+          name: session-${{ github.event.inputs.session_id }}-dynamic-${{ steps.branch_info.outputs.branch_safe }}
           path: |
             screenshots/
             performance-*.json
           retention-days: 30
         continue-on-error: true
+
+      - name: Upload session metadata artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: session-${{ github.event.inputs.session_id }}-metadata
+          path: session-metadata/
+          retention-days: 30
+        continue-on-error: true
+
+      - name: Append session summary
+        if: always()
+        run: |
+          {
+            echo "### Session $SESSION_ID · Branch \`${{ matrix.branch }}\`"
+            echo ""
+            echo "- Agent: $AGENT_NAME"
+            echo "- Run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            echo "- Lint: ${{ steps.lint.outputs.status || 'skipped' }}"
+            echo "- Build: ${{ steps.build.outputs.status || 'skipped' }} (duration: ${{ steps.build.outputs.duration || '0' }}s)"
+            echo "- Tests: ${{ steps.test.outputs.status || 'skipped' }} (duration: ${{ steps.test.outputs.duration || '0' }}s)"
+            echo "- Screenshots: ${{ steps.screenshots.outputs.status || 'n/a' }} | Lighthouse: ${{ steps.lighthouse.outputs.status || 'n/a' }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Update session issue
+        if: always()
+        uses: actions/github-script@v7
+        env:
+          SESSION_ID: ${{ github.event.inputs.session_id }}
+          AGENT_NAME: ${{ github.event.inputs.agent_name }}
+          BRANCH: ${{ matrix.branch }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          LINT_STATUS: ${{ steps.lint.outputs.status || 'skipped' }}
+          BUILD_STATUS: ${{ steps.build.outputs.status || 'skipped' }}
+          TEST_STATUS: ${{ steps.test.outputs.status || 'skipped' }}
+          BUILD_DURATION: ${{ steps.build.outputs.duration || '0' }}
+          TEST_DURATION: ${{ steps.test.outputs.duration || '0' }}
+          TEST_PASS: ${{ steps.test.outputs.pass_count || '0' }}
+          TEST_FAIL: ${{ steps.test.outputs.fail_count || '0' }}
+        with:
+          script: |
+            const sessionId = process.env.SESSION_ID;
+            const labelName = `session/${sessionId}`;
+            const { owner, repo } = context.repo;
+
+            async function ensureLabel() {
+              try {
+                await github.rest.issues.getLabel({ owner, repo, name: labelName });
+              } catch (error) {
+                if (error.status === 404) {
+                  await github.rest.issues.createLabel({
+                    owner,
+                    repo,
+                    name: labelName,
+                    color: 'BFDADC',
+                    description: 'Workflow session tracker'
+                  });
+                } else {
+                  throw error;
+                }
+              }
+            }
+
+            await ensureLabel();
+
+            const issues = await github.paginate(github.rest.issues.listForRepo, {
+              owner,
+              repo,
+              labels: labelName,
+              state: 'open',
+              per_page: 100
+            });
+
+            let issue = issues[0];
+            if (!issue) {
+              const created = await github.rest.issues.create({
+                owner,
+                repo,
+                title: `Session ${sessionId} tracking`,
+                body: `このIssueはセッション **${sessionId}** のワークフロー実行を集約します。`,
+                labels: [labelName]
+              });
+              issue = created.data;
+            }
+
+            const commentLines = [
+              `### Run #${context.runNumber} · ${process.env.AGENT_NAME}`,
+              `- Branch: \`${process.env.BRANCH}\``,
+              `- Workflow: [Run link](${process.env.RUN_URL})`,
+              `- Lint: ${process.env.LINT_STATUS}`,
+              `- Build: ${process.env.BUILD_STATUS} (${process.env.BUILD_DURATION}s)`,
+              `- Tests: ${process.env.TEST_STATUS} (${process.env.TEST_DURATION}s, pass=${process.env.TEST_PASS}, fail=${process.env.TEST_FAIL})`,
+              '- Artifacts: レポート・スクリーンショット・メタデータを参照してください。'
+            ];
+
+            await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number: issue.number,
+              body: commentLines.join('\n')
+            });
 
   # 全ブランチの結果を比較
   compare:
@@ -355,8 +540,13 @@ jobs:
         run: |
           mkdir -p comparison
 
-          cat > comparison/README.md << 'EOF'
+          SESSION_LINE="## Session: ${{ github.event.inputs.session_id }}"
+          cat > comparison/README.md << EOF
           # Worktree Parallel Testing - Comparison Report
+
+          $SESSION_LINE
+          - Agent: ${{ github.event.inputs.agent_name }}
+          - Prompt seed: ${{ github.event.inputs.prompt_seed || 'n/a' }}
 
           ## Overview
           This report compares the results of parallel testing across multiple branches.
@@ -367,7 +557,6 @@ jobs:
           echo "Testing ${{ needs.prepare.outputs.branch_count }} branches" >> comparison/README.md
           echo "" >> comparison/README.md
 
-          # 各ブランチのレポートを統合
           cat >> comparison/README.md << 'EOF'
           ## Comparison Table
 
@@ -375,26 +564,26 @@ jobs:
           |--------|--------|------|-------|------------|-------|-----------|------|------|
           EOF
 
-          for report_dir in all-reports/report-*/; do
-            if [ -f "$report_dir/*/summary.json" ]; then
-              JSON_FILE=$(find "$report_dir" -name "summary.json" | head -1)
+          find all-reports -name summary.json | while read -r JSON_FILE; do
+            BRANCH=$(jq -r '.branch' "$JSON_FILE")
+            COMMIT=$(jq -r '.commit' "$JSON_FILE")
+            LINT=$(jq -r '.lint_status' "$JSON_FILE")
+            BUILD=$(jq -r '.build_status' "$JSON_FILE")
+            BUILD_DUR=$(jq -r '.build_duration // 0' "$JSON_FILE")
+            TEST=$(jq -r '.test_status' "$JSON_FILE")
+            TEST_DUR=$(jq -r '.test_duration // 0' "$JSON_FILE")
+            PASS=$(jq -r '.test_pass // 0' "$JSON_FILE")
+            FAIL=$(jq -r '.test_fail // 0' "$JSON_FILE")
 
-              BRANCH=$(jq -r '.branch' "$JSON_FILE")
-              COMMIT=$(jq -r '.commit' "$JSON_FILE")
-              LINT=$(jq -r '.lint_status' "$JSON_FILE")
-              BUILD=$(jq -r '.build_status' "$JSON_FILE")
-              BUILD_DUR=$(jq -r '.build_duration' "$JSON_FILE")
-              TEST=$(jq -r '.test_status' "$JSON_FILE")
-              TEST_DUR=$(jq -r '.test_duration' "$JSON_FILE")
-              PASS=$(jq -r '.test_pass' "$JSON_FILE")
-              FAIL=$(jq -r '.test_fail' "$JSON_FILE")
-
-              LINT_ICON=$([[ "$LINT" == "passed" ]] && echo "✅" || echo "❌")
-              BUILD_ICON=$([[ "$BUILD" == "passed" ]] && echo "✅" || [[ "$BUILD" == "failed" ]] && echo "❌" || echo "⏭️")
-              TEST_ICON=$([[ "$TEST" == "passed" ]] && echo "✅" || [[ "$TEST" == "failed" ]] && echo "❌" || echo "⏭️")
-
-              echo "| $BRANCH | \`$COMMIT\` | $LINT_ICON | $BUILD_ICON | ${BUILD_DUR}s | $TEST_ICON | ${TEST_DUR}s | $PASS | $FAIL |" >> comparison/README.md
+            if [ -z "$BRANCH" ] || [ "$BRANCH" = "null" ]; then
+              continue
             fi
+
+            if [ "$LINT" = "passed" ]; then LINT_ICON="✅"; else LINT_ICON="❌"; fi
+            if [ "$BUILD" = "passed" ]; then BUILD_ICON="✅"; elif [ "$BUILD" = "failed" ]; then BUILD_ICON="❌"; else BUILD_ICON="⏭️"; fi
+            if [ "$TEST" = "passed" ]; then TEST_ICON="✅"; elif [ "$TEST" = "failed" ]; then TEST_ICON="❌"; else TEST_ICON="⏭️"; fi
+
+            echo "| $BRANCH | \`$COMMIT\` | $LINT_ICON | $BUILD_ICON | ${BUILD_DUR}s | $TEST_ICON | ${TEST_DUR}s | $PASS | $FAIL |" >> comparison/README.md
           done
 
           cat >> comparison/README.md << 'EOF'
