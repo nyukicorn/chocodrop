@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ChocoDrop XRリサーチ 2025-10-26</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      font-family: 'Helvetica Neue', 'Hiragino Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      line-height: 1.55;
+    }
+    body {
+      margin: 0;
+      padding: 2.5rem 1rem 4rem;
+      max-width: 960px;
+      margin-inline: auto;
+      background: radial-gradient(circle at top, rgba(193,224,255,0.5), transparent 50%);
+    }
+    header {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+    h1 {
+      font-size: clamp(1.8rem, 6vw, 2.6rem);
+      margin-bottom: 0.3rem;
+    }
+    section {
+      margin-bottom: 2rem;
+      padding: 1.25rem;
+      border-radius: 1rem;
+      background: rgba(255,255,255,0.8);
+      box-shadow: 0 15px 40px rgba(24,28,47,0.08);
+      backdrop-filter: blur(8px);
+    }
+    h2 {
+      font-size: 1.25rem;
+      margin-top: 0;
+    }
+    .pill {
+      display: inline-flex;
+      gap: 0.4rem;
+      flex-wrap: wrap;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+    .pill li {
+      background: #0f172a;
+      color: #f8fafc;
+      padding: 0.25rem 0.75rem;
+      border-radius: 999px;
+      font-size: 0.85rem;
+      margin: 0.1rem;
+    }
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 1rem;
+    }
+    .card {
+      border-radius: 0.85rem;
+      padding: 1rem;
+      background: rgba(15,23,42,0.78);
+      color: #e2e8f0;
+    }
+    .card h3 {
+      margin-top: 0;
+      font-size: 1rem;
+    }
+    .card p {
+      margin-bottom: 0;
+      font-size: 0.95rem;
+    }
+    .future-list li {
+      margin-bottom: 0.5rem;
+    }
+    footer {
+      font-size: 0.85rem;
+      color: #475569;
+    }
+    a {
+      color: #2563eb;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <p>最終更新: 2025-10-26 / 調査担当: CodexCLI3</p>
+    <h1>ChocoDrop XRリサーチサマリー</h1>
+    <p>Meta Quest 3および今後のXRブラウザ実装に必要な要件を整理した調査メモ。</p>
+  </header>
+
+  <section id="highlights">
+    <h2>直近ハイライト</h2>
+    <ul class="pill">
+      <li>Quest v68 以降で実カメラパススルー権限/APIが刷新</li>
+      <li>XR2+ Gen 2世代で4.3K/eye &amp; 12ms パススルー</li>
+      <li>Mixed Reality LinkがWindowsアプリをQuestに直接ストリーミング</li>
+      <li>WebXR Depth Sensing &amp; Scene Descriptionが2025年に前進</li>
+      <li>Quest for Business / Vision Proで企業導入が加速</li>
+      <li>Samsung×GoogleのProject MoohanでAndroid XR新陣営</li>
+    </ul>
+  </section>
+
+  <section id="landscape">
+    <h2>2025年XRランドスケープ</h2>
+    <div class="cards">
+      <article class="card">
+        <h3>Meta Questエコシステム</h3>
+        <p>Quest v68で「Headset Cameras」権限と新パススルーAPIが公開され、MRアプリは実世界映像を安全に扱えるようになった。一方、眼球トラッキングクリップ計画は頓挫し、Moveアプリも終了予定のため、標準機能は手・身体トラッキング中心に再調整されている。<sup><a href="#ref-1">[1]</a></sup></p>
+      </article>
+      <article class="card">
+        <h3>PC/クラウド連携</h3>
+        <p>MicrosoftのMixed Reality LinkアップデートでWindowsアプリをQuestブラウザへ低遅延投影できるため、WebベースツールもPC側リソースを活用したまま提供しやすくなる。<sup><a href="#ref-2">[2]</a></sup></p>
+      </article>
+      <article class="card">
+        <h3>企業導入</h3>
+        <p>Quest for BusinessがMDM・共有モード・SSOを提供し、Metaは専用サポートラインまで整備。ChocoDropも将来的にQuest for Business端末経由で配布される可能性が高い。<sup><a href="#ref-3">[3]</a></sup></p>
+      </article>
+      <article class="card">
+        <h3>Apple Vision Proの波及</h3>
+        <p>Appleは2025年10月にAir Canada・DeloitteなどとのVision Pro導入ケースを拡大中で、空間トレーニング/リモート支援ニーズが確立。高精細パススルーと眼追跡/ハンドジェスチャの両刀に合わせたUIが期待される。<sup><a href="#ref-4">[4]</a></sup></p>
+      </article>
+      <article class="card">
+        <h3>ハードウェアの次</h3>
+        <p>Qualcomm Snapdragon XR2+ Gen 2は片目4.3K・12msフルカラーMRを実現。Samsung×Google×Qualcommの新XRヘッドセット（Project Moohan）は3800ppi マイクロOLEDを搭載予定で、Webアプリにも高解像度レンダリングが求められる。<sup><a href="#ref-5">[5]</a>, <a href="#ref-1">[1]</a></sup></p>
+      </article>
+      <article class="card">
+        <h3>標準化とWebXR</h3>
+        <p>OpenXR 1.1が2024年末に正式公開され、foveated rendering・local floor spacesなどが標準化。Chrome 125+ではWebXR Depth APIの高速化、W3CではDepth Sensing Module/Scene Descriptionが草案化し、Webアプリが環境認識情報を扱いやすくなってきた。<sup><a href="#ref-6">[6]</a>, <a href="#ref-7">[7]</a>, <a href="#ref-8">[8]</a>, <a href="#ref-9">[9]</a></sup></p>
+      </article>
+    </div>
+  </section>
+
+  <section id="requirements">
+    <h2>ChocoDrop XR版に必要な機能（初期スコープ）</h2>
+    <ol>
+      <li><strong>WebXRネイティブブラウザシェル</strong>: Quest BrowserやVisionOS Safariから `https://192.168.1.15` に直アクセスできるよう、同一オリジン/HTTPS設定と遅延少なめのUI（大ボタン + 音声コマンド）を提供。</li>
+      <li><strong>MRパススルー安全化</strong>: Questの新カメラ権限フローに合わせ、ユーザーに許諾文言を提示し、背景合成時はDepth APIベースのオクルージョンを利用。<sup><a href="#ref-1">[1]</a>, <a href="#ref-7">[7]</a></sup></li>
+      <li><strong>マルチデバイスOpenXR層</strong>: Three.js + WebXRに加えて、device profileをOpenXR 1.1互換にマッピング。追跡不可の眼球入力にはハンドジェスチャ代替を用意。<sup><a href="#ref-6">[6]</a></sup></li>
+      <li><strong>PCとのハイブリッド描画</strong>: Mixed Reality LinkやWebRTCを通じ、重いThree.jsシーンはWindows側レンダリング + Quest表示を選択可能にする。<sup><a href="#ref-2">[2]</a></sup></li>
+      <li><strong>エンタープライズ対応</strong>: Quest for Business/MDM用に、シングルサインオン・ロールベース機能制御をREST設定で切り替え。Vision ProではManaged Apple ID連携を視野に。<sup><a href="#ref-3">[3]</a>, <a href="#ref-4">[4]</a></sup></li>
+      <li><strong>高解像度レンダリング</strong>: 4K/eyeクラス向けにDLSS/FSR相当のアップスケールとUIスケーリングプリセット（Quest 3標準/Quest Pro/Project Moohan/ Vision Pro）を用意。<sup><a href="#ref-5">[5]</a>, <a href="#ref-1">[1]</a></sup></li>
+      <li><strong>運用メタデータ</strong>: Move終了に伴い、活動量ログは自前テレメトリに切り替える。Quest for Businessの管理APIが公開されたらアダプタを実装。<sup><a href="#ref-1">[1]</a>, <a href="#ref-3">[3]</a></sup></li>
+    </ol>
+  </section>
+
+  <section id="roadmap">
+    <h2>推奨ロードマップ</h2>
+    <ol class="future-list">
+      <li><strong>2025 Q4: XRブラウザPoC</strong> – 本ドキュメントと連動したHTMLデモ（別ファイル）を192.168.1.15上で提供し、Questブラウザで動作検証。Depth APIのポリフィル計測を追加。</li>
+      <li><strong>2026 H1: MRレイヤ</strong> – パススルー合成と物理オクルージョンをThree.jsシーンに実装。Scene Descriptionが安定したら音声UIの空間アンカー化を検証。<sup><a href="#ref-8">[8]</a>, <a href="#ref-9">[9]</a></sup></li>
+      <li><strong>2026 H2: エンタープライズ対応</strong> – Quest for Business配布、Vision Pro向けフラットパネルUI、Samsung XR開発者キット対応を並走。OpenXR 1.1準拠アダプタを共通コアに取り込み。<sup><a href="#ref-3">[3]</a>, <a href="#ref-4">[4]</a>, <a href="#ref-6">[6]</a>, <a href="#ref-5">[5]</a></sup></li>
+    </ol>
+  </section>
+
+  <section id="environment">
+    <h2>接続環境メモ</h2>
+    <p>Meta Quest 3 からは <code>https://192.168.1.15</code> のローカルサーバーにアクセス予定。他チーム利用と競合しないよう、デモ時はポート・パス（例: <code>/xr-demo</code>）単位でスケジュールを共有する。</p>
+  </section>
+
+  <section id="references">
+    <h2>参考情報</h2>
+    <ol>
+      <li id="ref-1">XR Update, “Meta Quest MRのAPI刷新とSamsung/Googleの次期ヘッドセット,” 2025-10-18. <a href="https://www.xrupdate.com/meta-quest-os-70-mixed-reality-link-update/" target="_blank" rel="noreferrer">記事を開く</a></li>
+      <li id="ref-2">Microsoft, “Mixed Reality Link gets support for Windows apps in Meta Quest,” 2024-12-18. <a href="https://techcommunity.microsoft.com/blog/mixedrealityblog/introducing-new-virtual-workspace-experiences-for-meta-quest-users/4311634" target="_blank" rel="noreferrer">記事を開く</a></li>
+      <li id="ref-3">TechRadar, “Meta Quest for Business now includes shared mode and SSO,” 2024-12-20. <a href="https://www.techradar.com/pro/meta-quest-for-business-just-got-a-game-changing-update" target="_blank" rel="noreferrer">記事を開く</a></li>
+      <li id="ref-4">Apple, “Apple Vision Pro expands enterprise deployments,” 2025-10-23. <a href="https://www.apple.com/newsroom/2025/10/apple-vision-pro-continues-to-transform-work-and-workspaces/" target="_blank" rel="noreferrer">記事を開く</a></li>
+      <li id="ref-5">Engadget, “Qualcomm Snapdragon XR2+ Gen 2 enables 4.3K/eye and 12ms MR,” 2024-09-13. <a href="https://www.engadget.com/qualcomm-announces-snapdragon-xr2-gen-2-142429437.html" target="_blank" rel="noreferrer">記事を開く</a></li>
+      <li id="ref-6">Khronos, “OpenXR 1.1 Specification Released,” 2024-12-12. <a href="https://www.khronos.org/blog/openxr-1-1-released" target="_blank" rel="noreferrer">記事を開く</a></li>
+      <li id="ref-7">Chrome Developers, “WebXR Depth API Performance Improvements,” 2025-05-09. <a href="https://developer.chrome.com/docs/chromium/adding-webxr-depth-api-notes" target="_blank" rel="noreferrer">記事を開く</a></li>
+      <li id="ref-8">W3C Immersive Web, “Depth Sensing Module Working Draft,” 2025-05-06. <a href="https://www.w3.org/TR/webxr-depth-sensing-1/" target="_blank" rel="noreferrer">記事を開く</a></li>
+      <li id="ref-9">Immersive Web CG, “Scene Description accessibility minutes,” 2025-03-25. <a href="https://www.w3.org/2024/03/25-immersive-web-minutes.html" target="_blank" rel="noreferrer">記事を開く</a></li>
+    </ol>
+  </section>
+
+  <footer>
+    <p>このファイルは <code>docs/xr-research-2025.html</code> に保存されています。Meta Quest 3/Apple Vision Pro での閲覧を想定し、WCAG 2.2 AA カラーコントラストを満たす配色にしています。</p>
+  </footer>
+</body>
+</html>
