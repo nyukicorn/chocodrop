@@ -3,6 +3,10 @@ import * as THREEModule from 'three';
 const THREE = globalThis.THREE || THREEModule;
 import { ChocoDropClient, ChocoDroClient, LiveCommandClient } from './LiveCommandClient.js';
 import { createObjectKeywords, matchKeywordWithFilename } from '../common/translation-dictionary.js';
+import { XRManager } from './xr/XRManager.js';
+import { VRController } from './xr/VRController.js';
+import { ARController } from './xr/ARController.js';
+import { XRUIAdapter } from './xr/XRUIAdapter.js';
 
 /**
  * Scene Manager - 3D scene integration for ChocoDrop System
@@ -74,6 +78,17 @@ export class SceneManager {
     this.setupClickEvents();
     
     console.log('🧪 SceneManager initialized with click selection');
+
+    // XR機能の初期化
+    this.xrManager = null;
+    this.vrController = null;
+    this.arController = null;
+    this.xrUIAdapter = null;
+    this.xrEnabled = options.enableXR !== false; // デフォルトでXR有効
+
+    if (this.xrEnabled && this.renderer && this.camera) {
+      this.initXR();
+    }
 
     // デバッグやコンソール操作を容易にするためグローバル参照を保持
     if (typeof globalThis !== 'undefined') {
@@ -5503,6 +5518,172 @@ export class SceneManager {
   }
 
   /**
+   * XR機能の初期化
+   */
+  initXR() {
+    if (!this.renderer || !this.camera) {
+      console.warn('⚠️ Renderer or camera not available for XR');
+      return;
+    }
+
+    try {
+      // XRManager の初期化
+      this.xrManager = new XRManager(this.renderer, {
+        scene: this.scene,
+        camera: this.camera
+      });
+
+      // VRController の初期化
+      this.vrController = new VRController(this.renderer, this.scene, {
+        camera: this.camera,
+        selectableObjects: Array.from(this.spawnedObjects.values())
+      });
+      this.vrController.setup();
+
+      // ARController の初期化
+      this.arController = new ARController(this.renderer, this.scene, {
+        camera: this.camera
+      });
+
+      // XRUIAdapter の初期化
+      this.xrUIAdapter = new XRUIAdapter(this.scene, this.camera, {
+        panelDistance: 2.0,
+        followCamera: true
+      });
+
+      // XRセッションイベントリスナーの登録
+      this.xrManager.onSessionStart((session, mode) => {
+        this.onXRSessionStart(session, mode);
+      });
+
+      this.xrManager.onSessionEnd((mode) => {
+        this.onXRSessionEnd(mode);
+      });
+
+      console.log('🥽 XR functionality initialized');
+    } catch (error) {
+      console.error('❌ Failed to initialize XR:', error);
+      this.xrEnabled = false;
+    }
+  }
+
+  /**
+   * VRセッションを開始
+   */
+  async startVRSession() {
+    if (!this.xrManager) {
+      console.error('❌ XRManager not initialized');
+      return;
+    }
+
+    try {
+      await this.xrManager.startVRSession();
+    } catch (error) {
+      console.error('❌ Failed to start VR session:', error);
+    }
+  }
+
+  /**
+   * ARセッションを開始
+   */
+  async startARSession() {
+    if (!this.xrManager) {
+      console.error('❌ XRManager not initialized');
+      return;
+    }
+
+    try {
+      await this.xrManager.startARSession();
+    } catch (error) {
+      console.error('❌ Failed to start AR session:', error);
+    }
+  }
+
+  /**
+   * XRセッションを終了
+   */
+  async endXRSession() {
+    if (!this.xrManager) {
+      return;
+    }
+
+    try {
+      await this.xrManager.endSession();
+    } catch (error) {
+      console.error('❌ Failed to end XR session:', error);
+    }
+  }
+
+  /**
+   * XRセッション開始時の処理
+   */
+  onXRSessionStart(session, mode) {
+    console.log(`🎉 XR Session Started: ${mode}`);
+
+    // ARControllerの初期化
+    if (mode === 'ar' && this.arController) {
+      this.arController.onSessionStart(session);
+    }
+
+    // XRUIAdapterの初期化
+    if (this.xrUIAdapter) {
+      if (mode === 'vr') {
+        this.xrUIAdapter.onVRStart();
+      } else if (mode === 'ar') {
+        this.xrUIAdapter.onARStart();
+      }
+    }
+
+    // spawnedObjectsをVRControllerの選択可能オブジェクトに設定
+    if (this.vrController) {
+      const objects = Array.from(this.spawnedObjects.values());
+      this.vrController.setSelectableObjects(objects);
+    }
+  }
+
+  /**
+   * XRセッション終了時の処理
+   */
+  onXRSessionEnd(mode) {
+    console.log(`👋 XR Session Ended: ${mode}`);
+
+    // XRUIAdapterのクリーンアップ
+    if (this.xrUIAdapter) {
+      this.xrUIAdapter.onXREnd();
+    }
+  }
+
+  /**
+   * XRフレーム更新（アニメーションループから呼ばれる）
+   * @param {XRFrame} frame - WebXR frame
+   */
+  updateXR(frame) {
+    if (!frame || !this.xrManager) return;
+
+    // ARControllerの更新
+    if (this.xrManager.isARMode() && this.arController) {
+      this.arController.update(frame);
+    }
+  }
+
+  /**
+   * XRデバッグ情報を取得
+   */
+  getXRDebugInfo() {
+    if (!this.xrManager) {
+      return { xrEnabled: false };
+    }
+
+    return {
+      xrEnabled: this.xrEnabled,
+      ...this.xrManager.getDebugInfo(),
+      vrController: !!this.vrController,
+      arController: !!this.arController,
+      xrUIAdapter: !!this.xrUIAdapter
+    };
+  }
+
+  /**
    * クリーンアップ
    */
   dispose() {
@@ -5510,5 +5691,20 @@ export class SceneManager {
     if (this.experimentGroup.parent) {
       this.experimentGroup.parent.remove(this.experimentGroup);
     }
+
+    // XRリソースのクリーンアップ
+    if (this.vrController) {
+      this.vrController.dispose();
+      this.vrController = null;
+    }
+    if (this.arController) {
+      this.arController.dispose();
+      this.arController = null;
+    }
+    if (this.xrUIAdapter) {
+      this.xrUIAdapter.dispose();
+      this.xrUIAdapter = null;
+    }
+    this.xrManager = null;
   }
 }
