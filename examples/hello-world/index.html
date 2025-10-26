@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hello World - 3D Text Demo</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='8' y='8' width='48' height='48' rx='12' fill='%2363410f'/%3E%3Crect x='18' y='18' width='28' height='28' rx='6' fill='%23a16207'/%3E%3C/svg%3E">
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+        }
+    }
+    </script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            font-family: "Helvetica Neue", Arial, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+        }
+
+        #info {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            color: white;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 20px;
+            border-radius: 10px;
+            font-size: 14px;
+            z-index: 1000;
+            max-width: 300px;
+            transition: opacity 0.3s ease;
+        }
+
+        #info h1 {
+            margin: 0 0 10px 0;
+            font-size: 18px;
+            color: #4fc3f7;
+        }
+
+        #info p {
+            margin: 8px 0;
+            line-height: 1.4;
+        }
+
+        .close-btn {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: none;
+            border: none;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .close-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .nav-link {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            text-decoration: none;
+            padding: 10px 15px;
+            border-radius: 8px;
+            font-size: 13px;
+            transition: all 0.2s ease;
+            z-index: 1000;
+        }
+
+        .nav-link:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+        }
+
+        #loading {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 18px;
+            z-index: 2000;
+        }
+
+        canvas {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div id="loading">Loading 3D Text...</div>
+    
+    <div id="info">
+        <button class="close-btn" onclick="hideInfo()">×</button>
+        <h1>🌍 Hello World 3D</h1>
+        <p><strong>Approach 1:</strong> Class-based modular architecture</p>
+        <p>• TextGeometry with custom materials</p>
+        <p>• Modular lighting system</p>
+        <p>• Object-oriented design pattern</p>
+        <p>• Camera controls and animations</p>
+        <p><em>Mouse: Orbit camera | Scroll: Zoom</em></p>
+    </div>
+
+    <a href="../basic/index.html" class="nav-link">🏠 Back to Basic</a>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { FontLoader } from 'three/addons/loaders/FontLoader.js';
+        import { TextGeometry } from 'three/addons/geometries/TextGeometry.js';
+
+        /**
+         * TextRenderer class - Handles 3D text creation and styling
+         */
+        class TextRenderer {
+            constructor() {
+                this.fontLoader = new FontLoader();
+                this.loadedFont = null;
+                this.textMeshes = [];
+            }
+
+            async loadFont() {
+                return new Promise((resolve, reject) => {
+                    this.fontLoader.load(
+                        'https://threejs.org/examples/fonts/helvetiker_regular.typeface.json',
+                        (font) => {
+                            this.loadedFont = font;
+                            resolve(font);
+                        },
+                        undefined,
+                        reject
+                    );
+                });
+            }
+
+            createTextMaterial(type = 'gradient') {
+                switch (type) {
+                    case 'gradient':
+                        return new THREE.MeshStandardMaterial({
+                            color: 0x4fc3f7,
+                            emissive: 0x1565c0,
+                            emissiveIntensity: 0.3,
+                            metalness: 0.7,
+                            roughness: 0.3
+                        });
+                    case 'chrome':
+                        return new THREE.MeshPhysicalMaterial({
+                            color: 0xffffff,
+                            metalness: 1.0,
+                            roughness: 0.1,
+                            envMapIntensity: 1.5,
+                            clearcoat: 1.0,
+                            clearcoatRoughness: 0.1
+                        });
+                    case 'neon':
+                        return new THREE.MeshBasicMaterial({
+                            color: 0x00ffff,
+                            transparent: true,
+                            opacity: 0.8
+                        });
+                    default:
+                        return new THREE.MeshStandardMaterial({ color: 0x4fc3f7 });
+                }
+            }
+
+            createText(text, options = {}) {
+                if (!this.loadedFont) {
+                    console.warn('Font not loaded yet');
+                    return null;
+                }
+
+                const {
+                    size = 1,
+                    height = 0.2,
+                    position = { x: 0, y: 0, z: 0 },
+                    materialType = 'gradient'
+                } = options;
+
+                const geometry = new TextGeometry(text, {
+                    font: this.loadedFont,
+                    size: size,
+                    height: height,
+                    curveSegments: 12,
+                    bevelEnabled: true,
+                    bevelThickness: 0.03,
+                    bevelSize: 0.02,
+                    bevelOffset: 0,
+                    bevelSegments: 5
+                });
+
+                const material = this.createTextMaterial(materialType);
+                const textMesh = new THREE.Mesh(geometry, material);
+
+                geometry.computeBoundingBox();
+                const centerOffsetX = -0.5 * (geometry.boundingBox.max.x - geometry.boundingBox.min.x);
+                const centerOffsetY = -0.5 * (geometry.boundingBox.max.y - geometry.boundingBox.min.y);
+                
+                textMesh.position.set(
+                    position.x + centerOffsetX,
+                    position.y + centerOffsetY,
+                    position.z
+                );
+
+                textMesh.castShadow = true;
+                textMesh.receiveShadow = true;
+
+                this.textMeshes.push(textMesh);
+                return textMesh;
+            }
+
+            getTextMeshes() {
+                return this.textMeshes;
+            }
+        }
+
+        /**
+         * LightingSystem class - Manages all lighting components
+         */
+        class LightingSystem {
+            constructor(scene) {
+                this.scene = scene;
+                this.lights = [];
+                this.setupLighting();
+            }
+
+            setupLighting() {
+                // Ambient light for overall illumination
+                const ambientLight = new THREE.AmbientLight(0x404040, 0.4);
+                this.scene.add(ambientLight);
+                this.lights.push(ambientLight);
+
+                // Main directional light
+                const directionalLight = new THREE.DirectionalLight(0xffffff, 1.0);
+                directionalLight.position.set(5, 10, 5);
+                directionalLight.castShadow = true;
+                directionalLight.shadow.mapSize.width = 2048;
+                directionalLight.shadow.mapSize.height = 2048;
+                directionalLight.shadow.camera.near = 0.5;
+                directionalLight.shadow.camera.far = 50;
+                this.scene.add(directionalLight);
+                this.lights.push(directionalLight);
+
+                // Key light for dramatic effect
+                const spotLight = new THREE.SpotLight(0x4fc3f7, 1.5);
+                spotLight.position.set(-3, 8, 3);
+                spotLight.angle = Math.PI / 6;
+                spotLight.penumbra = 0.3;
+                spotLight.decay = 2;
+                spotLight.distance = 30;
+                spotLight.castShadow = true;
+                this.scene.add(spotLight);
+                this.lights.push(spotLight);
+
+                // Fill light
+                const fillLight = new THREE.PointLight(0xff6b35, 0.6);
+                fillLight.position.set(3, 2, -3);
+                this.scene.add(fillLight);
+                this.lights.push(fillLight);
+
+                // Rim light for edge definition
+                const rimLight = new THREE.DirectionalLight(0x81c784, 0.8);
+                rimLight.position.set(-2, 1, -5);
+                this.scene.add(rimLight);
+                this.lights.push(rimLight);
+            }
+
+            getLights() {
+                return this.lights;
+            }
+        }
+
+        /**
+         * CameraManager class - Handles camera positioning and controls
+         */
+        class CameraManager {
+            constructor(camera, renderer) {
+                this.camera = camera;
+                this.renderer = renderer;
+                this.controls = null;
+                this.setupCamera();
+                this.setupControls();
+            }
+
+            setupCamera() {
+                this.camera.position.set(0, 2, 8);
+                this.camera.lookAt(0, 0, 0);
+            }
+
+            setupControls() {
+                this.controls = new OrbitControls(this.camera, this.renderer.domElement);
+                this.controls.enableDamping = true;
+                this.controls.dampingFactor = 0.05;
+                this.controls.screenSpacePanning = false;
+                this.controls.minDistance = 3;
+                this.controls.maxDistance = 20;
+                this.controls.maxPolarAngle = Math.PI / 2;
+            }
+
+            update() {
+                if (this.controls) {
+                    this.controls.update();
+                }
+            }
+
+            getControls() {
+                return this.controls;
+            }
+        }
+
+        /**
+         * AnimationController class - Controls all animations
+         */
+        class AnimationController {
+            constructor() {
+                this.animatables = [];
+                this.clock = new THREE.Clock();
+            }
+
+            addAnimatable(object, animationFunction) {
+                this.animatables.push({
+                    object: object,
+                    animate: animationFunction
+                });
+            }
+
+            update() {
+                const elapsedTime = this.clock.getElapsedTime();
+                
+                this.animatables.forEach(animatable => {
+                    if (animatable.animate) {
+                        animatable.animate(animatable.object, elapsedTime);
+                    }
+                });
+            }
+        }
+
+        /**
+         * HelloWorldScene class - Main scene manager
+         */
+        class HelloWorldScene {
+            constructor() {
+                this.scene = null;
+                this.camera = null;
+                this.renderer = null;
+                this.textRenderer = null;
+                this.lightingSystem = null;
+                this.cameraManager = null;
+                this.animationController = null;
+                this.isInitialized = false;
+            }
+
+            async init() {
+                try {
+                    this.setupRenderer();
+                    this.setupScene();
+                    this.setupCamera();
+                    
+                    // Initialize subsystems
+                    this.textRenderer = new TextRenderer();
+                    await this.textRenderer.loadFont();
+                    
+                    this.lightingSystem = new LightingSystem(this.scene);
+                    this.cameraManager = new CameraManager(this.camera, this.renderer);
+                    this.animationController = new AnimationController();
+                    
+                    await this.createContent();
+                    this.setupAnimations();
+                    this.setupEventListeners();
+                    
+                    this.isInitialized = true;
+                    this.hideLoading();
+                    
+                    console.log('✅ HelloWorldScene initialized with class-based architecture');
+                } catch (error) {
+                    console.error('❌ Failed to initialize HelloWorldScene:', error);
+                }
+            }
+
+            setupRenderer() {
+                this.renderer = new THREE.WebGLRenderer({ antialias: true });
+                this.renderer.setSize(window.innerWidth, window.innerHeight);
+                this.renderer.setPixelRatio(window.devicePixelRatio);
+                this.renderer.shadowMap.enabled = true;
+                this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+                this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+                document.body.appendChild(this.renderer.domElement);
+            }
+
+            setupScene() {
+                this.scene = new THREE.Scene();
+                this.scene.background = new THREE.Color(0x0a0a1a);
+                this.scene.fog = new THREE.Fog(0x0a0a1a, 5, 20);
+            }
+
+            setupCamera() {
+                this.camera = new THREE.PerspectiveCamera(
+                    75,
+                    window.innerWidth / window.innerHeight,
+                    0.1,
+                    1000
+                );
+            }
+
+            async createContent() {
+                // Create main "Hello World" text
+                const helloText = this.textRenderer.createText('Hello', {
+                    size: 1.5,
+                    height: 0.3,
+                    position: { x: 0, y: 1, z: 0 },
+                    materialType: 'gradient'
+                });
+                this.scene.add(helloText);
+
+                const worldText = this.textRenderer.createText('World', {
+                    size: 1.5,
+                    height: 0.3,
+                    position: { x: 0, y: -0.5, z: 0 },
+                    materialType: 'chrome'
+                });
+                this.scene.add(worldText);
+
+                // Create subtitle
+                const subtitleText = this.textRenderer.createText('3D Text Demo', {
+                    size: 0.4,
+                    height: 0.1,
+                    position: { x: 0, y: -1.8, z: 0 },
+                    materialType: 'neon'
+                });
+                this.scene.add(subtitleText);
+
+                // Add ground plane
+                const groundGeometry = new THREE.PlaneGeometry(20, 20);
+                const groundMaterial = new THREE.MeshStandardMaterial({
+                    color: 0x1a1a2e,
+                    roughness: 0.8,
+                    metalness: 0.2
+                });
+                const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+                ground.rotation.x = -Math.PI / 2;
+                ground.position.y = -3;
+                ground.receiveShadow = true;
+                this.scene.add(ground);
+
+                // Add some decorative spheres
+                this.createDecorativeSpheres();
+            }
+
+            createDecorativeSpheres() {
+                const sphereGeometry = new THREE.SphereGeometry(0.2, 16, 12);
+                const positions = [
+                    { x: -4, y: 1, z: -2 },
+                    { x: 4, y: 0.5, z: -2 },
+                    { x: -3, y: -1, z: 2 },
+                    { x: 3, y: 0, z: 2 }
+                ];
+
+                positions.forEach((pos, index) => {
+                    const material = new THREE.MeshStandardMaterial({
+                        color: [0xff6b35, 0x4fc3f7, 0x81c784, 0xba68c8][index],
+                        emissive: [0xff6b35, 0x4fc3f7, 0x81c784, 0xba68c8][index],
+                        emissiveIntensity: 0.3,
+                        metalness: 0.8,
+                        roughness: 0.2
+                    });
+                    
+                    const sphere = new THREE.Mesh(sphereGeometry, material);
+                    sphere.position.set(pos.x, pos.y, pos.z);
+                    sphere.castShadow = true;
+                    this.scene.add(sphere);
+
+                    // Add floating animation
+                    this.animationController.addAnimatable(sphere, (obj, time) => {
+                        obj.position.y = pos.y + Math.sin(time * 2 + index) * 0.3;
+                        obj.rotation.y = time * 0.5;
+                    });
+                });
+            }
+
+            setupAnimations() {
+                // Animate text meshes
+                const textMeshes = this.textRenderer.getTextMeshes();
+                textMeshes.forEach((textMesh, index) => {
+                    this.animationController.addAnimatable(textMesh, (obj, time) => {
+                        obj.rotation.y = Math.sin(time * 0.5 + index) * 0.1;
+                        const baseY = obj.position.y;
+                        obj.position.y += Math.sin(time * 2 + index) * 0.02;
+                    });
+                });
+            }
+
+            setupEventListeners() {
+                window.addEventListener('resize', () => this.handleResize());
+            }
+
+            handleResize() {
+                this.camera.aspect = window.innerWidth / window.innerHeight;
+                this.camera.updateProjectionMatrix();
+                this.renderer.setSize(window.innerWidth, window.innerHeight);
+            }
+
+            hideLoading() {
+                const loading = document.getElementById('loading');
+                if (loading) {
+                    loading.style.display = 'none';
+                }
+            }
+
+            render() {
+                if (!this.isInitialized) return;
+                
+                this.cameraManager.update();
+                this.animationController.update();
+                this.renderer.render(this.scene, this.camera);
+            }
+
+            animate() {
+                requestAnimationFrame(() => this.animate());
+                this.render();
+            }
+
+            start() {
+                this.animate();
+            }
+        }
+
+        // Global functions for UI
+        window.hideInfo = function() {
+            const info = document.getElementById('info');
+            if (info) {
+                info.style.opacity = '0';
+                setTimeout(() => {
+                    info.style.display = 'none';
+                }, 300);
+            }
+        };
+
+        // Initialize and start the application
+        async function main() {
+            const helloWorldScene = new HelloWorldScene();
+            await helloWorldScene.init();
+            helloWorldScene.start();
+        }
+
+        main().catch(console.error);
+    </script>
+</body>
+</html>
