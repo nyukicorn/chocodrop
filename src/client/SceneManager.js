@@ -3,6 +3,8 @@ import * as THREEModule from 'three';
 const THREE = globalThis.THREE || THREEModule;
 import { ChocoDropClient, ChocoDroClient, LiveCommandClient } from './LiveCommandClient.js';
 import { createObjectKeywords, matchKeywordWithFilename } from '../common/translation-dictionary.js';
+import { XRManager } from './xr/XRManager.js';
+import { XRController } from './xr/XRController.js';
 
 /**
  * Scene Manager - 3D scene integration for ChocoDrop System
@@ -67,9 +69,17 @@ export class SceneManager {
       enableDebugLogging: options.enableDebugLogging === true,
       defaultModelSize: options.defaultModelSize || 6,
       dracoDecoderPath: options.dracoDecoderPath || null,
+      enableXR: options.enableXR !== false, // WebXR機能を有効化（デフォルトtrue）
       ...options.config
     };
-    
+
+    // XR機能の初期化
+    this.xrManager = null;
+    this.xrController = null;
+    if (this.config.enableXR && this.renderer) {
+      this.initializeXR();
+    }
+
     // クリックイベントの設定
     this.setupClickEvents();
     
@@ -5503,9 +5513,161 @@ export class SceneManager {
   }
 
   /**
+   * XR機能を初期化
+   */
+  initializeXR() {
+    try {
+      // XRManager を初期化
+      this.xrManager = new XRManager(this.renderer, {
+        onSessionStart: (data) => this.onXRSessionStart(data),
+        onSessionEnd: (data) => this.onXRSessionEnd(data)
+      });
+
+      // XRController を初期化
+      this.xrController = new XRController(this.renderer, this.scene, {
+        interactableObjects: Array.from(this.spawnedObjects.values())
+      });
+
+      // XRManagerのイベントリスナー
+      this.xrManager.on('sessionstart', (data) => this.onXRSessionStart(data));
+      this.xrManager.on('sessionend', (data) => this.onXRSessionEnd(data));
+
+      // XRControllerのイベントリスナー
+      this.xrController.on('selectstart', (data) => this.onXRSelectStart(data));
+      this.xrController.on('selectend', (data) => this.onXRSelectEnd(data));
+
+      console.log('🥽 XR functionality initialized');
+    } catch (error) {
+      console.error('Failed to initialize XR:', error);
+    }
+  }
+
+  /**
+   * XRセッション開始時
+   */
+  onXRSessionStart(data) {
+    const { session, mode } = data;
+    console.log(`🥽 XR Session Started: ${mode}`);
+
+    // ARモードの場合は背景を透明に
+    if (mode === 'immersive-ar') {
+      this.scene.background = null;
+    }
+
+    // インタラクション可能なオブジェクトを更新
+    if (this.xrController) {
+      this.xrController.setInteractableObjects(Array.from(this.spawnedObjects.values()));
+    }
+  }
+
+  /**
+   * XRセッション終了時
+   */
+  onXRSessionEnd(data) {
+    const { mode } = data;
+    console.log(`🔚 XR Session Ended: ${mode}`);
+
+    // 背景を元に戻す（必要に応じて）
+    // this.scene.background = new THREE.Color(0x000000);
+  }
+
+  /**
+   * XRコントローラーでオブジェクト選択開始
+   */
+  onXRSelectStart(data) {
+    const { index, controller } = data;
+    console.log(`🎯 XR Controller ${index} selected object`);
+  }
+
+  /**
+   * XRコントローラーでオブジェクト選択終了
+   */
+  onXRSelectEnd(data) {
+    const { index, controller } = data;
+    console.log(`🎯 XR Controller ${index} released object`);
+  }
+
+  /**
+   * VRセッションを開始
+   */
+  async startVR(options = {}) {
+    if (!this.xrManager) {
+      console.error('XR not initialized');
+      return;
+    }
+
+    try {
+      await this.xrManager.startVRSession(options);
+    } catch (error) {
+      console.error('Failed to start VR session:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * ARセッションを開始
+   */
+  async startAR(options = {}) {
+    if (!this.xrManager) {
+      console.error('XR not initialized');
+      return;
+    }
+
+    try {
+      await this.xrManager.startARSession(options);
+    } catch (error) {
+      console.error('Failed to start AR session:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * XRセッションを終了
+   */
+  async endXR() {
+    if (this.xrManager) {
+      await this.xrManager.endSession();
+    }
+  }
+
+  /**
+   * XR状態を取得
+   */
+  getXRStatus() {
+    if (!this.xrManager) {
+      return {
+        isXRSupported: false,
+        isVRSupported: false,
+        isARSupported: false,
+        isSessionActive: false,
+        currentMode: null
+      };
+    }
+
+    return {
+      isXRSupported: this.xrManager.isXRSupported,
+      isVRSupported: this.xrManager.isVRSupported,
+      isARSupported: this.xrManager.isARSupported,
+      isSessionActive: this.xrManager.isSessionActive(),
+      currentMode: this.xrManager.getCurrentMode()
+    };
+  }
+
+  /**
    * クリーンアップ
    */
   dispose() {
+    // XRリソースのクリーンアップ
+    if (this.xrManager) {
+      this.xrManager.dispose();
+      this.xrManager = null;
+    }
+
+    if (this.xrController) {
+      this.xrController.dispose();
+      this.xrController = null;
+    }
+
     this.clearAll();
     if (this.experimentGroup.parent) {
       this.experimentGroup.parent.remove(this.experimentGroup);
