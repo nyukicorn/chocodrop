@@ -7,3 +7,4 @@ export { ChocoDropClient, ChocoDroClient, LiveCommandClient } from './LiveComman
 export { SceneManager } from './SceneManager.js';
 export { CommandUI } from './CommandUI.js';
 export { createChocoDrop, createChocoDro, createLiveCommand } from './bootstrap.js';
+export { WebXRBridge } from './xr/WebXRBridge.js';

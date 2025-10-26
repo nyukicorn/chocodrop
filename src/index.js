@@ -8,9 +8,11 @@ import { ChocoDropClient, ChocoDroClient, LiveCommandClient } from './client/Liv
 import { SceneManager } from './client/SceneManager.js';
 import { CommandUI } from './client/CommandUI.js';
 import { createChocoDrop, createChocoDro, createLiveCommand } from './client/bootstrap.js';
+import { WebXRBridge } from './client/xr/WebXRBridge.js';
 
 export { ChocoDropClient, ChocoDroClient, SceneManager, CommandUI, createChocoDrop, createChocoDro };
 export { LiveCommandClient, createLiveCommand };
+export { WebXRBridge };
 
 // ブラウザコンソールから直接アクセスできるようにグローバルへ公開（デバッグ用途）
 if (typeof globalThis !== 'undefined') {
@@ -23,6 +25,7 @@ if (typeof globalThis !== 'undefined') {
   // backwards compatibility
   globalThis.LiveCommandClient = LiveCommandClient;
   globalThis.createLiveCommand = createLiveCommand;
+  globalThis.WebXRBridge = WebXRBridge;
 }
 
 // Type definitions for better IDE support
