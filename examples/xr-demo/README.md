@@ -31,7 +31,14 @@ npx http-server -p 8080 -a 192.168.1.15
 
 その後、Meta Quest 3のブラウザで以下にアクセス：
 ```
+# 基本デモ
 http://192.168.1.15:8080/
+
+# AR高度機能デモ
+http://192.168.1.15:8080/ar-demo.html
+
+# ChocoDrop統合デモ（推奨）
+http://192.168.1.15:8080/chocodrop-demo.html
 ```
 
 #### 方法2: ChocoDrop開発サーバーから
@@ -106,10 +113,30 @@ http://192.168.1.15:3011/examples/xr-demo/
 
 ```
 examples/xr-demo/
-├── index.html          # メインデモ（VR/AR両対応）
-├── ar-demo.html        # AR専用デモ（高度な機能）※今後追加
+├── index.html          # 基本XRデモ（プロトタイプ）
+├── ar-demo.html        # AR高度機能デモ（ヒットテスト、平面検出）
+├── chocodrop-demo.html # ✨ ChocoDrop統合デモ（本格実装）
 └── README.md           # このファイル
 ```
+
+### 各デモの違い
+
+**index.html** - 基本プロトタイプ
+- Three.jsの基本的なWebXR実装
+- VRButton/ARButtonの動作確認
+- コントローラー入力のテスト
+
+**ar-demo.html** - AR高度機能
+- ヒットテスト実装
+- 平面検出と視覚化
+- レティクル（配置ガイド）
+
+**chocodrop-demo.html** - ChocoDrop統合 🎯
+- SceneManager統合
+- XRManager/VRController/ARController使用
+- オブジェクト追加UIコントロール
+- 完全なVR/AR体験
+- **Meta Quest 3での本格テストに推奨**
 
 ## 🐛 トラブルシューティング
 
