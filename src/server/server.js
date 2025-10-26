@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { MCPClient } from './mcp-client.js';
 import { selectModelFromCommand } from '../config/models.js';
@@ -77,6 +78,13 @@ class ChocoDropServer {
     // 静的ファイル配信
     this.app.use('/generated', express.static(path.join(this.publicDir, 'generated')));
     this.app.use(express.static(this.publicDir));
+
+    // examplesディレクトリも公開（XR PoCのiframeデフォルトURL対策）
+    const examplesDir = path.join(__dirname, '../../examples');
+    if (fs.existsSync(examplesDir)) {
+      this.app.use('/examples', express.static(examplesDir));
+      console.log(`📁 Examples served from: ${examplesDir}`);
+    }
     
     // ログミドルウェア
     this.app.use((req, res, next) => {
