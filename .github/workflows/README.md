@@ -114,6 +114,18 @@ scripts/run-parallel-task.sh \
 - SHA256 の先頭12文字 + スラッグを組み合わせた `task-xxxxxxxxxxxx-foo-bar` 形式を生成。`--session-id` で手動指定も可能。
 - `db/session-log.jsonl` に実行記録を追記（`.gitignore` 済み）。`--dry-run` でコマンド確認のみも可能。
 - `branches` は複数指定可（`--branch` を繰り返すか `--branches` でカンマ区切り）。
+- **実行モード切替**: デフォルトは `github`（GitHub Actions を即起動）。ローカル作業だけにしたい場合は `--mode dry-run` または `--dry-run` を付けると、セッションID生成とログ追記のみ行います。
+- **設定ファイル**: `~/.chocodrop-runner.json`（環境変数 `CHOCODROP_RUNNER_CONFIG` で変更可）に以下のような値を入れると、全AIが同じ既定動作を共有できます。
+
+  ```json
+  {
+    "default_mode": "github",  // または "dry-run"
+    "default_agent": "Codex",
+    "default_ref": "main"
+  }
+  ```
+
+  `default_mode` を `dry-run` にすると、明示的に `--mode github` を渡さない限り GitHub Actions を起動しません。AI への指示は「GitHub Actions に投げるときだけ --mode github を付ける」と一言添えるだけで済みます。
 
 **AI / 人間オペレーター向けの伝達指針**
 - **GitHub Actions で実行した場合**: 各AIは `session_id`（例: `task-123abcde-demo`）と対象ブランチ列をコメントに含め、`session/<ID>` Issue への自動リンクを共有してください。
