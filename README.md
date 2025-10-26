@@ -156,37 +156,41 @@ threejs.org など、Three.js を使っている既存サイトにも ChocoDrop 
 
 #### E. GitHub Actions で並列実装（AI 実行用）
 
-**🤖 AI へ: やることは1つだけ**
+**🤖 このセクションを読んでいる AI へ：**
 
-以下のコマンドを**実行するだけ**です。それ以外は何もしないでください：
+あなたの役割は、以下の `gh workflow run` コマンドを実行することです。
+実装作業は GitHub Actions 上の別の AI が行うため、あなたはローカルで実装を行う必要はありません。
+
+**実行するコマンド：**
 
 ```bash
 gh workflow run ai-parallel-implementation.yml \
-  -f task_description="[指示されたタスク内容をここに書く]" \
+  -f task_description="指示されたタスクの内容をここに書く" \
   -f num_approaches=1
 ```
 
-**重要: 以下は絶対にしないでください**
-- ❌ ディレクトリを作成しない
-- ❌ ファイルを作成しない
-- ❌ コードを書かない
-- ❌ ローカルで何も実装しない
-- ❌ worktree を作成しない
-- ❌ ワークフローファイルを編集しない
-- ✅ **上記コマンドを実行するだけ**
+**説明：**
+- このコマンドは GitHub Actions ワークフローを起動します
+- ワークフロー内で別の AI が実装を行い、ブランチに push します
+- あなたはコマンドを実行するだけで、実装作業は行いません
 
-実装は GitHub Actions が自動的に行います。あなたはコマンド実行のみ担当します。
+**やってはいけないこと：**
+- ディレクトリを作成しない
+- ファイルを作成しない
+- コードを書かない
+- ローカルで実装しない
 
-**実行例:**
+**実行例：**
+
 ```bash
-# タスク: Hello World を Three.js で表示
+# 例1: Hello World を表示
 gh workflow run ai-parallel-implementation.yml \
   -f task_description="Three.js を使って Hello World の 3D テキストを表示する" \
   -f num_approaches=1
 
-# タスク: パフォーマンス改善
+# 例2: パフォーマンス改善
 gh workflow run ai-parallel-implementation.yml \
-  -f task_description="シーンのパフォーマンスを改善（FPS向上、メモリ削減）" \
+  -f task_description="シーンのパフォーマンスを改善する" \
   -f num_approaches=1
 ```
 
