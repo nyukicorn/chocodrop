@@ -64,6 +64,7 @@ docs/*
 
 # Development and test files (should not be distributed)
 index.html
+!public/xr-demo/index.html
 test-*.html
 test-*.js
 wabi-sabi-*.html

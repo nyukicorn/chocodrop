@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ChocoDrop XR Demo Hub</title>
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <style>
+    :root {
+      color-scheme: light dark;
+      font-family: "Helvetica Neue", Arial, sans-serif;
+      --accent: #ff6fb7;
+      --bg: rgba(11, 11, 18, 0.72);
+    }
+    body {
+      margin: 0;
+      overflow: hidden;
+    }
+    #hud {
+      position: fixed;
+      top: 1rem;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--bg);
+      color: white;
+      padding: 1rem 1.25rem;
+      border-radius: 1rem;
+      width: min(92vw, 640px);
+      backdrop-filter: blur(12px);
+      box-shadow: 0 2px 20px rgba(0, 0, 0, 0.2);
+      z-index: 10;
+    }
+    #hud h1 {
+      font-size: 1.1rem;
+      margin: 0 0 0.5rem;
+      letter-spacing: 0.04em;
+    }
+    #hud p {
+      margin: 0.25rem 0;
+      font-size: 0.95rem;
+    }
+    #hud code {
+      background: rgba(255, 255, 255, 0.18);
+      padding: 0 0.35rem;
+      border-radius: 0.35rem;
+      font-size: 0.9rem;
+    }
+    #hud button {
+      margin-top: 0.5rem;
+      border: none;
+      border-radius: 999px;
+      padding: 0.45rem 1.35rem;
+      font-size: 0.95rem;
+      background: var(--accent);
+      color: #0b0b12;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    #status {
+      font-size: 0.85rem;
+      opacity: 0.9;
+    }
+  </style>
+</head>
+<body>
+  <div id="hud">
+    <h1>XR Demo (Meta Quest 3)</h1>
+    <p>接続先: <code>https://192.168.1.15/xr-demo/</code></p>
+    <p>STEP 1: Quest Browser でこのページを開き、必要なら <code>chrome://flags/#webxr-shared-spaces</code> を有効化。</p>
+    <p>STEP 2: 下の「XRセッション開始」ボタンで WebXR を起動し、ハンドトラッキング/コントローラでシーンを確認。</p>
+    <p id="status">ステータスを取得中...</p>
+    <button id="enter">XRセッション開始</button>
+  </div>
+
+  <a-scene background="color: #02030a" renderer="colorManagement: true;" xr-mode-ui="enabled: true">
+    <a-assets>
+      <a-asset-item id="model" src="https://cdn.aframe.io/test-models/models/glTF/Duck/glTF/Duck.gltf"></a-asset-item>
+    </a-assets>
+
+    <a-entity light="type: hemisphere; intensity: 0.9" position="0 5 0"></a-entity>
+    <a-entity light="type: directional; intensity: 0.7" position="1 3 -1"></a-entity>
+
+    <a-entity gltf-model="#model" position="0 1.25 -2.5" animation="property: rotation; to: 0 360 0; loop: true; dur: 9000; easing: linear"></a-entity>
+    <a-entity geometry="primitive: torusKnot; radius: 0.4; tube: 0.1" material="color: #ff6fb7; metalness: 0.2; roughness: 0.4" position="-1 1.4 -2" animation="property: rotation; to: 360 180 0; loop: true; dur: 6000;"></a-entity>
+    <a-entity geometry="primitive: box" material="color: #6fc7ff; opacity: 0.85" position="1 1 -3" animation="property: rotation; to: 0 360 360; loop: true; dur: 8000;"></a-entity>
+    <a-plane rotation="-90 0 0" width="10" height="10" color="#111" material="metalness: 0.1; roughness: 0.9"></a-plane>
+    <a-entity text="value: Say 'drop a tree' to test voice commands; align: center; width: 4" position="0 2.3 -1"></a-entity>
+  </a-scene>
+
+  <script>
+    const statusEl = document.getElementById('status');
+    const button = document.getElementById('enter');
+    const sceneEl = document.querySelector('a-scene');
+
+    async function updateStatus() {
+      if (!navigator.xr) {
+        statusEl.textContent = 'WebXR API を検出できません。Quest Browser 以外の場合は PC からの確認になります。';
+        button.disabled = true;
+        return;
+      }
+      const [vrSupported, arSupported] = await Promise.all([
+        navigator.xr.isSessionSupported('immersive-vr'),
+        navigator.xr.isSessionSupported('immersive-ar').catch(() => false)
+      ]);
+      statusEl.textContent = `VR対応: ${vrSupported ? 'OK' : 'NG'} / MR対応: ${arSupported ? 'OK' : 'NG'} / Host: ${location.hostname || 'localhost'}`;
+      button.disabled = !vrSupported;
+    }
+
+    button.addEventListener('click', async () => {
+      if (!sceneEl) return;
+      try {
+        await sceneEl.enterVR();
+        statusEl.textContent = 'VRセッションを開始しました。安全な空間で操作してください。';
+      } catch (err) {
+        console.error(err);
+        statusEl.textContent = `VR開始に失敗: ${err.message}`;
+      }
+    });
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        updateStatus();
+      }
+    });
+
+    updateStatus();
+  </script>
+</body>
+</html>
