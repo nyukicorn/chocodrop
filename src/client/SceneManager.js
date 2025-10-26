@@ -5,6 +5,9 @@ import { ChocoDropClient, ChocoDroClient, LiveCommandClient } from './LiveComman
 import { createObjectKeywords, matchKeywordWithFilename } from '../common/translation-dictionary.js';
 import { XRManager } from './xr/XRManager.js';
 import { XRController } from './xr/XRController.js';
+import { XRHands } from './xr/XRHands.js';
+import { XRPlaneDetector } from './xr/XRPlaneDetector.js';
+import { XRAnchorManager } from './xr/XRAnchorManager.js';
 
 /**
  * Scene Manager - 3D scene integration for ChocoDrop System
@@ -76,6 +79,9 @@ export class SceneManager {
     // XR機能の初期化
     this.xrManager = null;
     this.xrController = null;
+    this.xrHands = null;
+    this.xrPlaneDetector = null;
+    this.xrAnchorManager = null;
     if (this.config.enableXR && this.renderer) {
       this.initializeXR();
     }
@@ -5536,7 +5542,26 @@ export class SceneManager {
       this.xrController.on('selectstart', (data) => this.onXRSelectStart(data));
       this.xrController.on('selectend', (data) => this.onXRSelectEnd(data));
 
-      console.log('🥽 XR functionality initialized');
+      // XRHands を初期化
+      this.xrHands = new XRHands(this.renderer, this.scene, {
+        interactableObjects: Array.from(this.spawnedObjects.values()),
+        handModelType: 'mesh'
+      });
+
+      // XRPlaneDetector を初期化
+      this.xrPlaneDetector = new XRPlaneDetector(this.renderer, this.scene, {
+        showPlanes: true,
+        planeOpacity: 0.3,
+        planeColor: 0x00ff00
+      });
+
+      // XRAnchorManager を初期化
+      this.xrAnchorManager = new XRAnchorManager(this.renderer, this.scene, {
+        showAnchors: true,
+        anchorMarkerSize: 0.05
+      });
+
+      console.log('🥽 XR functionality initialized (Manager, Controller, Hands, PlaneDetector, AnchorManager)');
     } catch (error) {
       console.error('Failed to initialize XR:', error);
     }
@@ -5557,6 +5582,21 @@ export class SceneManager {
     // インタラクション可能なオブジェクトを更新
     if (this.xrController) {
       this.xrController.setInteractableObjects(Array.from(this.spawnedObjects.values()));
+    }
+
+    // XRHands のセットアップ
+    if (this.xrHands) {
+      this.xrHands.setInteractableObjects(Array.from(this.spawnedObjects.values()));
+    }
+
+    // XRPlaneDetector のセットアップ（AR専用）
+    if (this.xrPlaneDetector && mode === 'immersive-ar') {
+      this.xrPlaneDetector.onSessionStart(session);
+    }
+
+    // XRAnchorManager のセットアップ（AR専用）
+    if (this.xrAnchorManager && mode === 'immersive-ar') {
+      this.xrAnchorManager.onSessionStart(session);
     }
   }
 
@@ -5654,6 +5694,41 @@ export class SceneManager {
   }
 
   /**
+   * XR コンポーネントを更新（アニメーションループ内で呼び出す）
+   * @param {XRFrame} frame - XRFrame オブジェクト
+   */
+  updateXR(frame) {
+    if (!frame || !this.xrManager || !this.xrManager.isSessionActive()) {
+      return;
+    }
+
+    const referenceSpace = this.xrManager.getReferenceSpace();
+    if (!referenceSpace) {
+      return;
+    }
+
+    // XRController を更新
+    if (this.xrController) {
+      this.xrController.update();
+    }
+
+    // XRHands を更新
+    if (this.xrHands) {
+      this.xrHands.update();
+    }
+
+    // XRPlaneDetector を更新（AR専用）
+    if (this.xrPlaneDetector && this.xrManager.isARMode()) {
+      this.xrPlaneDetector.update(frame, referenceSpace);
+    }
+
+    // XRAnchorManager を更新（AR専用）
+    if (this.xrAnchorManager && this.xrManager.isARMode()) {
+      this.xrAnchorManager.update(frame, referenceSpace);
+    }
+  }
+
+  /**
    * クリーンアップ
    */
   dispose() {
@@ -5666,6 +5741,21 @@ export class SceneManager {
     if (this.xrController) {
       this.xrController.dispose();
       this.xrController = null;
+    }
+
+    if (this.xrHands) {
+      this.xrHands.dispose();
+      this.xrHands = null;
+    }
+
+    if (this.xrPlaneDetector) {
+      this.xrPlaneDetector.dispose();
+      this.xrPlaneDetector = null;
+    }
+
+    if (this.xrAnchorManager) {
+      this.xrAnchorManager.dispose();
+      this.xrAnchorManager = null;
     }
 
     this.clearAll();
