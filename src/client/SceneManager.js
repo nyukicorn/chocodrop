@@ -10,6 +10,8 @@ import { XRController } from './xr/XRController.js';
 import { XRHands } from './xr/XRHands.js';
 import { XRPlaneDetector } from './xr/XRPlaneDetector.js';
 import { XRAnchorManager } from './xr/XRAnchorManager.js';
+import { XRGestureController } from './xr/XRGestureController.js';
+import { XRUIOverlay } from './xr/XRUIOverlay.js';
 
 /**
  * Scene Manager - 3D scene integration for ChocoDrop System
@@ -84,6 +86,8 @@ export class SceneManager {
     this.xrHands = null;
     this.xrPlaneDetector = null;
     this.xrAnchorManager = null;
+    this.xrGestureController = null;
+    this.xrUIOverlay = null;
     if (this.config.enableXR && this.renderer) {
       this.initializeXR();
     }
@@ -5563,10 +5567,37 @@ export class SceneManager {
         anchorMarkerSize: 0.05
       });
 
+      // XRGestureController を初期化
+      this.xrGestureController = new XRGestureController(this.xrHands, this.scene, this.camera, {
+        minScale: 0.1,
+        maxScale: 10
+      });
+
+      // XRUIOverlay を初期化
+      this.xrUIOverlay = new XRUIOverlay(this.scene, this.camera, {
+        defaultDistance: 1.5,
+        fadeEnabled: true
+      });
+
+      // XRGestureController のイベントリスナー
+      this.xrGestureController.on('objectselected', (data) => {
+        console.log(`✨ XR Object selected: ${data.object.name}`);
+        this.xrUIOverlay.showNotification(`選択: ${data.object.name}`, { type: 'info' });
+      });
+
+      this.xrGestureController.on('objectscaled', (data) => {
+        const scale = data.scale.x.toFixed(2);
+        console.log(`📏 XR Object scaled: ${scale}x`);
+      });
+
+      this.xrGestureController.on('objectmoved', (data) => {
+        console.log(`🚀 XR Object moved to: ${data.position.toArray().map(v => v.toFixed(2)).join(', ')}`);
+      });
+
       // XR対応のレンダリングループをセットアップ
       this.startXRRenderLoop();
 
-      console.log('🥽 XR functionality initialized (Manager, Controller, Hands, PlaneDetector, AnchorManager)');
+      console.log('🥽 XR functionality initialized (Manager, Controller, Hands, PlaneDetector, AnchorManager, GestureController, UIOverlay)');
     } catch (error) {
       console.error('Failed to initialize XR:', error);
     }
@@ -5644,6 +5675,22 @@ export class SceneManager {
     // XRAnchorManager のセットアップ（AR専用）
     if (this.xrAnchorManager && mode === 'immersive-ar') {
       this.xrAnchorManager.onSessionStart(session);
+    }
+
+    // XRGestureController のセットアップ
+    if (this.xrGestureController) {
+      // 全ての生成済みオブジェクトを選択可能にする
+      Array.from(this.spawnedObjects.values()).forEach(obj => {
+        this.xrGestureController.addSelectableObject(obj);
+      });
+
+      // セッション開始通知を表示
+      if (this.xrUIOverlay) {
+        this.xrUIOverlay.showNotification(`${mode === 'immersive-vr' ? 'VR' : 'AR'}モード開始`, {
+          type: 'success',
+          duration: 2000
+        });
+      }
     }
   }
 
@@ -5762,6 +5809,16 @@ export class SceneManager {
     // XRHands を更新
     if (this.xrHands) {
       this.xrHands.update();
+    }
+
+    // XRGestureController を更新
+    if (this.xrGestureController) {
+      this.xrGestureController.update();
+    }
+
+    // XRUIOverlay を更新
+    if (this.xrUIOverlay) {
+      this.xrUIOverlay.update();
     }
 
     // XRPlaneDetector を更新（AR専用）

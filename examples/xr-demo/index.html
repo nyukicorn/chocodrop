@@ -119,9 +119,49 @@
             100% { transform: rotate(360deg); }
         }
 
+        #gesture-panel {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            color: white;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 15px 20px;
+            border-radius: 10px;
+            font-size: 13px;
+            max-width: 280px;
+            z-index: 100;
+            backdrop-filter: blur(10px);
+            display: none;
+        }
+
+        #gesture-panel h2 {
+            margin: 0 0 10px 0;
+            font-size: 16px;
+            color: #a78bfa;
+        }
+
+        #gesture-panel .gesture-item {
+            margin: 8px 0;
+            padding: 5px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 5px;
+        }
+
+        #gesture-panel .gesture-active {
+            background: rgba(167, 139, 250, 0.3);
+            border-left: 3px solid #a78bfa;
+            padding-left: 10px;
+        }
+
         @media (max-width: 768px) {
             #info {
                 font-size: 12px;
+                padding: 10px;
+                max-width: 200px;
+            }
+
+            #gesture-panel {
+                font-size: 11px;
                 padding: 10px;
                 max-width: 200px;
             }
@@ -165,6 +205,26 @@
                 <div>🔍 Planes: <span id="plane-count">0</span></div>
                 <div>⚓ Anchors: <span id="anchor-count">0</span></div>
             </div>
+        </div>
+    </div>
+
+    <div id="gesture-panel">
+        <h2>🎮 ジェスチャーコントロール</h2>
+        <div class="gesture-item" id="pinch-scale">
+            👌 ピンチでスケール: <span id="pinch-status">待機中</span>
+        </div>
+        <div class="gesture-item" id="grab-move">
+            ✊ グラブで移動・回転: <span id="grab-status">待機中</span>
+        </div>
+        <div class="gesture-item" id="point-select">
+            ☝️ ポイントで選択: <span id="point-status">待機中</span>
+        </div>
+        <div class="gesture-item" id="two-hand">
+            🙌 両手でマルチ操作: <span id="two-hand-status">待機中</span>
+        </div>
+        <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.3); font-size: 11px;">
+            <div>選択中: <span id="selected-object">なし</span></div>
+            <div>スケール: <span id="object-scale">1.0</span>x</div>
         </div>
     </div>
 
@@ -320,6 +380,11 @@
 
                 // ジェスチャー情報表示
                 document.getElementById('gesture-info').style.display = 'block';
+
+                // ジェスチャーパネル表示（VRモードのみ）
+                if (mode === 'immersive-vr') {
+                    document.getElementById('gesture-panel').style.display = 'block';
+                }
             });
 
             renderer.xr.addEventListener('sessionend', () => {
@@ -330,6 +395,7 @@
                 // UI非表示
                 document.getElementById('gesture-info').style.display = 'none';
                 document.getElementById('ar-info').style.display = 'none';
+                document.getElementById('gesture-panel').style.display = 'none';
 
                 // クリーンアップ
                 if (hitTestSource) {
@@ -594,6 +660,68 @@
                 const gestureEl = document.getElementById(handKey + '-gesture');
                 gestureEl.textContent = gestureText.length > 0 ? gestureText.join(', ') : 'None';
             });
+
+            // ジェスチャーパネル更新
+            updateGesturePanel();
+        }
+
+        function updateGesturePanel() {
+            const anyPinch = gestures.left.pinch || gestures.right.pinch;
+            const anyGrab = gestures.left.grab || gestures.right.grab;
+            const anyPoint = gestures.left.point || gestures.right.point;
+            const bothPinch = gestures.left.pinch && gestures.right.pinch;
+
+            // ピンチ
+            const pinchItem = document.getElementById('pinch-scale');
+            const pinchStatus = document.getElementById('pinch-status');
+            if (anyPinch) {
+                pinchItem.classList.add('gesture-active');
+                pinchStatus.textContent = 'アクティブ';
+                pinchStatus.style.color = '#a78bfa';
+            } else {
+                pinchItem.classList.remove('gesture-active');
+                pinchStatus.textContent = '待機中';
+                pinchStatus.style.color = '';
+            }
+
+            // グラブ
+            const grabItem = document.getElementById('grab-move');
+            const grabStatus = document.getElementById('grab-status');
+            if (anyGrab) {
+                grabItem.classList.add('gesture-active');
+                grabStatus.textContent = 'アクティブ';
+                grabStatus.style.color = '#a78bfa';
+            } else {
+                grabItem.classList.remove('gesture-active');
+                grabStatus.textContent = '待機中';
+                grabStatus.style.color = '';
+            }
+
+            // ポイント
+            const pointItem = document.getElementById('point-select');
+            const pointStatus = document.getElementById('point-status');
+            if (anyPoint) {
+                pointItem.classList.add('gesture-active');
+                pointStatus.textContent = 'アクティブ';
+                pointStatus.style.color = '#a78bfa';
+            } else {
+                pointItem.classList.remove('gesture-active');
+                pointStatus.textContent = '待機中';
+                pointStatus.style.color = '';
+            }
+
+            // 両手
+            const twoHandItem = document.getElementById('two-hand');
+            const twoHandStatus = document.getElementById('two-hand-status');
+            if (bothPinch) {
+                twoHandItem.classList.add('gesture-active');
+                twoHandStatus.textContent = 'アクティブ';
+                twoHandStatus.style.color = '#a78bfa';
+            } else {
+                twoHandItem.classList.remove('gesture-active');
+                twoHandStatus.textContent = '待機中';
+                twoHandStatus.style.color = '';
+            }
         }
 
         function detectPinch(hand, handKey) {
