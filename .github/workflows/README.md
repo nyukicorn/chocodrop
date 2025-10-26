@@ -85,6 +85,7 @@
 - 各ブランチの詳細レポート (JSON + Markdown)
 - 比較レポート (全ブランチの結果を表形式で表示)
 - アーティファクトとしてダウンロード可能 (30-90日間保存)
+- `session/<ID>` ラベル付きの Issue にすべての Run が自動コメントされ、GitHub UI 上でグルーピング可能
 
 **レポート内容**:
 - Lint 結果
@@ -92,6 +93,31 @@
 - テスト成功/失敗とテスト時間
 - テストの合格数/失敗数
 - 推奨事項 (どのブランチをマージすべきか)
+
+#### セッションID生成と workflow_dispatch 入力
+- `session_id` と `agent_name` は必須入力になりました。`prompt_seed` には正規化済みタスクテキスト（512文字以内）を渡してください。
+- Run 名とアーティファクト名が `session_id` を含むようになり、遅延したキュー実行でも UI で容易に検索できます。
+- `session/<ID>` というラベル付き Issue が自動生成され、各ブランチ実行がコメントとして追記されます。
+
+#### CLI: `scripts/run-parallel-task.sh`
+タスクテキストからセッションIDを自動生成し、`gh workflow run` を安全に叩くヘルパースクリプトです。
+
+```bash
+scripts/run-parallel-task.sh \
+  --agent ClaudeCode1 \
+  --prompt 'ClaudeCode1: README の Section E を...タスクはキラキラと...' \
+  --branch task/section-e-a \
+  --branch task/section-e-b
+```
+
+- 正規化内容: `AI名:` 以前を除去 → 改行をスペース化 → 連続空白圧縮 → 前後の空白除去。
+- SHA256 の先頭12文字 + スラッグを組み合わせた `task-xxxxxxxxxxxx-foo-bar` 形式を生成。`--session-id` で手動指定も可能。
+- `db/session-log.jsonl` に実行記録を追記（`.gitignore` 済み）。`--dry-run` でコマンド確認のみも可能。
+- `branches` は複数指定可（`--branch` を繰り返すか `--branches` でカンマ区切り）。
+
+**AI / 人間オペレーター向けの伝達指針**
+- **GitHub Actions で実行した場合**: 各AIは `session_id`（例: `task-123abcde-demo`）と対象ブランチ列をコメントに含め、`session/<ID>` Issue への自動リンクを共有してください。
+- **ローカルで検証した場合**: 同じ `session_id` を `git worktree`／ローカル成果物にラベルとして付け（例: `worktrees/task-123abcde-demo/codex`）、結果を `db/session-log.jsonl` へ追記後に人間へ報告します。報告フォーマットは「Session task-XXX by Codex: ローカルテスト結果...」のように AI/人の責務を明示します。
 
 ## 🔧 ローカルでの実行
 
