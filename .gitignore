@@ -61,9 +61,12 @@ temp/
 # Internal development docs (exclude *.md which are public documentation)
 docs/*
 !docs/*.md
+!docs/*.html
 
 # Development and test files (should not be distributed)
+# Note: examples/ directory index.html files are allowed
 index.html
+!examples/**/index.html
 test-*.html
 test-*.js
 wabi-sabi-*.html
