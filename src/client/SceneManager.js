@@ -3,6 +3,7 @@ import * as THREEModule from 'three';
 const THREE = globalThis.THREE || THREEModule;
 import { ChocoDropClient, ChocoDroClient, LiveCommandClient } from './LiveCommandClient.js';
 import { createObjectKeywords, matchKeywordWithFilename } from '../common/translation-dictionary.js';
+import { XRSessionManager } from './XRSessionManager.js';
 
 /**
  * Scene Manager - 3D scene integration for ChocoDrop System
@@ -48,6 +49,7 @@ export class SceneManager {
     this.scaleButtonUpdateInterval = null; // スケールボタン位置更新用インターバル
     this.animationMixers = new Set();
     this.gltfLoader = null;
+    this.xrSessionManager = null;
 
     // Animation管理（UI要素用）
     this.clock = new THREE.Clock();
@@ -69,9 +71,22 @@ export class SceneManager {
       dracoDecoderPath: options.dracoDecoderPath || null,
       ...options.config
     };
+
+    const xrOptions = options.xrOptions || options.xr || {};
+    this.xrConfig = {
+      enabled: options.enableXR === true || xrOptions.enable === true,
+      preferredHost: xrOptions.preferredHost || options.preferredHost || 'http://192.168.1.15:3011',
+      domOverlayRoot: xrOptions.domOverlayRoot || null,
+      referenceSpace: xrOptions.referenceSpace || 'local-floor',
+      enableDiagnostics: xrOptions.enableDiagnostics !== false
+    };
     
     // クリックイベントの設定
     this.setupClickEvents();
+
+    if (this.xrConfig.enabled) {
+      this.initializeXRSupport();
+    }
     
     console.log('🧪 SceneManager initialized with click selection');
 
@@ -5507,8 +5522,52 @@ export class SceneManager {
    */
   dispose() {
     this.clearAll();
+    this.xrSessionManager?.dispose?.();
     if (this.experimentGroup.parent) {
       this.experimentGroup.parent.remove(this.experimentGroup);
     }
+  }
+
+  initializeXRSupport() {
+    if (!this.renderer) {
+      console.warn('⚠️ enableXR が true ですが renderer が未指定のため WebXR を初期化できません。');
+      return;
+    }
+    const domOverlayRoot = this.xrConfig.domOverlayRoot || (typeof document !== 'undefined' ? document.body : null);
+    this.xrSessionManager = new XRSessionManager({
+      renderer: this.renderer,
+      scene: this.scene,
+      camera: this.camera,
+      preferredHost: this.xrConfig.preferredHost,
+      domOverlayRoot,
+      referenceSpace: this.xrConfig.referenceSpace,
+      enableDiagnostics: this.xrConfig.enableDiagnostics
+    });
+    if (typeof globalThis !== 'undefined') {
+      globalThis.chocodropXR = this.xrSessionManager;
+    }
+    this.xrSessionManager.on('statuschange', (status) => {
+      if (this.config.enableDebugLogging) {
+        console.log('🥽 XR status updated', status);
+      }
+    });
+  }
+
+  async startXRSession(mode = 'immersive-vr', overrides = {}) {
+    if (!this.xrSessionManager) {
+      throw new Error('XRSessionManager が初期化されていません');
+    }
+    return this.xrSessionManager.startSession(mode, overrides);
+  }
+
+  async stopXRSession() {
+    if (!this.xrSessionManager) {
+      return;
+    }
+    return this.xrSessionManager.endSession();
+  }
+
+  getXRStatus() {
+    return this.xrSessionManager?.getStatus?.() || null;
   }
 }
