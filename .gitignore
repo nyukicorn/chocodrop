@@ -63,10 +63,11 @@ docs/*
 !docs/*.md
 
 # Development and test files (should not be distributed)
-index.html
+/index.html
 test-*.html
 test-*.js
 wabi-sabi-*.html
+!examples/**/index.html
 
 # Agent configuration (automatically generated)
 AGENTS.md
