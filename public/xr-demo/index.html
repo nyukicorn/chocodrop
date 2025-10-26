@@ -60,6 +60,42 @@
       font-size: 0.85rem;
       opacity: 0.9;
     }
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-top: 0.5rem;
+    }
+    .actions a {
+      text-decoration: none;
+      color: #0b0b12;
+      background: rgba(255, 255, 255, 0.85);
+      padding: 0.35rem 0.8rem;
+      border-radius: 999px;
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+    details {
+      margin-top: 0.75rem;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 0.8rem;
+      padding: 0.5rem 0.75rem;
+    }
+    details summary {
+      cursor: pointer;
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--accent);
+      outline: none;
+    }
+    pre {
+      margin-top: 0.5rem;
+      background: rgba(0, 0, 0, 0.35);
+      padding: 0.75rem;
+      border-radius: 0.6rem;
+      font-size: 0.78rem;
+      overflow-x: auto;
+    }
   </style>
 </head>
 <body>
@@ -70,6 +106,30 @@
     <p>STEP 2: 下の「XRセッション開始」ボタンで WebXR を起動し、ハンドトラッキング/コントローラでシーンを確認。</p>
     <p id="status">ステータスを取得中...</p>
     <button id="enter">XRセッション開始</button>
+    <div class="actions">
+      <a href="../research/xr-strategy-2025.html" target="_blank" rel="noreferrer">XRリサーチ</a>
+      <a href="https://192.168.1.15" target="_blank" rel="noreferrer">社内サーバー</a>
+    </div>
+    <details>
+      <summary>ChocoDrop XR Bridge 連携サンプル</summary>
+      <pre><code>import { createChocoDrop } from 'chocodrop';
+
+const { sceneManager } = createChocoDrop(window.scene, {
+  camera,
+  renderer,
+  serverUrl: 'https://192.168.1.15',
+  xr: {
+    enabled: true,
+    preferredMode: 'immersive-vr'
+  }
+});
+
+document.getElementById('enter').addEventListener('click', async () => {
+  await sceneManager.enterXR('immersive-vr', {
+    domOverlay: document.getElementById('hud')
+  });
+});</code></pre>
+    </details>
   </div>
 
   <a-scene background="color: #02030a" renderer="colorManagement: true;" xr-mode-ui="enabled: true">

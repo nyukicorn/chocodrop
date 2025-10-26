@@ -66,6 +66,37 @@ AI の動作: セクション F の評価コマンドを実行
 
 ## ✨ できること / What You Can Do
 
+### XR (Meta Quest 3 / visionOS) に向けた準備
+
+- [ChocoDrop XR リサーチブリーフ](./public/research/xr-strategy-2025.html)で 2025年10月時点の市場・機能要件を追跡し、タスク化しています。
+- Quest 3 から `https://192.168.1.15/xr-demo/`（`public/xr-demo/index.html`）へアクセスすると、WebXR / Shared Spaces フラグの確認や HUD オーバーレイの挙動をそのまま試せます。
+- `WebXRBridge` を `createChocoDrop` の `xr` オプション経由で有効化すれば、Three.js 側のコード改変を最小限にしたまま XR セッションを制御できます。
+
+```js
+import { createChocoDrop } from 'chocodrop';
+
+const { sceneManager } = createChocoDrop(scene, {
+  camera,
+  renderer,
+  serverUrl: 'https://192.168.1.15',
+  xr: {
+    enabled: true,
+    preferredMode: 'immersive-vr',
+    autoEnter: false,
+    bridgeOptions: {
+      requiredFeatures: ['local-floor'],
+      optionalFeatures: ['hand-tracking', 'layers']
+    }
+  }
+});
+
+document.getElementById('enter-xr').addEventListener('click', async () => {
+  await sceneManager.enterXR('immersive-vr', {
+    domOverlay: document.getElementById('hud')
+  });
+});
+```
+
 ### 誰でもすぐ試せる
 
 **1. 多彩なデモで雰囲気を体験**
