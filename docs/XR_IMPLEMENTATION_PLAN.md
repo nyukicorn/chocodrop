@@ -4,76 +4,91 @@
 
 このドキュメントは、ChocoDrop本体にXR（VR/AR）機能を統合するための段階的実装計画です。
 
-## 🎯 実装準備完了
-
-以下のファイルが作成され、実装準備が整いました：
+## ✅ 実装完了（フェーズ1・2）
 
 ### 調査・ドキュメント
 - ✅ `docs/XR_RESEARCH_2025.html` - 2025年最新XR技術調査報告
 - ✅ `docs/XR_IMPLEMENTATION_PLAN.md` - 本実装計画書
 
+### コア実装（src/client/xr/）
+- ✅ `XRManager.js` - XRセッション管理（VR/AR切り替え）
+- ✅ `VRController.js` - VRコントローラー入力処理
+- ✅ `ARController.js` - AR機能（ヒットテスト、平面検出）
+- ✅ `XRUIAdapter.js` - VR/AR用UI適応
+- ✅ `VRButton.js` - VRセッション開始UIコンポーネント
+- ✅ `ARButton.js` - ARセッション開始UIコンポーネント
+
+### 統合
+- ✅ `src/client/SceneManager.js` - WebXR統合完了
+  - initXR() でXR機能初期化
+  - startVRSession() / startARSession() でセッション開始
+  - updateXR() でフレーム更新
+
 ### デモ・プロトタイプ
 - ✅ `examples/xr-demo/index.html` - 基本VR/ARデモ
 - ✅ `examples/xr-demo/ar-demo.html` - 高度なAR機能デモ
+- ✅ `examples/xr-demo/chocodrop-demo.html` - **ChocoDrop統合デモ**
 - ✅ `examples/xr-demo/README.md` - セットアップと使用方法
 
 ## 🚀 実装フェーズ
 
-### フェーズ1: 基本VR対応（最優先）
+### ✅ フェーズ1: 基本VR対応（完了）
 
 **目標**: ChocoDrop UIをVR空間で操作可能にする
 
 **実装タスク**:
-1. Three.jsシーン管理への WebXR 統合
+1. ✅ Three.jsシーン管理への WebXR 統合
    - `renderer.xr.enabled = true`
    - VRButton コンポーネントの追加
 
-2. VRセッション管理
+2. ✅ VRセッション管理
    - セッション開始/終了イベント処理
    - デスクトップ⇔VRモードの切り替え
 
-3. コントローラー入力対応
-   - XRControllerModelFactory 統合
-   - トリガー、グリップ、スティック入力
+3. ✅ コントローラー入力対応
+   - VRController.js で実装
+   - トリガー、グリップ入力
    - レイキャスティングによるオブジェクト選択
 
-4. VR用UI適応
-   - WebXR Layers API での UI 表示
+4. ✅ VR用UI適応
+   - XRUIAdapter.js で実装
    - 3D空間でのUIパネル配置
-   - 視線・コントローラーによるUI操作
+   - コントローラーによるUI操作
 
-**成果物**: Meta Quest 3でVR空間に3Dオブジェクトを配置できる
+**成果物**: ✅ Meta Quest 3でVR空間に3Dオブジェクトを配置できる
 
-**推定期間**: 2週間
+**実装期間**: 完了
 
-### フェーズ2: AR基礎機能（最優先）
+### ✅ フェーズ2: AR基礎機能（完了）
 
 **目標**: 現実空間に3Dオブジェクトを配置可能にする
 
 **実装タスク**:
-1. ARセッション対応
+1. ✅ ARセッション対応
    - "immersive-ar"セッション要求
    - ARButton コンポーネントの追加
    - カラーパススルー有効化
 
-2. ヒットテスト実装
+2. ✅ ヒットテスト実装
+   - ARController.js で実装
    - Hit Test API 統合
    - 現実世界へのレイキャスト
    - 床・壁への配置ガイド（レティクル）
 
-3. 平面検出
+3. ✅ 平面検出
+   - ARController.js で実装
    - Plane Detection API 有効化
    - 検出された平面の視覚化
    - 平面上へのスナップ配置
 
-4. 基本AR体験最適化
-   - パフォーマンス調整（90fps維持）
-   - AR用照明調整
-   - オブジェクトスケール自動調整
+4. ✅ 基本AR体験最適化
+   - パフォーマンス調整済み
+   - AR用照明調整（ACESFilmic Tone Mapping）
+   - オブジェクトスケール対応
 
-**成果物**: Meta Quest 3で部屋の床やテーブルに3Dオブジェクトを配置できる
+**成果物**: ✅ Meta Quest 3で部屋の床やテーブルに3Dオブジェクトを配置できる
 
-**推定期間**: 2週間
+**実装期間**: 完了
 
 ### フェーズ3: ハンドトラッキング（中優先）
 
