@@ -48,6 +48,8 @@ if (typeof globalThis !== 'undefined') {
  * @property {boolean} [showLocationIndicator] - Show visual indicators
  * @property {number} [indicatorDuration] - Indicator display duration (ms)
  * @property {number} [defaultObjectScale] - Default object scale
+ * @property {Object} [xr] - WebXR options (enabled, autoEnter, preferredMode, bridgeOptions 等)
+ * @property {import('./client/xr/WebXRBridge.js').WebXRBridge} [xrBridge] - 既存の WebXR ブリッジを注入
  */
 
 /**
@@ -70,6 +72,8 @@ if (typeof globalThis !== 'undefined') {
  * @property {Function} [onControlsToggle] - UI 表示時にカメラ操作を切り替えるコールバック
  * @property {Object} [sceneOptions] - SceneManager へ渡す追加オプション
  * @property {Object} [uiOptions] - CommandUI へ渡す追加オプション
+ * @property {Object} [xr] - WebXR 設定（SceneManager の xr オプションに委譲）
+ * @property {import('./client/xr/WebXRBridge.js').WebXRBridge} [xrBridge] - 既存の WebXR ブリッジを共有
  */
 
 /**

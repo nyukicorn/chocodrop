@@ -26,6 +26,8 @@ export function createChocoDrop(scene, options = {}) {
     onControlsToggle = () => {},
     sceneOptions = {},
     uiOptions = {},
+    xr = null,
+    xrBridge = null,
     // トップレベルオプションを抽出
     ...otherSceneOptions
   } = options;
@@ -34,13 +36,28 @@ export function createChocoDrop(scene, options = {}) {
   const chocoDropClient = client || new ChocoDropClient(resolvedServerUrl);
 
   // SceneManager is optional - can be created later when scene is available
+  const mergedSceneOptions = {
+    ...sceneOptions,
+    ...otherSceneOptions
+  };
+
+  if (xrBridge) {
+    mergedSceneOptions.xrBridge = xrBridge;
+  }
+
+  if (xr) {
+    mergedSceneOptions.xr = {
+      ...(sceneOptions.xr || {}),
+      ...xr
+    };
+  }
+
   const sceneManager = scene ? new SceneManager(scene, {
     camera,
     renderer,
     serverUrl: resolvedServerUrl,
     client: chocoDropClient,
-    ...sceneOptions,
-    ...otherSceneOptions
+    ...mergedSceneOptions
   }) : null;
 
   const commandUI = new CommandUI({

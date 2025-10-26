@@ -2,6 +2,7 @@
 import * as THREEModule from 'three';
 const THREE = globalThis.THREE || THREEModule;
 import { ChocoDropClient, ChocoDroClient, LiveCommandClient } from './LiveCommandClient.js';
+import { WebXRBridge } from './xr/WebXRBridge.js';
 import { createObjectKeywords, matchKeywordWithFilename } from '../common/translation-dictionary.js';
 
 /**
@@ -69,6 +70,11 @@ export class SceneManager {
       dracoDecoderPath: options.dracoDecoderPath || null,
       ...options.config
     };
+
+    // XR設定の準備
+    this.xrConfig = this._normalizeXROptions(options);
+    this.xrBridge = this.xrConfig.bridge || null;
+    this._initXRBridge();
     
     // クリックイベントの設定
     this.setupClickEvents();
@@ -143,6 +149,80 @@ export class SceneManager {
     this.renderer.toneMappingExposure = 1.5;
 
     console.log('📸 Tone Mapping enabled: ACESFilmic, Exposure: 1.5 (2025 standard)');
+  }
+
+  /**
+   * XRブリッジを取得
+   * @returns {WebXRBridge|null}
+   */
+  getXRBridge() {
+    return this.xrBridge;
+  }
+
+  /**
+   * XRセッションを開始
+   * @param {'immersive-vr'|'immersive-ar'} [mode]
+   * @param {Object} [sessionOptions]
+   */
+  async enterXR(mode = this.xrConfig.preferredMode, sessionOptions = {}) {
+    const bridge = this.ensureXRBridge({ preferredMode: mode });
+    if (!bridge) {
+      throw new Error('WebXRBridge is not available');
+    }
+    return bridge.enterXR(mode, sessionOptions);
+  }
+
+  /**
+   * XRセッションを終了
+   */
+  async exitXR() {
+    if (!this.xrBridge) return;
+    return this.xrBridge.exitXR();
+  }
+
+  /**
+   * XR対応状況を確認
+   */
+  async getXRSupportStatus() {
+    if (this.xrBridge) {
+      return this.xrBridge.getSupportStatus();
+    }
+    if (!WebXRBridge.isXRAvailable) {
+      return {
+        supported: false,
+        modes: {
+          'immersive-vr': false,
+          'immersive-ar': false,
+          inline: false
+        }
+      };
+    }
+    const tempBridge = new WebXRBridge();
+    return tempBridge.getSupportStatus();
+  }
+
+  /**
+   * XRブリッジを生成または同期
+   * @param {Object} [options]
+   */
+  ensureXRBridge(options = {}) {
+    if (!this.xrBridge) {
+      const bridgeOptions = {
+        renderer: this.renderer,
+        scene: this.scene,
+        camera: this.camera,
+        preferredMode: options.preferredMode || this.xrConfig.preferredMode,
+        ...this.xrConfig.bridgeOptions,
+        ...(options.bridgeOptions || {})
+      };
+      this.xrBridge = new WebXRBridge(bridgeOptions);
+    }
+
+    this._syncXRBridgeContext();
+    if (options.preferredMode) {
+      this.xrBridge.preferredMode = options.preferredMode;
+    }
+    return this.xrBridge;
   }
 
   // デバッグ情報表示メソッド
@@ -5509,6 +5589,63 @@ export class SceneManager {
     this.clearAll();
     if (this.experimentGroup.parent) {
       this.experimentGroup.parent.remove(this.experimentGroup);
+    }
+  }
+
+  /**
+   * XRオプション情報をまとめる
+   * @private
+   */
+  _normalizeXROptions(options = {}) {
+    const xrOptions = options.xr || options.xrOptions || {};
+    return {
+      enabled: xrOptions.enabled ?? options.enableXR ?? false,
+      autoEnter: xrOptions.autoEnter ?? false,
+      preferredMode: xrOptions.preferredMode || xrOptions.mode || 'immersive-vr',
+      bridgeOptions: { ...(xrOptions.bridgeOptions || {}) },
+      bridge: options.xrBridge || xrOptions.bridge || null
+    };
+  }
+
+  /**
+   * XRブリッジ初期化
+   * @private
+   */
+  _initXRBridge() {
+    if (!this.xrBridge && this.xrConfig.enabled) {
+      this.xrBridge = new WebXRBridge({
+        renderer: this.renderer,
+        scene: this.scene,
+        camera: this.camera,
+        preferredMode: this.xrConfig.preferredMode,
+        ...this.xrConfig.bridgeOptions
+      });
+    }
+
+    if (this.xrBridge) {
+      this._syncXRBridgeContext();
+      if (this.xrConfig.autoEnter) {
+        this.xrBridge.enterXR(this.xrConfig.preferredMode).catch((err) => {
+          console.warn('WebXR auto-enter failed', err);
+        });
+      }
+    }
+  }
+
+  /**
+   * Scene / Camera / Renderer の状態をXRブリッジへ同期
+   * @private
+   */
+  _syncXRBridgeContext() {
+    if (!this.xrBridge) return;
+    if (this.scene && typeof this.xrBridge.setScene === 'function') {
+      this.xrBridge.setScene(this.scene);
+    }
+    if (this.camera && typeof this.xrBridge.setCamera === 'function') {
+      this.xrBridge.setCamera(this.camera);
+    }
+    if (this.renderer && typeof this.xrBridge.setRenderer === 'function') {
+      this.xrBridge.setRenderer(this.renderer);
     }
   }
 }
