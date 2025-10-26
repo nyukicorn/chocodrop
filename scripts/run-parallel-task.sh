@@ -55,11 +55,46 @@ normalize_prompt() {
 
 PROMPT=""
 PROMPT_FILE=""
-AGENT_NAME="${AI_AGENT_NAME:-}"
-REF="${GIT_DEFAULT_REF:-main}"
+CONFIG_PATH="${CHOCODROP_RUNNER_CONFIG:-$HOME/.chocodrop-runner.json}"
+CONFIG_DEFAULT_MODE=""
+CONFIG_DEFAULT_AGENT=""
+CONFIG_DEFAULT_REF=""
+
+if [[ -f "$CONFIG_PATH" ]]; then
+  while IFS='=' read -r key value; do
+    case "$key" in
+      default_mode) CONFIG_DEFAULT_MODE="$value" ;;
+      default_agent) CONFIG_DEFAULT_AGENT="$value" ;;
+      default_ref) CONFIG_DEFAULT_REF="$value" ;;
+    esac
+  done < <(python3 - "$CONFIG_PATH" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+try:
+    data = json.loads(path.read_text())
+except Exception:
+    sys.exit(0)
+for key in ("default_mode", "default_agent", "default_ref"):
+    value = data.get(key)
+    if isinstance(value, str) and value.strip():
+        print(f"{key}={value.strip()}")
+PY
+  )
+fi
+
+DEFAULT_MODE="${RUNNER_DEFAULT_MODE:-${CONFIG_DEFAULT_MODE:-github}}"
+PROMPT_MODE=$(echo "$DEFAULT_MODE" | tr '[:upper:]' '[:lower:]')
+
+PROMPT=""
+PROMPT_FILE=""
+AGENT_NAME="${AI_AGENT_NAME:-${CONFIG_DEFAULT_AGENT:-}}"
+REF="${GIT_DEFAULT_REF:-${CONFIG_DEFAULT_REF:-main}}"
 SESSION_ID_OVERRIDE=""
 NOTE=""
-DRY_RUN=0
+MODE_OVERRIDE=""
 BRANCHES=()
 
 while [[ $# -gt 0 ]]; do
@@ -107,8 +142,13 @@ while [[ $# -gt 0 ]]; do
       NOTE="$2"
       shift 2
       ;;
+    --mode)
+      [[ $# -ge 2 ]] || error "--mode には github か dry-run を指定してください"
+      MODE_OVERRIDE="$2"
+      shift 2
+      ;;
     --dry-run)
-      DRY_RUN=1
+      MODE_OVERRIDE="dry-run"
       shift
       ;;
     -h|--help)
@@ -141,6 +181,13 @@ fi
 
 [[ -n "$AGENT_NAME" ]] || error "--agent でエージェント名を指定してください"
 [[ ${#BRANCHES[@]} -gt 0 ]] || error "少なくとも1つの --branch が必要です"
+
+MODE="${MODE_OVERRIDE:-$PROMPT_MODE}"
+MODE=$(echo "$MODE" | tr '[:upper:]' '[:lower:]')
+case "$MODE" in
+  github|dry-run) ;;
+  *) error "--mode は github か dry-run を指定してください" ;;
+esac
 
 RAW_PROMPT=$(printf '%s' "$PROMPT" | sed 's/^[[:space:]]\+//;s/[[:space:]]\+$//')
 [[ -n "$RAW_PROMPT" ]] || error "空のタスクテキストです"
@@ -186,9 +233,10 @@ printf '🪄 Session ID: %s\n' "$SESSION_ID"
 printf '🤖 Agent: %s\n' "$AGENT_NAME"
 printf '🌿 Branches: %s\n' "$BRANCH_CSV"
 printf '📚 Ref: %s\n' "$REF"
+printf '⚙️ Mode: %s\n' "$MODE"
 
-if [[ $DRY_RUN -eq 1 ]]; then
-  echo "--dry-run のため gh workflow run は実行しません"
+if [[ "$MODE" == "dry-run" ]]; then
+  echo "default_mode=dry-run のため GitHub Actions は起動しません"
 else
   gh workflow run worktree-parallel.yml \
     --ref "$REF" \
