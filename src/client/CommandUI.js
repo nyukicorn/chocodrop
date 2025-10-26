@@ -13,6 +13,15 @@ export class CommandUI {
     this.sceneManager = options.sceneManager || null;
     this.client = options.client || null;
     this.onControlsToggle = options.onControlsToggle || (() => {});
+    this.xrSessionManager = options.xrSessionManager || this.sceneManager?.xrSessionManager || null;
+    this.xrPanelElements = {
+      panel: null,
+      status: null,
+      host: null,
+      logs: null,
+      vrButton: null,
+      arButton: null
+    };
     
     this.isVisible = false;
     this.container = null;
@@ -135,6 +144,8 @@ export class CommandUI {
     });
 
     this.logDebug('🎮 CommandUI initialized');
+
+    this.bindXRSessionEvents();
 
     // GitHub Pages等でサービス設定を不要にする場合はスキップ
     if (!this.config.skipServiceDialog && (!this.selectedImageService || !this.selectedVideoService)) {
@@ -397,6 +408,7 @@ export class CommandUI {
     this.container.appendChild(modeSelector);
     this.container.appendChild(this.inputWrapper);
     this.container.appendChild(actionContainer);
+    this.createXRPanelIfNeeded();
 
     // フローティングカードコンテナをbodyに直接追加
     document.body.appendChild(this.floatingContainer);
@@ -594,6 +606,269 @@ export class CommandUI {
     this.settingsButton = settingsButton;
 
     return container;
+  }
+
+  createXRPanelIfNeeded() {
+    if (!this.xrSessionManager || this.xrPanelElements.panel) {
+      return;
+    }
+    const panel = document.createElement('div');
+    panel.style.cssText = `
+      margin-top: 12px;
+      padding: 12px;
+      border-radius: 16px;
+      background: ${this.isDarkMode ? 'rgba(15,23,42,0.85)' : 'rgba(248,250,252,0.95)'};
+      border: 1px solid ${this.isDarkMode ? 'rgba(148,163,184,0.35)' : 'rgba(99,102,241,0.25)'};
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    `;
+
+    const header = document.createElement('div');
+    header.style.cssText = `
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      font-weight: 600;
+    `;
+    header.innerHTML = '<span>🥽 XR セッション</span>';
+
+    const hostBadge = document.createElement('span');
+    hostBadge.style.cssText = `
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: ${this.isDarkMode ? 'rgba(96,165,250,0.15)' : 'rgba(59,130,246,0.12)'};
+      color: ${this.isDarkMode ? '#93c5fd' : '#1d4ed8'};
+    `;
+    hostBadge.textContent = 'Host: 未確認';
+    header.appendChild(hostBadge);
+
+    const statusLabel = document.createElement('div');
+    statusLabel.style.cssText = `
+      font-size: 11px;
+      color: ${this.isDarkMode ? '#cbd5f5' : '#0f172a'};
+    `;
+    statusLabel.textContent = 'WebXRサポートを確認しています…';
+
+    const buttonRow = document.createElement('div');
+    buttonRow.style.cssText = `
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    `;
+
+    const makeButton = (label) => {
+      const btn = document.createElement('button');
+      btn.textContent = label;
+      btn.style.cssText = `
+        border: none;
+        border-radius: 999px;
+        padding: 8px 0;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        color: #0f172a;
+        background: linear-gradient(120deg, #38bdf8, #6366f1);
+        box-shadow: 0 8px 20px rgba(79, 70, 229, 0.25);
+      `;
+      btn.disabled = true;
+      return btn;
+    };
+
+    const vrButton = makeButton('VRチェック中');
+    const arButton = makeButton('MRチェック中');
+
+    vrButton.addEventListener('click', () => this.handleXRButton('immersive-vr'));
+    arButton.addEventListener('click', () => this.handleXRButton('immersive-ar'));
+
+    buttonRow.appendChild(vrButton);
+    buttonRow.appendChild(arButton);
+
+    const logContainer = document.createElement('div');
+    logContainer.style.cssText = `
+      font-size: 11px;
+      line-height: 1.4;
+      max-height: 90px;
+      overflow-y: auto;
+      background: ${this.isDarkMode ? 'rgba(15,23,42,0.65)' : 'rgba(241,245,249,0.9)'};
+      border-radius: 10px;
+      padding: 8px;
+      border: 1px dashed ${this.isDarkMode ? 'rgba(148,163,184,0.4)' : 'rgba(148,163,184,0.6)'};
+    `;
+    logContainer.textContent = 'XRログはここに表示されます。';
+
+    panel.appendChild(header);
+    panel.appendChild(statusLabel);
+    panel.appendChild(buttonRow);
+    panel.appendChild(logContainer);
+
+    this.xrPanelElements = {
+      panel,
+      status: statusLabel,
+      host: hostBadge,
+      logs: logContainer,
+      vrButton,
+      arButton
+    };
+
+    this.container.appendChild(panel);
+  }
+
+  bindXRSessionEvents() {
+    if (!this.xrSessionManager) {
+      return;
+    }
+    this.createXRPanelIfNeeded();
+    this.xrSessionManager.on('statuschange', (status) => this.updateXRStatus(status));
+    this.xrSessionManager.on('log', (entry) => this.appendXRDiagnostic(entry));
+    this.xrSessionManager.on('hoststatus', (host) => this.updateXRHost(host));
+
+    const initialStatus = this.xrSessionManager.getStatus?.();
+    if (initialStatus) {
+      this.updateXRStatus(initialStatus);
+      if (Array.isArray(initialStatus.diagnostics)) {
+        [...initialStatus.diagnostics].reverse().forEach((entry) => this.appendXRDiagnostic(entry));
+      }
+    }
+    this.updateXRHost(this.xrSessionManager.getHostStatus?.());
+  }
+
+  updateXRStatus(status) {
+    if (!this.xrPanelElements.status) {
+      return;
+    }
+    if (!status?.hasXR) {
+      this.xrPanelElements.status.textContent = 'このブラウザはWebXR未対応です。';
+      this.xrPanelElements.vrButton.disabled = true;
+      this.xrPanelElements.arButton.disabled = true;
+      this.xrPanelElements.vrButton.textContent = 'VR未対応';
+      this.xrPanelElements.arButton.textContent = 'MR未対応';
+      return;
+    }
+
+    const vrSupport = this.formatXRSupportLabel(status.support?.['immersive-vr']);
+    const arSupport = this.formatXRSupportLabel(status.support?.['immersive-ar']);
+    const modeLabel = status.sessionActive && status.currentMode
+      ? ` / 現在: ${status.currentMode === 'immersive-vr' ? 'VR' : 'MR'}`
+      : '';
+
+    this.xrPanelElements.status.textContent = `VR: ${vrSupport} / MR: ${arSupport}${modeLabel}`;
+
+    const vrButton = this.xrPanelElements.vrButton;
+    const arButton = this.xrPanelElements.arButton;
+
+    if (vrButton) {
+      vrButton.disabled = status.support?.['immersive-vr'] === false;
+      vrButton.textContent = this.resolveXRButtonLabel('immersive-vr', status);
+    }
+    if (arButton) {
+      arButton.disabled = status.support?.['immersive-ar'] === false;
+      arButton.textContent = this.resolveXRButtonLabel('immersive-ar', status);
+    }
+  }
+
+  updateXRHost(hostInfo) {
+    if (!this.xrPanelElements.host || !hostInfo) {
+      return;
+    }
+    if (!hostInfo.preferred) {
+      this.xrPanelElements.host.textContent = 'Host: 未設定';
+      return;
+    }
+    if (hostInfo.matches) {
+      this.xrPanelElements.host.textContent = `Host: OK (${hostInfo.preferred})`;
+      this.xrPanelElements.host.style.background = this.isDarkMode
+        ? 'rgba(34,197,94,0.2)'
+        : 'rgba(22,163,74,0.15)';
+      this.xrPanelElements.host.style.color = this.isDarkMode ? '#86efac' : '#15803d';
+    } else {
+      this.xrPanelElements.host.textContent = `Host: ${hostInfo.current || 'n/a'} → 期待: ${hostInfo.preferred}`;
+      this.xrPanelElements.host.style.background = this.isDarkMode
+        ? 'rgba(248,113,113,0.2)'
+        : 'rgba(248,113,113,0.2)';
+      this.xrPanelElements.host.style.color = '#b91c1c';
+    }
+  }
+
+  appendXRDiagnostic(entry) {
+    if (!this.xrPanelElements.logs || !entry) {
+      return;
+    }
+    if (this.xrPanelElements.logs.textContent.includes('XRログはここに表示されます')) {
+      this.xrPanelElements.logs.textContent = '';
+    }
+    const item = document.createElement('div');
+    const time = new Date(entry.timestamp || Date.now()).toLocaleTimeString();
+    item.textContent = `[${time}] ${entry.level?.toUpperCase?.() || 'INFO'} - ${entry.message}`;
+    item.style.marginBottom = '4px';
+    this.xrPanelElements.logs.prepend(item);
+
+    while (this.xrPanelElements.logs.childNodes.length > 6) {
+      this.xrPanelElements.logs.removeChild(this.xrPanelElements.logs.lastChild);
+    }
+  }
+
+  formatXRSupportLabel(value) {
+    if (value === true) return '対応';
+    if (value === false) return '未対応';
+    if (value === null) return '確認中';
+    if (typeof value === 'string') return value;
+    return '確認中';
+  }
+
+  resolveXRButtonLabel(mode, status) {
+    const isActive = status.sessionActive && status.currentMode === mode;
+    if (isActive) {
+      return 'セッション中';
+    }
+    const otherActive = status.sessionActive && status.currentMode && status.currentMode !== mode;
+    if (otherActive) {
+      return mode === 'immersive-vr' ? 'VRへ切替' : 'MRへ切替';
+    }
+    const supported = status.support?.[mode];
+    if (supported === false) {
+      return mode === 'immersive-vr' ? 'VR未対応' : 'MR未対応';
+    }
+    return mode === 'immersive-vr' ? 'VR開始' : 'MR開始';
+  }
+
+  async handleXRButton(mode) {
+    if (!this.xrSessionManager) {
+      return;
+    }
+    const button = mode === 'immersive-vr' ? this.xrPanelElements.vrButton : this.xrPanelElements.arButton;
+    if (!button) return;
+
+    try {
+      const status = this.xrSessionManager.getStatus?.();
+      const sameModeActive = status?.sessionActive && status?.currentMode === mode;
+      const switching = status?.sessionActive && status?.currentMode && status.currentMode !== mode;
+
+      button.disabled = true;
+      button.textContent = switching ? '切替中…' : sameModeActive ? '終了中…' : '接続中…';
+
+      if (sameModeActive) {
+        await this.xrSessionManager.endSession();
+      } else if (switching) {
+        await this.xrSessionManager.startSession(mode);
+      } else {
+        await this.xrSessionManager.startSession(mode);
+      }
+    } catch (error) {
+      console.error(error);
+      this.addOutput(`🥽 XRエラー: ${error.message}`, 'error');
+    } finally {
+      const latest = this.xrSessionManager.getStatus?.();
+      this.updateXRStatus(latest);
+      if (mode === 'immersive-vr' && this.xrPanelElements.vrButton) {
+        this.xrPanelElements.vrButton.disabled = latest?.support?.['immersive-vr'] === false;
+      }
+      if (mode === 'immersive-ar' && this.xrPanelElements.arButton) {
+        this.xrPanelElements.arButton.disabled = latest?.support?.['immersive-ar'] === false;
+      }
+    }
   }
 
   createServiceSelectorSection() {
