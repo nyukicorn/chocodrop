@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>✨ アプローチ1: Canvas + Audio Reactive Sparkle Hello World</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(45deg, #1a1a2e, #16213e, #0a0a23);
+            background-size: 400% 400%;
+            animation: backgroundShift 8s ease-in-out infinite;
+            overflow: hidden;
+            font-family: 'Arial', sans-serif;
+            color: white;
+            position: relative;
+            height: 100vh;
+        }
+
+        @keyframes backgroundShift {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+
+        #sparkleCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        .hello-world-container {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 2;
+            text-align: center;
+        }
+
+        .hello-world-text {
+            font-size: 4rem;
+            font-weight: bold;
+            background: linear-gradient(45deg, #ff6b6b, #4ecdc4, #45b7d1, #96ceb4, #ffc107, #e056fd);
+            background-size: 300% 300%;
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: gradientShift 3s ease-in-out infinite, textGlow 2s ease-in-out infinite;
+            text-shadow: 0 0 30px rgba(255, 255, 255, 0.5);
+            letter-spacing: 0.1em;
+        }
+
+        @keyframes gradientShift {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+
+        @keyframes textGlow {
+            0%, 100% { 
+                filter: brightness(1) drop-shadow(0 0 10px rgba(255, 255, 255, 0.3));
+                transform: scale(1);
+            }
+            50% { 
+                filter: brightness(1.3) drop-shadow(0 0 25px rgba(255, 255, 255, 0.7));
+                transform: scale(1.05);
+            }
+        }
+
+        .subtitle {
+            font-size: 1.2rem;
+            margin-top: 20px;
+            color: #ffffff;
+            opacity: 0.8;
+            animation: subtitlePulse 4s ease-in-out infinite;
+        }
+
+        @keyframes subtitlePulse {
+            0%, 100% { opacity: 0.6; }
+            50% { opacity: 1; }
+        }
+
+        .controls {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 3;
+            text-align: center;
+        }
+
+        .audio-button {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            border: none;
+            color: white;
+            padding: 15px 30px;
+            font-size: 1rem;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+            margin: 10px;
+        }
+
+        .audio-button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.5);
+        }
+
+        .audio-button:active {
+            transform: translateY(-1px);
+        }
+
+        .audio-info {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 15px;
+            border-radius: 10px;
+            backdrop-filter: blur(10px);
+            font-size: 0.9rem;
+            z-index: 3;
+        }
+
+        .frequency-bars {
+            position: absolute;
+            bottom: 120px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 3px;
+            z-index: 3;
+        }
+
+        .frequency-bar {
+            width: 4px;
+            height: 20px;
+            background: linear-gradient(to top, #ff6b6b, #4ecdc4, #45b7d1);
+            border-radius: 2px;
+            transform-origin: bottom;
+            transition: transform 0.1s ease;
+        }
+
+        .sparkle-hint {
+            position: absolute;
+            top: 30px;
+            left: 30px;
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 0.9rem;
+            z-index: 3;
+            animation: hintFade 6s ease-in-out infinite;
+        }
+
+        @keyframes hintFade {
+            0%, 20%, 80%, 100% { opacity: 0.7; }
+            40%, 60% { opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <!-- キラキラパーティクル用Canvas -->
+    <canvas id="sparkleCanvas"></canvas>
+    
+    <!-- メインコンテンツ -->
+    <div class="hello-world-container">
+        <div class="hello-world-text" id="helloText">Hello World!</div>
+        <div class="subtitle" id="subtitle">音響連動キラキラエフェクト ✨</div>
+    </div>
+
+    <!-- 音声情報表示 -->
+    <div class="audio-info" id="audioInfo">
+        <div>🎵 Audio Status: <span id="audioStatus">Waiting...</span></div>
+        <div>🔊 Volume: <span id="volumeLevel">0%</span></div>
+        <div>🎛️ Frequency: <span id="frequencyData">No data</span></div>
+        <div>✨ Particles: <span id="particleCount">0</span></div>
+    </div>
+
+    <!-- 周波数可視化バー -->
+    <div class="frequency-bars" id="frequencyBars"></div>
+
+    <!-- 操作ボタン -->
+    <div class="controls">
+        <button class="audio-button" id="startAudioBtn">🎤 Start Audio</button>
+        <button class="audio-button" id="toggleSparklesBtn">✨ Toggle Sparkles</button>
+        <button class="audio-button" id="randomColorBtn">🌈 Random Colors</button>
+    </div>
+
+    <!-- ヒント表示 -->
+    <div class="sparkle-hint">
+        💡 音楽を再生するか、マイクを有効にしてキラキラが音に反応します
+    </div>
+
+    <script>
+        /**
+         * アプローチ1: Canvas-based Audio-Reactive Sparkle System
+         * - アーキテクチャ: モジュラー設計 (AudioAnalyzer, ParticleSystem, EffectRenderer)
+         * - 技術: Canvas 2D API + Web Audio API + CSS Animations
+         * - 特徴: リアルタイム音響解析による高度な視覚エフェクト
+         * - パフォーマンス最適化: オブジェクトプールパターン + RAF最適化
+         */
+
+        class AudioAnalyzer {
+            constructor() {
+                this.audioContext = null;
+                this.analyser = null;
+                this.microphone = null;
+                this.frequencyData = null;
+                this.bufferLength = 0;
+                this.isActive = false;
+                
+                // 音響データ処理用
+                this.smoothingFactor = 0.8;
+                this.previousVolumeData = [];
+                this.beatDetection = {
+                    history: [],
+                    lastBeat: 0,
+                    threshold: 0.3
+                };
+            }
+
+            async initializeAudio() {
+                try {
+                    this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    this.analyser = this.audioContext.createAnalyser();
+                    this.analyser.fftSize = 256;
+                    this.bufferLength = this.analyser.frequencyBinCount;
+                    this.frequencyData = new Uint8Array(this.bufferLength);
+                    
+                    // マイクアクセス
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    this.microphone = this.audioContext.createMediaStreamSource(stream);
+                    this.microphone.connect(this.analyser);
+                    
+                    this.isActive = true;
+                    console.log('🎵 Audio system initialized successfully');
+                    return true;
+                } catch (error) {
+                    console.error('Audio initialization failed:', error);
+                    return false;
+                }
+            }
+
+            getAudioData() {
+                if (!this.isActive || !this.analyser) {
+                    return {
+                        volume: 0,
+                        frequencies: new Array(this.bufferLength).fill(0),
+                        bassLevel: 0,
+                        midLevel: 0,
+                        trebleLevel: 0,
+                        beatDetected: false
+                    };
+                }
+
+                this.analyser.getByteFrequencyData(this.frequencyData);
+
+                // 音量計算
+                const volume = this.frequencyData.reduce((sum, value) => sum + value) / (this.bufferLength * 255);
+
+                // 周波数帯域分析
+                const bassRange = Math.floor(this.bufferLength * 0.1);
+                const midRange = Math.floor(this.bufferLength * 0.5);
+                
+                const bassLevel = this.getFrequencyAverage(0, bassRange);
+                const midLevel = this.getFrequencyAverage(bassRange, midRange);
+                const trebleLevel = this.getFrequencyAverage(midRange, this.bufferLength);
+
+                // ビート検出
+                const beatDetected = this.detectBeat(bassLevel);
+
+                return {
+                    volume,
+                    frequencies: Array.from(this.frequencyData),
+                    bassLevel,
+                    midLevel,
+                    trebleLevel,
+                    beatDetected
+                };
+            }
+
+            getFrequencyAverage(start, end) {
+                let sum = 0;
+                for (let i = start; i < end; i++) {
+                    sum += this.frequencyData[i];
+                }
+                return sum / ((end - start) * 255);
+            }
+
+            detectBeat(bassLevel) {
+                const now = performance.now();
+                
+                // ビート履歴を更新
+                this.beatDetection.history.push(bassLevel);
+                if (this.beatDetection.history.length > 10) {
+                    this.beatDetection.history.shift();
+                }
+
+                // 平均ベースレベル計算
+                const avgBass = this.beatDetection.history.reduce((a, b) => a + b) / this.beatDetection.history.length;
+                
+                // ビート検出条件
+                const isBeatTime = now - this.beatDetection.lastBeat > 300; // 最小間隔300ms
+                const isBeatLevel = bassLevel > avgBass + this.beatDetection.threshold;
+                
+                if (isBeatTime && isBeatLevel) {
+                    this.beatDetection.lastBeat = now;
+                    return true;
+                }
+                
+                return false;
+            }
+        }
+
+        class Particle {
+            constructor(x, y, canvas) {
+                this.reset(x, y, canvas);
+                this.id = Math.random().toString(36).substr(2, 9);
+            }
+
+            reset(x, y, canvas) {
+                this.x = x || Math.random() * canvas.width;
+                this.y = y || Math.random() * canvas.height;
+                this.vx = (Math.random() - 0.5) * 4;
+                this.vy = (Math.random() - 0.5) * 4;
+                this.life = 1.0;
+                this.maxLife = Math.random() * 100 + 50;
+                this.size = Math.random() * 6 + 2;
+                this.hue = Math.random() * 360;
+                this.brightness = Math.random() * 0.5 + 0.5;
+                this.sparklePhase = Math.random() * Math.PI * 2;
+                this.rotationSpeed = (Math.random() - 0.5) * 0.2;
+                this.rotation = 0;
+                this.trail = [];
+                this.maxTrailLength = 8;
+            }
+
+            update(audioData) {
+                // 音響データに基づく動的更新
+                const audioMultiplier = 1 + audioData.volume * 2;
+                const beatBoost = audioData.beatDetected ? 2 : 1;
+                
+                // 位置更新
+                this.x += this.vx * audioMultiplier;
+                this.y += this.vy * audioMultiplier;
+                
+                // 軌跡記録
+                this.trail.push({ x: this.x, y: this.y, life: this.life });
+                if (this.trail.length > this.maxTrailLength) {
+                    this.trail.shift();
+                }
+                
+                // 回転更新
+                this.rotation += this.rotationSpeed * audioMultiplier;
+                
+                // キラキラエフェクト位相更新
+                this.sparklePhase += 0.1 * audioMultiplier;
+                
+                // 生命力減少
+                this.life -= 1 / this.maxLife;
+                
+                // 音響連動色相変化
+                if (audioData.beatDetected) {
+                    this.hue = (this.hue + 30) % 360;
+                }
+                
+                // 音響連動サイズ変化
+                this.currentSize = this.size * (1 + audioData.volume * beatBoost);
+                
+                // 境界チェック
+                if (this.x < 0 || this.x > canvas.width || this.y < 0 || this.y > canvas.height) {
+                    this.life = 0;
+                }
+                
+                return this.life > 0;
+            }
+
+            draw(ctx, audioData) {
+                if (this.life <= 0) return;
+
+                const alpha = this.life;
+                const sparkleIntensity = Math.sin(this.sparklePhase) * 0.5 + 0.5;
+                const beatGlow = audioData.beatDetected ? 1.5 : 1;
+                
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.rotation);
+                ctx.globalAlpha = alpha;
+
+                // 軌跡描画
+                this.drawTrail(ctx);
+
+                // メインパーティクル（星形）
+                this.drawStar(ctx, audioData, sparkleIntensity, beatGlow);
+
+                // キラキラエフェクト
+                this.drawSparkle(ctx, sparkleIntensity, beatGlow);
+
+                ctx.restore();
+            }
+
+            drawTrail(ctx) {
+                if (this.trail.length < 2) return;
+
+                ctx.globalCompositeOperation = 'screen';
+                
+                for (let i = 1; i < this.trail.length; i++) {
+                    const prev = this.trail[i - 1];
+                    const curr = this.trail[i];
+                    const trailAlpha = (i / this.trail.length) * 0.3;
+                    
+                    const gradient = ctx.createLinearGradient(prev.x - this.x, prev.y - this.y, curr.x - this.x, curr.y - this.y);
+                    gradient.addColorStop(0, `hsla(${this.hue}, 100%, 70%, 0)`);
+                    gradient.addColorStop(1, `hsla(${this.hue}, 100%, 70%, ${trailAlpha})`);
+                    
+                    ctx.strokeStyle = gradient;
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.moveTo(prev.x - this.x, prev.y - this.y);
+                    ctx.lineTo(curr.x - this.x, curr.y - this.y);
+                    ctx.stroke();
+                }
+                
+                ctx.globalCompositeOperation = 'source-over';
+            }
+
+            drawStar(ctx, audioData, sparkleIntensity, beatGlow) {
+                const size = this.currentSize;
+                const spikes = 5;
+                const outerRadius = size * beatGlow;
+                const innerRadius = outerRadius * 0.4;
+
+                ctx.beginPath();
+                for (let i = 0; i < spikes * 2; i++) {
+                    const angle = (i / (spikes * 2)) * Math.PI * 2;
+                    const radius = i % 2 === 0 ? outerRadius : innerRadius;
+                    const x = Math.cos(angle) * radius;
+                    const y = Math.sin(angle) * radius;
+                    
+                    if (i === 0) {
+                        ctx.moveTo(x, y);
+                    } else {
+                        ctx.lineTo(x, y);
+                    }
+                }
+                ctx.closePath();
+
+                // グラデーション塗りつぶし
+                const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, outerRadius);
+                gradient.addColorStop(0, `hsla(${this.hue}, 100%, ${70 + sparkleIntensity * 30}%, ${0.9 * beatGlow})`);
+                gradient.addColorStop(1, `hsla(${this.hue}, 100%, 50%, 0)`);
+                
+                ctx.fillStyle = gradient;
+                ctx.fill();
+
+                // 光の輪郭
+                ctx.strokeStyle = `hsla(${this.hue}, 100%, 80%, ${0.6 * beatGlow})`;
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            }
+
+            drawSparkle(ctx, sparkleIntensity, beatGlow) {
+                const sparkleSize = this.currentSize * 0.3;
+                
+                // 十字キラキラ
+                ctx.strokeStyle = `hsla(${this.hue + 60}, 100%, 90%, ${sparkleIntensity * beatGlow})`;
+                ctx.lineWidth = 2;
+                ctx.lineCap = 'round';
+                
+                const sparkleLength = sparkleSize * (1 + sparkleIntensity);
+                
+                // 垂直線
+                ctx.beginPath();
+                ctx.moveTo(0, -sparkleLength);
+                ctx.lineTo(0, sparkleLength);
+                ctx.stroke();
+                
+                // 水平線
+                ctx.beginPath();
+                ctx.moveTo(-sparkleLength, 0);
+                ctx.lineTo(sparkleLength, 0);
+                ctx.stroke();
+            }
+        }
+
+        class ParticleSystem {
+            constructor(canvas, ctx) {
+                this.canvas = canvas;
+                this.ctx = ctx;
+                this.particles = [];
+                this.maxParticles = 200;
+                this.emissionRate = 5;
+                this.isActive = true;
+                
+                // オブジェクトプール
+                this.particlePool = [];
+                this.initializePool();
+            }
+
+            initializePool() {
+                for (let i = 0; i < this.maxParticles; i++) {
+                    this.particlePool.push(new Particle(0, 0, this.canvas));
+                }
+            }
+
+            getParticleFromPool() {
+                if (this.particlePool.length > 0) {
+                    return this.particlePool.pop();
+                }
+                return new Particle(0, 0, this.canvas);
+            }
+
+            returnParticleToPool(particle) {
+                this.particlePool.push(particle);
+            }
+
+            emit(x, y, count = 1) {
+                for (let i = 0; i < count && this.particles.length < this.maxParticles; i++) {
+                    const particle = this.getParticleFromPool();
+                    particle.reset(x, y, this.canvas);
+                    this.particles.push(particle);
+                }
+            }
+
+            update(audioData) {
+                // 音響連動エミッション
+                if (this.isActive) {
+                    const emissionCount = Math.floor(this.emissionRate * (1 + audioData.volume * 3));
+                    const beatEmission = audioData.beatDetected ? 10 : 0;
+                    
+                    for (let i = 0; i < emissionCount + beatEmission; i++) {
+                        this.emit(
+                            Math.random() * this.canvas.width,
+                            Math.random() * this.canvas.height
+                        );
+                    }
+                }
+
+                // パーティクル更新
+                this.particles = this.particles.filter(particle => {
+                    const alive = particle.update(audioData);
+                    if (!alive) {
+                        this.returnParticleToPool(particle);
+                    }
+                    return alive;
+                });
+            }
+
+            render(audioData) {
+                this.particles.forEach(particle => {
+                    particle.draw(this.ctx, audioData);
+                });
+            }
+
+            getParticleCount() {
+                return this.particles.length;
+            }
+
+            toggle() {
+                this.isActive = !this.isActive;
+                if (!this.isActive) {
+                    // 全パーティクルをプールに戻す
+                    this.particles.forEach(particle => {
+                        this.returnParticleToPool(particle);
+                    });
+                    this.particles = [];
+                }
+            }
+        }
+
+        class EffectRenderer {
+            constructor() {
+                this.canvas = document.getElementById('sparkleCanvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.audioAnalyzer = new AudioAnalyzer();
+                this.particleSystem = new ParticleSystem(this.canvas, this.ctx);
+                
+                this.setupCanvas();
+                this.setupUI();
+                this.setupEventListeners();
+                
+                this.isRunning = false;
+                this.frameCount = 0;
+                this.lastTime = 0;
+                this.fps = 0;
+            }
+
+            setupCanvas() {
+                this.resizeCanvas();
+                window.addEventListener('resize', () => this.resizeCanvas());
+            }
+
+            resizeCanvas() {
+                this.canvas.width = window.innerWidth;
+                this.canvas.height = window.innerHeight;
+            }
+
+            setupUI() {
+                this.elements = {
+                    audioStatus: document.getElementById('audioStatus'),
+                    volumeLevel: document.getElementById('volumeLevel'),
+                    frequencyData: document.getElementById('frequencyData'),
+                    particleCount: document.getElementById('particleCount'),
+                    helloText: document.getElementById('helloText'),
+                    subtitle: document.getElementById('subtitle'),
+                    frequencyBars: document.getElementById('frequencyBars')
+                };
+
+                // 周波数バー作成
+                this.createFrequencyBars();
+            }
+
+            createFrequencyBars() {
+                const barCount = 32;
+                for (let i = 0; i < barCount; i++) {
+                    const bar = document.createElement('div');
+                    bar.className = 'frequency-bar';
+                    this.elements.frequencyBars.appendChild(bar);
+                }
+                this.frequencyBars = this.elements.frequencyBars.children;
+            }
+
+            setupEventListeners() {
+                document.getElementById('startAudioBtn').addEventListener('click', () => {
+                    this.toggleAudio();
+                });
+
+                document.getElementById('toggleSparklesBtn').addEventListener('click', () => {
+                    this.particleSystem.toggle();
+                });
+
+                document.getElementById('randomColorBtn').addEventListener('click', () => {
+                    this.randomizeColors();
+                });
+
+                // キーボードコントロール
+                document.addEventListener('keydown', (e) => {
+                    switch(e.code) {
+                        case 'Space':
+                            e.preventDefault();
+                            this.toggleAudio();
+                            break;
+                        case 'KeyS':
+                            this.particleSystem.toggle();
+                            break;
+                        case 'KeyC':
+                            this.randomizeColors();
+                            break;
+                    }
+                });
+            }
+
+            async toggleAudio() {
+                if (!this.audioAnalyzer.isActive) {
+                    const success = await this.audioAnalyzer.initializeAudio();
+                    if (success) {
+                        this.elements.audioStatus.textContent = 'Active 🎵';
+                        this.start();
+                    } else {
+                        this.elements.audioStatus.textContent = 'Failed ❌';
+                    }
+                }
+            }
+
+            randomizeColors() {
+                // テキストカラーランダム化
+                const hue = Math.floor(Math.random() * 360);
+                const saturation = Math.floor(Math.random() * 30) + 70;
+                const lightness = Math.floor(Math.random() * 20) + 40;
+                
+                this.elements.helloText.style.filter = `hue-rotate(${hue}deg) saturate(${saturation}%) brightness(${lightness + 60}%)`;
+                
+                // 背景色変更
+                document.body.style.filter = `hue-rotate(${hue}deg)`;
+            }
+
+            start() {
+                if (!this.isRunning) {
+                    this.isRunning = true;
+                    this.lastTime = performance.now();
+                    this.animate();
+                }
+            }
+
+            animate() {
+                if (!this.isRunning) return;
+
+                const currentTime = performance.now();
+                const deltaTime = currentTime - this.lastTime;
+                this.lastTime = currentTime;
+
+                // FPS計算
+                this.frameCount++;
+                if (this.frameCount % 60 === 0) {
+                    this.fps = Math.round(1000 / deltaTime);
+                }
+
+                // 音響データ取得
+                const audioData = this.audioAnalyzer.getAudioData();
+
+                // UI更新
+                this.updateUI(audioData);
+
+                // 音響連動テキストエフェクト
+                this.updateTextEffects(audioData);
+
+                // Canvas描画
+                this.render(audioData);
+
+                requestAnimationFrame(() => this.animate());
+            }
+
+            updateUI(audioData) {
+                this.elements.volumeLevel.textContent = `${Math.round(audioData.volume * 100)}%`;
+                this.elements.frequencyData.textContent = `Bass: ${Math.round(audioData.bassLevel * 100)}% | Mid: ${Math.round(audioData.midLevel * 100)}% | Treble: ${Math.round(audioData.trebleLevel * 100)}%`;
+                this.elements.particleCount.textContent = this.particleSystem.getParticleCount();
+
+                // 周波数バー更新
+                for (let i = 0; i < this.frequencyBars.length; i++) {
+                    const value = audioData.frequencies[i * 4] || 0;
+                    const scale = (value / 255) * 5 + 0.1;
+                    this.frequencyBars[i].style.transform = `scaleY(${scale})`;
+                }
+            }
+
+            updateTextEffects(audioData) {
+                // ビート検出時のテキストエフェクト
+                if (audioData.beatDetected) {
+                    this.elements.helloText.style.transform = 'scale(1.1)';
+                    this.elements.subtitle.style.opacity = '1';
+                    
+                    setTimeout(() => {
+                        this.elements.helloText.style.transform = 'scale(1)';
+                        this.elements.subtitle.style.opacity = '0.8';
+                    }, 150);
+                }
+
+                // 音量連動テキストグロー
+                const glowIntensity = audioData.volume * 50;
+                this.elements.helloText.style.textShadow = `0 0 ${glowIntensity}px rgba(255, 255, 255, ${audioData.volume})`;
+            }
+
+            render(audioData) {
+                // Canvas クリア
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+                // 音響連動背景エフェクト
+                this.renderAudioBackground(audioData);
+
+                // パーティクルシステム更新・描画
+                this.particleSystem.update(audioData);
+                this.particleSystem.render(audioData);
+            }
+
+            renderAudioBackground(audioData) {
+                if (audioData.volume > 0.1) {
+                    // 音響連動放射状グラデーション
+                    const centerX = this.canvas.width / 2;
+                    const centerY = this.canvas.height / 2;
+                    const radius = Math.max(this.canvas.width, this.canvas.height) * audioData.volume;
+
+                    const gradient = this.ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, radius);
+                    gradient.addColorStop(0, `rgba(100, 150, 255, ${audioData.volume * 0.1})`);
+                    gradient.addColorStop(0.5, `rgba(150, 100, 255, ${audioData.volume * 0.05})`);
+                    gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+
+                    this.ctx.fillStyle = gradient;
+                    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+                }
+
+                // ビート時のフラッシュエフェクト
+                if (audioData.beatDetected) {
+                    this.ctx.fillStyle = `rgba(255, 255, 255, ${audioData.volume * 0.2})`;
+                    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+                }
+            }
+        }
+
+        // アプリケーション初期化
+        document.addEventListener('DOMContentLoaded', () => {
+            const renderer = new EffectRenderer();
+            console.log('✨ Approach 1: Canvas + Audio Reactive Sparkle System initialized');
+            
+            // 自動開始（ユーザー操作後）
+            document.addEventListener('click', () => {
+                if (!renderer.audioAnalyzer.isActive) {
+                    renderer.toggleAudio();
+                }
+            }, { once: true });
+        });
+    </script>
+</body>
+</html>
