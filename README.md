@@ -158,37 +158,16 @@ threejs.org など、Three.js を使っている既存サイトにも ChocoDrop 
 
 複数のアプローチを AI に並列実装させ、自動的に比較評価するワークフローです。
 
-**使用ワークフロー:** `.github/workflows/ai-parallel-implementation.yml`
-
 ---
 
-##### ステップ 1: 初回セットアップ（一度だけ）
+##### 実行方法
 
-**CLAUDE_CODE_OAUTH_TOKEN の設定:**
-
-```bash
-# 1. リポジトリのルートディレクトリで実行
-/install-github-app
-
-# 2. ブラウザが自動的に開き、GitHub App 認証画面が表示される
-# 3. 「Authorize」をクリックして認証
-# 4. 認証完了後、CLAUDE_CODE_OAUTH_TOKEN が自動的に GitHub Secrets に設定される
-```
-
-**設定を確認:**
-- GitHub リポジトリの Settings > Secrets and variables > Actions を開く
-- `CLAUDE_CODE_OAUTH_TOKEN` が表示されていれば成功
-
----
-
-##### ステップ 2: ワークフローを実行
-
-**方法A: コマンドラインから実行（推奨）**
+**コマンドラインから実行:**
 
 ```bash
-# 基本的な実行例
+# 基本的な実行
 gh workflow run ai-parallel-implementation.yml \
-  -f task_description="VR/AR機能を追加して、没入感のある体験を提供" \
+  -f task_description="実装したい機能の説明" \
   -f num_approaches=3
 
 # 実装例1: パフォーマンス最適化
@@ -207,99 +186,45 @@ gh workflow run ai-parallel-implementation.yml \
   -f num_approaches=3
 ```
 
-**方法B: GitHub UI から実行**
-
-1. [Actions タブ](../../actions/workflows/ai-parallel-implementation.yml) を開く
-2. 「Run workflow」をクリック
-3. パラメータを入力：
-   - **task_description**: 実装したい機能の説明（具体的に書く）
-   - **num_approaches**: 1〜5（異なるアプローチの数、デフォルト: 3）
-4. 「Run workflow」をクリック
+**パラメータ:**
+- `task_description` (必須): 実装したい機能の説明（具体的に書く）
+- `num_approaches` (任意): 1〜5（異なるアプローチの数、デフォルト: 3）
 
 ---
 
-##### ステップ 3: 実行の流れ
+##### 実行の流れ
 
-1. **並列実装開始** - 指定した数のアプローチで並列実行
-2. **AI が実装** - Claude AI が各アプローチで異なる実装を作成
-   - 異なるアーキテクチャパターン
-   - 異なるライブラリや技術
-   - 異なるパフォーマンス最適化手法
-3. **ブランチ作成 & Push** - 各実装が自動的にブランチに push される
+1. **並列実装** - 指定した数のアプローチで AI が並列実装
+   - 各アプローチで異なる実装方法（アーキテクチャ、ライブラリ、最適化手法）
    - ブランチ名: `ai/approach-1-[timestamp]`, `ai/approach-2-[timestamp]`, ...
-4. **比較評価** - 自動的に `worktree-parallel.yml` が実行される
+   - 各ブランチに自動 push
+
+2. **比較評価** - `worktree-parallel.yml` が自動実行
    - ビルド・テスト・Lint を並列実行
    - Lighthouse でパフォーマンス測定
    - Claude AI による比較分析レポート生成
 
 ---
 
-##### ステップ 4: 結果の確認
+##### 結果の確認
 
-**実行状況の確認:**
 ```bash
-# 最新の実行状況を確認
+# 実行状況を確認
 gh run list --workflow=ai-parallel-implementation.yml --limit 5
 
-# 特定の実行を監視（IDは上記コマンドで取得）
+# 特定の実行を監視
 gh run watch [RUN_ID]
 
 # ブラウザで確認
 gh run view [RUN_ID] --web
 ```
 
-**比較レポートのダウンロード:**
-1. Actions タブで実行完了した `Worktree Parallel Testing` ワークフローを開く
-2. Artifacts から `comparison-report` をダウンロード
-3. `ai-analysis.html` をブラウザで開く
-   - 各アプローチの詳細な比較分析
-   - ビルド・テスト結果
-   - パフォーマンススコア
-   - マージ推奨判断
+**比較レポート:**
+- Actions タブで `Worktree Parallel Testing` ワークフローを開く
+- Artifacts から `comparison-report` をダウンロード
+- `ai-analysis.html` を開いて詳細な比較分析を確認
 
----
-
-##### ワークフローの詳細
-
-**実装に使用される主要ツール:**
-- Edit, MultiEdit - コード編集
-- Glob, Grep - ファイル検索
-- Read, Write - ファイル読み書き
-- Bash - git 操作（ブランチ作成、push）
-
-**生成されるブランチ:**
-- `ai/approach-1-[timestamp]`
-- `ai/approach-2-[timestamp]`
-- `ai/approach-3-[timestamp]`
-- ...
-
-**並列実行の仕組み:**
-- GitHub Actions の matrix strategy を使用
-- 各アプローチが独立した Job として並列実行
-- 1つが失敗しても他は継続（fail-fast: false）
-
----
-
-##### トラブルシューティング
-
-**エラー: Invalid bearer token (401)**
-- `CLAUDE_CODE_OAUTH_TOKEN` が設定されていない、または期限切れ
-- 解決策: `/install-github-app` を再実行
-
-**エラー: Branch not found**
-- AI がブランチを push できなかった可能性
-- 解決策: ワークフローのログを確認し、エラー内容を調査
-
-**比較評価が実行されない**
-- `worktree-parallel.yml` の permissions 設定を確認
-- 必要な権限: `contents: read`, `actions: write`, `id-token: write`
-
-**ワークフローファイル全体を確認したい場合:**
-```bash
-cat .github/workflows/ai-parallel-implementation.yml
-```
-
-> ⚠️ **注意**: AI による実装は GitHub Actions の ubuntu-latest 環境で実行されます。ローカル環境ではありません。
+> ⚠️ **注意**: AI による実装は GitHub Actions の ubuntu-latest 環境で実行されます。
 
 ---
 
