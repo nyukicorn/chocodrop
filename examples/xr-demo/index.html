@@ -145,14 +145,26 @@
         <p><strong>サーバー:</strong> <span id="server-url">...</span></p>
         <p class="status" id="webxr-status">Checking WebXR...</p>
         <p style="font-size: 12px; margin-top: 10px; opacity: 0.8;">
-            VRモード: 没入型3D体験<br>
-            ARモード: パススルー + 空間配置<br>
-            コントローラー: レイキャストで選択
+            <strong>VRモード:</strong> 没入型3D体験<br>
+            <strong>ARモード:</strong> パススルー + 平面検出 + アンカー<br>
+            <strong>ハンド:</strong> ピンチ・グラブ・ポイントジェスチャー<br>
+            <strong>コントローラー:</strong> レイキャストで選択
         </p>
         <div id="debug-info" style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.3); font-size: 11px; opacity: 0.7;">
             <div>FPS: <span id="fps">--</span></div>
             <div>Objects: <span id="object-count">0</span></div>
             <div>XR Mode: <span id="xr-mode">None</span></div>
+            <div id="gesture-info" style="display: none; margin-top: 5px; padding-top: 5px; border-top: 1px solid rgba(255,255,255,0.2);">
+                <div>👋 Gestures:</div>
+                <div style="padding-left: 10px;">
+                    <div>L: <span id="left-gesture">--</span></div>
+                    <div>R: <span id="right-gesture">--</span></div>
+                </div>
+            </div>
+            <div id="ar-info" style="display: none; margin-top: 5px; padding-top: 5px; border-top: 1px solid rgba(255,255,255,0.2);">
+                <div>🔍 Planes: <span id="plane-count">0</span></div>
+                <div>⚓ Anchors: <span id="anchor-count">0</span></div>
+            </div>
         </div>
     </div>
 
@@ -183,6 +195,20 @@
         const objects = [];
         const raycaster = new THREE.Raycaster();
         const tempMatrix = new THREE.Matrix4();
+
+        // XR機能
+        let detectedPlanes = new Map();
+        let planeGroup = null;
+        let anchors = new Map();
+        let anchorGroup = null;
+        let hitTestSource = null;
+        let hitTestSourceRequested = false;
+
+        // ジェスチャー状態
+        const gestures = {
+            left: { pinch: false, grab: false, point: false },
+            right: { pinch: false, grab: false, point: false }
+        };
 
         // パフォーマンス監視
         let frameCount = 0;
@@ -215,6 +241,15 @@
             const gridHelper = new THREE.GridHelper(10, 10, 0x888888, 0x444444);
             scene.add(gridHelper);
 
+            // XR用グループ
+            planeGroup = new THREE.Group();
+            planeGroup.name = 'XRPlanes';
+            scene.add(planeGroup);
+
+            anchorGroup = new THREE.Group();
+            anchorGroup.name = 'XRAnchors';
+            scene.add(anchorGroup);
+
             // サンプルオブジェクト
             createSampleObjects();
 
@@ -234,7 +269,7 @@
             // ARボタン
             const arButton = ARButton.createButton(renderer, {
                 requiredFeatures: ['hit-test'],
-                optionalFeatures: ['dom-overlay', 'hand-tracking', 'layers']
+                optionalFeatures: ['dom-overlay', 'hand-tracking', 'layers', 'plane-detection', 'anchors']
             });
             arButton.classList.add('xr-button', 'ar');
             arButton.textContent = 'ENTER AR';
@@ -254,23 +289,69 @@
             setupHands();
 
             // XRセッションイベント
-            renderer.xr.addEventListener('sessionstart', () => {
+            renderer.xr.addEventListener('sessionstart', async () => {
                 const session = renderer.xr.getSession();
                 const mode = session.mode;
                 console.log('XR Session Started:', mode);
 
                 document.getElementById('xr-mode').textContent = mode.toUpperCase();
 
-                // ARモードの場合は背景を透明に
+                // ARモードの場合
                 if (mode === 'immersive-ar') {
                     scene.background = null;
+
+                    // ヒットテストソースをリクエスト
+                    if (session.requestHitTestSource) {
+                        try {
+                            const referenceSpace = await session.requestReferenceSpace('viewer');
+                            hitTestSource = await session.requestHitTestSource({ space: referenceSpace });
+                            console.log('✅ Hit test source created');
+                        } catch (error) {
+                            console.warn('Hit test not supported:', error);
+                        }
+                    }
+
+                    // AR情報表示
+                    document.getElementById('ar-info').style.display = 'block';
+                } else {
+                    // VRモードの場合
+                    document.getElementById('ar-info').style.display = 'none';
                 }
+
+                // ジェスチャー情報表示
+                document.getElementById('gesture-info').style.display = 'block';
             });
 
             renderer.xr.addEventListener('sessionend', () => {
                 console.log('XR Session Ended');
                 document.getElementById('xr-mode').textContent = 'None';
                 scene.background = new THREE.Color(0x667eea);
+
+                // UI非表示
+                document.getElementById('gesture-info').style.display = 'none';
+                document.getElementById('ar-info').style.display = 'none';
+
+                // クリーンアップ
+                if (hitTestSource) {
+                    hitTestSource.cancel();
+                    hitTestSource = null;
+                }
+
+                // 平面をクリア
+                detectedPlanes.forEach(planeData => {
+                    planeGroup.remove(planeData.mesh);
+                    planeData.mesh.geometry.dispose();
+                    planeData.mesh.material.dispose();
+                });
+                detectedPlanes.clear();
+
+                // アンカーをクリア
+                anchors.forEach(anchorData => {
+                    anchorGroup.remove(anchorData.mesh);
+                    anchorData.mesh.geometry.dispose();
+                    anchorData.mesh.material.dispose();
+                });
+                anchors.clear();
             });
 
             // ウィンドウリサイズ
@@ -464,7 +545,219 @@
                 }
             });
 
+            // XR機能の更新
+            const session = renderer.xr.getSession();
+            if (session) {
+                const frame = renderer.xr.getFrame();
+                if (frame) {
+                    const referenceSpace = renderer.xr.getReferenceSpace();
+
+                    // ジェスチャー検出
+                    updateGestures();
+
+                    // ARモードの場合
+                    if (session.mode === 'immersive-ar') {
+                        // 平面検出
+                        updatePlanes(frame, referenceSpace);
+
+                        // アンカー更新
+                        updateAnchors(frame, referenceSpace);
+                    }
+                }
+            }
+
             renderer.render(scene, camera);
+        }
+
+        // ジェスチャー検出
+        function updateGestures() {
+            [hand1, hand2].forEach((hand, handIndex) => {
+                if (!hand.joints || !hand.joints['index-finger-tip']) return;
+
+                const handKey = handIndex === 0 ? 'left' : 'right';
+
+                // ピンチジェスチャー
+                detectPinch(hand, handKey);
+
+                // グラブジェスチャー
+                detectGrab(hand, handKey);
+
+                // ポイントジェスチャー
+                detectPoint(hand, handKey);
+
+                // UI更新
+                const gestureText = [];
+                if (gestures[handKey].pinch) gestureText.push('👌 Pinch');
+                if (gestures[handKey].grab) gestureText.push('✊ Grab');
+                if (gestures[handKey].point) gestureText.push('☝️ Point');
+
+                const gestureEl = document.getElementById(handKey + '-gesture');
+                gestureEl.textContent = gestureText.length > 0 ? gestureText.join(', ') : 'None';
+            });
+        }
+
+        function detectPinch(hand, handKey) {
+            const thumbTip = hand.joints['thumb-tip'];
+            const indexTip = hand.joints['index-finger-tip'];
+            if (!thumbTip || !indexTip) return;
+
+            const distance = thumbTip.position.distanceTo(indexTip.position);
+            const threshold = 0.02; // 2cm
+            const isPinching = distance < threshold;
+
+            if (isPinching && !gestures[handKey].pinch) {
+                console.log(`👌 Pinch start (${handKey})`);
+            } else if (!isPinching && gestures[handKey].pinch) {
+                console.log(`👌 Pinch end (${handKey})`);
+            }
+
+            gestures[handKey].pinch = isPinching;
+        }
+
+        function detectGrab(hand, handKey) {
+            const palm = hand.joints['wrist'];
+            const middleTip = hand.joints['middle-finger-tip'];
+            if (!palm || !middleTip) return;
+
+            const distance = palm.position.distanceTo(middleTip.position);
+            const threshold = 0.05; // 5cm
+            const isGrabbing = distance < threshold;
+
+            if (isGrabbing && !gestures[handKey].grab) {
+                console.log(`✊ Grab start (${handKey})`);
+            } else if (!isGrabbing && gestures[handKey].grab) {
+                console.log(`✊ Grab end (${handKey})`);
+            }
+
+            gestures[handKey].grab = isGrabbing;
+        }
+
+        function detectPoint(hand, handKey) {
+            const indexTip = hand.joints['index-finger-tip'];
+            const middleTip = hand.joints['middle-finger-tip'];
+            const palm = hand.joints['wrist'];
+            if (!indexTip || !middleTip || !palm) return;
+
+            const middleDistance = palm.position.distanceTo(middleTip.position);
+            const isPointing = middleDistance < 0.08; // 8cm未満
+
+            if (isPointing && !gestures[handKey].point) {
+                console.log(`☝️ Point start (${handKey})`);
+            } else if (!isPointing && gestures[handKey].point) {
+                console.log(`☝️ Point end (${handKey})`);
+            }
+
+            gestures[handKey].point = isPointing;
+        }
+
+        // 平面検出
+        function updatePlanes(frame, referenceSpace) {
+            if (!frame.detectedPlanes) return;
+
+            const currentPlanes = frame.detectedPlanes;
+
+            // 削除された平面を処理
+            detectedPlanes.forEach((planeData, xrPlane) => {
+                if (!currentPlanes.has(xrPlane)) {
+                    planeGroup.remove(planeData.mesh);
+                    planeData.mesh.geometry.dispose();
+                    planeData.mesh.material.dispose();
+                    detectedPlanes.delete(xrPlane);
+                }
+            });
+
+            // 新規または更新された平面を処理
+            currentPlanes.forEach(xrPlane => {
+                const pose = frame.getPose(xrPlane.planeSpace, referenceSpace);
+                if (!pose) return;
+
+                if (!detectedPlanes.has(xrPlane)) {
+                    // 新しい平面を追加
+                    addPlane(xrPlane, pose);
+                } else if (xrPlane.lastChangedTime > detectedPlanes.get(xrPlane).lastChanged) {
+                    // 平面を更新
+                    const planeData = detectedPlanes.get(xrPlane);
+                    updatePlaneGeometry(planeData.mesh, xrPlane.polygon);
+                    updatePlanePose(planeData.mesh, pose);
+                    planeData.lastChanged = xrPlane.lastChangedTime;
+                }
+            });
+
+            // UI更新
+            document.getElementById('plane-count').textContent = detectedPlanes.size;
+        }
+
+        function addPlane(xrPlane, pose) {
+            const geometry = createPlaneGeometry(xrPlane.polygon);
+            const material = new THREE.MeshBasicMaterial({
+                color: 0x00ff00,
+                opacity: 0.3,
+                transparent: true,
+                side: THREE.DoubleSide
+            });
+
+            const mesh = new THREE.Mesh(geometry, material);
+            updatePlanePose(mesh, pose);
+            planeGroup.add(mesh);
+
+            detectedPlanes.set(xrPlane, {
+                mesh,
+                lastChanged: xrPlane.lastChangedTime
+            });
+
+            console.log(`✨ Plane added (${xrPlane.orientation})`);
+        }
+
+        function createPlaneGeometry(polygon) {
+            const vertices = [];
+            const indices = [];
+
+            polygon.forEach(point => {
+                vertices.push(point.x, point.y, point.z);
+            });
+
+            for (let i = 1; i < polygon.length - 1; i++) {
+                indices.push(0, i, i + 1);
+            }
+
+            const geometry = new THREE.BufferGeometry();
+            geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+            geometry.setIndex(indices);
+            geometry.computeVertexNormals();
+
+            return geometry;
+        }
+
+        function updatePlaneGeometry(mesh, polygon) {
+            mesh.geometry.dispose();
+            mesh.geometry = createPlaneGeometry(polygon);
+        }
+
+        function updatePlanePose(mesh, pose) {
+            mesh.position.setFromMatrixPosition(pose.transform.matrix);
+            mesh.quaternion.setFromRotationMatrix(pose.transform.matrix);
+        }
+
+        // アンカー更新
+        function updateAnchors(frame, referenceSpace) {
+            anchors.forEach((anchorData, anchor) => {
+                try {
+                    const pose = frame.getPose(anchor.anchorSpace, referenceSpace);
+                    if (pose) {
+                        anchorData.mesh.position.setFromMatrixPosition(pose.transform.matrix);
+                        anchorData.mesh.quaternion.setFromRotationMatrix(pose.transform.matrix);
+                    }
+                } catch (error) {
+                    console.warn('Anchor update failed:', error);
+                    anchorGroup.remove(anchorData.mesh);
+                    anchorData.mesh.geometry.dispose();
+                    anchorData.mesh.material.dispose();
+                    anchors.delete(anchor);
+                }
+            });
+
+            // UI更新
+            document.getElementById('anchor-count').textContent = anchors.size;
         }
 
         // WebXR サポートチェック
