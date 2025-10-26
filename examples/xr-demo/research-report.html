@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChocoDrop XR機能 調査レポート - 2025年版</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.8;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 60px 40px;
+            text-align: center;
+        }
+
+        header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+
+        header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 40px;
+        }
+
+        section {
+            margin-bottom: 50px;
+        }
+
+        h2 {
+            color: #667eea;
+            font-size: 2em;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 3px solid #667eea;
+        }
+
+        h3 {
+            color: #764ba2;
+            font-size: 1.5em;
+            margin-top: 30px;
+            margin-bottom: 15px;
+        }
+
+        .card {
+            background: #f8f9fa;
+            border-left: 5px solid #667eea;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .highlight {
+            background: linear-gradient(120deg, #ffd89b 0%, #19547b 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 10px;
+            margin: 30px 0;
+        }
+
+        .tech-stack {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+
+        .tech-item {
+            background: white;
+            border: 2px solid #667eea;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .tech-item:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .feature-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .feature-list li {
+            background: white;
+            margin: 10px 0;
+            padding: 15px 20px;
+            border-left: 4px solid #764ba2;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+
+        .feature-list li strong {
+            color: #667eea;
+        }
+
+        .timeline {
+            position: relative;
+            padding: 20px 0;
+        }
+
+        .timeline-item {
+            position: relative;
+            padding-left: 40px;
+            margin-bottom: 30px;
+        }
+
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 20px;
+            height: 20px;
+            background: #667eea;
+            border-radius: 50%;
+            box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.2);
+        }
+
+        .timeline-item::after {
+            content: '';
+            position: absolute;
+            left: 9px;
+            top: 20px;
+            width: 2px;
+            height: calc(100% + 10px);
+            background: #e0e0e0;
+        }
+
+        .timeline-item:last-child::after {
+            display: none;
+        }
+
+        code {
+            background: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            color: #d63384;
+        }
+
+        .best-practice {
+            background: #e7f3ff;
+            border-left: 5px solid #2196F3;
+            padding: 15px 20px;
+            margin: 15px 0;
+            border-radius: 5px;
+        }
+
+        .warning {
+            background: #fff3cd;
+            border-left: 5px solid #ffc107;
+            padding: 15px 20px;
+            margin: 15px 0;
+            border-radius: 5px;
+        }
+
+        footer {
+            background: #2c3e50;
+            color: white;
+            padding: 30px 40px;
+            text-align: center;
+        }
+
+        @media (max-width: 768px) {
+            header h1 {
+                font-size: 1.8em;
+            }
+
+            .content {
+                padding: 20px;
+            }
+
+            .tech-stack {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>ChocoDrop XR機能 調査レポート</h1>
+            <p>2025年最新技術動向と実装方針 - Meta Quest 3対応</p>
+        </header>
+
+        <div class="content">
+            <section id="summary">
+                <h2>📋 エグゼクティブサマリー</h2>
+                <div class="highlight">
+                    <p><strong>調査目的：</strong> ChocoDrop に XR（VR/AR/MR）機能を統合し、Meta Quest 3 などのヘッドセットで没入型3D体験を提供する。</p>
+                    <p><strong>技術基盤：</strong> WebXR API + Three.js WebXRManager + Meta Quest Browser</p>
+                    <p><strong>実装優先度：</strong> VRモード → ARパススルー → ハンドトラッキング → Mixed Reality</p>
+                </div>
+            </section>
+
+            <section id="trends-2025">
+                <h2>🚀 2025年のXR技術動向</h2>
+
+                <h3>主要トレンド</h3>
+                <ul class="feature-list">
+                    <li><strong>WebGPU統合：</strong> Three.js のWebGPU対応が進み、高性能なXRレンダリングが可能に。従来のWebGLと比較して大幅なパフォーマンス向上が期待される。</li>
+                    <li><strong>統一API：</strong> Three.js のWebXR APIがより統一され、VR/AR体験のシームレスな統合が実現。開発者体験が大幅に向上。</li>
+                    <li><strong>Mixed Reality進化：</strong> Meta Quest 3のカラーパススルーと平面検出により、現実世界と仮想オブジェクトの融合がより自然に。</li>
+                    <li><strong>ハンドトラッキング標準化：</strong> WebXR Hand Input APIが成熟し、25個の骨格ジョイントを使った高精度なジェスチャー認識が可能。</li>
+                    <li><strong>クロスプラットフォーム：</strong> Meta Quest、Apple Vision Pro、スマホARなど、複数デバイスでの動作が標準化。</li>
+                </ul>
+
+                <h3>Meta Quest 3 の主要機能</h3>
+                <div class="tech-stack">
+                    <div class="tech-item">
+                        <h4>カラーパススルー</h4>
+                        <p>リアルタイムで現実世界を表示し、仮想オブジェクトと融合</p>
+                    </div>
+                    <div class="tech-item">
+                        <h4>平面検出</h4>
+                        <p>床・壁・テーブルなどの水平/垂直面を自動認識</p>
+                    </div>
+                    <div class="tech-item">
+                        <h4>ハンドトラッキング</h4>
+                        <p>コントローラー不要で両手の25個のジョイントを追跡</p>
+                    </div>
+                    <div class="tech-item">
+                        <h4>6DoF追跡</h4>
+                        <p>頭部と両手の完全な位置・姿勢トラッキング</p>
+                    </div>
+                </div>
+            </section>
+
+            <section id="tech-stack">
+                <h2>🛠️ 技術スタック</h2>
+
+                <h3>コア技術</h3>
+                <div class="card">
+                    <h4>1. WebXR Device API</h4>
+                    <p>ブラウザネイティブのXR機能を提供する標準API。VR/AR両対応。</p>
+                    <ul>
+                        <li>セッション管理（immersive-vr / immersive-ar）</li>
+                        <li>フレームレンダリングループ</li>
+                        <li>入力デバイス管理（コントローラー、ハンド）</li>
+                        <li>参照空間（local, local-floor, bounded-floor, unbounded）</li>
+                    </ul>
+                </div>
+
+                <div class="card">
+                    <h4>2. Three.js WebXRManager</h4>
+                    <p>Three.jsが提供するWebXRの抽象化レイヤー。シーンとの統合が容易。</p>
+                    <ul>
+                        <li><code>renderer.xr.enabled = true</code> でXR有効化</li>
+                        <li><code>renderer.setAnimationLoop()</code> でXRフレームループ</li>
+                        <li>自動的なステレオレンダリング</li>
+                        <li>VRButton / ARButton ヘルパー関数</li>
+                    </ul>
+                </div>
+
+                <div class="card">
+                    <h4>3. XRControllerModelFactory / XRHandModelFactory</h4>
+                    <p>コントローラーとハンドモデルの視覚化を自動化。</p>
+                    <ul>
+                        <li>デバイス固有のコントローラーモデル自動読み込み</li>
+                        <li>ハンドモデル: spheres / boxes / mesh から選択</li>
+                        <li>リアルタイムのジョイント位置更新</li>
+                    </ul>
+                </div>
+
+                <div class="card">
+                    <h4>4. Meta Immersive Web Emulator</h4>
+                    <p>Chrome拡張機能。物理デバイス不要でWebXR開発可能。</p>
+                    <ul>
+                        <li>全Meta Questデバイスをシミュレート</li>
+                        <li>主要WebXR API/機能をサポート</li>
+                        <li>開発サイクルの大幅な高速化</li>
+                    </ul>
+                </div>
+            </section>
+
+            <section id="implementation">
+                <h2>💻 実装ベストプラクティス</h2>
+
+                <h3>基本セットアップ</h3>
+                <div class="best-practice">
+                    <strong>1. XRレンダラー設定</strong>
+                    <pre><code>renderer.xr.enabled = true;
+renderer.setAnimationLoop(render);
+
+function render() {
+    renderer.render(scene, camera);
+}</code></pre>
+                </div>
+
+                <div class="best-practice">
+                    <strong>2. VRモード起動</strong>
+                    <pre><code>import { VRButton } from 'three/examples/jsm/webxr/VRButton.js';
+document.body.appendChild(VRButton.createButton(renderer));</code></pre>
+                </div>
+
+                <div class="best-practice">
+                    <strong>3. ARモード（パススルー）起動</strong>
+                    <pre><code>import { ARButton } from 'three/examples/jsm/webxr/ARButton.js';
+document.body.appendChild(ARButton.createButton(renderer, {
+    requiredFeatures: ['hit-test'],
+    optionalFeatures: ['dom-overlay', 'dom-overlay-for-handheld-ar']
+}));</code></pre>
+                </div>
+
+                <h3>パフォーマンス最適化</h3>
+                <div class="warning">
+                    <strong>⚠️ 重要：フレームレート安定性</strong>
+                    <p>VR酔いを防ぐため、常に60fps（Quest 3では72fps/90fps）を維持する必要があります。</p>
+                    <ul>
+                        <li>複雑なシェーダーの最適化</li>
+                        <li>ポリゴン数の削減（LOD使用）</li>
+                        <li>テクスチャサイズの最適化</li>
+                        <li>Off-main-threadアーキテクチャの検討</li>
+                    </ul>
+                </div>
+
+                <h3>ハンドトラッキング統合</h3>
+                <div class="best-practice">
+                    <strong>4. ハンドモデル追加</strong>
+                    <pre><code>import { XRHandModelFactory } from 'three/examples/jsm/webxr/XRHandModelFactory.js';
+
+const handModelFactory = new XRHandModelFactory();
+const controller0 = renderer.xr.getController(0);
+const hand0 = renderer.xr.getHand(0);
+hand0.add(handModelFactory.createHandModel(hand0, 'mesh'));
+scene.add(hand0);</code></pre>
+                </div>
+
+                <h3>Mixed Reality（パススルー + 平面検出）</h3>
+                <div class="best-practice">
+                    <strong>5. パススルー設定</strong>
+                    <pre><code>// immersive-ar モードを使用
+const sessionInit = {
+    requiredFeatures: ['local-floor'],
+    optionalFeatures: ['hand-tracking', 'layers']
+};
+
+// 背景を透明に
+renderer.setClearAlpha(0);
+
+navigator.xr.requestSession('immersive-ar', sessionInit);</code></pre>
+                </div>
+            </section>
+
+            <section id="chocodrop-features">
+                <h2>🍫 ChocoDrop 向けXR機能設計</h2>
+
+                <h3>Phase 1: VRモード（優先度：高）</h3>
+                <ul class="feature-list">
+                    <li><strong>没入型シーン表示：</strong> 既存のThree.jsシーンをVRヘッドセットで体験</li>
+                    <li><strong>VRコントローラー操作：</strong> レイキャスティングでオブジェクト選択・移動</li>
+                    <li><strong>VRボタン追加：</strong> 既存UIにVR Enter/Exit ボタンを統合</li>
+                    <li><strong>ステレオサウンド：</strong> 空間オーディオで臨場感向上</li>
+                </ul>
+
+                <h3>Phase 2: ARパススルー（優先度：高）</h3>
+                <ul class="feature-list">
+                    <li><strong>カラーパススルー：</strong> 現実空間にChocoDrop UIを重ねて表示</li>
+                    <li><strong>空間配置：</strong> 生成したオブジェクトを現実空間に配置</li>
+                    <li><strong>平面検出：</strong> テーブルや床を認識してオブジェクトを設置</li>
+                    <li><strong>ARアンカー：</strong> オブジェクトを物理空間に固定</li>
+                </ul>
+
+                <h3>Phase 3: ハンドトラッキング（優先度：中）</h3>
+                <ul class="feature-list">
+                    <li><strong>ジェスチャー操作：</strong> ピンチ、グラブでオブジェクト操作</li>
+                    <li><strong>ハンドメニュー：</strong> 手のひらにUI表示</li>
+                    <li><strong>ジェスチャーコマンド：</strong> 特定のジェスチャーで機能実行</li>
+                    <li><strong>ビジュアルフィードバック：</strong> ハンドモデル表示とインタラクション可視化</li>
+                </ul>
+
+                <h3>Phase 4: AI統合（優先度：中）</h3>
+                <ul class="feature-list">
+                    <li><strong>音声コマンド：</strong> "ここに桜を置いて" などの音声入力</li>
+                    <li><strong>空間認識AI：</strong> 環境を理解して適切な配置を提案</li>
+                    <li><strong>リアルタイム生成：</strong> XR空間内でオブジェクト生成</li>
+                    <li><strong>コラボレーション：</strong> 複数ユーザーでの共同編集（将来）</li>
+                </ul>
+
+                <h3>Phase 5: 高度な機能（優先度：低）</h3>
+                <ul class="feature-list">
+                    <li><strong>Room Meshing：</strong> 部屋全体の3Dメッシュ化</li>
+                    <li><strong>オクルージョン：</strong> 現実オブジェクトで仮想オブジェクトを隠す</li>
+                    <li><strong>ハプティックフィードバック：</strong> コントローラー振動</li>
+                    <li><strong>Eye Tracking：</strong> 視線追跡（Quest Pro以降）</li>
+                </ul>
+            </section>
+
+            <section id="roadmap">
+                <h2>📅 実装ロードマップ</h2>
+
+                <div class="timeline">
+                    <div class="timeline-item">
+                        <h4>Week 1-2: 基盤構築</h4>
+                        <ul>
+                            <li>WebXR Manager統合</li>
+                            <li>VRButton/ARButton追加</li>
+                            <li>基本的なVRモード動作確認</li>
+                            <li>Meta Quest 3実機テスト環境構築</li>
+                        </ul>
+                    </div>
+
+                    <div class="timeline-item">
+                        <h4>Week 3-4: VRモード完成</h4>
+                        <ul>
+                            <li>コントローラー入力実装</li>
+                            <li>レイキャスティング操作</li>
+                            <li>UI/UXの最適化</li>
+                            <li>パフォーマンスチューニング</li>
+                        </ul>
+                    </div>
+
+                    <div class="timeline-item">
+                        <h4>Week 5-6: ARパススルー実装</h4>
+                        <ul>
+                            <li>immersive-ar モード実装</li>
+                            <li>パススルー設定</li>
+                            <li>平面検出統合</li>
+                            <li>空間アンカー機能</li>
+                        </ul>
+                    </div>
+
+                    <div class="timeline-item">
+                        <h4>Week 7-8: ハンドトラッキング</h4>
+                        <ul>
+                            <li>XRHandModelFactory統合</li>
+                            <li>基本ジェスチャー認識</li>
+                            <li>ハンドベースUI実装</li>
+                            <li>インタラクション改善</li>
+                        </ul>
+                    </div>
+
+                    <div class="timeline-item">
+                        <h4>Week 9-10: AI統合とテスト</h4>
+                        <ul>
+                            <li>音声コマンド統合</li>
+                            <li>XR空間でのAI生成</li>
+                            <li>包括的なテスト</li>
+                            <li>ドキュメント作成</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+            <section id="future">
+                <h2>🔮 今後の展望</h2>
+
+                <div class="card">
+                    <h3>短期（6ヶ月以内）</h3>
+                    <ul>
+                        <li>WebGPU対応による大幅な性能向上</li>
+                        <li>Apple Vision Pro対応（visionOS Safari）</li>
+                        <li>スマホARモード（iOS Safari, Android Chrome）</li>
+                        <li>マルチユーザー対応の基礎実装</li>
+                    </ul>
+                </div>
+
+                <div class="card">
+                    <h3>中期（1年以内）</h3>
+                    <ul>
+                        <li>リアルタイムコラボレーション機能</li>
+                        <li>空間認識AIの高度化</li>
+                        <li>ハプティックフィードバック統合</li>
+                        <li>アセットストア（XR専用3Dモデル）</li>
+                    </ul>
+                </div>
+
+                <div class="card">
+                    <h3>長期（2年以内）</h3>
+                    <ul>
+                        <li>完全な Mixed Reality OS統合</li>
+                        <li>AI駆動の空間デザイン提案</li>
+                        <li>Neural Rendering技術の統合</li>
+                        <li>Metaverse プラットフォーム連携</li>
+                    </ul>
+                </div>
+            </section>
+
+            <section id="references">
+                <h2>📚 参考資料</h2>
+                <ul class="feature-list">
+                    <li><strong>WebXR Device API:</strong> <code>https://www.w3.org/TR/webxr/</code></li>
+                    <li><strong>Three.js WebXR Documentation:</strong> <code>https://threejs.org/docs/api/en/renderers/webxr/WebXRManager.html</code></li>
+                    <li><strong>Meta WebXR Documentation:</strong> <code>https://developers.meta.com/horizon/documentation/web/webxr-overview/</code></li>
+                    <li><strong>Immersive Web Emulator:</strong> <code>https://github.com/meta-quest/immersive-web-emulator</code></li>
+                    <li><strong>WebXR Samples:</strong> <code>https://immersive-web.github.io/webxr-samples/</code></li>
+                </ul>
+            </section>
+
+            <section id="server-setup">
+                <h2>🌐 サーバー設定</h2>
+                <div class="highlight">
+                    <h3>開発環境アクセス情報</h3>
+                    <p><strong>ローカルIPアドレス:</strong> 192.168.1.15</p>
+                    <p><strong>Meta Quest 3からのアクセス:</strong> Quest内のブラウザから <code>http://192.168.1.15:3011</code> にアクセス</p>
+                    <p><strong>HTTPS要件:</strong> WebXRはセキュアコンテキスト（HTTPS）が必要。開発時はlocalhostまたは自己署名証明書を使用。</p>
+                </div>
+
+                <div class="warning">
+                    <strong>⚠️ 注意事項</strong>
+                    <ul>
+                        <li>他チームと並列実装のため、ポート番号の重複に注意</li>
+                        <li>Quest BrowserはChromiumベースなので、Chrome DevToolsでリモートデバッグ可能</li>
+                        <li>パフォーマンステストは必ず実機で行う（エミュレーターでは不十分）</li>
+                    </ul>
+                </div>
+            </section>
+        </div>
+
+        <footer>
+            <p><strong>ChocoDrop XR Implementation Research Report</strong></p>
+            <p>Generated: 2025-10-26 | Target Device: Meta Quest 3 | Technology: WebXR + Three.js</p>
+            <p>Server: 192.168.1.15 | Status: Ready for Implementation</p>
+        </footer>
+    </div>
+</body>
+</html>
