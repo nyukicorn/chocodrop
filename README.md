@@ -393,6 +393,34 @@ console.log(result); // {ok: true, message: "Configuration reloaded"}
 - SRI（Subresource Integrity）による改ざん検知
 - CDN失敗時のローカルフォールバック
 
+### 🥽 XRコントロール (Meta Quest 3/3S)
+- `public/xr-research-2025.html` … 2025年10月時点のXRロードマップ・参考リンク付きレポート
+- `public/meta-quest-browser-demo.html` … Quest Browserで開くだけでVR/MRチェックができる診断付きデモ
+- `createChocoDrop` 初期化時に `enableXR: true` と `xrOptions` を指定すると、本体UIにXRタイルが現れ、VR/MRセッションを開始・終了できます（デフォルトホストは `http://192.168.1.15:3011`）。
+
+```javascript
+import { createChocoDrop } from 'chocodrop';
+import * as THREE from 'three';
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.xr.enabled = true;
+
+const { sceneManager, ui } = createChocoDrop(scene, {
+  camera,
+  renderer,
+  enableXR: true,
+  xrOptions: {
+    preferredHost: 'http://192.168.1.15:3011',
+    referenceSpace: 'local-floor'
+  }
+});
+
+// UIパネルの「XRセッション」から操作できるほか、コードから直接呼び出すことも可能
+await sceneManager.startXRSession('immersive-vr');
+```
+
+LAN上でQuest Browserを使う場合は `npm run dev -- --host 192.168.1.15 --port 3011` で公開し、ヘッドセットから `http://192.168.1.15:3011/meta-quest-browser-demo.html` を開いて動作確認してください。
+
 ---
 
 ## 🏗️ アーキテクチャ・技術詳細
