@@ -584,7 +584,38 @@ export class CommandUI {
     rightSection.appendChild(themeToggle);
     rightSection.appendChild(settingsButton);
 
+    // 中央: XR (VR/AR) ボタン
+    const centerSection = document.createElement('div');
+    centerSection.style.cssText = 'display: flex; gap: 6px; align-items: center; margin: 0 auto;';
+
+    // VR ボタン
+    const vrButton = document.createElement('button');
+    vrButton.innerHTML = '<span style="filter: hue-rotate(200deg) saturate(1.0) brightness(1.1);">🥽</span>';
+    vrButton.style.cssText = this.getActionButtonStyles('icon');
+    vrButton.title = 'VRモードを開始';
+    vrButton.addEventListener('click', () => this.startVR());
+
+    // AR ボタン
+    const arButton = document.createElement('button');
+    arButton.innerHTML = '<span style="filter: hue-rotate(120deg) saturate(1.0) brightness(1.1);">🌐</span>';
+    arButton.style.cssText = this.getActionButtonStyles('icon');
+    arButton.title = 'ARモードを開始';
+    arButton.addEventListener('click', () => this.startAR());
+
+    // XR終了ボタン（セッション中のみ表示）
+    const xrExitButton = document.createElement('button');
+    xrExitButton.innerHTML = '<span style="filter: saturate(0.7) brightness(1.0);">🚪</span>';
+    xrExitButton.style.cssText = this.getActionButtonStyles('icon');
+    xrExitButton.style.display = 'none'; // 初期状態は非表示
+    xrExitButton.title = 'XRモードを終了';
+    xrExitButton.addEventListener('click', () => this.endXR());
+
+    centerSection.appendChild(vrButton);
+    centerSection.appendChild(arButton);
+    centerSection.appendChild(xrExitButton);
+
     container.appendChild(leftSection);
+    container.appendChild(centerSection);
     container.appendChild(rightSection);
 
     // 参照を保持
@@ -592,6 +623,9 @@ export class CommandUI {
     this.historyBtn = historyBtn;
     this.themeToggle = themeToggle;
     this.settingsButton = settingsButton;
+    this.vrButton = vrButton;
+    this.arButton = arButton;
+    this.xrExitButton = xrExitButton;
 
     return container;
   }
@@ -6502,17 +6536,106 @@ export class CommandUI {
   
   hideOverlayTextarea() {
     if (!this.overlayTextarea) return;
-    
+
     this.isExpanded = false;
-    
+
     // フェードアウトアニメーション
     this.overlayTextarea.style.opacity = '0';
-    
+
     setTimeout(() => {
       if (this.overlayTextarea) {
         document.body.removeChild(this.overlayTextarea);
         this.overlayTextarea = null;
       }
     }, 200);
+  }
+
+  /**
+   * VRモードを開始
+   */
+  async startVR() {
+    if (!this.sceneManager) {
+      this.appendMessage('⚠️ SceneManager が初期化されていません', 'error');
+      return;
+    }
+
+    if (!this.sceneManager.xrManager) {
+      this.appendMessage('⚠️ XR機能が有効になっていません', 'error');
+      return;
+    }
+
+    try {
+      this.appendMessage('🥽 VRモードを開始中...', 'info');
+      await this.sceneManager.startVR();
+
+      // ボタンの状態を更新
+      if (this.vrButton) this.vrButton.style.display = 'none';
+      if (this.arButton) this.arButton.style.display = 'none';
+      if (this.xrExitButton) this.xrExitButton.style.display = 'block';
+
+      this.appendMessage('✅ VRモードが開始されました', 'success');
+    } catch (error) {
+      this.appendMessage(`❌ VRモード開始エラー: ${error.message}`, 'error');
+      console.error('VR start error:', error);
+    }
+  }
+
+  /**
+   * ARモードを開始
+   */
+  async startAR() {
+    if (!this.sceneManager) {
+      this.appendMessage('⚠️ SceneManager が初期化されていません', 'error');
+      return;
+    }
+
+    if (!this.sceneManager.xrManager) {
+      this.appendMessage('⚠️ XR機能が有効になっていません', 'error');
+      return;
+    }
+
+    try {
+      this.appendMessage('🌐 ARモードを開始中...', 'info');
+      await this.sceneManager.startAR();
+
+      // ボタンの状態を更新
+      if (this.vrButton) this.vrButton.style.display = 'none';
+      if (this.arButton) this.arButton.style.display = 'none';
+      if (this.xrExitButton) this.xrExitButton.style.display = 'block';
+
+      this.appendMessage('✅ ARモードが開始されました', 'success');
+    } catch (error) {
+      this.appendMessage(`❌ ARモード開始エラー: ${error.message}`, 'error');
+      console.error('AR start error:', error);
+    }
+  }
+
+  /**
+   * XRモードを終了
+   */
+  async endXR() {
+    if (!this.sceneManager) {
+      this.appendMessage('⚠️ SceneManager が初期化されていません', 'error');
+      return;
+    }
+
+    if (!this.sceneManager.xrManager) {
+      return;
+    }
+
+    try {
+      this.appendMessage('🚪 XRモードを終了中...', 'info');
+      await this.sceneManager.endXR();
+
+      // ボタンの状態を元に戻す
+      if (this.vrButton) this.vrButton.style.display = 'block';
+      if (this.arButton) this.arButton.style.display = 'block';
+      if (this.xrExitButton) this.xrExitButton.style.display = 'none';
+
+      this.appendMessage('✅ XRモードが終了されました', 'success');
+    } catch (error) {
+      this.appendMessage(`❌ XRモード終了エラー: ${error.message}`, 'error');
+      console.error('XR end error:', error);
+    }
   }
 }
