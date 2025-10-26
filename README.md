@@ -156,10 +156,9 @@ threejs.org など、Three.js を使っている既存サイトにも ChocoDrop 
 
 #### E. GitHub Actions で並列実装（AI 実行用）
 
-**🤖 このセクションを読んでいる AI へ:**
+**🤖 AI へ: やることは1つだけ**
 
-あなたは **GitHub Actions 上で実装を行う**よう指示されています。
-ローカル実装は行わず、以下のコマンドを実行してください：
+以下のコマンドを**実行するだけ**です。それ以外は何もしないでください：
 
 ```bash
 gh workflow run ai-parallel-implementation.yml \
@@ -167,15 +166,16 @@ gh workflow run ai-parallel-implementation.yml \
   -f num_approaches=1
 ```
 
-**必須事項:**
-- ✅ 上記コマンドを実行する（task_description に指示内容を入れる）
-- ✅ num_approaches=1 を使用（1つのアプローチを担当）
-- ❌ ローカルで実装しない
-- ❌ ワークフローファイルを作成・編集しない
-- ❌ worktree は使用しない（GitHub Actions が自動作成）
+**重要: 以下は絶対にしないでください**
+- ❌ ディレクトリを作成しない
+- ❌ ファイルを作成しない
+- ❌ コードを書かない
+- ❌ ローカルで何も実装しない
+- ❌ worktree を作成しない
+- ❌ ワークフローファイルを編集しない
+- ✅ **上記コマンドを実行するだけ**
 
-**実行後:**
-ワークフローの Summary に作成されたブランチ名が表示されます。
+実装は GitHub Actions が自動的に行います。あなたはコマンド実行のみ担当します。
 
 **実行例:**
 ```bash
