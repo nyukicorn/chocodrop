@@ -1,0 +1,1022 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChocoDrop - Hello World 3D Text</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='8' y='8' width='48' height='48' rx='12' fill='%2363410f'/%3E%3Crect x='18' y='18' width='28' height='28' rx='6' fill='%23a16207'/%3E%3C/svg%3E">
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+        }
+    }
+    </script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        #info {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            color: #ffffff;
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.9) 0%, rgba(118, 75, 162, 0.9) 100%);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 20px 24px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 400;
+            z-index: 2000;
+            max-width: 350px;
+            line-height: 1.7;
+            box-shadow: 0 20px 40px rgba(102, 126, 234, 0.3);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        #info.hidden {
+            opacity: 0;
+            transform: translateY(-20px);
+            pointer-events: none;
+        }
+
+        .close-btn {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            font-size: 16px;
+            color: #ffffff;
+            cursor: pointer;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: all 0.2s ease;
+        }
+
+        .close-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: scale(1.1);
+        }
+
+        #info .title {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 16px;
+            text-align: center;
+            background: linear-gradient(45deg, #ffffff, #e3f2fd);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        #info .subtitle {
+            font-size: 13px;
+            opacity: 0.9;
+            margin-bottom: 20px;
+            text-align: center;
+            color: #e3f2fd;
+        }
+
+        .feature-list {
+            list-style: none;
+            margin-bottom: 20px;
+        }
+
+        .feature-list li {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 10px;
+            font-size: 13px;
+        }
+
+        .feature-icon {
+            font-size: 16px;
+            width: 20px;
+            text-align: center;
+        }
+
+        .controls {
+            margin-top: 20px;
+            padding-top: 16px;
+            border-top: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .control-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            font-size: 12px;
+        }
+
+        .key {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-family: 'SFMono-Regular', monospace;
+            font-weight: 600;
+        }
+
+        /* Performance Stats */
+        #stats {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            color: #00ff00;
+            padding: 10px;
+            border-radius: 8px;
+            font-family: 'SFMono-Regular', monospace;
+            font-size: 12px;
+            z-index: 1000;
+            min-width: 150px;
+            display: none;
+        }
+
+        #stats.show {
+            display: block;
+        }
+
+        .stat-line {
+            margin-bottom: 4px;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            #info {
+                top: 10px;
+                left: 10px;
+                right: 10px;
+                max-width: none;
+                padding: 16px 20px;
+            }
+
+            #info .title {
+                font-size: 18px;
+            }
+        }
+
+        /* Loading Screen */
+        #loading {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+            color: white;
+            transition: opacity 0.5s ease;
+        }
+
+        #loading.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-top: 3px solid #ffffff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            font-size: 18px;
+            font-weight: 500;
+        }
+
+        canvas {
+            display: block;
+        }
+
+        /* Unified Menu */
+        .unified-menu {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
+
+        .menu-toggle {
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: #667eea;
+            padding: 12px 16px;
+            border-radius: 50px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.3);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 600;
+        }
+
+        .menu-toggle:hover {
+            background: rgba(255, 255, 255, 1);
+            transform: translateY(-2px);
+            box-shadow: 0 15px 35px rgba(102, 126, 234, 0.4);
+        }
+
+        .menu-dropdown {
+            position: absolute;
+            bottom: 60px;
+            right: 0;
+            min-width: 250px;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 12px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(10px);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            overflow: hidden;
+        }
+
+        .menu-dropdown.active {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+        }
+
+        .menu-item {
+            display: block;
+            padding: 14px 18px;
+            color: #333;
+            text-decoration: none;
+            font-size: 14px;
+            transition: all 0.2s ease;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+            cursor: pointer;
+            background: none;
+            border-left: none;
+            border-right: none;
+            border-top: none;
+            width: 100%;
+            text-align: left;
+        }
+
+        .menu-item:last-child {
+            border-bottom: none;
+        }
+
+        .menu-item:hover {
+            background: rgba(102, 126, 234, 0.1);
+            padding-left: 24px;
+        }
+
+        .menu-icon {
+            margin-right: 10px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading Screen -->
+    <div id="loading">
+        <div class="spinner"></div>
+        <div class="loading-text">Loading Hello World...</div>
+    </div>
+
+    <!-- Performance Stats -->
+    <div id="stats">
+        <div class="stat-line">FPS: <span id="fps">0</span></div>
+        <div class="stat-line">Objects: <span id="objects">0</span></div>
+        <div class="stat-line">Triangles: <span id="triangles">0</span></div>
+        <div class="stat-line">Memory: <span id="memory">0</span>MB</div>
+    </div>
+
+    <!-- Info Panel -->
+    <div id="info">
+        <button class="close-btn" onclick="hideInfoPanel()" aria-label="Close info panel">×</button>
+        <div class="title">🎨 Hello World 3D</div>
+        <div class="subtitle">Modular Architecture Approach 3</div>
+        
+        <ul class="feature-list">
+            <li><span class="feature-icon">🔧</span>Component-based modular design</li>
+            <li><span class="feature-icon">⚡</span>Performance optimized rendering</li>
+            <li><span class="feature-icon">🎯</span>Advanced shader materials</li>
+            <li><span class="feature-icon">📱</span>Responsive design system</li>
+            <li><span class="feature-icon">🔌</span>Plugin-like extensible architecture</li>
+        </ul>
+
+        <div class="controls">
+            <div class="control-row">
+                <span>Show Stats:</span>
+                <span class="key">S</span>
+            </div>
+            <div class="control-row">
+                <span>Toggle Animation:</span>
+                <span class="key">SPACE</span>
+            </div>
+            <div class="control-row">
+                <span>Reset Camera:</span>
+                <span class="key">R</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Unified Menu -->
+    <div class="unified-menu">
+        <button class="menu-toggle" id="menuToggle" aria-label="Menu">
+            <span>🍫</span>
+            <span>Menu</span>
+        </button>
+        <div class="menu-dropdown" id="menuDropdown">
+            <button class="menu-item" id="toggleStats">
+                <span class="menu-icon">📊</span>Performance Stats
+            </button>
+            <button class="menu-item" id="toggleAnimation">
+                <span class="menu-icon">⏸️</span>Pause Animation
+            </button>
+            <button class="menu-item" id="resetCamera">
+                <span class="menu-icon">🎥</span>Reset Camera
+            </button>
+            <hr style="margin: 8px 0; border: none; border-top: 1px solid rgba(0,0,0,0.1);">
+            <a href="../basic/index.html" class="menu-item">
+                <span class="menu-icon">🍫</span>Basic Example
+            </a>
+            <a href="../space/index.html" class="menu-item">
+                <span class="menu-icon">🌌</span>Space Example
+            </a>
+            <a href="../../index.html" class="menu-item">
+                <span class="menu-icon">🏠</span>Home
+            </a>
+        </div>
+    </div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { TextGeometry } from 'three/addons/geometries/TextGeometry.js';
+        import { FontLoader } from 'three/addons/loaders/FontLoader.js';
+
+        // Performance Monitor Class
+        class PerformanceMonitor {
+            constructor() {
+                this.fps = 0;
+                this.frameCount = 0;
+                this.lastTime = performance.now();
+                this.updateInterval = 1000; // Update every second
+            }
+
+            update() {
+                this.frameCount++;
+                const currentTime = performance.now();
+                
+                if (currentTime - this.lastTime >= this.updateInterval) {
+                    this.fps = Math.round((this.frameCount * 1000) / (currentTime - this.lastTime));
+                    this.frameCount = 0;
+                    this.lastTime = currentTime;
+                    
+                    this.updateDisplay();
+                }
+            }
+
+            updateDisplay() {
+                document.getElementById('fps').textContent = this.fps;
+                document.getElementById('memory').textContent = 
+                    (performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1048576) : 'N/A');
+            }
+
+            updateStats(scene, renderer) {
+                const info = renderer.info;
+                document.getElementById('objects').textContent = scene.children.length;
+                document.getElementById('triangles').textContent = info.render.triangles;
+            }
+        }
+
+        // Scene Manager Class
+        class SceneManager {
+            constructor() {
+                this.scene = new THREE.Scene();
+                this.camera = null;
+                this.renderer = null;
+                this.controls = null;
+                this.animationEnabled = true;
+                this.components = new Map();
+                
+                this.init();
+            }
+
+            init() {
+                this.setupRenderer();
+                this.setupCamera();
+                this.setupControls();
+                this.setupScene();
+                this.setupEventListeners();
+            }
+
+            setupRenderer() {
+                this.renderer = new THREE.WebGLRenderer({
+                    antialias: true,
+                    alpha: true,
+                    powerPreference: "high-performance"
+                });
+                
+                this.renderer.setSize(window.innerWidth, window.innerHeight);
+                this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+                this.renderer.shadowMap.enabled = true;
+                this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+                this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+                this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+                this.renderer.toneMappingExposure = 1.2;
+                
+                document.body.appendChild(this.renderer.domElement);
+            }
+
+            setupCamera() {
+                this.camera = new THREE.PerspectiveCamera(
+                    75, 
+                    window.innerWidth / window.innerHeight, 
+                    0.1, 
+                    1000
+                );
+                this.camera.position.set(0, 10, 30);
+            }
+
+            setupControls() {
+                this.controls = new OrbitControls(this.camera, this.renderer.domElement);
+                this.controls.enableDamping = true;
+                this.controls.dampingFactor = 0.05;
+                this.controls.maxPolarAngle = Math.PI / 2;
+                this.controls.minDistance = 10;
+                this.controls.maxDistance = 100;
+            }
+
+            setupScene() {
+                // Environment setup
+                this.scene.background = new THREE.Color(0x1a1a2e);
+                this.scene.fog = new THREE.Fog(0x1a1a2e, 50, 200);
+            }
+
+            setupEventListeners() {
+                window.addEventListener('resize', () => this.onWindowResize());
+                
+                document.addEventListener('keydown', (event) => {
+                    switch(event.code) {
+                        case 'KeyS':
+                            this.toggleStats();
+                            break;
+                        case 'Space':
+                            event.preventDefault();
+                            this.toggleAnimation();
+                            break;
+                        case 'KeyR':
+                            this.resetCamera();
+                            break;
+                    }
+                });
+            }
+
+            onWindowResize() {
+                this.camera.aspect = window.innerWidth / window.innerHeight;
+                this.camera.updateProjectionMatrix();
+                this.renderer.setSize(window.innerWidth, window.innerHeight);
+            }
+
+            toggleStats() {
+                const stats = document.getElementById('stats');
+                stats.classList.toggle('show');
+            }
+
+            toggleAnimation() {
+                this.animationEnabled = !this.animationEnabled;
+                const button = document.getElementById('toggleAnimation');
+                const icon = button.querySelector('.menu-icon');
+                icon.textContent = this.animationEnabled ? '⏸️' : '▶️';
+                button.innerHTML = `<span class="menu-icon">${icon.textContent}</span>${this.animationEnabled ? 'Pause' : 'Play'} Animation`;
+            }
+
+            resetCamera() {
+                this.camera.position.set(0, 10, 30);
+                this.controls.target.set(0, 0, 0);
+                this.controls.update();
+            }
+
+            addComponent(name, component) {
+                this.components.set(name, component);
+                if (component.object3D) {
+                    this.scene.add(component.object3D);
+                }
+            }
+
+            removeComponent(name) {
+                const component = this.components.get(name);
+                if (component && component.object3D) {
+                    this.scene.remove(component.object3D);
+                }
+                this.components.delete(name);
+            }
+
+            update(deltaTime) {
+                if (this.animationEnabled) {
+                    this.components.forEach(component => {
+                        if (component.update) {
+                            component.update(deltaTime);
+                        }
+                    });
+                }
+                
+                this.controls.update();
+            }
+
+            render() {
+                this.renderer.render(this.scene, this.camera);
+            }
+        }
+
+        // Advanced Material Factory
+        class MaterialFactory {
+            static createTextMaterial(options = {}) {
+                const vertexShader = `
+                    varying vec3 vNormal;
+                    varying vec3 vPosition;
+                    varying vec2 vUv;
+                    
+                    void main() {
+                        vNormal = normalize(normalMatrix * normal);
+                        vPosition = position;
+                        vUv = uv;
+                        
+                        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                    }
+                `;
+
+                const fragmentShader = `
+                    uniform float time;
+                    uniform vec3 color1;
+                    uniform vec3 color2;
+                    uniform float intensity;
+                    
+                    varying vec3 vNormal;
+                    varying vec3 vPosition;
+                    varying vec2 vUv;
+                    
+                    void main() {
+                        // Gradient based on position
+                        float gradient = (vPosition.y + 3.0) / 6.0;
+                        vec3 baseColor = mix(color1, color2, gradient);
+                        
+                        // Fresnel effect
+                        vec3 viewDirection = normalize(cameraPosition - vPosition);
+                        float fresnel = 1.0 - max(0.0, dot(vNormal, viewDirection));
+                        fresnel = pow(fresnel, 2.0);
+                        
+                        // Pulsing effect
+                        float pulse = sin(time * 2.0) * 0.5 + 0.5;
+                        
+                        // Combine effects
+                        vec3 finalColor = baseColor + fresnel * intensity + pulse * 0.1;
+                        
+                        gl_FragColor = vec4(finalColor, 1.0);
+                    }
+                `;
+
+                return new THREE.ShaderMaterial({
+                    vertexShader,
+                    fragmentShader,
+                    uniforms: {
+                        time: { value: 0.0 },
+                        color1: { value: new THREE.Color(options.color1 || 0x667eea) },
+                        color2: { value: new THREE.Color(options.color2 || 0x764ba2) },
+                        intensity: { value: options.intensity || 0.5 }
+                    }
+                });
+            }
+
+            static createEnvironmentMaterial() {
+                return new THREE.MeshPhongMaterial({
+                    color: 0x444444,
+                    transparent: true,
+                    opacity: 0.3,
+                    side: THREE.DoubleSide
+                });
+            }
+        }
+
+        // Text Component Class
+        class TextComponent {
+            constructor(text, options = {}) {
+                this.text = text;
+                this.options = {
+                    size: options.size || 2,
+                    height: options.height || 0.5,
+                    curveSegments: options.curveSegments || 24,
+                    ...options
+                };
+                this.object3D = new THREE.Group();
+                this.material = null;
+                this.mesh = null;
+                this.time = 0;
+                
+                this.load();
+            }
+
+            async load() {
+                const fontLoader = new FontLoader();
+                
+                return new Promise((resolve, reject) => {
+                    fontLoader.load(
+                        'https://threejs.org/examples/fonts/helvetiker_regular.typeface.json',
+                        (font) => {
+                            this.createTextMesh(font);
+                            resolve();
+                        },
+                        (progress) => {
+                            console.log('Loading font...', progress);
+                        },
+                        (error) => {
+                            console.error('Error loading font:', error);
+                            reject(error);
+                        }
+                    );
+                });
+            }
+
+            createTextMesh(font) {
+                const geometry = new TextGeometry(this.text, {
+                    font: font,
+                    size: this.options.size,
+                    height: this.options.height,
+                    curveSegments: this.options.curveSegments,
+                    bevelEnabled: true,
+                    bevelThickness: 0.1,
+                    bevelSize: 0.1,
+                    bevelSegments: 8
+                });
+
+                geometry.computeBoundingBox();
+                const centerOffsetX = -0.5 * (geometry.boundingBox.max.x - geometry.boundingBox.min.x);
+                const centerOffsetY = -0.5 * (geometry.boundingBox.max.y - geometry.boundingBox.min.y);
+                
+                this.material = MaterialFactory.createTextMaterial({
+                    color1: 0x667eea,
+                    color2: 0x764ba2,
+                    intensity: 0.8
+                });
+
+                this.mesh = new THREE.Mesh(geometry, this.material);
+                this.mesh.position.x = centerOffsetX;
+                this.mesh.position.y = centerOffsetY;
+                this.mesh.castShadow = true;
+                this.mesh.receiveShadow = true;
+
+                this.object3D.add(this.mesh);
+
+                // Add wireframe version for extra detail
+                const wireframeMaterial = new THREE.MeshBasicMaterial({
+                    color: 0xffffff,
+                    wireframe: true,
+                    transparent: true,
+                    opacity: 0.1
+                });
+                const wireframeMesh = new THREE.Mesh(geometry, wireframeMaterial);
+                wireframeMesh.position.copy(this.mesh.position);
+                wireframeMesh.scale.setScalar(1.01);
+                this.object3D.add(wireframeMesh);
+            }
+
+            update(deltaTime) {
+                this.time += deltaTime;
+                
+                if (this.material && this.material.uniforms) {
+                    this.material.uniforms.time.value = this.time;
+                }
+
+                // Gentle floating animation
+                if (this.mesh) {
+                    this.mesh.rotation.y = this.time * 0.2;
+                    this.mesh.position.y = Math.sin(this.time * 0.8) * 0.3;
+                }
+            }
+        }
+
+        // Lighting System Class
+        class LightingSystem {
+            constructor() {
+                this.lights = new THREE.Group();
+                this.setup();
+            }
+
+            setup() {
+                // Ambient light
+                const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
+                this.lights.add(ambientLight);
+
+                // Main directional light
+                const directionalLight = new THREE.DirectionalLight(0xffffff, 1.0);
+                directionalLight.position.set(10, 20, 10);
+                directionalLight.castShadow = true;
+                directionalLight.shadow.mapSize.width = 2048;
+                directionalLight.shadow.mapSize.height = 2048;
+                directionalLight.shadow.camera.near = 0.5;
+                directionalLight.shadow.camera.far = 50;
+                directionalLight.shadow.camera.left = -20;
+                directionalLight.shadow.camera.right = 20;
+                directionalLight.shadow.camera.top = 20;
+                directionalLight.shadow.camera.bottom = -20;
+                this.lights.add(directionalLight);
+
+                // Rim lights
+                const rimLight1 = new THREE.DirectionalLight(0x667eea, 0.5);
+                rimLight1.position.set(-10, 5, -10);
+                this.lights.add(rimLight1);
+
+                const rimLight2 = new THREE.DirectionalLight(0x764ba2, 0.5);
+                rimLight2.position.set(10, 5, -10);
+                this.lights.add(rimLight2);
+
+                // Dynamic point lights
+                this.createDynamicLights();
+            }
+
+            createDynamicLights() {
+                const colors = [0x667eea, 0x764ba2, 0xf093fb, 0xf5576c];
+                
+                for (let i = 0; i < 4; i++) {
+                    const light = new THREE.PointLight(colors[i], 0.3, 30);
+                    light.position.set(
+                        Math.cos(i * Math.PI * 0.5) * 15,
+                        5 + Math.random() * 10,
+                        Math.sin(i * Math.PI * 0.5) * 15
+                    );
+                    
+                    light.userData = {
+                        originalPosition: light.position.clone(),
+                        speed: 0.5 + Math.random() * 0.5,
+                        range: 5 + Math.random() * 5
+                    };
+                    
+                    this.lights.add(light);
+                }
+            }
+
+            get object3D() {
+                return this.lights;
+            }
+
+            update(deltaTime) {
+                // Animate dynamic point lights
+                this.lights.children.forEach((light, index) => {
+                    if (light.type === 'PointLight' && light.userData.originalPosition) {
+                        const time = performance.now() * 0.001;
+                        const data = light.userData;
+                        
+                        light.position.x = data.originalPosition.x + Math.cos(time * data.speed + index) * data.range;
+                        light.position.z = data.originalPosition.z + Math.sin(time * data.speed + index) * data.range;
+                        light.position.y = data.originalPosition.y + Math.sin(time * data.speed * 0.7 + index) * 2;
+                    }
+                });
+            }
+        }
+
+        // Environment Component Class
+        class EnvironmentComponent {
+            constructor() {
+                this.object3D = new THREE.Group();
+                this.setup();
+            }
+
+            setup() {
+                // Ground plane
+                const groundGeometry = new THREE.PlaneGeometry(100, 100);
+                const groundMaterial = MaterialFactory.createEnvironmentMaterial();
+                const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+                ground.rotation.x = -Math.PI / 2;
+                ground.position.y = -5;
+                ground.receiveShadow = true;
+                this.object3D.add(ground);
+
+                // Background elements
+                this.createBackgroundElements();
+            }
+
+            createBackgroundElements() {
+                // Floating spheres
+                for (let i = 0; i < 20; i++) {
+                    const geometry = new THREE.SphereGeometry(0.5 + Math.random() * 1, 16, 16);
+                    const material = new THREE.MeshPhongMaterial({
+                        color: new THREE.Color().setHSL(Math.random(), 0.7, 0.5),
+                        transparent: true,
+                        opacity: 0.3
+                    });
+                    
+                    const sphere = new THREE.Mesh(geometry, material);
+                    sphere.position.set(
+                        (Math.random() - 0.5) * 80,
+                        Math.random() * 20 + 5,
+                        (Math.random() - 0.5) * 80
+                    );
+                    
+                    sphere.userData = {
+                        speed: 0.1 + Math.random() * 0.2,
+                        axis: new THREE.Vector3(
+                            Math.random() - 0.5,
+                            Math.random() - 0.5,
+                            Math.random() - 0.5
+                        ).normalize()
+                    };
+                    
+                    this.object3D.add(sphere);
+                }
+            }
+
+            update(deltaTime) {
+                // Animate background elements
+                this.object3D.children.forEach(child => {
+                    if (child.userData.speed) {
+                        child.rotateOnAxis(child.userData.axis, deltaTime * child.userData.speed);
+                    }
+                });
+            }
+        }
+
+        // Main Application Class
+        class HelloWorldApp {
+            constructor() {
+                this.sceneManager = null;
+                this.performanceMonitor = null;
+                this.clock = new THREE.Clock();
+                this.loaded = false;
+                
+                this.init();
+            }
+
+            async init() {
+                try {
+                    // Initialize systems
+                    this.sceneManager = new SceneManager();
+                    this.performanceMonitor = new PerformanceMonitor();
+                    
+                    // Create and add components
+                    await this.loadComponents();
+                    
+                    // Setup UI
+                    this.setupUI();
+                    
+                    // Start animation loop
+                    this.animate();
+                    
+                    // Hide loading screen
+                    this.hideLoading();
+                    
+                    this.loaded = true;
+                    console.log('✅ Hello World 3D loaded successfully!');
+                    
+                } catch (error) {
+                    console.error('Failed to initialize Hello World app:', error);
+                    this.showError(error);
+                }
+            }
+
+            async loadComponents() {
+                // Add lighting system
+                const lightingSystem = new LightingSystem();
+                this.sceneManager.addComponent('lighting', lightingSystem);
+                
+                // Add environment
+                const environment = new EnvironmentComponent();
+                this.sceneManager.addComponent('environment', environment);
+                
+                // Add text component
+                const textComponent = new TextComponent('Hello World', {
+                    size: 3,
+                    height: 0.8,
+                    curveSegments: 32
+                });
+                
+                await textComponent.load();
+                this.sceneManager.addComponent('text', textComponent);
+            }
+
+            setupUI() {
+                // Menu functionality
+                const menuToggle = document.getElementById('menuToggle');
+                const menuDropdown = document.getElementById('menuDropdown');
+                
+                menuToggle.addEventListener('click', () => {
+                    menuDropdown.classList.toggle('active');
+                });
+                
+                document.addEventListener('click', (e) => {
+                    if (!menuToggle.contains(e.target) && !menuDropdown.contains(e.target)) {
+                        menuDropdown.classList.remove('active');
+                    }
+                });
+                
+                // Menu item handlers
+                document.getElementById('toggleStats').addEventListener('click', () => {
+                    this.sceneManager.toggleStats();
+                    menuDropdown.classList.remove('active');
+                });
+                
+                document.getElementById('toggleAnimation').addEventListener('click', () => {
+                    this.sceneManager.toggleAnimation();
+                    menuDropdown.classList.remove('active');
+                });
+                
+                document.getElementById('resetCamera').addEventListener('click', () => {
+                    this.sceneManager.resetCamera();
+                    menuDropdown.classList.remove('active');
+                });
+
+                // Auto-hide info panel
+                setTimeout(() => {
+                    const info = document.getElementById('info');
+                    if (info && !info.classList.contains('hidden')) {
+                        window.hideInfoPanel?.();
+                    }
+                }, 15000);
+            }
+
+            animate() {
+                requestAnimationFrame(() => this.animate());
+                
+                const deltaTime = this.clock.getDelta();
+                
+                // Update systems
+                this.sceneManager.update(deltaTime);
+                this.performanceMonitor.update();
+                
+                if (this.loaded) {
+                    this.performanceMonitor.updateStats(this.sceneManager.scene, this.sceneManager.renderer);
+                }
+                
+                // Render
+                this.sceneManager.render();
+            }
+
+            hideLoading() {
+                const loading = document.getElementById('loading');
+                loading.classList.add('hidden');
+                setTimeout(() => {
+                    loading.style.display = 'none';
+                }, 500);
+            }
+
+            showError(error) {
+                const loading = document.getElementById('loading');
+                loading.innerHTML = `
+                    <div style="color: #ff6b6b; text-align: center;">
+                        <h2>⚠️ Loading Error</h2>
+                        <p>${error.message}</p>
+                        <button onclick="location.reload()" style="margin-top: 20px; padding: 10px 20px; background: #667eea; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                            Reload Page
+                        </button>
+                    </div>
+                `;
+            }
+        }
+
+        // Global functions
+        window.hideInfoPanel = function() {
+            const info = document.getElementById('info');
+            if (info) {
+                info.classList.add('hidden');
+                setTimeout(() => {
+                    info.style.display = 'none';
+                }, 300);
+            }
+        };
+
+        // Initialize application
+        const app = new HelloWorldApp();
+    </script>
+</body>
+</html>
