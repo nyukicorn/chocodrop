@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChocoDrop AR Demo - Advanced Features</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        #info {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 15px;
+            border-radius: 10px;
+            font-size: 13px;
+            z-index: 100;
+            max-width: 400px;
+        }
+
+        #info h2 {
+            margin: 0 0 10px 0;
+            font-size: 18px;
+            color: #f093fb;
+        }
+
+        #info p {
+            margin: 5px 0;
+            line-height: 1.5;
+        }
+
+        #ar-button {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 15px 40px;
+            border: none;
+            border-radius: 30px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            box-shadow: 0 5px 20px rgba(240, 147, 251, 0.4);
+            transition: all 0.3s ease;
+        }
+
+        #ar-button:hover {
+            transform: translateX(-50%) translateY(-3px);
+            box-shadow: 0 8px 25px rgba(240, 147, 251, 0.6);
+        }
+
+        .status {
+            position: absolute;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: white;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-size: 14px;
+            display: none;
+        }
+
+        .status.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div id="info">
+        <h2>🍫 ChocoDrop AR Demo</h2>
+        <p><strong>高度なAR機能:</strong></p>
+        <ul style="margin: 10px 0 10px 20px; padding: 0;">
+            <li>✨ ヒットテスト（床・壁への配置）</li>
+            <li>📐 平面検出と視覚化</li>
+            <li>🎯 リアルタイムレイキャスト</li>
+            <li>🌈 複数オブジェクト配置</li>
+        </ul>
+        <p style="margin-top: 10px;"><strong>操作:</strong> トリガーで配置</p>
+    </div>
+
+    <div id="status" class="status">AR初期化中...</div>
+
+    <button id="ar-button">AR起動</button>
+
+    <!-- Three.js r170 -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { ARButton } from 'three/addons/webxr/ARButton.js';
+
+        let camera, scene, renderer;
+        let controller;
+        let reticle;
+        let hitTestSource = null;
+        let hitTestSourceRequested = false;
+        let detectedPlanes = new Map();
+
+        const statusDiv = document.getElementById('status');
+        const objectTypes = [
+            { shape: 'box', color: 0x667eea, size: 0.2 },
+            { shape: 'sphere', color: 0xff6b9d, size: 0.15 },
+            { shape: 'cone', color: 0xffd93d, size: 0.2 },
+            { shape: 'torus', color: 0x6bcf7f, size: 0.15 }
+        ];
+        let currentObjectType = 0;
+
+        init();
+        animate();
+
+        function init() {
+            // シーンのセットアップ
+            scene = new THREE.Scene();
+
+            camera = new THREE.PerspectiveCamera(
+                70,
+                window.innerWidth / window.innerHeight,
+                0.01,
+                20
+            );
+
+            // ライティング
+            const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1);
+            light.position.set(0.5, 1, 0.25);
+            scene.add(light);
+
+            // レンダラー
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.xr.enabled = true;
+            document.body.appendChild(renderer.domElement);
+
+            // AR用のレティクル（配置ガイド）
+            const geometry = new THREE.RingGeometry(0.15, 0.2, 32).rotateX(-Math.PI / 2);
+            const material = new THREE.MeshBasicMaterial({
+                color: 0xffffff,
+                side: THREE.DoubleSide,
+                transparent: true,
+                opacity: 0.8
+            });
+            reticle = new THREE.Mesh(geometry, material);
+            reticle.matrixAutoUpdate = false;
+            reticle.visible = false;
+            scene.add(reticle);
+
+            // ARボタン - 高度な機能を有効化
+            const arButton = ARButton.createButton(renderer, {
+                requiredFeatures: ['hit-test'],
+                optionalFeatures: [
+                    'dom-overlay',
+                    'dom-overlay-for-handheld-ar',
+                    'plane-detection',
+                    'depth-sensing',
+                    'anchors'
+                ],
+                domOverlay: { root: document.body }
+            });
+            arButton.id = 'ar-button';
+            arButton.textContent = 'AR起動';
+
+            // ARセッション開始時のイベント
+            renderer.xr.addEventListener('sessionstart', onSessionStart);
+            renderer.xr.addEventListener('sessionend', onSessionEnd);
+
+            // コントローラーのセットアップ
+            controller = renderer.xr.getController(0);
+            controller.addEventListener('select', onSelect);
+            scene.add(controller);
+
+            // リサイズ対応
+            window.addEventListener('resize', onWindowResize);
+        }
+
+        function onSessionStart() {
+            showStatus('ARセッション開始');
+            console.log('🍫 AR Session Started');
+
+            const session = renderer.xr.getSession();
+
+            // 平面検出のサポート確認
+            if (session.enabledFeatures) {
+                console.log('有効な機能:', session.enabledFeatures);
+
+                if (session.enabledFeatures.includes('plane-detection')) {
+                    showStatus('平面検出: 有効', 2000);
+                }
+            }
+        }
+
+        function onSessionEnd() {
+            showStatus('ARセッション終了');
+            hitTestSourceRequested = false;
+            hitTestSource = null;
+            console.log('🍫 AR Session Ended');
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function onSelect() {
+            if (reticle.visible) {
+                // オブジェクトを配置
+                const objectConfig = objectTypes[currentObjectType];
+                const object = createObject(objectConfig);
+
+                // レティクルの位置に配置
+                object.position.setFromMatrixPosition(reticle.matrix);
+                object.quaternion.setFromRotationMatrix(reticle.matrix);
+
+                scene.add(object);
+
+                // 次のオブジェクトタイプに切り替え
+                currentObjectType = (currentObjectType + 1) % objectTypes.length;
+
+                showStatus(`${getShapeName(objectConfig.shape)}を配置しました`, 1000);
+            }
+        }
+
+        function createObject(config) {
+            let geometry;
+
+            switch(config.shape) {
+                case 'sphere':
+                    geometry = new THREE.SphereGeometry(config.size, 32, 32);
+                    break;
+                case 'cone':
+                    geometry = new THREE.ConeGeometry(config.size, config.size * 2, 32);
+                    break;
+                case 'torus':
+                    geometry = new THREE.TorusGeometry(config.size, config.size * 0.3, 16, 100);
+                    break;
+                default:
+                    geometry = new THREE.BoxGeometry(config.size, config.size, config.size);
+            }
+
+            const material = new THREE.MeshStandardMaterial({
+                color: config.color,
+                metalness: 0.3,
+                roughness: 0.4,
+                emissive: config.color,
+                emissiveIntensity: 0.3
+            });
+
+            const mesh = new THREE.Mesh(geometry, material);
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
+
+            return mesh;
+        }
+
+        function getShapeName(shape) {
+            const names = {
+                box: '立方体',
+                sphere: '球体',
+                cone: '円錐',
+                torus: 'トーラス'
+            };
+            return names[shape] || shape;
+        }
+
+        function showStatus(message, duration = 0) {
+            statusDiv.textContent = message;
+            statusDiv.classList.add('active');
+
+            if (duration > 0) {
+                setTimeout(() => {
+                    statusDiv.classList.remove('active');
+                }, duration);
+            }
+        }
+
+        function animate() {
+            renderer.setAnimationLoop(render);
+        }
+
+        function render(timestamp, frame) {
+            if (frame) {
+                const referenceSpace = renderer.xr.getReferenceSpace();
+                const session = renderer.xr.getSession();
+
+                // ヒットテストソースの初期化
+                if (hitTestSourceRequested === false) {
+                    session.requestReferenceSpace('viewer').then((referenceSpace) => {
+                        session.requestHitTestSource({ space: referenceSpace }).then((source) => {
+                            hitTestSource = source;
+                            showStatus('ヒットテスト: 準備完了', 2000);
+                        });
+                    });
+
+                    session.addEventListener('end', () => {
+                        hitTestSourceRequested = false;
+                        hitTestSource = null;
+                    });
+
+                    hitTestSourceRequested = true;
+                }
+
+                // ヒットテストの実行
+                if (hitTestSource) {
+                    const hitTestResults = frame.getHitTestResults(hitTestSource);
+
+                    if (hitTestResults.length > 0) {
+                        const hit = hitTestResults[0];
+                        const pose = hit.getPose(referenceSpace);
+
+                        reticle.visible = true;
+                        reticle.matrix.fromArray(pose.transform.matrix);
+                    } else {
+                        reticle.visible = false;
+                    }
+                }
+
+                // 平面検出の処理（オプション機能）
+                if (frame.detectedPlanes) {
+                    // 削除された平面を処理
+                    detectedPlanes.forEach((mesh, plane) => {
+                        if (!frame.detectedPlanes.has(plane)) {
+                            scene.remove(mesh);
+                            detectedPlanes.delete(plane);
+                        }
+                    });
+
+                    // 新しい平面を処理
+                    frame.detectedPlanes.forEach((plane) => {
+                        if (!detectedPlanes.has(plane)) {
+                            const geometry = new THREE.PlaneGeometry(1, 1);
+                            const material = new THREE.MeshBasicMaterial({
+                                color: 0x00ff00,
+                                transparent: true,
+                                opacity: 0.2,
+                                side: THREE.DoubleSide
+                            });
+                            const mesh = new THREE.Mesh(geometry, material);
+                            scene.add(mesh);
+                            detectedPlanes.set(plane, mesh);
+                        }
+
+                        // 平面の位置と向きを更新
+                        const planeMesh = detectedPlanes.get(plane);
+                        const pose = frame.getPose(plane.planeSpace, referenceSpace);
+
+                        if (pose) {
+                            planeMesh.matrix.fromArray(pose.transform.matrix);
+                            planeMesh.matrixAutoUpdate = false;
+
+                            // 平面のサイズを更新
+                            const polygon = plane.polygon;
+                            if (polygon.length >= 3) {
+                                // 簡易的なサイズ計算（実際はもっと複雑）
+                                planeMesh.scale.set(2, 2, 1);
+                            }
+                        }
+                    });
+
+                    if (frame.detectedPlanes.size > 0) {
+                        showStatus(`平面検出: ${frame.detectedPlanes.size}個`);
+                    }
+                }
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        console.log('🍫 ChocoDrop AR Demo (Advanced) initialized');
+        console.log('📍 Features: Hit-test, Plane Detection, Multiple Objects');
+    </script>
+</body>
+</html>
