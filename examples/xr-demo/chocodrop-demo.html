@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ChocoDrop XR Demo - VR/AR Integration</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      font-family: Arial, sans-serif;
+      background: #000;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+    #info {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      color: white;
+      background: rgba(0, 0, 0, 0.8);
+      padding: 15px;
+      border-radius: 5px;
+      max-width: 300px;
+      font-size: 14px;
+      line-height: 1.6;
+      z-index: 100;
+    }
+    #controls {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: rgba(0, 0, 0, 0.8);
+      padding: 15px;
+      border-radius: 5px;
+      color: white;
+      z-index: 100;
+    }
+    button {
+      display: block;
+      width: 100%;
+      margin: 5px 0;
+      padding: 10px;
+      background: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    button:hover {
+      background: #45a049;
+    }
+    button:disabled {
+      background: #666;
+      cursor: not-allowed;
+    }
+    .status {
+      margin-top: 10px;
+      padding: 10px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 4px;
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div id="info">
+    <h3>🍫 ChocoDrop XR Demo</h3>
+    <p><strong>デスクトップ:</strong></p>
+    <ul>
+      <li>マウスドラッグ: カメラ回転</li>
+      <li>右ボタン: オブジェクト追加</li>
+    </ul>
+    <p><strong>VR:</strong></p>
+    <ul>
+      <li>トリガー: オブジェクト選択/移動</li>
+      <li>グリップ: オブジェクト削除</li>
+    </ul>
+    <p><strong>AR:</strong></p>
+    <ul>
+      <li>画面タップ: レティクル位置に配置</li>
+      <li>平面検出: 緑色の平面表示</li>
+    </ul>
+  </div>
+
+  <div id="controls">
+    <h4>コントロール</h4>
+    <button id="addSphere">球体を追加</button>
+    <button id="addBox">立方体を追加</button>
+    <button id="addCone">円錐を追加</button>
+    <button id="clearAll">全てクリア</button>
+    <div class="status" id="status">準備完了</div>
+  </div>
+
+  <!-- Three.js r170 CDN -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js"
+      }
+    }
+  </script>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/controls/OrbitControls.js';
+
+    // グローバルTHREE参照を設定（UMDビルド対応）
+    window.THREE = THREE;
+
+    // ChocoDrop XRモジュールの動的インポート
+    const { SceneManager } = await import('../../src/client/SceneManager.js');
+    const { VRButton } = await import('../../src/client/xr/VRButton.js');
+    const { ARButton } = await import('../../src/client/xr/ARButton.js');
+
+    // シーン、カメラ、レンダラーのセットアップ
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x202020);
+
+    const camera = new THREE.PerspectiveCamera(
+      75,
+      window.innerWidth / window.innerHeight,
+      0.1,
+      1000
+    );
+    camera.position.set(0, 1.6, 3);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.xr.enabled = true;
+    document.body.appendChild(renderer.domElement);
+
+    // OrbitControls（デスクトップ用）
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.target.set(0, 1, 0);
+    controls.update();
+
+    // ライティング
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    scene.add(ambientLight);
+
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    directionalLight.position.set(1, 1, 1);
+    scene.add(directionalLight);
+
+    // グリッド（参考用）
+    const gridHelper = new THREE.GridHelper(10, 10);
+    scene.add(gridHelper);
+
+    // SceneManagerの初期化
+    const sceneManager = new SceneManager(scene, {
+      camera: camera,
+      renderer: renderer,
+      enableXR: true,
+      enableMouseInteraction: true
+    });
+
+    // VRボタンの追加
+    const vrButton = VRButton.createButton(renderer, {
+      right: '20px',
+      bottom: '80px',
+      onSessionEnd: () => {
+        updateStatus('VRセッション終了');
+      }
+    });
+    document.body.appendChild(vrButton);
+
+    // ARボタンの追加
+    const arButton = ARButton.createButton(renderer, {
+      right: '20px',
+      bottom: '130px',
+      requiredFeatures: ['hit-test'],
+      optionalFeatures: ['plane-detection', 'depth-sensing', 'anchors'],
+      onSessionEnd: () => {
+        updateStatus('ARセッション終了');
+      }
+    });
+    document.body.appendChild(arButton);
+
+    // オブジェクト追加関数
+    function addObject(type) {
+      let geometry, material, mesh;
+
+      material = new THREE.MeshPhongMaterial({
+        color: Math.random() * 0xffffff,
+        shininess: 30
+      });
+
+      switch (type) {
+        case 'sphere':
+          geometry = new THREE.SphereGeometry(0.3, 32, 32);
+          break;
+        case 'box':
+          geometry = new THREE.BoxGeometry(0.4, 0.4, 0.4);
+          break;
+        case 'cone':
+          geometry = new THREE.ConeGeometry(0.3, 0.6, 32);
+          break;
+      }
+
+      mesh = new THREE.Mesh(geometry, material);
+
+      // ARモードの場合はレティクル位置に配置
+      if (sceneManager.xrManager && sceneManager.xrManager.isARMode()) {
+        const reticlePos = sceneManager.arController.getReticlePosition();
+        if (reticlePos) {
+          mesh.position.copy(reticlePos);
+        } else {
+          mesh.position.set(0, 0.5, -2);
+        }
+      } else {
+        // デスクトップ/VRモードではカメラ前方に配置
+        const offset = new THREE.Vector3(0, 0, -2);
+        offset.applyQuaternion(camera.quaternion);
+        mesh.position.copy(camera.position).add(offset);
+      }
+
+      // SceneManagerに追加
+      const id = `object_${Date.now()}`;
+      mesh.userData.id = id;
+      mesh.userData.type = type;
+      sceneManager.spawnedObjects.set(id, mesh);
+      scene.add(mesh);
+
+      // VRコントローラーの選択可能オブジェクトに追加
+      if (sceneManager.vrController) {
+        sceneManager.vrController.addSelectableObject(mesh);
+      }
+
+      updateStatus(`${type}を追加しました`);
+    }
+
+    // UIイベント
+    document.getElementById('addSphere').onclick = () => addObject('sphere');
+    document.getElementById('addBox').onclick = () => addObject('box');
+    document.getElementById('addCone').onclick = () => addObject('cone');
+    document.getElementById('clearAll').onclick = () => {
+      sceneManager.spawnedObjects.forEach((obj, id) => {
+        scene.remove(obj);
+        obj.geometry.dispose();
+        obj.material.dispose();
+      });
+      sceneManager.spawnedObjects.clear();
+      if (sceneManager.vrController) {
+        sceneManager.vrController.setSelectableObjects([]);
+      }
+      updateStatus('全オブジェクトをクリアしました');
+    };
+
+    // ステータス更新
+    function updateStatus(message) {
+      const statusEl = document.getElementById('status');
+      statusEl.textContent = message;
+      setTimeout(() => {
+        statusEl.textContent = '準備完了';
+      }, 3000);
+    }
+
+    // アニメーションループ
+    function animate() {
+      renderer.setAnimationLoop(() => {
+        // XRフレーム更新
+        const frame = renderer.xr.getFrame();
+        if (frame) {
+          sceneManager.updateXR(frame);
+        }
+
+        // レンダリング
+        renderer.render(scene, camera);
+      });
+    }
+
+    // リサイズ対応
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    // 開始
+    animate();
+    updateStatus('ChocoDrop XR Demo 起動完了');
+
+    console.log('🍫 ChocoDrop XR Demo Ready!');
+    console.log('🎮 VR/AR buttons available below');
+    console.log('📦 SceneManager:', sceneManager);
+  </script>
+</body>
+</html>
