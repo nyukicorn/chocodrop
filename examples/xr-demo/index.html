@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChocoDrop XR Demo - Meta Quest 3</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        #info {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 15px 20px;
+            border-radius: 10px;
+            font-size: 14px;
+            max-width: 300px;
+            z-index: 100;
+            backdrop-filter: blur(10px);
+        }
+
+        #info h1 {
+            margin: 0 0 10px 0;
+            font-size: 18px;
+            color: #ffd89b;
+        }
+
+        #info p {
+            margin: 5px 0;
+            line-height: 1.5;
+        }
+
+        #info .status {
+            color: #4ade80;
+            font-weight: bold;
+        }
+
+        #container {
+            width: 100%;
+            height: 100vh;
+        }
+
+        .xr-buttons {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 15px;
+            z-index: 100;
+        }
+
+        .xr-button {
+            padding: 15px 30px;
+            font-size: 16px;
+            font-weight: bold;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        .xr-button.vr {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .xr-button.ar {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+
+        .xr-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+        }
+
+        .xr-button:active {
+            transform: translateY(0);
+        }
+
+        .xr-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        #loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 24px;
+            text-align: center;
+            z-index: 50;
+        }
+
+        .spinner {
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top: 4px solid white;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 768px) {
+            #info {
+                font-size: 12px;
+                padding: 10px;
+                max-width: 200px;
+            }
+
+            .xr-buttons {
+                flex-direction: column;
+                gap: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="loading">
+        <div class="spinner"></div>
+        <p>Loading ChocoDrop XR...</p>
+    </div>
+
+    <div id="info">
+        <h1>ChocoDrop XR Demo</h1>
+        <p><strong>デバイス:</strong> Meta Quest 3</p>
+        <p><strong>サーバー:</strong> <span id="server-url">...</span></p>
+        <p class="status" id="webxr-status">Checking WebXR...</p>
+        <p style="font-size: 12px; margin-top: 10px; opacity: 0.8;">
+            VRモード: 没入型3D体験<br>
+            ARモード: パススルー + 空間配置<br>
+            コントローラー: レイキャストで選択
+        </p>
+        <div id="debug-info" style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.3); font-size: 11px; opacity: 0.7;">
+            <div>FPS: <span id="fps">--</span></div>
+            <div>Objects: <span id="object-count">0</span></div>
+            <div>XR Mode: <span id="xr-mode">None</span></div>
+        </div>
+    </div>
+
+    <div id="container"></div>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { VRButton } from 'three/addons/webxr/VRButton.js';
+        import { ARButton } from 'three/addons/webxr/ARButton.js';
+        import { XRControllerModelFactory } from 'three/addons/webxr/XRControllerModelFactory.js';
+        import { XRHandModelFactory } from 'three/addons/webxr/XRHandModelFactory.js';
+
+        let container;
+        let camera, scene, renderer;
+        let controller1, controller2;
+        let controllerGrip1, controllerGrip2;
+        let hand1, hand2;
+
+        const objects = [];
+        const raycaster = new THREE.Raycaster();
+        const tempMatrix = new THREE.Matrix4();
+
+        // パフォーマンス監視
+        let frameCount = 0;
+        let lastTime = performance.now();
+        let fps = 0;
+
+        init();
+        animate();
+
+        function init() {
+            container = document.getElementById('container');
+
+            // シーン
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x667eea);
+
+            // カメラ
+            camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 100);
+            camera.position.set(0, 1.6, 3);
+
+            // 照明
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+            scene.add(ambientLight);
+
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(1, 1, 1);
+            scene.add(directionalLight);
+
+            // グリッド
+            const gridHelper = new THREE.GridHelper(10, 10, 0x888888, 0x444444);
+            scene.add(gridHelper);
+
+            // サンプルオブジェクト
+            createSampleObjects();
+
+            // レンダラー
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.xr.enabled = true;
+            container.appendChild(renderer.domElement);
+
+            // VRボタン
+            const vrButton = VRButton.createButton(renderer);
+            vrButton.classList.add('xr-button', 'vr');
+            vrButton.textContent = 'ENTER VR';
+            document.body.appendChild(vrButton);
+
+            // ARボタン
+            const arButton = ARButton.createButton(renderer, {
+                requiredFeatures: ['hit-test'],
+                optionalFeatures: ['dom-overlay', 'hand-tracking', 'layers']
+            });
+            arButton.classList.add('xr-button', 'ar');
+            arButton.textContent = 'ENTER AR';
+            document.body.appendChild(arButton);
+
+            // ボタンを整列
+            const buttonsContainer = document.createElement('div');
+            buttonsContainer.className = 'xr-buttons';
+            buttonsContainer.appendChild(vrButton);
+            buttonsContainer.appendChild(arButton);
+            document.body.appendChild(buttonsContainer);
+
+            // コントローラー
+            setupControllers();
+
+            // ハンドトラッキング
+            setupHands();
+
+            // XRセッションイベント
+            renderer.xr.addEventListener('sessionstart', () => {
+                const session = renderer.xr.getSession();
+                const mode = session.mode;
+                console.log('XR Session Started:', mode);
+
+                document.getElementById('xr-mode').textContent = mode.toUpperCase();
+
+                // ARモードの場合は背景を透明に
+                if (mode === 'immersive-ar') {
+                    scene.background = null;
+                }
+            });
+
+            renderer.xr.addEventListener('sessionend', () => {
+                console.log('XR Session Ended');
+                document.getElementById('xr-mode').textContent = 'None';
+                scene.background = new THREE.Color(0x667eea);
+            });
+
+            // ウィンドウリサイズ
+            window.addEventListener('resize', onWindowResize);
+
+            // サーバーURL表示
+            const serverUrl = `${window.location.hostname}:${window.location.port || (window.location.protocol === 'https:' ? '443' : '80')}`;
+            document.getElementById('server-url').textContent = serverUrl;
+
+            // オブジェクト数表示
+            document.getElementById('object-count').textContent = objects.length;
+
+            // ローディング非表示
+            document.getElementById('loading').style.display = 'none';
+
+            // エラーハンドリング
+            window.addEventListener('error', (event) => {
+                console.error('Error:', event.error);
+                showError('エラーが発生しました: ' + event.error.message);
+            });
+        }
+
+        function showError(message) {
+            const status = document.getElementById('webxr-status');
+            status.textContent = message;
+            status.style.color = '#ef4444';
+        }
+
+        function createSampleObjects() {
+            const geometries = [
+                new THREE.BoxGeometry(0.3, 0.3, 0.3),
+                new THREE.SphereGeometry(0.15, 32, 32),
+                new THREE.ConeGeometry(0.15, 0.3, 32),
+                new THREE.TorusGeometry(0.15, 0.05, 16, 100),
+                new THREE.CylinderGeometry(0.1, 0.1, 0.3, 32)
+            ];
+
+            const colors = [0x667eea, 0x764ba2, 0xf093fb, 0xf5576c, 0xffd89b];
+
+            for (let i = 0; i < 5; i++) {
+                const material = new THREE.MeshStandardMaterial({
+                    color: colors[i],
+                    roughness: 0.3,
+                    metalness: 0.5
+                });
+
+                const mesh = new THREE.Mesh(geometries[i], material);
+                mesh.position.set(
+                    (i - 2) * 0.5,
+                    1.2,
+                    -1
+                );
+                mesh.castShadow = true;
+                mesh.receiveShadow = true;
+
+                scene.add(mesh);
+                objects.push(mesh);
+            }
+
+            // インタラクション用のデータ
+            objects.forEach(obj => {
+                obj.userData.originalColor = obj.material.color.getHex();
+            });
+        }
+
+        function setupControllers() {
+            const controllerModelFactory = new XRControllerModelFactory();
+
+            // コントローラー1
+            controller1 = renderer.xr.getController(0);
+            controller1.addEventListener('selectstart', onSelectStart);
+            controller1.addEventListener('selectend', onSelectEnd);
+            scene.add(controller1);
+
+            controllerGrip1 = renderer.xr.getControllerGrip(0);
+            controllerGrip1.add(controllerModelFactory.createControllerModel(controllerGrip1));
+            scene.add(controllerGrip1);
+
+            // コントローラー2
+            controller2 = renderer.xr.getController(1);
+            controller2.addEventListener('selectstart', onSelectStart);
+            controller2.addEventListener('selectend', onSelectEnd);
+            scene.add(controller2);
+
+            controllerGrip2 = renderer.xr.getControllerGrip(1);
+            controllerGrip2.add(controllerModelFactory.createControllerModel(controllerGrip2));
+            scene.add(controllerGrip2);
+
+            // レイビジュアライゼーション
+            const geometry = new THREE.BufferGeometry().setFromPoints([
+                new THREE.Vector3(0, 0, 0),
+                new THREE.Vector3(0, 0, -1)
+            ]);
+            const material = new THREE.LineBasicMaterial({ color: 0xffffff });
+
+            const line1 = new THREE.Line(geometry, material);
+            line1.scale.z = 5;
+            controller1.add(line1);
+
+            const line2 = new THREE.Line(geometry, material);
+            line2.scale.z = 5;
+            controller2.add(line2);
+        }
+
+        function setupHands() {
+            const handModelFactory = new XRHandModelFactory();
+
+            // Hand 1
+            hand1 = renderer.xr.getHand(0);
+            hand1.add(handModelFactory.createHandModel(hand1, 'mesh'));
+            scene.add(hand1);
+
+            // Hand 2
+            hand2 = renderer.xr.getHand(1);
+            hand2.add(handModelFactory.createHandModel(hand2, 'mesh'));
+            scene.add(hand2);
+        }
+
+        function onSelectStart(event) {
+            const controller = event.target;
+            const intersections = getIntersections(controller);
+
+            if (intersections.length > 0) {
+                const intersection = intersections[0];
+                const object = intersection.object;
+
+                // オブジェクトをハイライト
+                object.material.color.setHex(0xffffff);
+                object.userData.selected = true;
+
+                // コントローラーにアタッチ
+                tempMatrix.getInverse(controller.matrixWorld);
+                object.applyMatrix4(tempMatrix);
+                controller.attach(object);
+                controller.userData.selected = object;
+            }
+        }
+
+        function onSelectEnd(event) {
+            const controller = event.target;
+
+            if (controller.userData.selected !== undefined) {
+                const object = controller.userData.selected;
+
+                // 元の色に戻す
+                object.material.color.setHex(object.userData.originalColor);
+                object.userData.selected = false;
+
+                // シーンに戻す
+                scene.attach(object);
+                controller.userData.selected = undefined;
+            }
+        }
+
+        function getIntersections(controller) {
+            tempMatrix.identity().extractRotation(controller.matrixWorld);
+            raycaster.ray.origin.setFromMatrixPosition(controller.matrixWorld);
+            raycaster.ray.direction.set(0, 0, -1).applyMatrix4(tempMatrix);
+
+            return raycaster.intersectObjects(objects, false);
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animate() {
+            renderer.setAnimationLoop(render);
+        }
+
+        function render() {
+            // FPS計測
+            frameCount++;
+            const currentTime = performance.now();
+            if (currentTime >= lastTime + 1000) {
+                fps = Math.round((frameCount * 1000) / (currentTime - lastTime));
+                document.getElementById('fps').textContent = fps;
+                frameCount = 0;
+                lastTime = currentTime;
+            }
+
+            // オブジェクトのアニメーション
+            const time = performance.now() * 0.001;
+
+            objects.forEach((obj, i) => {
+                if (!obj.userData.selected) {
+                    obj.rotation.y = time * (0.5 + i * 0.1);
+                    obj.rotation.x = Math.sin(time + i) * 0.2;
+                }
+            });
+
+            renderer.render(scene, camera);
+        }
+
+        // WebXR サポートチェック
+        async function checkWebXRSupport() {
+            const statusEl = document.getElementById('webxr-status');
+
+            if (!('xr' in navigator)) {
+                statusEl.textContent = 'WebXR Not Supported';
+                statusEl.style.color = '#ef4444';
+                console.warn('WebXR not supported');
+                return;
+            }
+
+            try {
+                const vrSupported = await navigator.xr.isSessionSupported('immersive-vr');
+                const arSupported = await navigator.xr.isSessionSupported('immersive-ar');
+
+                console.log('VR Supported:', vrSupported);
+                console.log('AR Supported:', arSupported);
+
+                if (vrSupported && arSupported) {
+                    statusEl.textContent = 'WebXR Ready (VR + AR)';
+                    statusEl.style.color = '#4ade80';
+                } else if (vrSupported) {
+                    statusEl.textContent = 'WebXR Ready (VR only)';
+                    statusEl.style.color = '#fbbf24';
+                } else if (arSupported) {
+                    statusEl.textContent = 'WebXR Ready (AR only)';
+                    statusEl.style.color = '#fbbf24';
+                } else {
+                    statusEl.textContent = 'WebXR Available (Limited)';
+                    statusEl.style.color = '#fbbf24';
+                }
+            } catch (error) {
+                console.error('Error checking WebXR support:', error);
+                statusEl.textContent = 'WebXR Check Failed';
+                statusEl.style.color = '#ef4444';
+            }
+        }
+
+        checkWebXRSupport();
+    </script>
+</body>
+</html>
