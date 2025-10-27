@@ -581,6 +581,7 @@ export class SceneManager {
     const endDragging = () => {
       if (isDragging && dragObject) {
         console.log(`✅ Finished dragging: ${dragObject.name} to (${dragObject.position.x.toFixed(1)}, ${dragObject.position.y.toFixed(1)}, ${dragObject.position.z.toFixed(1)})`);
+        this.markObjectModified(dragObject, { trigger: 'drag' });
 
         isDragging = false;
         dragObject = null;
