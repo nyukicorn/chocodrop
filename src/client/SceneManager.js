@@ -3470,8 +3470,6 @@ export class SceneManager {
       }
       
       plane.scale.setScalar(1.0);
-      plane.userData.videoTexture = videoTexture;
-      
       // ファイル名からpromptを作成（拡張子を除去）
       const prompt = fileName ? fileName.replace(/\.[^/.]+$/, '') : 'imported_video';
 
@@ -3484,19 +3482,27 @@ export class SceneManager {
         createdAt: Date.now(),
         type: 'generated_video',
         videoElement: video,
-        objectUrl: fileUrl,
+        videoUrl: fileUrl,
+        fileUrl,
         prompt: prompt, // ファイル名をpromptとして設定
-        fileName: fileName, // 元のファイル名も保存
+        fileName: fileName,
+        pixelWidth: video.videoWidth,
+        pixelHeight: video.videoHeight,
         importOrder: this.objectCounter, // インポート順序を記録
         keywords: this.buildObjectKeywordHints({ prompt, fileName, baseType: 'video' }),
         originalOpacity: 1.0  // 元の透明度を保存
       };
+      plane.userData.videoTexture = videoTexture;
 
       // 音声制御UIを作成
       this.createAudioControl(plane);
 
       this.experimentGroup.add(plane);
-      this.spawnedObjects.set(objectId, plane);
+      this.registerSpawnedObject(objectId, plane, {
+        reason: 'imported_video',
+        fileName,
+        assetUrl: fileUrl
+      });
       
       console.log(`✅ Created imported video: ${objectId} at (${position.x}, ${position.y}, ${position.z})`);
       
