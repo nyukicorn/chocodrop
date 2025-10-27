@@ -5890,6 +5890,10 @@ export class SceneManager {
       const newScale = Math.max(0.2, currentScale * 0.9);
       object.scale.setScalar(newScale);
       this.showScaleToast(newScale);
+      this.markObjectModified(object, {
+        trigger: 'scale-button',
+        direction: 'decrease'
+      });
 
       // 拡大縮小中フラグを立てる（位置固定）
       object.userData.isScaling = true;
@@ -5911,6 +5915,10 @@ export class SceneManager {
       const newScale = Math.min(5.0, currentScale * 1.1);
       object.scale.setScalar(newScale);
       this.showScaleToast(newScale);
+      this.markObjectModified(object, {
+        trigger: 'scale-button',
+        direction: 'increase'
+      });
 
       // 拡大縮小中フラグを立てる（位置固定）
       object.userData.isScaling = true;
