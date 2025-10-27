@@ -3083,6 +3083,8 @@ export class SceneManager {
       
       let videoTexture;
       let video = null; // video変数をスコープ外で定義
+      let assetUrl = null;
+      let assetFileName = null;
       const videoSuccess = videoResult.success && videoResult.videoUrl;
       
       if (videoSuccess) {
@@ -3100,6 +3102,8 @@ export class SceneManager {
         // 動画テクスチャを作成
         videoTexture = new THREE.VideoTexture(video);
         videoTexture.colorSpace = THREE.SRGBColorSpace;
+        assetUrl = videoResult.videoUrl;
+        assetFileName = assetUrl ? assetUrl.split('/').pop() : null;
         
         // 動画の自動再生を開始
         video.addEventListener('loadeddata', () => {
@@ -3167,6 +3171,8 @@ export class SceneManager {
         type: 'generated_video',
         source: 'generated_video',
         videoUrl: videoResult.videoUrl,
+        fileUrl: assetUrl,
+        fileName: assetFileName,
         modelName: videoResult.modelName || this.selectedVideoService || null,
         width: requestedWidth,
         height: requestedHeight,
@@ -3179,7 +3185,11 @@ export class SceneManager {
       this.createAudioControl(plane);
       
       this.experimentGroup.add(plane);
-      this.spawnedObjects.set(objectId, plane);
+      this.registerSpawnedObject(objectId, plane, {
+        reason: 'generated_video',
+        prompt: parsed.prompt,
+        assetUrl
+      });
       
       console.log(`✅ Created video object: ${objectId} at (${parsed.position.x}, ${parsed.position.y}, ${parsed.position.z})`);
       
@@ -3250,13 +3260,19 @@ export class SceneManager {
       };
 
       // シーンに追加
-      this.scene.add(plane);
+      this.experimentGroup.add(plane);
+      this.registerSpawnedObject(objectId, plane, {
+        reason: 'generated_video_fallback',
+        prompt: parsed.prompt,
+        error: error.message
+      });
       console.log('📍 Fallback video plane added to scene');
 
       return {
         success: false,
         error: error.message,
         object: plane,
+        objectId,
         prompt: parsed.prompt
       };
     }
