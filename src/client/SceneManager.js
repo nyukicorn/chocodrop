@@ -625,7 +625,8 @@ export class SceneManager {
       const moveStep = event.shiftKey ? 0.1 : 0.5; // Shift: 0.1単位, 通常: 0.5単位
       let rotated = false;
       let moved = false;
-      
+      let scaled = false;
+
       switch (event.key) {
         case 'ArrowLeft':
           object.rotation.y -= rotationStep;
@@ -677,6 +678,7 @@ export class SceneManager {
             // console.log(`📐 Resized ${object.userData.type || 'object'}: ${object.name} to ${(newScale * 100).toFixed(0)}% (+${increment})`);
             this.showScaleToast(newScale);
             event.preventDefault();
+            scaled = true;
           }
           break;
         case '-':
@@ -691,6 +693,7 @@ export class SceneManager {
             // console.log(`📐 Resized ${object.userData.type || 'object'}: ${object.name} to ${(newScale * 100).toFixed(0)}% (-${increment})`);
             this.showScaleToast(newScale);
             event.preventDefault();
+            scaled = true;
           }
           break;
         case 'i':
@@ -754,6 +757,15 @@ export class SceneManager {
         };
         const moveAmount = event.shiftKey ? '0.1' : '0.5';
         console.log(`🎮 Moved ${object.userData.type}: ${object.name} to (${position.x}, ${position.y}, ${position.z}) [step: ${moveAmount}]`);
+      }
+
+      if (rotated || moved || scaled) {
+        this.markObjectModified(object, {
+          trigger: 'keyboard-transform',
+          rotated,
+          moved,
+          scaled
+        });
       }
     });
 
