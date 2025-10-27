@@ -2936,6 +2936,7 @@ export class SceneManager {
       
       const loader = new THREE.TextureLoader();
       let texture;
+      let assetUrl = null;
       if (imageResult && imageResult.success && (imageResult.imageUrl || imageResult.localPath)) {
         // 成功: 生成された画像をテクスチャとして使用
         let imageUrl = imageResult.imageUrl;
@@ -2945,7 +2946,8 @@ export class SceneManager {
           const filename = imageResult.localPath.split('/').pop();
           imageUrl = `${this.client.serverUrl}/generated/${filename}`;
         }
-        
+        assetUrl = imageUrl || null;
+
         console.log(`✅ Image generated successfully: ${imageUrl}`);
         texture = await loader.loadAsync(imageUrl);
 
@@ -3009,6 +3011,8 @@ export class SceneManager {
       // 識別用の名前とメタデータ
       const objectId = `generated_${++this.objectCounter}`;
       plane.name = objectId;
+      const assetFileName = assetUrl ? assetUrl.split('/').pop() : null;
+
       plane.userData = {
         id: objectId,
         prompt: parsed.prompt,
@@ -3016,12 +3020,21 @@ export class SceneManager {
         type: 'generated_image',
         source: 'generated_image',
         modelName: imageResult?.modelName || this.selectedImageService || null,
+        imageUrl: assetUrl,
+        fileUrl: assetUrl,
+        fileName: assetFileName,
+        pixelWidth: imageWidth,
+        pixelHeight: imageHeight,
         keywords: this.buildObjectKeywordHints({ prompt: parsed.prompt, baseType: 'image' }),
         originalOpacity: 1.0  // 元の透明度を保存
       };
       
       this.experimentGroup.add(plane);
-      this.spawnedObjects.set(objectId, plane);
+      this.registerSpawnedObject(objectId, plane, {
+        reason: 'generated_image',
+        prompt: parsed.prompt,
+        assetUrl
+      });
 
       console.log(`✅ Created object: ${objectId} at (${parsed.position.x}, ${parsed.position.y}, ${parsed.position.z})`);
 
