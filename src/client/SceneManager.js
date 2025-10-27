@@ -4769,6 +4769,11 @@ export class SceneManager {
   clearAll() {
     const objectIds = Array.from(this.spawnedObjects.keys());
     objectIds.forEach(id => this.removeObject(id));
+    if (objectIds.length > 0) {
+      this.recordSceneEvent('cleared', null, {
+        context: { removedIds: objectIds }
+      });
+    }
     console.log('🧹 Cleared all experimental objects');
   }
 
