@@ -5704,6 +5704,10 @@ export class SceneManager {
           object.scale.setScalar(newScale);
           // console.log(`📐 Scale set to ${value}% via direct input`);
           this.showScaleToast(newScale);
+          this.markObjectModified(object, {
+            trigger: 'scale-input',
+            value: newScale
+          });
         } else {
           console.warn(`⚠️ Invalid scale value: ${input.value}% (range: 20-500%)`);
           // 無効な値の場合は元に戻す
