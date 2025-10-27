@@ -3349,14 +3349,21 @@ export class SceneManager {
         createdAt: Date.now(),
         type: 'generated_image',
         prompt: prompt, // ファイル名をpromptとして設定
-        fileName: fileName, // 元のファイル名も保存
+        fileName: fileName,
+        fileUrl,
+        pixelWidth: imageWidth,
+        pixelHeight: imageHeight,
         importOrder: this.objectCounter, // インポート順序を記録
         keywords: this.buildObjectKeywordHints({ prompt, fileName, baseType: 'image' }),
         originalOpacity: 1.0  // 元の透明度を保存
       };
       
       this.experimentGroup.add(plane);
-      this.spawnedObjects.set(objectId, plane);
+      this.registerSpawnedObject(objectId, plane, {
+        reason: 'imported_image',
+        fileName,
+        assetUrl: fileUrl
+      });
 
       console.log(`✅ Created imported image: ${objectId} at (${position.x}, ${position.y}, ${position.z})`);
 
