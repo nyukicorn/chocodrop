@@ -47,6 +47,11 @@ export class SceneManager {
     this.audioControlUpdateListener = null;
     this.scaleButtonUpdateInterval = null; // スケールボタン位置更新用インターバル
     this.animationMixers = new Set();
+    this.sceneJournal = [];
+    this.maxSceneJournalEntries = options.maxSceneJournalEntries || 200;
+    this.sceneChangeListeners = new Set();
+    this.sceneStateVersion = 0;
+    this.objectSnapshotCache = new Map();
     this.gltfLoader = null;
 
     // Animation管理（UI要素用）
@@ -2208,7 +2213,10 @@ export class SceneManager {
       };
 
       this.experimentGroup.add(modelRoot);
-      this.spawnedObjects.set(objectId, modelRoot);
+      this.registerSpawnedObject(objectId, modelRoot, {
+        reason: 'imported_3d_model',
+        fileName: fileName || null
+      });
 
       if (this.config.showLocationIndicator) {
         this.createLocationIndicator(position);
@@ -4139,6 +4147,467 @@ export class SceneManager {
   }
 
   /**
+   * シーン変更リスナーを登録
+   * @param {(event: object) => void} listener
+   * @returns {() => void}
+   */
+  onSceneChange(listener) {
+    if (typeof listener !== 'function') {
+      return () => {};
+    }
+    this.sceneChangeListeners.add(listener);
+    return () => {
+      this.sceneChangeListeners.delete(listener);
+    };
+  }
+
+  /**
+   * シーン変更イベント通知
+   * @param {string} type
+   * @param {object} detail
+   * @returns {{type: string, version: number, timestamp: number, detail: object}}
+   */
+  emitSceneChange(type, detail = {}) {
+    this.sceneStateVersion += 1;
+    const event = {
+      type,
+      version: this.sceneStateVersion,
+      timestamp: Date.now(),
+      detail
+    };
+
+    this.sceneChangeListeners.forEach((listener) => {
+      try {
+        listener(event);
+      } catch (error) {
+        console.warn('⚠️ Scene change listener failed:', error);
+      }
+    });
+
+    return event;
+  }
+
+  /**
+   * 永続化向けに値をサニタイズ
+   * @param {*} value
+   * @param {number} depth
+   * @returns {*|undefined}
+   */
+  sanitizePersistableValue(value, depth = 0) {
+    if (depth > 4) {
+      return undefined;
+    }
+
+    if (value === null || value === undefined) {
+      return value;
+    }
+
+    const type = typeof value;
+    if (type === 'string' || type === 'number' || type === 'boolean') {
+      return Number.isNaN(value) ? undefined : value;
+    }
+
+    if (value instanceof Date) {
+      return value.toISOString();
+    }
+
+    if (Array.isArray(value)) {
+      const sanitizedArray = value
+        .map((item) => this.sanitizePersistableValue(item, depth + 1))
+        .filter((item) => item !== undefined);
+      return sanitizedArray.length > 0 ? sanitizedArray : undefined;
+    }
+
+    if (value && (value.isVector3 || value instanceof THREE.Vector3)) {
+      return { x: value.x, y: value.y, z: value.z };
+    }
+
+    if (value && (value.isEuler || value instanceof THREE.Euler)) {
+      return { x: value.x, y: value.y, z: value.z, order: value.order };
+    }
+
+    if (value && (value.isQuaternion || value instanceof THREE.Quaternion)) {
+      return { x: value.x, y: value.y, z: value.z, w: value.w };
+    }
+
+    if (value && (value.isColor || value instanceof THREE.Color)) {
+      return typeof value.getHexString === 'function' ? `#${value.getHexString()}` : undefined;
+    }
+
+    if (typeof Element !== 'undefined' && value instanceof Element) {
+      return undefined;
+    }
+
+    if (type === 'function') {
+      return undefined;
+    }
+
+    const proto = Object.getPrototypeOf(value);
+    if (!proto || proto === Object.prototype) {
+      const result = {};
+      Object.entries(value).forEach(([key, val]) => {
+        const sanitized = this.sanitizePersistableValue(val, depth + 1);
+        if (sanitized !== undefined) {
+          result[key] = sanitized;
+        }
+      });
+      return Object.keys(result).length > 0 ? result : undefined;
+    }
+
+    return undefined;
+  }
+
+  /**
+   * Object3Dのスナップショット生成
+   * @param {THREE.Object3D} object
+   * @returns {object|null}
+   */
+  captureObjectSnapshot(object) {
+    if (!object) {
+      return null;
+    }
+
+    const userData = object.userData || {};
+    const objectId = userData.id || object.name || object.uuid || null;
+
+    const position = object.position
+      ? { x: object.position.x, y: object.position.y, z: object.position.z }
+      : null;
+    const rotation = object.rotation
+      ? { x: object.rotation.x, y: object.rotation.y, z: object.rotation.z }
+      : null;
+    const scale = object.scale
+      ? { x: object.scale.x, y: object.scale.y, z: object.scale.z }
+      : null;
+
+    const worldPosition = new THREE.Vector3();
+    object.getWorldPosition(worldPosition);
+    const worldQuaternion = new THREE.Quaternion();
+    object.getWorldQuaternion(worldQuaternion);
+
+    const boundingBox = new THREE.Box3();
+    let bounds = null;
+    try {
+      boundingBox.setFromObject(object);
+      const size = new THREE.Vector3();
+      const center = new THREE.Vector3();
+      boundingBox.getSize(size);
+      boundingBox.getCenter(center);
+      bounds = {
+        size: { x: size.x, y: size.y, z: size.z },
+        center: { x: center.x, y: center.y, z: center.z }
+      };
+    } catch (error) {
+      bounds = null;
+    }
+
+    const metadata = this.sanitizePersistableValue(userData);
+
+    const snapshot = {
+      id: objectId,
+      name: object.name || null,
+      type: userData.type || object.type || 'object3d',
+      source: userData.source || null,
+      createdAt: userData.createdAt || null,
+      prompt: userData.prompt || null,
+      model: userData.modelName || null,
+      keywords: Array.isArray(userData.keywords) ? [...userData.keywords] : undefined,
+      transform: {
+        position,
+        rotation,
+        scale,
+        worldPosition: { x: worldPosition.x, y: worldPosition.y, z: worldPosition.z },
+        worldQuaternion: { x: worldQuaternion.x, y: worldQuaternion.y, z: worldQuaternion.z, w: worldQuaternion.w }
+      },
+      bounds: bounds || undefined,
+      metadata: metadata || undefined
+    };
+
+    if (userData.fileUrl || userData.videoUrl || userData.imageUrl) {
+      snapshot.asset = {
+        url: userData.fileUrl || userData.videoUrl || userData.imageUrl || null,
+        fileName: userData.fileName || null,
+        mimeType: userData.mimeType || null
+      };
+    }
+
+    if (!snapshot.keywords) {
+      delete snapshot.keywords;
+    }
+    if (!snapshot.prompt) {
+      delete snapshot.prompt;
+    }
+    if (!snapshot.model) {
+      delete snapshot.model;
+    }
+    if (!snapshot.bounds) {
+      delete snapshot.bounds;
+    }
+    if (!snapshot.metadata) {
+      delete snapshot.metadata;
+    }
+    if (!snapshot.asset) {
+      delete snapshot.asset;
+    }
+
+    return snapshot;
+  }
+
+  /**
+   * スナップショットをキャッシュし変化判定
+   * @param {THREE.Object3D} object
+   * @returns {{snapshot: object|null, changed: boolean, previous: object|null}}
+   */
+  storeSnapshot(object) {
+    const snapshot = this.captureObjectSnapshot(object);
+    if (!snapshot || !snapshot.id) {
+      return { snapshot, changed: true, previous: null };
+    }
+
+    const cached = this.objectSnapshotCache.get(snapshot.id);
+    const previous = cached ? cached.snapshot : null;
+
+    const position = snapshot.transform?.position || { x: 0, y: 0, z: 0 };
+    const rotation = snapshot.transform?.rotation || { x: 0, y: 0, z: 0 };
+    const scale = snapshot.transform?.scale || { x: 1, y: 1, z: 1 };
+
+    const key = [
+      position.x?.toFixed?.(3) ?? position.x,
+      position.y?.toFixed?.(3) ?? position.y,
+      position.z?.toFixed?.(3) ?? position.z,
+      rotation.x?.toFixed?.(3) ?? rotation.x,
+      rotation.y?.toFixed?.(3) ?? rotation.y,
+      rotation.z?.toFixed?.(3) ?? rotation.z,
+      scale.x?.toFixed?.(3) ?? scale.x,
+      scale.y?.toFixed?.(3) ?? scale.y,
+      scale.z?.toFixed?.(3) ?? scale.z
+    ].join('|');
+
+    const changed = !cached || cached.key !== key;
+    this.objectSnapshotCache.set(snapshot.id, {
+      key,
+      snapshot,
+      timestamp: Date.now()
+    });
+
+    return { snapshot, changed, previous };
+  }
+
+  /**
+   * シーンイベントを記録
+   * @param {'created'|'modified'|'removed'|'cleared'} eventType
+   * @param {THREE.Object3D|null} object
+   * @param {object} extra
+   * @returns {object}
+   */
+  recordSceneEvent(eventType, object, extra = {}) {
+    const { snapshotOverride = null, objectId: explicitObjectId = null, context = undefined, changes = undefined, notes = undefined } = extra;
+
+    const timestamp = Date.now();
+    const snapshot = snapshotOverride || (object ? this.captureObjectSnapshot(object) : null);
+    const objectId = explicitObjectId || snapshot?.id || object?.userData?.id || object?.name || null;
+
+    const entry = {
+      id: `${eventType}_${timestamp}_${Math.floor(Math.random() * 1000)}`,
+      eventType,
+      timestamp,
+      objectId,
+      snapshot: snapshot || null
+    };
+
+    if (context !== undefined) {
+      entry.context = context;
+    }
+
+    if (changes !== undefined) {
+      entry.changes = changes;
+    }
+
+    if (notes !== undefined) {
+      entry.notes = notes;
+    }
+
+    this.sceneJournal.push(entry);
+    if (this.sceneJournal.length > this.maxSceneJournalEntries) {
+      this.sceneJournal.splice(0, this.sceneJournal.length - this.maxSceneJournalEntries);
+    }
+
+    if (eventType === 'removed' && objectId) {
+      this.objectSnapshotCache.delete(objectId);
+    }
+
+    const event = this.emitSceneChange('object-event', {
+      eventType,
+      entry
+    });
+
+    entry.version = event.version;
+    return entry;
+  }
+
+  /**
+   * 現在のシーン状態を取得
+   * @param {{includeJournal?: boolean}} options
+   * @returns {object}
+   */
+  getSceneState(options = {}) {
+    const { includeJournal = true } = options;
+    const objects = Array.from(this.spawnedObjects.values())
+      .map((object) => this.captureObjectSnapshot(object))
+      .filter((snapshot) => snapshot && snapshot.id);
+
+    const cameraSnapshot = this.camera ? {
+      position: { x: this.camera.position.x, y: this.camera.position.y, z: this.camera.position.z },
+      rotation: {
+        x: this.camera.rotation.x,
+        y: this.camera.rotation.y,
+        z: this.camera.rotation.z
+      },
+      quaternion: this.camera.quaternion ? {
+        x: this.camera.quaternion.x,
+        y: this.camera.quaternion.y,
+        z: this.camera.quaternion.z,
+        w: this.camera.quaternion.w
+      } : undefined,
+      fov: this.camera.fov,
+      near: this.camera.near,
+      far: this.camera.far
+    } : null;
+
+    const state = {
+      version: this.sceneStateVersion,
+      exportedAt: new Date().toISOString(),
+      objectCount: objects.length,
+      objects,
+      camera: cameraSnapshot || undefined,
+      journal: includeJournal ? [...this.sceneJournal] : undefined
+    };
+
+    if (!state.camera) {
+      delete state.camera;
+    }
+    if (!includeJournal) {
+      delete state.journal;
+    }
+
+    return state;
+  }
+
+  /**
+   * シーン状態をJSONとしてエクスポート
+   * @param {{includeJournal?: boolean, download?: boolean, fileName?: string}} options
+   * @returns {object}
+   */
+  exportSceneState(options = {}) {
+    const { includeJournal = true, download = true, fileName } = options;
+    const state = this.getSceneState({ includeJournal });
+
+    if (download !== false && typeof document !== 'undefined') {
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const defaultName = `chocodrop-scene-${timestamp}.json`;
+      this.downloadJson(state, fileName || defaultName);
+    }
+
+    return state;
+  }
+
+  /**
+   * JSONダウンロードを実行
+   * @param {object} data
+   * @param {string} fileName
+   */
+  downloadJson(data, fileName) {
+    try {
+      if (typeof document === 'undefined' || typeof window === 'undefined' || typeof Blob === 'undefined') {
+        console.warn('⚠️ JSON download is not supported in this environment');
+        return;
+      }
+      const json = JSON.stringify(data, null, 2);
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.warn('⚠️ Failed to download JSON:', error);
+    }
+  }
+
+  /**
+   * オブジェクト変更をジャーナルへ記録
+   * @param {string|THREE.Object3D} target
+   * @param {object} context
+   */
+  markObjectModified(target, context = {}) {
+    const object = typeof target === 'string' ? this.spawnedObjects.get(target) : target;
+    if (!object) {
+      return;
+    }
+
+    const snapshotResult = this.storeSnapshot(object);
+    if (!snapshotResult.changed) {
+      return;
+    }
+
+    this.recordSceneEvent('modified', object, {
+      context,
+      snapshotOverride: snapshotResult.snapshot,
+      changes: {
+        transform: snapshotResult.snapshot.transform
+      }
+    });
+  }
+
+  /**
+   * 生成オブジェクトを登録
+   * @param {string} objectId
+   * @param {THREE.Object3D} object
+   * @param {object} context
+   */
+  registerSpawnedObject(objectId, object, context = {}) {
+    if (!object) {
+      return;
+    }
+
+    const resolvedId = objectId || object.userData?.id || object.name;
+    if (!resolvedId) {
+      throw new Error('Object ID is required to register a spawned object');
+    }
+
+    if (!object.userData) {
+      object.userData = {};
+    }
+    if (!object.userData.id) {
+      object.userData.id = resolvedId;
+    }
+
+    if (!object.name) {
+      object.name = resolvedId;
+    }
+
+    this.spawnedObjects.set(resolvedId, object);
+    const snapshotResult = this.storeSnapshot(object);
+    this.recordSceneEvent('created', object, {
+      objectId: resolvedId,
+      context,
+      snapshotOverride: snapshotResult.snapshot
+    });
+  }
+
+  /**
+   * シーンジャーナルをクリア
+   */
+  clearSceneJournal() {
+    this.sceneJournal = [];
+    this.objectSnapshotCache.clear();
+    this.emitSceneChange('journal-cleared', {});
+  }
+
+  /**
    * 生成されたオブジェクト一覧取得
    */
   getSpawnedObjects() {
@@ -4156,6 +4625,7 @@ export class SceneManager {
   removeObject(objectId) {
     const object = this.spawnedObjects.get(objectId);
     if (object) {
+      const removalSnapshot = this.captureObjectSnapshot(object);
       if (object.userData?.videoElement) {
         const videoElement = object.userData.videoElement;
         try {
@@ -4194,6 +4664,12 @@ export class SceneManager {
       if (object.userData?.animationMixer) {
         this.animationMixers.delete(object.userData.animationMixer);
       }
+
+      this.recordSceneEvent('removed', object, {
+        objectId,
+        snapshotOverride: removalSnapshot,
+        context: { trigger: 'removeObject' }
+      });
 
       this.experimentGroup.remove(object);
       this.spawnedObjects.delete(objectId);
