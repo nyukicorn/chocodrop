@@ -47,6 +47,12 @@ export class SceneManager {
     this.audioControlUpdateListener = null;
     this.scaleButtonUpdateInterval = null; // スケールボタン位置更新用インターバル
     this.animationMixers = new Set();
+    this.sceneJournal = [];
+    this.maxSceneJournalEntries = options.maxSceneJournalEntries || 200;
+    this.sceneChangeListeners = new Set();
+    this.sceneStateVersion = 0;
+    this.objectSnapshotCache = new Map();
+    this.isRestoring = false;
     this.gltfLoader = null;
 
     // Animation管理（UI要素用）
@@ -576,6 +582,7 @@ export class SceneManager {
     const endDragging = () => {
       if (isDragging && dragObject) {
         console.log(`✅ Finished dragging: ${dragObject.name} to (${dragObject.position.x.toFixed(1)}, ${dragObject.position.y.toFixed(1)}, ${dragObject.position.z.toFixed(1)})`);
+        this.markObjectModified(dragObject, { trigger: 'drag' });
 
         isDragging = false;
         dragObject = null;
@@ -619,7 +626,8 @@ export class SceneManager {
       const moveStep = event.shiftKey ? 0.1 : 0.5; // Shift: 0.1単位, 通常: 0.5単位
       let rotated = false;
       let moved = false;
-      
+      let scaled = false;
+
       switch (event.key) {
         case 'ArrowLeft':
           object.rotation.y -= rotationStep;
@@ -671,6 +679,7 @@ export class SceneManager {
             // console.log(`📐 Resized ${object.userData.type || 'object'}: ${object.name} to ${(newScale * 100).toFixed(0)}% (+${increment})`);
             this.showScaleToast(newScale);
             event.preventDefault();
+            scaled = true;
           }
           break;
         case '-':
@@ -685,6 +694,7 @@ export class SceneManager {
             // console.log(`📐 Resized ${object.userData.type || 'object'}: ${object.name} to ${(newScale * 100).toFixed(0)}% (-${increment})`);
             this.showScaleToast(newScale);
             event.preventDefault();
+            scaled = true;
           }
           break;
         case 'i':
@@ -748,6 +758,15 @@ export class SceneManager {
         };
         const moveAmount = event.shiftKey ? '0.1' : '0.5';
         console.log(`🎮 Moved ${object.userData.type}: ${object.name} to (${position.x}, ${position.y}, ${position.z}) [step: ${moveAmount}]`);
+      }
+
+      if (rotated || moved || scaled) {
+        this.markObjectModified(object, {
+          trigger: 'keyboard-transform',
+          rotated,
+          moved,
+          scaled
+        });
       }
     });
 
@@ -2208,7 +2227,10 @@ export class SceneManager {
       };
 
       this.experimentGroup.add(modelRoot);
-      this.spawnedObjects.set(objectId, modelRoot);
+      this.registerSpawnedObject(objectId, modelRoot, {
+        reason: 'imported_3d_model',
+        fileName: fileName || null
+      });
 
       if (this.config.showLocationIndicator) {
         this.createLocationIndicator(position);
@@ -2928,6 +2950,7 @@ export class SceneManager {
       
       const loader = new THREE.TextureLoader();
       let texture;
+      let assetUrl = null;
       if (imageResult && imageResult.success && (imageResult.imageUrl || imageResult.localPath)) {
         // 成功: 生成された画像をテクスチャとして使用
         let imageUrl = imageResult.imageUrl;
@@ -2937,7 +2960,8 @@ export class SceneManager {
           const filename = imageResult.localPath.split('/').pop();
           imageUrl = `${this.client.serverUrl}/generated/${filename}`;
         }
-        
+        assetUrl = imageUrl || null;
+
         console.log(`✅ Image generated successfully: ${imageUrl}`);
         texture = await loader.loadAsync(imageUrl);
 
@@ -3001,6 +3025,8 @@ export class SceneManager {
       // 識別用の名前とメタデータ
       const objectId = `generated_${++this.objectCounter}`;
       plane.name = objectId;
+      const assetFileName = assetUrl ? assetUrl.split('/').pop() : null;
+
       plane.userData = {
         id: objectId,
         prompt: parsed.prompt,
@@ -3008,12 +3034,21 @@ export class SceneManager {
         type: 'generated_image',
         source: 'generated_image',
         modelName: imageResult?.modelName || this.selectedImageService || null,
+        imageUrl: assetUrl,
+        fileUrl: assetUrl,
+        fileName: assetFileName,
+        pixelWidth: imageWidth,
+        pixelHeight: imageHeight,
         keywords: this.buildObjectKeywordHints({ prompt: parsed.prompt, baseType: 'image' }),
         originalOpacity: 1.0  // 元の透明度を保存
       };
       
       this.experimentGroup.add(plane);
-      this.spawnedObjects.set(objectId, plane);
+      this.registerSpawnedObject(objectId, plane, {
+        reason: 'generated_image',
+        prompt: parsed.prompt,
+        assetUrl
+      });
 
       console.log(`✅ Created object: ${objectId} at (${parsed.position.x}, ${parsed.position.y}, ${parsed.position.z})`);
 
@@ -3062,6 +3097,8 @@ export class SceneManager {
       
       let videoTexture;
       let video = null; // video変数をスコープ外で定義
+      let assetUrl = null;
+      let assetFileName = null;
       const videoSuccess = videoResult.success && videoResult.videoUrl;
       
       if (videoSuccess) {
@@ -3079,6 +3116,8 @@ export class SceneManager {
         // 動画テクスチャを作成
         videoTexture = new THREE.VideoTexture(video);
         videoTexture.colorSpace = THREE.SRGBColorSpace;
+        assetUrl = videoResult.videoUrl;
+        assetFileName = assetUrl ? assetUrl.split('/').pop() : null;
         
         // 動画の自動再生を開始
         video.addEventListener('loadeddata', () => {
@@ -3146,6 +3185,8 @@ export class SceneManager {
         type: 'generated_video',
         source: 'generated_video',
         videoUrl: videoResult.videoUrl,
+        fileUrl: assetUrl,
+        fileName: assetFileName,
         modelName: videoResult.modelName || this.selectedVideoService || null,
         width: requestedWidth,
         height: requestedHeight,
@@ -3158,7 +3199,11 @@ export class SceneManager {
       this.createAudioControl(plane);
       
       this.experimentGroup.add(plane);
-      this.spawnedObjects.set(objectId, plane);
+      this.registerSpawnedObject(objectId, plane, {
+        reason: 'generated_video',
+        prompt: parsed.prompt,
+        assetUrl
+      });
       
       console.log(`✅ Created video object: ${objectId} at (${parsed.position.x}, ${parsed.position.y}, ${parsed.position.z})`);
       
@@ -3229,13 +3274,19 @@ export class SceneManager {
       };
 
       // シーンに追加
-      this.scene.add(plane);
+      this.experimentGroup.add(plane);
+      this.registerSpawnedObject(objectId, plane, {
+        reason: 'generated_video_fallback',
+        prompt: parsed.prompt,
+        error: error.message
+      });
       console.log('📍 Fallback video plane added to scene');
 
       return {
         success: false,
         error: error.message,
         object: plane,
+        objectId,
         prompt: parsed.prompt
       };
     }
@@ -3312,14 +3363,21 @@ export class SceneManager {
         createdAt: Date.now(),
         type: 'generated_image',
         prompt: prompt, // ファイル名をpromptとして設定
-        fileName: fileName, // 元のファイル名も保存
+        fileName: fileName,
+        fileUrl,
+        pixelWidth: imageWidth,
+        pixelHeight: imageHeight,
         importOrder: this.objectCounter, // インポート順序を記録
         keywords: this.buildObjectKeywordHints({ prompt, fileName, baseType: 'image' }),
         originalOpacity: 1.0  // 元の透明度を保存
       };
       
       this.experimentGroup.add(plane);
-      this.spawnedObjects.set(objectId, plane);
+      this.registerSpawnedObject(objectId, plane, {
+        reason: 'imported_image',
+        fileName,
+        assetUrl: fileUrl
+      });
 
       console.log(`✅ Created imported image: ${objectId} at (${position.x}, ${position.y}, ${position.z})`);
 
@@ -3426,8 +3484,6 @@ export class SceneManager {
       }
       
       plane.scale.setScalar(1.0);
-      plane.userData.videoTexture = videoTexture;
-      
       // ファイル名からpromptを作成（拡張子を除去）
       const prompt = fileName ? fileName.replace(/\.[^/.]+$/, '') : 'imported_video';
 
@@ -3440,19 +3496,27 @@ export class SceneManager {
         createdAt: Date.now(),
         type: 'generated_video',
         videoElement: video,
-        objectUrl: fileUrl,
+        videoUrl: fileUrl,
+        fileUrl,
         prompt: prompt, // ファイル名をpromptとして設定
-        fileName: fileName, // 元のファイル名も保存
+        fileName: fileName,
+        pixelWidth: video.videoWidth,
+        pixelHeight: video.videoHeight,
         importOrder: this.objectCounter, // インポート順序を記録
         keywords: this.buildObjectKeywordHints({ prompt, fileName, baseType: 'video' }),
         originalOpacity: 1.0  // 元の透明度を保存
       };
+      plane.userData.videoTexture = videoTexture;
 
       // 音声制御UIを作成
       this.createAudioControl(plane);
 
       this.experimentGroup.add(plane);
-      this.spawnedObjects.set(objectId, plane);
+      this.registerSpawnedObject(objectId, plane, {
+        reason: 'imported_video',
+        fileName,
+        assetUrl: fileUrl
+      });
       
       console.log(`✅ Created imported video: ${objectId} at (${position.x}, ${position.y}, ${position.z})`);
       
@@ -4139,6 +4203,816 @@ export class SceneManager {
   }
 
   /**
+   * シーン変更リスナーを登録
+   * @param {(event: object) => void} listener
+   * @returns {() => void}
+   */
+  onSceneChange(listener) {
+    if (typeof listener !== 'function') {
+      return () => {};
+    }
+    this.sceneChangeListeners.add(listener);
+    return () => {
+      this.sceneChangeListeners.delete(listener);
+    };
+  }
+
+  /**
+   * シーン変更イベント通知
+   * @param {string} type
+   * @param {object} detail
+   * @returns {{type: string, version: number, timestamp: number, detail: object}}
+   */
+  emitSceneChange(type, detail = {}) {
+    this.sceneStateVersion += 1;
+    const event = {
+      type,
+      version: this.sceneStateVersion,
+      timestamp: Date.now(),
+      detail
+    };
+
+    this.sceneChangeListeners.forEach((listener) => {
+      try {
+        listener(event);
+      } catch (error) {
+        console.warn('⚠️ Scene change listener failed:', error);
+      }
+    });
+
+    return event;
+  }
+
+  /**
+   * 永続化向けに値をサニタイズ
+   * @param {*} value
+   * @param {number} depth
+   * @returns {*|undefined}
+   */
+  sanitizePersistableValue(value, depth = 0) {
+    if (depth > 4) {
+      return undefined;
+    }
+
+    if (value === null || value === undefined) {
+      return value;
+    }
+
+    const type = typeof value;
+    if (type === 'string' || type === 'number' || type === 'boolean') {
+      return Number.isNaN(value) ? undefined : value;
+    }
+
+    if (value instanceof Date) {
+      return value.toISOString();
+    }
+
+    if (Array.isArray(value)) {
+      const sanitizedArray = value
+        .map((item) => this.sanitizePersistableValue(item, depth + 1))
+        .filter((item) => item !== undefined);
+      return sanitizedArray.length > 0 ? sanitizedArray : undefined;
+    }
+
+    if (value && (value.isVector3 || value instanceof THREE.Vector3)) {
+      return { x: value.x, y: value.y, z: value.z };
+    }
+
+    if (value && (value.isEuler || value instanceof THREE.Euler)) {
+      return { x: value.x, y: value.y, z: value.z, order: value.order };
+    }
+
+    if (value && (value.isQuaternion || value instanceof THREE.Quaternion)) {
+      return { x: value.x, y: value.y, z: value.z, w: value.w };
+    }
+
+    if (value && (value.isColor || value instanceof THREE.Color)) {
+      return typeof value.getHexString === 'function' ? `#${value.getHexString()}` : undefined;
+    }
+
+    if (typeof Element !== 'undefined' && value instanceof Element) {
+      return undefined;
+    }
+
+    if (type === 'function') {
+      return undefined;
+    }
+
+    const proto = Object.getPrototypeOf(value);
+    if (!proto || proto === Object.prototype) {
+      const result = {};
+      Object.entries(value).forEach(([key, val]) => {
+        const sanitized = this.sanitizePersistableValue(val, depth + 1);
+        if (sanitized !== undefined) {
+          result[key] = sanitized;
+        }
+      });
+      return Object.keys(result).length > 0 ? result : undefined;
+    }
+
+    return undefined;
+  }
+
+  /**
+   * Object3Dのスナップショット生成
+   * @param {THREE.Object3D} object
+   * @returns {object|null}
+   */
+  captureObjectSnapshot(object) {
+    if (!object) {
+      return null;
+    }
+
+    const userData = object.userData || {};
+    const objectId = userData.id || object.name || object.uuid || null;
+
+    const position = object.position
+      ? { x: object.position.x, y: object.position.y, z: object.position.z }
+      : null;
+    const rotation = object.rotation
+      ? { x: object.rotation.x, y: object.rotation.y, z: object.rotation.z }
+      : null;
+    const scale = object.scale
+      ? { x: object.scale.x, y: object.scale.y, z: object.scale.z }
+      : null;
+
+    const worldPosition = new THREE.Vector3();
+    object.getWorldPosition(worldPosition);
+    const worldQuaternion = new THREE.Quaternion();
+    object.getWorldQuaternion(worldQuaternion);
+
+    const boundingBox = new THREE.Box3();
+    let bounds = null;
+    try {
+      boundingBox.setFromObject(object);
+      const size = new THREE.Vector3();
+      const center = new THREE.Vector3();
+      boundingBox.getSize(size);
+      boundingBox.getCenter(center);
+      bounds = {
+        size: { x: size.x, y: size.y, z: size.z },
+        center: { x: center.x, y: center.y, z: center.z }
+      };
+    } catch (error) {
+      bounds = null;
+    }
+
+    const metadata = this.sanitizePersistableValue(userData);
+
+    const snapshot = {
+      id: objectId,
+      name: object.name || null,
+      type: userData.type || object.type || 'object3d',
+      source: userData.source || null,
+      createdAt: userData.createdAt || null,
+      prompt: userData.prompt || null,
+      model: userData.modelName || null,
+      keywords: Array.isArray(userData.keywords) ? [...userData.keywords] : undefined,
+      transform: {
+        position,
+        rotation,
+        scale,
+        worldPosition: { x: worldPosition.x, y: worldPosition.y, z: worldPosition.z },
+        worldQuaternion: { x: worldQuaternion.x, y: worldQuaternion.y, z: worldQuaternion.z, w: worldQuaternion.w }
+      },
+      bounds: bounds || undefined,
+      metadata: metadata || undefined
+    };
+
+    if (userData.fileUrl || userData.videoUrl || userData.imageUrl) {
+      snapshot.asset = {
+        url: userData.fileUrl || userData.videoUrl || userData.imageUrl || null,
+        fileName: userData.fileName || null,
+        mimeType: userData.mimeType || null
+      };
+    }
+
+    if (!snapshot.keywords) {
+      delete snapshot.keywords;
+    }
+    if (!snapshot.prompt) {
+      delete snapshot.prompt;
+    }
+    if (!snapshot.model) {
+      delete snapshot.model;
+    }
+    if (!snapshot.bounds) {
+      delete snapshot.bounds;
+    }
+    if (!snapshot.metadata) {
+      delete snapshot.metadata;
+    }
+    if (!snapshot.asset) {
+      delete snapshot.asset;
+    }
+
+    return snapshot;
+  }
+
+  /**
+   * スナップショットをキャッシュし変化判定
+   * @param {THREE.Object3D} object
+   * @returns {{snapshot: object|null, changed: boolean, previous: object|null}}
+   */
+  storeSnapshot(object) {
+    const snapshot = this.captureObjectSnapshot(object);
+    if (!snapshot || !snapshot.id) {
+      return { snapshot, changed: true, previous: null };
+    }
+
+    const cached = this.objectSnapshotCache.get(snapshot.id);
+    const previous = cached ? cached.snapshot : null;
+
+    const position = snapshot.transform?.position || { x: 0, y: 0, z: 0 };
+    const rotation = snapshot.transform?.rotation || { x: 0, y: 0, z: 0 };
+    const scale = snapshot.transform?.scale || { x: 1, y: 1, z: 1 };
+
+    const key = [
+      position.x?.toFixed?.(3) ?? position.x,
+      position.y?.toFixed?.(3) ?? position.y,
+      position.z?.toFixed?.(3) ?? position.z,
+      rotation.x?.toFixed?.(3) ?? rotation.x,
+      rotation.y?.toFixed?.(3) ?? rotation.y,
+      rotation.z?.toFixed?.(3) ?? rotation.z,
+      scale.x?.toFixed?.(3) ?? scale.x,
+      scale.y?.toFixed?.(3) ?? scale.y,
+      scale.z?.toFixed?.(3) ?? scale.z
+    ].join('|');
+
+    const changed = !cached || cached.key !== key;
+    this.objectSnapshotCache.set(snapshot.id, {
+      key,
+      snapshot,
+      timestamp: Date.now()
+    });
+
+    return { snapshot, changed, previous };
+  }
+
+  /**
+   * シーンイベントを記録
+   * @param {'created'|'modified'|'removed'|'cleared'} eventType
+   * @param {THREE.Object3D|null} object
+   * @param {object} extra
+   * @returns {object}
+   */
+  recordSceneEvent(eventType, object, extra = {}) {
+    if (this.isRestoring) {
+      return {
+        id: `${eventType}_restoring_${Date.now()}`,
+        eventType,
+        timestamp: Date.now(),
+        objectId: object?.userData?.id || extra?.objectId || null,
+        snapshot: null,
+        restoring: true
+      };
+    }
+
+    const { snapshotOverride = null, objectId: explicitObjectId = null, context = undefined, changes = undefined, notes = undefined } = extra;
+
+    const timestamp = Date.now();
+    const snapshot = snapshotOverride || (object ? this.captureObjectSnapshot(object) : null);
+    const objectId = explicitObjectId || snapshot?.id || object?.userData?.id || object?.name || null;
+
+    const entry = {
+      id: `${eventType}_${timestamp}_${Math.floor(Math.random() * 1000)}`,
+      eventType,
+      timestamp,
+      objectId,
+      snapshot: snapshot || null
+    };
+
+    if (context !== undefined) {
+      entry.context = context;
+    }
+
+    if (changes !== undefined) {
+      entry.changes = changes;
+    }
+
+    if (notes !== undefined) {
+      entry.notes = notes;
+    }
+
+    this.sceneJournal.push(entry);
+    if (this.sceneJournal.length > this.maxSceneJournalEntries) {
+      this.sceneJournal.splice(0, this.sceneJournal.length - this.maxSceneJournalEntries);
+    }
+
+    if (eventType === 'removed' && objectId) {
+      this.objectSnapshotCache.delete(objectId);
+    }
+
+    const event = this.emitSceneChange('object-event', {
+      eventType,
+      entry
+    });
+
+    entry.version = event.version;
+    return entry;
+  }
+
+  /**
+   * 現在のシーン状態を取得
+   * @param {{includeJournal?: boolean}} options
+   * @returns {object}
+   */
+  getSceneState(options = {}) {
+    const { includeJournal = true } = options;
+    const objects = Array.from(this.spawnedObjects.values())
+      .map((object) => this.captureObjectSnapshot(object))
+      .filter((snapshot) => snapshot && snapshot.id);
+
+    const cameraSnapshot = this.camera ? {
+      position: { x: this.camera.position.x, y: this.camera.position.y, z: this.camera.position.z },
+      rotation: {
+        x: this.camera.rotation.x,
+        y: this.camera.rotation.y,
+        z: this.camera.rotation.z
+      },
+      quaternion: this.camera.quaternion ? {
+        x: this.camera.quaternion.x,
+        y: this.camera.quaternion.y,
+        z: this.camera.quaternion.z,
+        w: this.camera.quaternion.w
+      } : undefined,
+      fov: this.camera.fov,
+      near: this.camera.near,
+      far: this.camera.far
+    } : null;
+
+    const state = {
+      version: this.sceneStateVersion,
+      exportedAt: new Date().toISOString(),
+      objectCount: objects.length,
+      objects,
+      camera: cameraSnapshot || undefined,
+      journal: includeJournal ? [...this.sceneJournal] : undefined
+    };
+
+    if (!state.camera) {
+      delete state.camera;
+    }
+    if (!includeJournal) {
+      delete state.journal;
+    }
+
+    return state;
+  }
+
+  /**
+   * シーン状態をJSONとしてエクスポート
+   * @param {{includeJournal?: boolean, download?: boolean, fileName?: string}} options
+   * @returns {object}
+   */
+  exportSceneState(options = {}) {
+    const { includeJournal = true, download = true, fileName } = options;
+    const state = this.getSceneState({ includeJournal });
+
+    if (download !== false && typeof document !== 'undefined') {
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const defaultName = `chocodrop-scene-${timestamp}.json`;
+      this.downloadJson(state, fileName || defaultName);
+    }
+
+    return state;
+  }
+
+  /**
+   * JSONダウンロードを実行
+   * @param {object} data
+   * @param {string} fileName
+   */
+  downloadJson(data, fileName) {
+    try {
+      if (typeof document === 'undefined' || typeof window === 'undefined' || typeof Blob === 'undefined') {
+        console.warn('⚠️ JSON download is not supported in this environment');
+        return;
+      }
+      const json = JSON.stringify(data, null, 2);
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.warn('⚠️ Failed to download JSON:', error);
+    }
+  }
+
+  /**
+   * オブジェクト変更をジャーナルへ記録
+   * @param {string|THREE.Object3D} target
+   * @param {object} context
+   */
+  markObjectModified(target, context = {}) {
+    if (this.isRestoring) {
+      return;
+    }
+
+    const object = typeof target === 'string' ? this.spawnedObjects.get(target) : target;
+    if (!object) {
+      return;
+    }
+
+    const snapshotResult = this.storeSnapshot(object);
+    if (!snapshotResult.changed) {
+      return;
+    }
+
+    this.recordSceneEvent('modified', object, {
+      context,
+      snapshotOverride: snapshotResult.snapshot,
+      changes: {
+        transform: snapshotResult.snapshot.transform
+      }
+    });
+  }
+
+  /**
+   * 生成オブジェクトを登録
+   * @param {string} objectId
+   * @param {THREE.Object3D} object
+   * @param {object} context
+   */
+  registerSpawnedObject(objectId, object, context = {}) {
+    if (!object) {
+      return;
+    }
+
+    const resolvedId = objectId || object.userData?.id || object.name;
+    if (!resolvedId) {
+      throw new Error('Object ID is required to register a spawned object');
+    }
+
+    if (!object.userData) {
+      object.userData = {};
+    }
+    if (!object.userData.id) {
+      object.userData.id = resolvedId;
+    }
+
+    if (!object.name) {
+      object.name = resolvedId;
+    }
+
+    this.spawnedObjects.set(resolvedId, object);
+    const snapshotResult = this.storeSnapshot(object);
+    this.recordSceneEvent('created', object, {
+      objectId: resolvedId,
+      context,
+      snapshotOverride: snapshotResult.snapshot
+    });
+  }
+
+  /**
+   * シーンジャーナルをクリア
+   */
+  clearSceneJournal() {
+    this.sceneJournal = [];
+    this.objectSnapshotCache.clear();
+    this.emitSceneChange('journal-cleared', {});
+  }
+
+  /**
+   * スナップショットデータからシーンを復元
+   * @param {object} state - 保存されたシーンデータ
+   * @param {object} options
+   * @param {boolean} [options.clearExisting=true] - 既存オブジェクトを消すか
+   * @param {boolean} [options.applyCamera=true] - カメラを復元するか
+   * @returns {Promise<{loaded: number, failed: number}>}
+   */
+  async loadSceneState(state, options = {}) {
+    if (!state || typeof state !== 'object') {
+      throw new Error('無効なシーンデータです。JSONを確認してください。');
+    }
+
+    const { clearExisting = true, applyCamera = true } = options;
+    const objects = Array.isArray(state.objects) ? state.objects : [];
+
+    let loadedCount = 0;
+    let failedCount = 0;
+    let maxIdSeed = this.objectCounter;
+
+    this.isRestoring = true;
+
+    try {
+      if (clearExisting) {
+        this.clearAll();
+        this.clearSceneJournal();
+      }
+
+      for (const snapshot of objects) {
+        try {
+          const object = await this.restoreObjectFromSnapshot(snapshot);
+          if (object) {
+            loadedCount += 1;
+            const numericId = this.extractNumericId(snapshot?.id);
+            if (numericId !== null) {
+              maxIdSeed = Math.max(maxIdSeed, numericId);
+            }
+          }
+        } catch (error) {
+          failedCount += 1;
+          console.warn(`⚠️ Failed to restore object ${snapshot?.id || '(unknown)'}`, error);
+        }
+      }
+
+      if (applyCamera && this.camera && state.camera) {
+        this.applyCameraSnapshot(state.camera);
+      }
+
+      if (Array.isArray(state.journal)) {
+        this.sceneJournal = [...state.journal];
+      }
+
+      if (typeof state.version === 'number') {
+        this.sceneStateVersion = state.version;
+      } else {
+        this.sceneStateVersion += 1;
+      }
+
+      this.objectCounter = Math.max(this.objectCounter, maxIdSeed);
+
+      // キャッシュを最新化
+      this.objectSnapshotCache.clear();
+      this.spawnedObjects.forEach((object) => {
+        this.storeSnapshot(object);
+      });
+    } finally {
+      this.isRestoring = false;
+    }
+
+    this.emitSceneChange('scene-restored', {
+      loaded: loadedCount,
+      failed: failedCount,
+      version: this.sceneStateVersion
+    });
+
+    return { loaded: loadedCount, failed: failedCount };
+  }
+
+  extractNumericId(id) {
+    if (typeof id !== 'string') {
+      return null;
+    }
+    const match = id.match(/_(\d+)$/);
+    return match ? parseInt(match[1], 10) : null;
+  }
+
+  applyCameraSnapshot(snapshot) {
+    if (!snapshot || !this.camera) return;
+
+    if (snapshot.position && typeof snapshot.position === 'object') {
+      this.camera.position.set(
+        snapshot.position.x ?? this.camera.position.x,
+        snapshot.position.y ?? this.camera.position.y,
+        snapshot.position.z ?? this.camera.position.z
+      );
+    }
+
+    if (snapshot.quaternion && typeof snapshot.quaternion === 'object' && this.camera.quaternion) {
+      this.camera.quaternion.set(
+        snapshot.quaternion.x ?? this.camera.quaternion.x,
+        snapshot.quaternion.y ?? this.camera.quaternion.y,
+        snapshot.quaternion.z ?? this.camera.quaternion.z,
+        snapshot.quaternion.w ?? this.camera.quaternion.w
+      );
+    } else if (snapshot.rotation && typeof snapshot.rotation === 'object') {
+      this.camera.rotation.set(
+        snapshot.rotation.x ?? this.camera.rotation.x,
+        snapshot.rotation.y ?? this.camera.rotation.y,
+        snapshot.rotation.z ?? this.camera.rotation.z
+      );
+    }
+
+    if (typeof snapshot.fov === 'number' && this.camera.fov !== undefined) {
+      this.camera.fov = snapshot.fov;
+    }
+    if (typeof snapshot.near === 'number' && this.camera.near !== undefined) {
+      this.camera.near = snapshot.near;
+    }
+    if (typeof snapshot.far === 'number' && this.camera.far !== undefined) {
+      this.camera.far = snapshot.far;
+    }
+
+    if (typeof this.camera.updateProjectionMatrix === 'function') {
+      this.camera.updateProjectionMatrix();
+    }
+  }
+
+  async restoreObjectFromSnapshot(snapshot) {
+    if (!snapshot || typeof snapshot !== 'object') {
+      throw new Error('不正なオブジェクトスナップショットです');
+    }
+
+    const type = snapshot.type || snapshot.metadata?.type || 'object3d';
+    let object = null;
+
+    if (type === 'generated_image' || snapshot.source === 'generated_image' || snapshot.source === 'imported_file_image') {
+      object = await this.restoreImageObject(snapshot);
+    } else if (type === 'generated_video' || snapshot.source === 'generated_video' || snapshot.source === 'imported_file_video') {
+      object = await this.restoreVideoObject(snapshot);
+    } else if (type === 'generated_3d_model' || snapshot.source === 'imported_file') {
+      object = await this.restoreModelObject(snapshot);
+    } else {
+      console.warn(`⚠️ Unsupported object type for restoration: ${type}`);
+      return null;
+    }
+
+    if (!object) {
+      throw new Error(`オブジェクト ${snapshot.id || '(unknown)'} の復元に失敗しました`);
+    }
+
+    this.applyTransformFromSnapshot(object, snapshot.transform);
+    this.finalizeRestoredObject(snapshot, object);
+    return object;
+  }
+
+  async restoreImageObject(snapshot) {
+    const assetUrl = snapshot.asset?.url || snapshot.metadata?.fileUrl || snapshot.metadata?.imageUrl;
+    if (!assetUrl) {
+      throw new Error('画像のURL情報が不足しています');
+    }
+
+    const loader = new THREE.TextureLoader();
+    const texture = await loader.loadAsync(assetUrl);
+    texture.colorSpace = THREE.SRGBColorSpace;
+
+    const width = snapshot.bounds?.size?.x || 6;
+    const height = snapshot.bounds?.size?.y || 6;
+
+    const geometry = new THREE.PlaneGeometry(width, height);
+    const material = new THREE.MeshBasicMaterial({
+      map: texture,
+      transparent: true,
+      opacity: snapshot.metadata?.originalOpacity ?? 1.0,
+      side: THREE.DoubleSide,
+      toneMapped: false
+    });
+
+    const plane = new THREE.Mesh(geometry, material);
+    plane.renderOrder = 1000;
+    return plane;
+  }
+
+  async restoreVideoObject(snapshot) {
+    const assetUrl = snapshot.asset?.url || snapshot.metadata?.videoUrl || snapshot.metadata?.fileUrl;
+    if (!assetUrl) {
+      throw new Error('動画のURL情報が不足しています');
+    }
+
+    const video = document.createElement('video');
+    video.src = assetUrl;
+    video.crossOrigin = 'anonymous';
+    video.loop = true;
+    video.muted = true;
+    video.playsInline = true;
+
+    try {
+      await video.play();
+      video.pause();
+    } catch (error) {
+      console.warn('⚠️ Video autoplay failed during restoration (will require user interaction):', error);
+    }
+
+    const texture = new THREE.VideoTexture(video);
+    texture.colorSpace = THREE.SRGBColorSpace;
+
+    const width = snapshot.bounds?.size?.x || 6;
+    const height = snapshot.bounds?.size?.y || 6;
+
+    const geometry = new THREE.PlaneGeometry(width, height);
+    const material = new THREE.MeshBasicMaterial({
+      map: texture,
+      transparent: false,
+      side: THREE.DoubleSide,
+      toneMapped: false
+    });
+
+    const plane = new THREE.Mesh(geometry, material);
+    plane.userData.videoElement = video;
+    return plane;
+  }
+
+  async restoreModelObject(snapshot) {
+    const assetUrl = snapshot.asset?.url || snapshot.metadata?.fileUrl;
+    if (!assetUrl) {
+      throw new Error('3DモデルのURL情報が不足しています');
+    }
+
+    const loader = await this.ensureGLTFLoader();
+    const gltf = await loader.loadAsync(assetUrl);
+    const modelRoot = gltf.scene || (gltf.scenes && gltf.scenes[0]);
+    if (!modelRoot) {
+      throw new Error('GLBファイルにシーンデータが含まれていません');
+    }
+
+    modelRoot.traverse(node => {
+      if (node.isMesh) {
+        node.castShadow = true;
+        node.receiveShadow = true;
+        if (node.material && node.material.metalness !== undefined) {
+          node.material.metalness = 0;
+          node.material.needsUpdate = true;
+        }
+      }
+    });
+
+    if (gltf.animations && gltf.animations.length > 0) {
+      const mixer = new THREE.AnimationMixer(modelRoot);
+      gltf.animations.forEach(clip => {
+        const action = mixer.clipAction(clip);
+        action.play();
+      });
+      this.animationMixers.add(mixer);
+      modelRoot.userData = {
+        ...(modelRoot.userData || {}),
+        animationMixer: mixer,
+        animationClips: gltf.animations
+      };
+      this.startAnimationLoop();
+    }
+
+    return modelRoot;
+  }
+
+  applyTransformFromSnapshot(object, transform) {
+    if (!transform || !object) return;
+
+    if (transform.position) {
+      object.position.set(
+        transform.position.x ?? object.position.x,
+        transform.position.y ?? object.position.y,
+        transform.position.z ?? object.position.z
+      );
+    }
+
+    if (transform.rotation) {
+      object.rotation.set(
+        transform.rotation.x ?? object.rotation.x,
+        transform.rotation.y ?? object.rotation.y,
+        transform.rotation.z ?? object.rotation.z
+      );
+    }
+
+    if (transform.scale) {
+      object.scale.set(
+        transform.scale.x ?? object.scale.x,
+        transform.scale.y ?? object.scale.y,
+        transform.scale.z ?? object.scale.z
+      );
+    }
+  }
+
+  finalizeRestoredObject(snapshot, object) {
+    const metadata = snapshot.metadata && typeof snapshot.metadata === 'object' ? { ...snapshot.metadata } : {};
+    const asset = snapshot.asset && typeof snapshot.asset === 'object' ? { ...snapshot.asset } : null;
+
+    object.name = snapshot.name || snapshot.id || object.name;
+    object.userData = {
+      ...metadata,
+      id: snapshot.id || metadata.id || object.name,
+      type: snapshot.type || metadata.type,
+      source: snapshot.source || metadata.source,
+      createdAt: snapshot.createdAt || metadata.createdAt || Date.now(),
+      restored: true
+    };
+
+    if (asset?.url) {
+      if (!object.userData.fileUrl) object.userData.fileUrl = asset.url;
+      if (!object.userData.videoUrl && snapshot.type === 'generated_video') {
+        object.userData.videoUrl = asset.url;
+      }
+      if (!object.userData.imageUrl && snapshot.type === 'generated_image') {
+        object.userData.imageUrl = asset.url;
+      }
+      if (asset.fileName && !object.userData.fileName) {
+        object.userData.fileName = asset.fileName;
+      }
+      if (asset.mimeType && !object.userData.mimeType) {
+        object.userData.mimeType = asset.mimeType;
+      }
+    }
+
+    if (!object.userData.originalScale) {
+      object.userData.originalScale = object.scale.clone ? object.scale.clone() : object.userData.originalScale;
+    }
+
+    this.experimentGroup.add(object);
+    const objectId = object.userData.id;
+    if (objectId) {
+      this.spawnedObjects.set(objectId, object);
+    }
+
+    this.storeSnapshot(object);
+  }
+
+  /**
    * 生成されたオブジェクト一覧取得
    */
   getSpawnedObjects() {
@@ -4156,6 +5030,7 @@ export class SceneManager {
   removeObject(objectId) {
     const object = this.spawnedObjects.get(objectId);
     if (object) {
+      const removalSnapshot = this.captureObjectSnapshot(object);
       if (object.userData?.videoElement) {
         const videoElement = object.userData.videoElement;
         try {
@@ -4194,6 +5069,12 @@ export class SceneManager {
       if (object.userData?.animationMixer) {
         this.animationMixers.delete(object.userData.animationMixer);
       }
+
+      this.recordSceneEvent('removed', object, {
+        objectId,
+        snapshotOverride: removalSnapshot,
+        context: { trigger: 'removeObject' }
+      });
 
       this.experimentGroup.remove(object);
       this.spawnedObjects.delete(objectId);
@@ -4238,6 +5119,11 @@ export class SceneManager {
   clearAll() {
     const objectIds = Array.from(this.spawnedObjects.keys());
     objectIds.forEach(id => this.removeObject(id));
+    if (objectIds.length > 0) {
+      this.recordSceneEvent('cleared', null, {
+        context: { removedIds: objectIds }
+      });
+    }
     console.log('🧹 Cleared all experimental objects');
   }
 
@@ -5173,6 +6059,10 @@ export class SceneManager {
           object.scale.setScalar(newScale);
           // console.log(`📐 Scale set to ${value}% via direct input`);
           this.showScaleToast(newScale);
+          this.markObjectModified(object, {
+            trigger: 'scale-input',
+            value: newScale
+          });
         } else {
           console.warn(`⚠️ Invalid scale value: ${input.value}% (range: 20-500%)`);
           // 無効な値の場合は元に戻す
@@ -5359,6 +6249,10 @@ export class SceneManager {
       const newScale = Math.max(0.2, currentScale * 0.9);
       object.scale.setScalar(newScale);
       this.showScaleToast(newScale);
+      this.markObjectModified(object, {
+        trigger: 'scale-button',
+        direction: 'decrease'
+      });
 
       // 拡大縮小中フラグを立てる（位置固定）
       object.userData.isScaling = true;
@@ -5380,6 +6274,10 @@ export class SceneManager {
       const newScale = Math.min(5.0, currentScale * 1.1);
       object.scale.setScalar(newScale);
       this.showScaleToast(newScale);
+      this.markObjectModified(object, {
+        trigger: 'scale-button',
+        direction: 'increase'
+      });
 
       // 拡大縮小中フラグを立てる（位置固定）
       object.userData.isScaling = true;

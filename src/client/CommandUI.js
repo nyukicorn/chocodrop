@@ -115,6 +115,16 @@ export class CommandUI {
     this.commandHistory = [];
     this.currentHistoryIndex = -1;
     this.maxHistorySize = 50; // 最大コマンド保存数
+
+    this.sceneChangeUnsubscribe = null;
+    this.sceneSaveState = {
+      lastVersion: 0,
+      lastSavedVersion: 0,
+      lastSavedAt: null,
+      dirty: false,
+      isSaving: false
+    };
+    this.sceneLoadInput = null;
     
     this.initUI();
     this.bindEvents();
@@ -128,6 +138,8 @@ export class CommandUI {
     this.createServiceModal();
     this.createFloatingChocolateIcon();
     this.initializeGuidedOnboarding();
+    this.initializeScenePersistence();
+    this.initializeSceneLoadInput();
 
     // DOM読み込み完了後にスタイルを確実に適用
     document.addEventListener('DOMContentLoaded', () => {
@@ -513,27 +525,89 @@ export class CommandUI {
       gap: 8px;
       justify-content: space-between;
       align-items: center;
+      flex-wrap: wrap;
     `;
 
-    // 左側: Clear All ボタン（承認済みのLayout Bデザイン）
+    // 左側: アクションアイコン列
     const leftSection = document.createElement('div');
-    leftSection.style.cssText = 'display: flex; gap: 8px; align-items: center;';
+    leftSection.style.cssText = 'display: flex; gap: 10px; align-items: center;';
 
-    const clearBtn = document.createElement('button');
-    clearBtn.innerHTML = '<span style="filter: hue-rotate(240deg) saturate(0.7) brightness(0.9);">🧹</span> Clear All';
-    clearBtn.style.cssText = this.getActionButtonStyles('secondary');
-    clearBtn.addEventListener('click', () => this.clearAllWithConfirmation());
+    const createIconButton = (symbol, title, onClick, emphasis = false, options = {}) => {
+      const wrapper = document.createElement('div');
+      wrapper.style.cssText = `
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 40px;
+        height: 40px;
+        flex: 0 0 40px;
+      `;
 
-    // 履歴ボタン（将来実装用スペース確保）- 海外UI標準対応：同一幅
-    const historyBtn = document.createElement('button');
-    historyBtn.innerHTML = '<span style="filter: hue-rotate(240deg) saturate(0.7) brightness(0.9);">📚</span> History';
-    historyBtn.style.cssText = this.getActionButtonStyles('secondary');
-    historyBtn.style.opacity = '0.5';
-    historyBtn.disabled = true;
-    historyBtn.title = '履歴機能（開発中）';
+      const btn = document.createElement('button');
+      btn.innerHTML = `<span style="filter: hue-rotate(${emphasis ? 240 : 210}deg) saturate(0.8) brightness(1.0);">${symbol}</span>`;
+      btn.style.cssText = this.getActionButtonStyles('icon');
+      btn.title = title;
+      btn.setAttribute('aria-label', title);
+      if (typeof onClick === 'function') {
+        btn.addEventListener('click', onClick);
+      }
+      if (options.disabled) {
+        btn.disabled = true;
+        btn.style.opacity = '0.5';
+      }
 
-    leftSection.appendChild(clearBtn);
-    leftSection.appendChild(historyBtn);
+      const tooltip = document.createElement('div');
+      tooltip.textContent = title;
+      tooltip.style.cssText = `
+        position: absolute;
+        bottom: -34px;
+        left: 50%;
+        transform: translateX(-50%);
+        padding: 6px 10px;
+        border-radius: 8px;
+        background: rgba(30, 41, 59, 0.9);
+        color: #f8fafc;
+        font-size: 11px;
+        white-space: nowrap;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.15s ease, transform 0.15s ease;
+        box-shadow: 0 4px 12px rgba(15, 23, 42, 0.25);
+        z-index: 10;
+      `;
+
+      const showTooltip = () => {
+        tooltip.style.opacity = '1';
+        tooltip.style.transform = 'translateX(-50%) translateY(-2px)';
+      };
+
+      const hideTooltip = () => {
+        tooltip.style.opacity = '0';
+        tooltip.style.transform = 'translateX(-50%) translateY(0)';
+      };
+
+      btn.addEventListener('mouseenter', showTooltip);
+      btn.addEventListener('focus', showTooltip);
+      btn.addEventListener('mouseleave', hideTooltip);
+      btn.addEventListener('blur', hideTooltip);
+
+      wrapper.appendChild(btn);
+      wrapper.appendChild(tooltip);
+
+      return { wrapper, button: btn };
+    };
+
+    const { wrapper: saveWrap, button: saveBtn } = createIconButton('💾', 'シーンを保存する', () => this.handleSaveButtonClick(), true);
+    const { wrapper: loadWrap, button: loadBtn } = createIconButton('📂', 'シーンを読み込む', () => this.handleLoadButtonClick());
+    const { wrapper: clearWrap, button: clearBtn } = createIconButton('🧹', 'シーンをクリアする', () => this.clearAllWithConfirmation());
+
+    const { wrapper: historyWrap, button: historyBtn } = createIconButton('📚', '履歴機能（開発中）', () => {}, false, { disabled: true });
+
+    leftSection.appendChild(saveWrap);
+    leftSection.appendChild(loadWrap);
+    leftSection.appendChild(clearWrap);
+    leftSection.appendChild(historyWrap);
 
     // 右側: テーマトグルと設定（ヘッダーから移動）
     const rightSection = document.createElement('div');
@@ -588,12 +662,214 @@ export class CommandUI {
     container.appendChild(rightSection);
 
     // 参照を保持
+    this.saveButton = saveBtn;
+    this.loadButton = loadBtn;
     this.clearBtn = clearBtn;
     this.historyBtn = historyBtn;
     this.themeToggle = themeToggle;
     this.settingsButton = settingsButton;
 
+    this.updateSaveButtonState();
+
     return container;
+  }
+
+  initializeScenePersistence() {
+    if (this.sceneChangeUnsubscribe) {
+      try {
+        this.sceneChangeUnsubscribe();
+      } catch (error) {
+        console.warn('⚠️ Failed to unsubscribe scene change listener:', error);
+      }
+      this.sceneChangeUnsubscribe = null;
+    }
+
+    if (!this.sceneManager || typeof this.sceneManager.onSceneChange !== 'function') {
+      this.sceneSaveState.dirty = false;
+      this.updateSaveButtonState();
+      return;
+    }
+
+    this.sceneChangeUnsubscribe = this.sceneManager.onSceneChange((event) => {
+      this.handleSceneChange(event);
+    });
+
+    if (typeof this.sceneManager.getSceneState === 'function') {
+      try {
+        const snapshot = this.sceneManager.getSceneState({ includeJournal: false });
+        if (snapshot && typeof snapshot.version === 'number') {
+          this.sceneSaveState.lastVersion = snapshot.version;
+          if (snapshot.version > this.sceneSaveState.lastSavedVersion) {
+            this.sceneSaveState.dirty = true;
+          }
+        }
+      } catch (error) {
+        console.warn('⚠️ Failed to obtain initial scene snapshot:', error);
+      }
+    }
+
+    this.updateSaveButtonState();
+  }
+
+  initializeSceneLoadInput() {
+    if (this.sceneLoadInput || typeof document === 'undefined') {
+      return;
+    }
+
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'application/json';
+    input.style.display = 'none';
+    input.addEventListener('change', async (event) => {
+      const file = event.target?.files?.[0];
+      try {
+        await this.handleSceneFileSelected(file);
+      } finally {
+        if (event.target) {
+          event.target.value = '';
+        }
+      }
+    });
+
+    document.body.appendChild(input);
+    this.sceneLoadInput = input;
+  }
+
+  handleSceneChange(event) {
+    if (!event || typeof event.version !== 'number') {
+      return;
+    }
+    this.sceneSaveState.lastVersion = event.version;
+    if (event.version > this.sceneSaveState.lastSavedVersion) {
+      this.sceneSaveState.dirty = true;
+    }
+    this.updateSaveButtonState();
+  }
+
+  updateSaveButtonState() {
+    if (!this.saveButton) {
+      return;
+    }
+
+    const { dirty, isSaving, lastSavedAt, lastVersion, lastSavedVersion } = this.sceneSaveState;
+    const sceneReady = this.sceneManager && typeof this.sceneManager.exportSceneState === 'function';
+    const hasChanges = dirty || (lastVersion > lastSavedVersion);
+    const disabled = !sceneReady || isSaving || !hasChanges;
+
+    this.saveButton.disabled = disabled;
+    this.saveButton.style.opacity = disabled ? '0.6' : '1';
+
+    if (isSaving) {
+      this.saveButton.innerHTML = '<span style="filter: hue-rotate(220deg) saturate(0.6) brightness(1.0);">⏳</span>';
+      this.saveButton.title = '保存中…';
+    } else if (!hasChanges && lastSavedAt) {
+      this.saveButton.innerHTML = '<span style="filter: hue-rotate(120deg) saturate(0.9) brightness(1.1);">✅</span>';
+      try {
+        const formatted = new Date(lastSavedAt).toLocaleString();
+        this.saveButton.title = `最終保存: ${formatted}`;
+      } catch {
+        this.saveButton.title = 'シーン状態をJSONとして保存';
+      }
+    } else {
+      this.saveButton.innerHTML = '<span style="filter: hue-rotate(240deg) saturate(0.8) brightness(1.0);">💾</span>';
+      this.saveButton.title = 'シーンを保存する';
+    }
+  }
+
+  async saveSceneState() {
+    if (!this.sceneManager || typeof this.sceneManager.exportSceneState !== 'function') {
+      this.addOutput('⚠️ シーンマネージャーが接続されていません。', 'warning');
+      return;
+    }
+
+    if (this.sceneSaveState.isSaving) {
+      return;
+    }
+
+    this.sceneSaveState.isSaving = true;
+    this.updateSaveButtonState();
+
+    try {
+      const state = this.sceneManager.exportSceneState({ includeJournal: true });
+      if (state && typeof state.version === 'number') {
+        this.sceneSaveState.lastSavedVersion = state.version;
+        this.sceneSaveState.lastVersion = state.version;
+      }
+      this.sceneSaveState.lastSavedAt = state?.exportedAt || new Date().toISOString();
+      this.sceneSaveState.dirty = false;
+
+      const objectCount = state?.objectCount ?? 0;
+      this.addOutput(`💾 シーンを保存しました（オブジェクト数: ${objectCount}）`, 'success');
+    } catch (error) {
+      console.error('Scene save failed:', error);
+      this.addOutput(`❌ シーン保存に失敗しました: ${error.message}`, 'error');
+      this.sceneSaveState.dirty = true;
+    } finally {
+      this.sceneSaveState.isSaving = false;
+      this.updateSaveButtonState();
+    }
+  }
+
+  handleSaveButtonClick() {
+    this.saveSceneState();
+  }
+
+  handleLoadButtonClick() {
+    if (!this.sceneManager) {
+      this.addOutput('⚠️ シーンが初期化されていません。', 'warning');
+      return;
+    }
+
+    this.initializeSceneLoadInput();
+    if (this.sceneLoadInput) {
+      this.sceneLoadInput.click();
+    }
+  }
+
+  async handleSceneFileSelected(file) {
+    if (!file) {
+      return;
+    }
+
+    if (!this.sceneManager || typeof this.sceneManager.loadSceneState !== 'function') {
+      this.addOutput('⚠️ この環境ではシーン読み込みに対応していません。', 'warning');
+      return;
+    }
+
+    try {
+      const text = await file.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (error) {
+        throw new Error('シーンファイルの解析に失敗しました。JSON形式を確認してください。');
+      }
+
+      const result = await this.sceneManager.loadSceneState(data, { clearExisting: true, applyCamera: true });
+      const objectCount = data?.objectCount ?? data?.objects?.length ?? result?.loaded ?? 0;
+
+      if (typeof data?.version === 'number') {
+        this.sceneSaveState.lastVersion = data.version;
+        this.sceneSaveState.lastSavedVersion = data.version;
+      } else {
+        this.sceneSaveState.lastVersion += 1;
+        this.sceneSaveState.lastSavedVersion = this.sceneSaveState.lastVersion;
+      }
+      this.sceneSaveState.lastSavedAt = data?.exportedAt || new Date().toISOString();
+      this.sceneSaveState.dirty = false;
+      this.updateSaveButtonState();
+
+      this.addOutput(`📥 シーンを読み込みました（オブジェクト数: ${objectCount}）`, 'success');
+      if (result?.failed) {
+        this.addOutput(`⚠️ 復元に失敗したオブジェクト: ${result.failed}`, result.failed > 0 ? 'warning' : 'info');
+      }
+
+      this.scrollToBottom();
+    } catch (error) {
+      console.error('Scene load failed:', error);
+      this.showInputFeedback(error.message, 'error');
+      this.addOutput(`❌ シーン読み込みエラー: ${error.message}`, 'error');
+    }
   }
 
   createServiceSelectorSection() {
@@ -1572,7 +1848,33 @@ export class CommandUI {
       -webkit-backdrop-filter: blur(8px);
     `;
 
-    if (variant === 'secondary') {
+    if (variant === 'primary') {
+      const background = this.isWabiSabiMode
+        ? 'linear-gradient(135deg, rgba(139, 195, 74, 0.95), rgba(104, 159, 56, 0.9))'
+        : (this.isDarkMode
+          ? 'linear-gradient(135deg, rgba(99, 102, 241, 0.9), rgba(236, 72, 153, 0.9))'
+          : 'linear-gradient(135deg, rgba(79, 70, 229, 0.92), rgba(196, 181, 253, 0.9))');
+      const border = this.isWabiSabiMode
+        ? 'rgba(85, 139, 47, 0.7)'
+        : (this.isDarkMode ? 'rgba(129, 140, 248, 0.55)' : 'rgba(99, 102, 241, 0.45)');
+      return baseStyles + `
+        width: 96px;
+        height: 36px;
+        padding: 8px 14px;
+        font-size: 12px;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        background: ${background};
+        border: 1px solid ${border};
+        color: #ffffff;
+        box-shadow: 0 8px 18px rgba(37, 99, 235, 0.25);
+        text-align: center;
+        white-space: nowrap;
+      `;
+    } else if (variant === 'secondary') {
       // Clear All, History ボタン用 - 美しい配置と統一感
       return baseStyles + `
         width: 90px;
@@ -5170,6 +5472,7 @@ export class CommandUI {
   setSceneManager(sceneManager) {
     this.sceneManager = sceneManager;
     this.applyServiceSelectionToSceneManager();
+    this.initializeScenePersistence();
   }
 
   /**
@@ -5223,6 +5526,27 @@ export class CommandUI {
     // サービスモーダルの背景とスタイルを更新
     if (this.serviceModal) {
       this.updateServiceModalStyles();
+    }
+
+    if (this.saveButton) {
+      this.saveButton.style.cssText = this.getActionButtonStyles('icon');
+      this.updateSaveButtonState();
+    }
+    if (this.loadButton) {
+      this.loadButton.style.cssText = this.getActionButtonStyles('icon');
+    }
+    if (this.clearBtn) {
+      this.clearBtn.style.cssText = this.getActionButtonStyles('icon');
+    }
+    if (this.historyBtn) {
+      this.historyBtn.style.cssText = this.getActionButtonStyles('icon');
+      this.historyBtn.style.opacity = '0.5';
+    }
+    if (this.themeToggle) {
+      this.themeToggle.style.cssText = this.getActionButtonStyles('icon');
+    }
+    if (this.settingsButton) {
+      this.settingsButton.style.cssText = this.getActionButtonStyles('icon');
     }
 
     // サービスセレクターテーマ更新
@@ -5371,6 +5695,10 @@ export class CommandUI {
     }
 
     // アクションボタンのテーマ再適用
+    if (this.saveButton) {
+      this.saveButton.style.cssText = this.getActionButtonStyles('primary');
+      this.updateSaveButtonState();
+    }
     if (this.clearBtn) {
       this.clearBtn.style.cssText = this.getActionButtonStyles('secondary');
     }
@@ -6351,6 +6679,15 @@ export class CommandUI {
   }
 
   dispose() {
+    if (this.sceneChangeUnsubscribe) {
+      try {
+        this.sceneChangeUnsubscribe();
+      } catch (error) {
+        console.warn('⚠️ Failed to dispose scene change listener:', error);
+      }
+      this.sceneChangeUnsubscribe = null;
+    }
+
     // キーワードハイライトのクリーンアップ
     this.clearKeywordHighlighting();
 
@@ -6361,6 +6698,11 @@ export class CommandUI {
     if (this.selectedFile && this.selectedFile.url) {
       URL.revokeObjectURL(this.selectedFile.url);
     }
+
+    if (this.sceneLoadInput && this.sceneLoadInput.parentNode) {
+      this.sceneLoadInput.parentNode.removeChild(this.sceneLoadInput);
+    }
+    this.sceneLoadInput = null;
 
     // フローティングチョコアイコンのクリーンアップ
     if (this.floatingChocolateIcon && this.floatingChocolateIcon.parentNode) {
