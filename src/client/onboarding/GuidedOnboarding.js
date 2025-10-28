@@ -883,8 +883,8 @@ export class GuidedOnboarding {
     });
     this.skipButton.addEventListener('click', () => this.skipStep());
 
-    controlsContainer.appendChild(this.closeButton);
     controlsContainer.appendChild(this.skipButton);
+    controlsContainer.appendChild(this.closeButton);
 
     this.panel.appendChild(controlsContainer);
     this.panel.appendChild(header);
