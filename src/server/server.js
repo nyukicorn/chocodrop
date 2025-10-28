@@ -90,13 +90,16 @@ class ChocoDropServer {
    */
   setupRoutes() {
     // ヘルスチェック
-    this.app.get('/health', (req, res) => {
+    const healthHandler = (req, res) => {
       res.json({
         status: 'ok',
         timestamp: Date.now(),
         uptime: process.uptime()
       });
-    });
+    };
+
+    this.app.get('/health', healthHandler);
+    this.app.get('/v1/health', healthHandler);
 
     // 設定情報取得
     this.app.get('/api/config', (req, res) => {
