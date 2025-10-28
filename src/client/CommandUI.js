@@ -124,6 +124,7 @@ export class CommandUI {
       dirty: false,
       isSaving: false
     };
+    this.sceneLoadInput = null;
     
     this.initUI();
     this.bindEvents();
@@ -138,6 +139,7 @@ export class CommandUI {
     this.createFloatingChocolateIcon();
     this.initializeGuidedOnboarding();
     this.initializeScenePersistence();
+    this.initializeSceneLoadInput();
 
     // DOM読み込み完了後にスタイルを確実に適用
     document.addEventListener('DOMContentLoaded', () => {
@@ -523,33 +525,89 @@ export class CommandUI {
       gap: 8px;
       justify-content: space-between;
       align-items: center;
+      flex-wrap: wrap;
     `;
 
-    // 左側: Save / Clear All ボタン（承認済みのLayout Bデザイン）
+    // 左側: アクションアイコン列
     const leftSection = document.createElement('div');
-    leftSection.style.cssText = 'display: flex; gap: 8px; align-items: center;';
+    leftSection.style.cssText = 'display: flex; gap: 10px; align-items: center;';
 
-    const saveBtn = document.createElement('button');
-    saveBtn.innerHTML = '<span style="filter: hue-rotate(240deg) saturate(0.7) brightness(0.95);">💾</span> Save';
-    saveBtn.style.cssText = this.getActionButtonStyles('primary');
-    saveBtn.addEventListener('click', () => this.handleSaveButtonClick());
+    const createIconButton = (symbol, title, onClick, emphasis = false, options = {}) => {
+      const wrapper = document.createElement('div');
+      wrapper.style.cssText = `
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 40px;
+        height: 40px;
+        flex: 0 0 40px;
+      `;
 
-    const clearBtn = document.createElement('button');
-    clearBtn.innerHTML = '<span style="filter: hue-rotate(240deg) saturate(0.7) brightness(0.9);">🧹</span> Clear All';
-    clearBtn.style.cssText = this.getActionButtonStyles('secondary');
-    clearBtn.addEventListener('click', () => this.clearAllWithConfirmation());
+      const btn = document.createElement('button');
+      btn.innerHTML = `<span style="filter: hue-rotate(${emphasis ? 240 : 210}deg) saturate(0.8) brightness(1.0);">${symbol}</span>`;
+      btn.style.cssText = this.getActionButtonStyles('icon');
+      btn.title = title;
+      btn.setAttribute('aria-label', title);
+      if (typeof onClick === 'function') {
+        btn.addEventListener('click', onClick);
+      }
+      if (options.disabled) {
+        btn.disabled = true;
+        btn.style.opacity = '0.5';
+      }
 
-    // 履歴ボタン（将来実装用スペース確保）- 海外UI標準対応：同一幅
-    const historyBtn = document.createElement('button');
-    historyBtn.innerHTML = '<span style="filter: hue-rotate(240deg) saturate(0.7) brightness(0.9);">📚</span> History';
-    historyBtn.style.cssText = this.getActionButtonStyles('secondary');
-    historyBtn.style.opacity = '0.5';
-    historyBtn.disabled = true;
-    historyBtn.title = '履歴機能（開発中）';
+      const tooltip = document.createElement('div');
+      tooltip.textContent = title;
+      tooltip.style.cssText = `
+        position: absolute;
+        bottom: -34px;
+        left: 50%;
+        transform: translateX(-50%);
+        padding: 6px 10px;
+        border-radius: 8px;
+        background: rgba(30, 41, 59, 0.9);
+        color: #f8fafc;
+        font-size: 11px;
+        white-space: nowrap;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.15s ease, transform 0.15s ease;
+        box-shadow: 0 4px 12px rgba(15, 23, 42, 0.25);
+        z-index: 10;
+      `;
 
-    leftSection.appendChild(saveBtn);
-    leftSection.appendChild(clearBtn);
-    leftSection.appendChild(historyBtn);
+      const showTooltip = () => {
+        tooltip.style.opacity = '1';
+        tooltip.style.transform = 'translateX(-50%) translateY(-2px)';
+      };
+
+      const hideTooltip = () => {
+        tooltip.style.opacity = '0';
+        tooltip.style.transform = 'translateX(-50%) translateY(0)';
+      };
+
+      btn.addEventListener('mouseenter', showTooltip);
+      btn.addEventListener('focus', showTooltip);
+      btn.addEventListener('mouseleave', hideTooltip);
+      btn.addEventListener('blur', hideTooltip);
+
+      wrapper.appendChild(btn);
+      wrapper.appendChild(tooltip);
+
+      return { wrapper, button: btn };
+    };
+
+    const { wrapper: saveWrap, button: saveBtn } = createIconButton('💾', 'シーンを保存する', () => this.handleSaveButtonClick(), true);
+    const { wrapper: loadWrap, button: loadBtn } = createIconButton('📂', 'シーンを読み込む', () => this.handleLoadButtonClick());
+    const { wrapper: clearWrap, button: clearBtn } = createIconButton('🧹', 'シーンをクリアする', () => this.clearAllWithConfirmation());
+
+    const { wrapper: historyWrap, button: historyBtn } = createIconButton('📚', '履歴機能（開発中）', () => {}, false, { disabled: true });
+
+    leftSection.appendChild(saveWrap);
+    leftSection.appendChild(loadWrap);
+    leftSection.appendChild(clearWrap);
+    leftSection.appendChild(historyWrap);
 
     // 右側: テーマトグルと設定（ヘッダーから移動）
     const rightSection = document.createElement('div');
@@ -605,6 +663,7 @@ export class CommandUI {
 
     // 参照を保持
     this.saveButton = saveBtn;
+    this.loadButton = loadBtn;
     this.clearBtn = clearBtn;
     this.historyBtn = historyBtn;
     this.themeToggle = themeToggle;
@@ -652,6 +711,30 @@ export class CommandUI {
     this.updateSaveButtonState();
   }
 
+  initializeSceneLoadInput() {
+    if (this.sceneLoadInput || typeof document === 'undefined') {
+      return;
+    }
+
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'application/json';
+    input.style.display = 'none';
+    input.addEventListener('change', async (event) => {
+      const file = event.target?.files?.[0];
+      try {
+        await this.handleSceneFileSelected(file);
+      } finally {
+        if (event.target) {
+          event.target.value = '';
+        }
+      }
+    });
+
+    document.body.appendChild(input);
+    this.sceneLoadInput = input;
+  }
+
   handleSceneChange(event) {
     if (!event || typeof event.version !== 'number') {
       return;
@@ -677,14 +760,10 @@ export class CommandUI {
     this.saveButton.style.opacity = disabled ? '0.6' : '1';
 
     if (isSaving) {
-      this.saveButton.innerHTML = '<span style="filter: hue-rotate(240deg) saturate(0.6) brightness(0.95);">⏳</span> Saving…';
+      this.saveButton.innerHTML = '<span style="filter: hue-rotate(220deg) saturate(0.6) brightness(1.0);">⏳</span>';
+      this.saveButton.title = '保存中…';
     } else if (!hasChanges && lastSavedAt) {
-      this.saveButton.innerHTML = '<span style="filter: hue-rotate(120deg) saturate(0.8) brightness(1.1);">✅</span> Saved';
-    } else {
-      this.saveButton.innerHTML = '<span style="filter: hue-rotate(240deg) saturate(0.7) brightness(0.95);">💾</span> Save';
-    }
-
-    if (lastSavedAt) {
+      this.saveButton.innerHTML = '<span style="filter: hue-rotate(120deg) saturate(0.9) brightness(1.1);">✅</span>';
       try {
         const formatted = new Date(lastSavedAt).toLocaleString();
         this.saveButton.title = `最終保存: ${formatted}`;
@@ -692,7 +771,8 @@ export class CommandUI {
         this.saveButton.title = 'シーン状態をJSONとして保存';
       }
     } else {
-      this.saveButton.title = 'シーン状態をJSONとして保存';
+      this.saveButton.innerHTML = '<span style="filter: hue-rotate(240deg) saturate(0.8) brightness(1.0);">💾</span>';
+      this.saveButton.title = 'シーンを保存する';
     }
   }
 
@@ -732,6 +812,64 @@ export class CommandUI {
 
   handleSaveButtonClick() {
     this.saveSceneState();
+  }
+
+  handleLoadButtonClick() {
+    if (!this.sceneManager) {
+      this.addOutput('⚠️ シーンが初期化されていません。', 'warning');
+      return;
+    }
+
+    this.initializeSceneLoadInput();
+    if (this.sceneLoadInput) {
+      this.sceneLoadInput.click();
+    }
+  }
+
+  async handleSceneFileSelected(file) {
+    if (!file) {
+      return;
+    }
+
+    if (!this.sceneManager || typeof this.sceneManager.loadSceneState !== 'function') {
+      this.addOutput('⚠️ この環境ではシーン読み込みに対応していません。', 'warning');
+      return;
+    }
+
+    try {
+      const text = await file.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (error) {
+        throw new Error('シーンファイルの解析に失敗しました。JSON形式を確認してください。');
+      }
+
+      const result = await this.sceneManager.loadSceneState(data, { clearExisting: true, applyCamera: true });
+      const objectCount = data?.objectCount ?? data?.objects?.length ?? result?.loaded ?? 0;
+
+      if (typeof data?.version === 'number') {
+        this.sceneSaveState.lastVersion = data.version;
+        this.sceneSaveState.lastSavedVersion = data.version;
+      } else {
+        this.sceneSaveState.lastVersion += 1;
+        this.sceneSaveState.lastSavedVersion = this.sceneSaveState.lastVersion;
+      }
+      this.sceneSaveState.lastSavedAt = data?.exportedAt || new Date().toISOString();
+      this.sceneSaveState.dirty = false;
+      this.updateSaveButtonState();
+
+      this.addOutput(`📥 シーンを読み込みました（オブジェクト数: ${objectCount}）`, 'success');
+      if (result?.failed) {
+        this.addOutput(`⚠️ 復元に失敗したオブジェクト: ${result.failed}`, result.failed > 0 ? 'warning' : 'info');
+      }
+
+      this.scrollToBottom();
+    } catch (error) {
+      console.error('Scene load failed:', error);
+      this.showInputFeedback(error.message, 'error');
+      this.addOutput(`❌ シーン読み込みエラー: ${error.message}`, 'error');
+    }
   }
 
   createServiceSelectorSection() {
@@ -5390,6 +5528,27 @@ export class CommandUI {
       this.updateServiceModalStyles();
     }
 
+    if (this.saveButton) {
+      this.saveButton.style.cssText = this.getActionButtonStyles('icon');
+      this.updateSaveButtonState();
+    }
+    if (this.loadButton) {
+      this.loadButton.style.cssText = this.getActionButtonStyles('icon');
+    }
+    if (this.clearBtn) {
+      this.clearBtn.style.cssText = this.getActionButtonStyles('icon');
+    }
+    if (this.historyBtn) {
+      this.historyBtn.style.cssText = this.getActionButtonStyles('icon');
+      this.historyBtn.style.opacity = '0.5';
+    }
+    if (this.themeToggle) {
+      this.themeToggle.style.cssText = this.getActionButtonStyles('icon');
+    }
+    if (this.settingsButton) {
+      this.settingsButton.style.cssText = this.getActionButtonStyles('icon');
+    }
+
     // サービスセレクターテーマ更新
     this.updateServiceSelectorTheme();
   }
@@ -6539,6 +6698,11 @@ export class CommandUI {
     if (this.selectedFile && this.selectedFile.url) {
       URL.revokeObjectURL(this.selectedFile.url);
     }
+
+    if (this.sceneLoadInput && this.sceneLoadInput.parentNode) {
+      this.sceneLoadInput.parentNode.removeChild(this.sceneLoadInput);
+    }
+    this.sceneLoadInput = null;
 
     // フローティングチョコアイコンのクリーンアップ
     if (this.floatingChocolateIcon && this.floatingChocolateIcon.parentNode) {
