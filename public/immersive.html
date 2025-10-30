@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>ChocoDrop Immersive</title>
+    <link rel="manifest" href="/manifest.webmanifest">
+    <meta name="theme-color" content="#0f172a">
+    <link rel="apple-touch-icon" href="/icons/icon-192.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <script type="module" src="/pwa-bootstrap.js"></script>
+    <style>
+        :root {
+            color-scheme: dark;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: radial-gradient(circle at top, rgba(111, 53, 188, 0.35), #020617 65%);
+            min-height: 100%;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            display: grid;
+            place-items: center;
+            color: #e2e8f0;
+        }
+
+        main {
+            width: min(640px, 90vw);
+            padding: 32px;
+            border-radius: 24px;
+            background: rgba(15, 23, 42, 0.72);
+            backdrop-filter: blur(18px);
+            box-shadow: 0 30px 80px rgba(15, 23, 42, 0.45);
+            display: grid;
+            gap: 24px;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: clamp(1.5rem, 2.6vw, 2.2rem);
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: #f8fafc;
+        }
+
+        #statusMessage {
+            margin: 0;
+            font-size: 0.95rem;
+            line-height: 1.6;
+            color: #cbd5f5;
+        }
+
+        .actions {
+            display: grid;
+            gap: 12px;
+        }
+
+        button {
+            border: none;
+            border-radius: 16px;
+            padding: 18px 24px;
+            font-size: 1.05rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+        }
+
+        button.primary {
+            background: linear-gradient(135deg, #6f35bc, #7c3aed);
+            color: white;
+            box-shadow: 0 20px 40px rgba(111, 53, 188, 0.35);
+        }
+
+        button.secondary {
+            background: rgba(148, 163, 184, 0.15);
+            color: #f8fafc;
+            border: 1px solid rgba(148, 163, 184, 0.3);
+        }
+
+        button:disabled {
+            opacity: 0.55;
+            cursor: not-allowed;
+        }
+
+        button:not(:disabled):hover {
+            transform: translateY(-2px);
+        }
+
+        .tips {
+            border-radius: 16px;
+            border: 1px solid rgba(148, 163, 184, 0.15);
+            padding: 16px 20px;
+            background: rgba(30, 41, 59, 0.55);
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+
+        .tips h2 {
+            margin: 0 0 8px 0;
+            font-size: 1rem;
+            color: #f8fafc;
+        }
+
+        .tips ul {
+            margin: 0;
+            padding-left: 20px;
+            color: #cbd5f5;
+        }
+
+        #canvasContainer {
+            position: relative;
+            width: 100%;
+            height: 320px;
+            border-radius: 18px;
+            overflow: hidden;
+            border: 1px solid rgba(148, 163, 184, 0.12);
+            background: rgba(15, 23, 42, 0.8);
+        }
+
+        @media (max-width: 520px) {
+            main {
+                padding: 24px;
+                border-radius: 20px;
+            }
+
+            #canvasContainer {
+                height: 240px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <main>
+        <h1>🚀 Immersive Launcher</h1>
+        <p id="statusMessage">XR デバイスを検出しています...</p>
+        <div class="actions">
+            <button id="startXR" class="primary">XR体験を開始する</button>
+            <button id="backToDashboard" class="secondary">サーバーダッシュボードへ戻る</button>
+        </div>
+        <section class="tips">
+            <h2>実機テストのポイント</h2>
+            <ul>
+                <li>Quest 3 は最新のシステムアップデートを適用してください。</li>
+                <li>初回はヘッドセット内のブラウザで HTTPS URL を直接入力し、インストール登録します。</li>
+                <li>再訪時はホームアイコンから開き、表示された「XR体験を開始する」をタップするだけです。</li>
+            </ul>
+        </section>
+        <div id="canvasContainer" aria-hidden="true"></div>
+    </main>
+    <script type="module" src="./immersive-launcher.js"></script>
+</body>
+</html>
