@@ -4,6 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ChocoDrop Server</title>
+    <link rel="manifest" href="/manifest.webmanifest">
+    <meta name="theme-color" content="#6f35bc">
+    <link rel="apple-touch-icon" href="/icons/icon-192.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <script type="module" src="/pwa-bootstrap.js"></script>
     <style>
         :root {
             --primary-color: #4f46e5;
@@ -44,6 +50,68 @@
             box-shadow: var(--shadow-lg);
             border: 1px solid var(--border-color);
             backdrop-filter: blur(10px);
+        }
+
+        .offline-banner {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            padding: 14px 20px;
+            margin-bottom: 24px;
+            border-radius: var(--radius-md);
+            background: linear-gradient(135deg, rgba(239, 68, 68, 0.12), rgba(127, 29, 29, 0.25));
+            color: var(--danger-color);
+            font-weight: 600;
+            box-shadow: var(--shadow-md);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+
+        .offline-banner.hidden {
+            display: none;
+        }
+
+        .immersive-launch {
+            background: linear-gradient(135deg, rgba(111, 53, 188, 0.18), rgba(111, 53, 188, 0.05));
+            border-radius: var(--radius-lg);
+            padding: 24px;
+            margin-bottom: 32px;
+            border: 1px solid rgba(111, 53, 188, 0.25);
+            box-shadow: var(--shadow-md);
+            display: grid;
+            gap: 16px;
+        }
+
+        .immersive-launch button {
+            background: linear-gradient(135deg, #6f35bc, #7c3aed);
+            color: white;
+            font-size: 1.1rem;
+            padding: 18px 28px;
+            border-radius: var(--radius-md);
+            border: none;
+            cursor: pointer;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            box-shadow: var(--shadow-lg);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .immersive-launch button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(111, 53, 188, 0.45);
+        }
+
+        .immersive-launch button:active {
+            transform: translateY(0);
+        }
+
+        .immersive-launch p {
+            margin: 0;
+            color: var(--text-secondary);
+            font-size: 0.95rem;
         }
         
         .header h1 {
@@ -352,6 +420,18 @@
         <p>ちょこっと魔法で、思いを形に ✨</p>
         <p><strong>Server Status:</strong> <span id="serverStatus">🟡 ちょこっと準備中...</span></p>
     </div>
+
+    <div id="offlineBanner" class="offline-banner hidden">
+        <span>⚠️ オフラインモード</span>
+        <span>保存済みのモデル情報で最低限の操作が可能です。</span>
+    </div>
+
+    <div class="immersive-launch">
+        <button id="launchImmersive">
+            🚀 ワンタップで没入ビューを開く
+        </button>
+        <p>Quest 3 や WebXR 対応ブラウザで起動すると、没入ビュー内の「XR開始」ボタンだけで体験を開始できます。</p>
+    </div>
     
     <div class="status" id="statusCards">
         <div class="status-item">
@@ -457,7 +537,84 @@
     </div>
 
     <script>
+        const chocoPWA = window.chocoPWA || null;
+        let cachedSession = null;
+        let cachedModels = null;
         let requestCount = 0;
+
+        function logError(tag, details = {}) {
+            if (!chocoPWA || typeof chocoPWA.appendLog !== 'function') {
+                return;
+            }
+            const entry = { tag, ...details };
+            chocoPWA.appendLog(entry).catch(error => {
+                console.warn('⚠️ OPFSログ書き込みに失敗しました', error);
+            });
+        }
+
+        function persistSession(data) {
+            if (!chocoPWA || typeof chocoPWA.saveSession !== 'function') {
+                return;
+            }
+            cachedSession = { ...(cachedSession || {}), ...data };
+            chocoPWA.saveSession(cachedSession).catch(error => {
+                console.warn('⚠️ セッション保存に失敗しました', error);
+            });
+        }
+
+        function updateOfflineBanner() {
+            const banner = document.getElementById('offlineBanner');
+            if (!banner) return;
+            if (navigator.onLine) {
+                banner.classList.add('hidden');
+            } else {
+                banner.classList.remove('hidden');
+            }
+        }
+
+        function openImmersiveView(autoStart = false) {
+            const target = autoStart ? '/immersive.html#autoplay' : '/immersive.html';
+            window.location.href = target;
+        }
+
+        function applySessionToUI() {
+            if (!cachedSession) return;
+            const promptInput = document.getElementById('generatePrompt');
+            const imageSelect = document.getElementById('generateService');
+            if (cachedSession.prompt && promptInput) {
+                promptInput.value = cachedSession.prompt;
+            }
+            if (cachedSession.service && imageSelect) {
+                const option = Array.from(imageSelect.options || []).find(opt => opt.value === cachedSession.service);
+                if (option) {
+                    option.selected = true;
+                }
+            }
+        }
+
+        async function initOfflineCache() {
+            if (!chocoPWA) return;
+            try {
+                cachedSession = await chocoPWA.loadSession();
+            } catch (error) {
+                console.warn('⚠️ セッションの読み込みに失敗しました', error);
+            }
+            try {
+                cachedModels = await chocoPWA.loadModels();
+            } catch (error) {
+                console.warn('⚠️ モデル情報の読み込みに失敗しました', error);
+            }
+        }
+
+        window.addEventListener('online', () => {
+            updateOfflineBanner();
+            loadModels({ preferNetwork: true });
+        });
+
+        window.addEventListener('offline', () => {
+            updateOfflineBanner();
+            loadModels({ preferNetwork: false });
+        });
 
         // 自然な応答システム
         function getResponseType(prompt) {
@@ -496,44 +653,103 @@
         }
 
         // Load available models on page load
-        async function loadModels() {
+        async function loadModels({ preferNetwork = true } = {}) {
+            const imageSelect = document.getElementById('generateService');
+            if (!imageSelect) return;
+
+            const renderFromPayload = (payload) => {
+                const models = payload?.models || payload;
+                const imageModels = models?.image;
+                if (!imageModels || !Array.isArray(imageModels.options)) {
+                    return false;
+                }
+
+                imageSelect.innerHTML = '';
+                imageModels.options.forEach(model => {
+                    const option = document.createElement('option');
+                    option.value = model;
+                    option.textContent = model;
+                    if (model === imageModels.default) {
+                        option.selected = true;
+                        option.textContent += ' (Default)';
+                    }
+                    imageSelect.appendChild(option);
+                });
+
+                console.log('✅ Models loaded:', models);
+                return true;
+            };
+
+            const useCachedModels = () => {
+                if (!cachedModels) return false;
+                const applied = renderFromPayload(cachedModels);
+                if (applied) {
+                    console.log('📦 Cached models applied');
+                    return true;
+                }
+                return false;
+            };
+
+            if (!preferNetwork || !navigator.onLine) {
+                if (useCachedModels()) {
+                    applySessionToUI();
+                    return;
+                }
+                if (!navigator.onLine) {
+                    imageSelect.innerHTML = '<option value="default">Default Model</option>';
+                    return;
+                }
+            }
+
             try {
-                const response = await fetch('/api/models');
+                const response = await fetch('/api/models', { cache: 'no-store' });
                 const data = await response.json();
 
-                if (data.success) {
-                    // Populate image models
-                    const imageSelect = document.getElementById('generateService');
-                    imageSelect.innerHTML = '';
-
-                    data.models.image.options.forEach(model => {
-                        const option = document.createElement('option');
-                        option.value = model;
-                        option.textContent = model;
-                        if (model === data.models.image.default) {
-                            option.selected = true;
-                            option.textContent += ' (Default)';
-                        }
-                        imageSelect.appendChild(option);
-                    });
-
-                    console.log('✅ Models loaded:', data.models);
+                if (data.success && renderFromPayload(data)) {
+                    cachedModels = { models: data.models };
+                    if (chocoPWA && typeof chocoPWA.saveModels === 'function') {
+                        chocoPWA.saveModels(data.models).catch(error => {
+                            console.warn('⚠️ モデル情報の保存に失敗しました', error);
+                        });
+                    }
                 } else {
                     console.error('❌ Failed to load models:', data.error);
-                    // Fallback to basic option
-                    const imageSelect = document.getElementById('generateService');
-                    imageSelect.innerHTML = '<option value="default">Default Model</option>';
+                    logError('models-failed', { error: data.error });
+                    if (!useCachedModels()) {
+                        imageSelect.innerHTML = '<option value="default">Default Model</option>';
+                    }
                 }
             } catch (error) {
                 console.error('❌ Error loading models:', error);
-                // Fallback to basic option
-                const imageSelect = document.getElementById('generateService');
-                imageSelect.innerHTML = '<option value="default">Default Model</option>';
+                logError('models-error', { message: error.message });
+                if (!useCachedModels()) {
+                    imageSelect.innerHTML = '<option value="default">Default Model</option>';
+                }
             }
+
+            applySessionToUI();
         }
 
-        // Load models when page loads
-        document.addEventListener('DOMContentLoaded', loadModels);
+        async function initDashboard() {
+            await initOfflineCache();
+            updateOfflineBanner();
+            await loadModels({ preferNetwork: true });
+            applySessionToUI();
+
+            const immersiveBtn = document.getElementById('launchImmersive');
+            if (immersiveBtn) {
+                immersiveBtn.addEventListener('click', () => openImmersiveView(true));
+            }
+
+            checkHealth();
+            loadServices();
+
+            setInterval(() => {
+                checkHealth();
+            }, 5000);
+        }
+
+        document.addEventListener('DOMContentLoaded', initDashboard);
 
         // Check server health
         async function checkHealth() {
@@ -549,6 +765,7 @@
                 }
             } catch (error) {
                 document.getElementById('serverStatus').innerHTML = '🔴 魔法の接続が切れています...';
+                logError('health-error', { message: error.message });
             }
         }
         
@@ -563,6 +780,7 @@
                 }
             } catch (error) {
                 console.error('Failed to load services:', error);
+                logError('services-error', { message: error.message });
             }
         }
         
@@ -590,6 +808,8 @@
             const service = document.getElementById('generateService').value;
             const responseDiv = document.getElementById('generateResponse');
             const btnText = e.target.querySelector('.btn-text');
+            let lastResult = null;
+            let success = false;
             
             responseDiv.style.display = 'block';
             responseDiv.className = 'response';
@@ -618,20 +838,30 @@
                 });
                 
                 const result = await response.json();
-
+                lastResult = result;
                 if (response.ok) {
                     responseDiv.className = 'response success';
                     responseDiv.textContent = messages.success;
+                    success = true;
                 } else {
                     responseDiv.className = 'response error';
                     responseDiv.textContent = messages.error;
+                    logError('generate-response-error', { prompt, response: result });
                 }
 
             } catch (error) {
                 responseDiv.className = 'response error';
                 responseDiv.textContent = messages.error;
+                lastResult = { error: error.message };
+                logError('generate-error', { prompt, message: error.message });
             } finally {
                 btnText.textContent = 'ちょこっと魔法をかける ✨';
+                persistSession({
+                    prompt,
+                    service,
+                    lastStatus: success ? 'success' : 'error',
+                    lastResponse: lastResult
+                });
             }
         });
         
@@ -668,11 +898,13 @@
                 } else {
                     responseDiv.className = 'response error';
                     responseDiv.textContent = JSON.stringify(result, null, 2);
+                    logError('modify-response-error', { command, response: result });
                 }
                 
             } catch (error) {
                 responseDiv.className = 'response error';
                 responseDiv.textContent = `Error: ${error.message}`;
+                logError('modify-error', { command, message: error.message });
             } finally {
                 btnText.textContent = 'Apply Changes';
             }
@@ -711,11 +943,13 @@
                 } else {
                     responseDiv.className = 'response error';
                     responseDiv.textContent = JSON.stringify(result, null, 2);
+                    logError('delete-response-error', { command, response: result });
                 }
                 
             } catch (error) {
                 responseDiv.className = 'response error';
                 responseDiv.textContent = `Error: ${error.message}`;
+                logError('delete-error', { command, message: error.message });
             } finally {
                 btnText.textContent = 'Delete Selected';
             }
@@ -753,22 +987,15 @@
                 } else {
                     responseDiv.className = 'response error';
                     responseDiv.textContent = JSON.stringify(result, null, 2);
+                    logError('clear-response-error', { response: result });
                 }
                 
             } catch (error) {
                 responseDiv.className = 'response error';
                 responseDiv.textContent = `Error: ${error.message}`;
+                logError('clear-error', { message: error.message });
             }
         });
-        
-        // Initialize
-        checkHealth();
-        loadServices();
-        
-        // Refresh status every 5 seconds
-        setInterval(() => {
-            checkHealth();
-        }, 5000);
         
         console.log('🌉 ChocoDrop Server dashboard loaded');
     </script>
