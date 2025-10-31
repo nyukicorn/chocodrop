@@ -1,0 +1,57 @@
+{
+  "name": "ChocoDrop Immersive Studio",
+  "short_name": "ChocoDrop",
+  "description": "自然言語で3Dシーンに魔法をかける ChocoDrop の没入体験を、ホーム画面からワンタップで起動します。",
+  "lang": "ja",
+  "start_url": "/immersive.html",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#6f35bc",
+  "orientation": "landscape",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "categories": [
+    "productivity",
+    "creative",
+    "art",
+    "graphics"
+  ],
+  "shortcuts": [
+    {
+      "name": "没入ビューを開く",
+      "short_name": "没入開始",
+      "description": "XRビューをすぐに立ち上げます",
+      "url": "/immersive.html#autoplay",
+      "icons": [
+        {
+          "src": "/icons/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "コントロールパネル",
+      "short_name": "管理UI",
+      "description": "サーバーの状態を確認してAI生成を操作します",
+      "url": "/index.html"
+    }
+  ]
+}
