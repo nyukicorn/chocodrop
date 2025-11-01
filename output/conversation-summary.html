@@ -5,23 +5,23 @@
   <title>ChocoDrop PWA / XR アーキテクチャ議論ログ（詳細版）</title>
   <style>
     body {
-      font-family: "Inter", "Hiragino Sans", "Noto Sans JP", system-ui, sans-serif;
-      line-height: 1.7;
-      margin: 0;
-      padding: 32px 40px;
+      font-family: 'Inter', 'Hiragino Sans', 'Noto Sans JP', system-ui, sans-serif;
       background: #f7f8fb;
       color: #0f172a;
+      margin: 0;
+      padding: 32px 40px 80px;
+      line-height: 1.7;
     }
     header h1 {
-      margin-bottom: 4px;
+      margin: 0 0 6px 0;
     }
     header p {
-      margin-top: 0;
+      margin: 0;
       color: #475569;
     }
     section {
-      margin-bottom: 40px;
-      background: white;
+      margin-top: 32px;
+      background: #fff;
       border-radius: 16px;
       padding: 28px;
       box-shadow: 0 20px 40px rgba(15, 23, 42, 0.08);
@@ -31,11 +31,8 @@
       color: #4c1d95;
     }
     h3 {
-      margin-bottom: 0.5em;
       color: #1e293b;
-    }
-    ul {
-      margin-top: 0.4em;
+      margin-bottom: 0.5em;
     }
     table {
       width: 100%;
@@ -51,38 +48,32 @@
       background: #ede9fe;
       color: #312e81;
     }
-    td ul {
-      margin-top: 0.2em;
-      margin-bottom: 0;
-    }
-    .diagram-wrapper {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-      gap: 24px;
-      margin-top: 20px;
-    }
-    .diagram-card {
+    figure {
+      margin: 24px 0;
       background: linear-gradient(145deg, #eef2ff, #fff);
       border-radius: 16px;
-      padding: 16px;
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.5);
+      padding: 18px;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.6);
     }
-    svg {
+    figure img {
       width: 100%;
       height: auto;
+      border-radius: 12px;
     }
+    figure figcaption {
+      margin-top: 12px;
+      font-size: 0.95rem;
+      color: #475569;
+    }
+    ul { margin-top: 0.4em; }
+    li { margin-bottom: 0.3em; }
     footer {
-      margin-top: 24px;
+      margin-top: 32px;
       color: #64748b;
       font-size: 0.85rem;
     }
-    .callout {
-      background: #fef3c7;
-      border-left: 4px solid #f59e0b;
-      padding: 12px 16px;
-      border-radius: 8px;
-      margin-top: 16px;
-    }
+    a { color: #2563eb; text-decoration: none; }
+    a:hover { text-decoration: underline; }
   </style>
 </head>
 <body>
@@ -91,112 +82,65 @@
     <p>更新日: 2025-10-31 / 参加者: プロダクトオーナー（ユーザー）、開発担当（Codex）</p>
   </header>
 
-  <section id="context">
-    <h2>1. 会話の文脈</h2>
+  <section id="summary">
+    <h2>1. サマリー</h2>
     <ul>
-      <li>ChocoDrop をホームアイコンから即立ち上げ、WebXR セッションへ一操作で遷移できる常用アプリ体験を目指している。</li>
-      <li>理想像は「ユーザーが用意した任意の Three.js シーンに ChocoDrop の UI コンポーネントを差し込み、生成コンテンツをその場に配置する」こと。</li>
-      <li>今回の実装では PWA 化と没入ランチャーを整備し、上記理想像へ進むための土台が成立した。</li>
+      <li><strong>自立型（PWA 基盤）:</strong> manifest / Service Worker / OPFS を備えた PWA と没入ランチャーを整備し、ホームアイコンからワンタップで WebXR セッションを起動できる状態。</li>
+      <li><strong>取り込み型（シーンインポート）:</strong> ユーザー保有の Three.js シーンを ChocoDrop 側で読み込み、XR 空間で生成機能を利用できるようにする方向性。シーン初期化を ChocoDrop が握れる。</li>
+      <li><strong>ブックマークレット誘導戦略（ピボット）:</strong> コード改変不要のお試し体験をブックマークレットで提供し、気に入ったユーザーを PWA ランチャーへ誘導して本格運用してもらう二段構え。</li>
     </ul>
   </section>
 
-  <section id="current-implementation">
-    <h2>2. 現行実装の詳細</h2>
-    <h3>2.1 管理ダッシュボード (`/index.html`)</h3>
+  <section id="context">
+    <h2>2. 会話の文脈</h2>
     <ul>
-      <li>Service Worker と OPFS によるオフラインキャッシュ、セッション記録（直近プロンプト、モデル一覧、エラーログ）の保存を実装。</li>
-      <li>マニフェスト・Apple Touch アイコン・テーマカラーを設定し、ホーム画面からスタンドアロン起動が可能。</li>
-      <li>没入ビューへの導線（「🚀 ワンタップで没入ビューを開く」カード）とオフラインバナーを追加。</li>
+      <li>ChocoDrop をホームアイコンから常用できるアプリ体験に進化させることが目標。</li>
+      <li>元々はユーザーの Three.js シーンへ UI を差し込む「取り込み型」の構想があった。</li>
+      <li>PWA 基盤と没入ランチャーを整備したことで、取り込み型への発展が現実的になった。</li>
     </ul>
+  </section>
 
-    <h3>2.2 没入ランチャー (`/immersive.html` + `immersive-launcher.js`)</h3>
+  <section id="current">
+    <h2>3. 現行実装の詳細</h2>
+    <h3>3.1 ダッシュボード（/index.html）</h3>
     <ul>
-      <li>Three.js レンダラーを WebXR 用に初期化し、ライトとグリッドのあるベース空間を生成。</li>
-      <li>`ensureChocoDrop` / `createChocoDrop` を呼び出し、ChocoDrop の SceneManager を XR レンダリングループに接続。</li>
-      <li>Import map で CDN 上の `three.module.js` を解決し、OrbitControls / GLTFLoader を利用可能にした。</li>
-      <li>ワンタップで `navigator.xr.requestSession('immersive-vr', ...)` を呼び出す導線を実装。Quest 3 で実際にセッション突入を確認済み。</li>
+      <li>Service Worker と OPFS でオフラインキャッシュ・セッション・ログを保持。</li>
+      <li>モデル一覧が取得できない場合のバックアップ復元とフォーム入力の保存。</li>
+      <li>PWA manifest によりホーム画面からスタンドアロン起動可能。</li>
     </ul>
-
-    <div class="diagram-wrapper">
-      <div class="diagram-card">
-        <h3>自立型（現在の没入ランチャー）</h3>
-        <svg viewBox="0 0 340 200" role="img" aria-label="自立型モードのフロー">
-          <rect x="10" y="20" width="140" height="40" rx="8" ry="8" fill="#7c3aed" opacity="0.18"></rect>
-          <text x="80" y="45" fill="#312e81" text-anchor="middle" font-size="14">ホームアイコン</text>
-
-          <line x1="80" y1="60" x2="80" y2="90" stroke="#7c3aed" stroke-width="2" marker-end="url(#arrow)"></line>
-
-          <rect x="30" y="90" width="100" height="40" rx="8" ry="8" fill="#c4b5fd"></rect>
-          <text x="80" y="115" fill="#312e81" text-anchor="middle" font-size="13">immersive.html</text>
-
-          <line x1="80" y1="130" x2="80" y2="160" stroke="#7c3aed" stroke-width="2" marker-end="url(#arrow)"></line>
-
-          <rect x="10" y="160" width="140" height="40" rx="8" ry="8" fill="#a78bfa"></rect>
-          <text x="80" y="185" fill="#312e81" text-anchor="middle" font-size="13">WebXR セッション開始</text>
-
-          <defs>
-            <marker id="arrow" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto">
-              <path d="M0,0 L8,4 L0,8 z" fill="#7c3aed"></path>
-            </marker>
-          </defs>
-        </svg>
-      </div>
-
-      <div class="diagram-card">
-        <h3>取り込み型（拡張後の構想）</h3>
-        <svg viewBox="0 0 340 200" role="img" aria-label="取り込み型モードのフロー">
-          <rect x="20" y="15" width="120" height="40" rx="8" ry="8" fill="#e0f2fe"></rect>
-          <text x="80" y="40" fill="#0f172a" text-anchor="middle" font-size="13">ユーザー Three.js</text>
-
-          <rect x="200" y="15" width="120" height="40" rx="8" ry="8" fill="#fde68a"></rect>
-          <text x="260" y="40" fill="#92400e" text-anchor="middle" font-size="13">ChocoDrop XR基盤</text>
-
-          <line x1="140" y1="35" x2="200" y2="35" stroke="#0ea5e9" stroke-width="2" marker-end="url(#arrow2)"></line>
-          <text x="170" y="28" fill="#0f172a" font-size="12">シーン読込</text>
-
-          <line x1="260" y1="55" x2="260" y2="100" stroke="#f59e0b" stroke-width="2" marker-end="url(#arrow2)"></line>
-
-          <rect x="170" y="100" width="180" height="40" rx="8" ry="8" fill="#fef3c7"></rect>
-          <text x="260" y="125" fill="#92400e" text-anchor="middle" font-size="13">ChocoDrop UI / SceneManager</text>
-
-          <line x1="260" y1="140" x2="260" y2="185" stroke="#f59e0b" stroke-width="2" marker-end="url(#arrow2)"></line>
-
-          <rect x="200" y="160" width="120" height="40" rx="8" ry="8" fill="#bbf7d0"></rect>
-          <text x="260" y="185" fill="#065f46" text-anchor="middle" font-size="13">XR セッション</text>
-
-          <defs>
-            <marker id="arrow2" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto">
-              <path d="M0,0 L8,4 L0,8 z" fill="#0284c7"></path>
-            </marker>
-          </defs>
-        </svg>
-      </div>
-    </div>
+    <h3>3.2 没入ランチャー（/immersive.html + immersive-launcher.js）</h3>
+    <ul>
+      <li>Three.js レンダラーを XR 設定で初期化し、ライト・グリッドを配置。</li>
+      <li>`ensureChocoDrop` → `createChocoDrop` で SceneManager を XR ループへ接続。</li>
+      <li>Import map で CDN 上の `three.module.js` を解決し、OrbitControls / GLTFLoader を利用。</li>
+    </ul>
   </section>
 
   <section id="ideology">
-    <h2>3. 二つの思想とその相互補完</h2>
-    <h3>3.1 ユーザー（PO）が描く「取り込み型」の思想</h3>
+    <h2>4. 元々の構想と今回の実装思想</h2>
+    <h3>4.1 ユーザーの構想（取り込み型）</h3>
     <ul>
-      <li>ユーザーが自分の Three.js / WebXR シーンに ChocoDrop UI を差し込み、その場で生成体験を完結させたい。</li>
-      <li>フォームや操作 UI は VR/AR 空間内に浮かび、ヘッドセットだけで画像・動画を生成・配置できる。</li>
-      <li>デモページは合体版だが、本番では「好きなシーンにポンと UI を置く」が本筋。</li>
+      <li>ユーザーの任意シーンに UI を差し込み、その場で生成結果を配置したい。</li>
+      <li>デモページは合体版。プロダクト本番では「好きなシーンにポンと UI」を目指す。</li>
+      <li>ヘッドセット内に UI を浮かせ、ブラウザに戻らず操作完結する。</li>
     </ul>
-
-    <h3>3.2 今回整えた「自立型 PWA 基盤」の思想</h3>
+    <h3>4.2 今回の開発思想（自立型基盤）</h3>
     <ul>
-      <li>ChocoDrop をインストール可能な Web アプリとして育て、どのデバイスでも安定して立ち上がる基盤を優先。</li>
-      <li>ホームアイコン→没入ビュー→WebXR までをワンタップで結び、Service Worker / OPFS で再訪やログ収集を担保。</li>
-      <li>この土台の上に取り込み型のシーン読込機能や XR UI を積み上げる想定。</li>
+      <li>PWA と没入ランチャーを整え、安定した起動・再訪体験を優先。</li>
+      <li>ワンタップで XR セッションへ入れる導線とログ／キャッシュを確保。</li>
+      <li>この基盤上で XR 内 UI やシーン取込機能を積み上げる。</li>
     </ul>
-
-    <div class="callout">
-      <strong>補足:</strong> 双方の思想は対立ではなく補完関係にある。PWA 基盤は安定した起点を提供し、取り込み型はユーザー固有シーンへの適用範囲を広げる。
-    </div>
+    <h3>4.3 双方向に拡張するビジョン</h3>
+    <ul>
+      <li><strong>自立型:</strong> `/immersive.html` を起点に XR UI を作り込み、ChocoDrop 専用空間を完成。</li>
+      <li><strong>取り込み型:</strong> `/importer.html`（仮）などでシーンを読み込み、`createChocoDrop` を適用。</li>
+      <li>共通インフラ（PWA・Service Worker・OPFS）を共有しながらモードごとに体験を磨く。</li>
+    </ul>
   </section>
 
   <section id="comparison">
-    <h2>4. 自立型と取り込み型の比較</h2>
+    <h2>5. 自立型と取り込み型の比較</h2>
+    <p>現在は取り込み型とブックマークレット誘導を強化しつつ、自立型基盤もアップデートを継続する。主要項目の比較は以下の通り。</p>
     <table>
       <thead>
         <tr>
@@ -211,104 +155,102 @@
           <td>起動導線</td>
           <td>ホームアイコン → `/immersive.html` → WebXR</td>
           <td>ホームアイコン → （新規）`/importer.html` → ユーザーシーン読み込み</td>
-          <td>PWA manifest / Service Worker / OPFS / adb reverse 等の検証手順</td>
+          <td>PWA manifest / Service Worker / OPFS / adb reverse 等</td>
         </tr>
         <tr>
           <td>シーン構成</td>
-          <td>ChocoDrop が用意した標準グリッド＋ライト＋SceneManager</td>
-          <td>ユーザー提供の Three.js シーンをロードして差し替え</td>
-          <td>`createChocoDrop`、`SceneManager`、`LiveCommandClient` などコアロジック</td>
+          <td>標準グリッド＋ライト＋SceneManager</td>
+          <td>ユーザー提供シーンを読み込み差し替え</td>
+          <td>`createChocoDrop`、`SceneManager`、`LiveCommandClient` など</td>
         </tr>
         <tr>
           <td>UI 表示位置</td>
           <td>現状はブラウザ UI（ダッシュボード）。将来的に XR パネルへ移設</td>
-          <td>初期ロード時から XR 空間に 3D パネルとして配置する想定</td>
-          <td>UI コンポーネント、OPFS を用いた設定保存、エラーログ蓄積</td>
+          <td>初期ロード時から XR 空間に 3D パネルを配置</td>
+          <td>UI コンポーネント、OPFS 保存、エラーログ蓄積</td>
         </tr>
         <tr>
           <td>ユーザー価値</td>
-          <td>ChocoDrop が単体で動く体験を保証。導入障壁が低い</td>
-          <td>既存シーンが即座に XR 化でき、柔軟性と没入感が高い</td>
-          <td>共通の生成 API、モデル選択、ログ収集、PWA のキャッシュ機構</td>
+          <td>ChocoDrop が単体で動作し導入障壁が低い</td>
+          <td>既存シーンを即座に XR 化でき柔軟性が高い</td>
+          <td>共通の生成 API、モデル選択、ログ収集</td>
         </tr>
         <tr>
           <td>主な追加開発</td>
-          <td>XR 内 UI の実装、生成結果の HUD 配置、ワークフローの最適化</td>
-          <td>シーン読込設定、シーン権限管理、XR 内 UI のダイナミック配置</td>
-          <td>設定 UI、OPFS スキーマ、テスト手順、CI/CD パイプライン</td>
+          <td>XR 内 UI、生成結果 HUD、ワークフロー最適化</td>
+          <td>シーン読込設定、権限管理、XR UI の動的配置</td>
+          <td>設定 UI、OPFS スキーマ、テスト手順、CI/CD</td>
         </tr>
       </tbody>
     </table>
   </section>
 
-  <section id="next-steps">
-    <h2>5. 今後の検討タスク</h2>
+  <section id="tasks">
+    <h2>6. 今後の検討タスク</h2>
     <ol>
-      <li><strong>XR UI の具体化:</strong> WebXR Layers / CSS3DRenderer 等で入力フォームを 3D パネル化し、Quest コントローラ操作や音声入力と連携。</li>
-      <li><strong>シーン取込フロー:</strong> GLTFLoader や独自 API を通じてユーザーシーンを読み込み、`createChocoDrop` を適用するユーティリティを整備。</li>
-      <li><strong>設定永続化:</strong> OPFS とダッシュボード UI を連携し、シーン URL・サービス設定・UI 配置を保存／復元。</li>
-      <li><strong>ユーザーテスト:</strong> 自立型・取り込み型双方のプロトタイプを用意し、どちらが価値を生むか検証しながら優先度を決定。</li>
+      <li><strong>XR UI の実装:</strong> WebXR Layers / 3D パネルでフォームとログを XR 内に配置し、コントローラ／音声入力を検討。</li>
+      <li><strong>シーン取込フロー:</strong> GLTF/JSON/独自 API を読み込み、`createChocoDrop` を適用するユーティリティを整備。</li>
+      <li><strong>設定と永続化:</strong> OPFS にシーン URL・サービス設定・UI 配置を保存し、ダッシュボードから編集。</li>
+      <li><strong>ユーザーテスト:</strong> 自立型・取り込み型双方のプロトタイプを用意し、価値を検証して優先度を決定。</li>
     </ol>
+  </section>
+
+  <section id="structure">
+    <h2>7. プロジェクト構成に関する考察</h2>
+    <ul>
+      <li>現行リポジトリ内でモード切り替え可能。エントリーポイントや設定で制御する方針が有効。</li>
+      <li>大規模なアーキテクチャ差が発生しない限り、プロジェクトを分割する必要はない。</li>
+      <li>オンボーディング時は本ドキュメントと UI/UX 設計・技術検証レポートをセットで共有する。</li>
+    </ul>
   </section>
 
   <section id="pivot-strategy">
-    <h2>6. 取り込み型＋ブックマークレット誘導戦略</h2>
-    <p>従来の「ユーザーコードへ 1 行追加する方式」からピボットし、取り込み型を主軸に据えるための戦略です。</p>
-    <h3>6.1 ピボット背景</h3>
+    <h2>8. 取り込み型＋ブックマークレット誘導戦略</h2>
+    <h3>8.1 ピボット背景</h3>
     <ul>
-      <li>コード追記への心理的抵抗が大きく、導入が進みにくい。</li>
-      <li>ユーザー環境によるカメラ配置・初期化差異で、ChocoDrop の挙動が安定しないケースが続出。</li>
-      <li>ChocoDrop 側でシーン初期化を握れば、挙動のばらつきを抑えやすい。</li>
+      <li>コード追記への心理的抵抗と環境差による不安定さがあった。</li>
+      <li>取り込み型なら ChocoDrop が初期化を制御し、シーンごとのばらつきを抑制できる。</li>
     </ul>
-
-    <h3>6.2 二段階誘導フロー</h3>
+    <h3>8.2 二段階誘導</h3>
     <ol>
-      <li><strong>ブックマークレット改良</strong>  
-        - 現行ページの Three.js コンテキストを検出し、軽量な ChocoDrop UI をオーバーレイ（子アプリ体験）。  
-        - 成功したら「このシーンを ChocoDrop PWA で開く」ボタンを提示。
-      </li>
-      <li><strong>PWA ランチャーで本格展開</strong>  
-        - シーン URL・設定を受け取り、没入ランチャーで XR 表示。  
-        - `createChocoDrop` を適用し、安定した生成体験を提供。
-      </li>
+      <li><strong>ブックマークレット改良:</strong> 現在のページに軽量 UI をオーバーレイし、子アプリ体験を提供。</li>
+      <li><strong>PWA ランチャー誘導:</strong> 気に入ったらワンクリックで PWA ランチャーを開き、シーン設定を引き継いで XR 体験を開始。</li>
     </ol>
-
-    <h3>6.3 メリット</h3>
+    <h3>8.3 メリットと懸念</h3>
     <ul>
-      <li>ユーザーはコード改変不要で試せるため、導入障壁が低い。</li>
-      <li>子アプリ体験と親アプリ体験をシームレスにつなぎ、信頼構築 → フル利用へのステップを整備できる。</li>
-      <li>将来の外部シーン生成サービスとも連携しやすく、ChocoDrop をハブ化しやすい。</li>
-    </ul>
-
-    <h3>6.4 懸念点と対策メモ</h3>
-    <ul>
-      <li>CSP / iframe 制約によりブックマークレットが動作しないサイトへの対応策（エラー通知、代替手段）。</li>
-      <li>取り込むシーンの著作権・ライセンス扱い、ユーザーへの注意喚起。</li>
-      <li>PWA 内部でのシーン設定・アセット保存先（OPFS / クラウド同期）の整理とバージョン管理。</li>
-      <li>外部プラットフォームとの API 連携時におけるバージョン互換性、SLA、依存リスク。</li>
+      <li>コード改変不要で導入障壁が低く、子アプリ → 親アプリへの移行がスムーズ。</li>
+      <li>外部シーン生成サービスとも連携しやすく、ChocoDrop をハブ化しやすい。</li>
+      <li>CSP 制約・著作権・設定保存先・外部 API 依存性などの課題を事前に整理する必要がある。</li>
     </ul>
   </section>
 
-    <section id="resources">
-    <h2>8. 共有資料リンク</h2>
+  <section id="resources">
+    <h2>9. 共有資料リンク</h2>
+    <figure>
+      <img src="architecture-diagram.svg" alt="ChocoDropアーキテクチャ図">
+      <figcaption>アーキテクチャ図（`output/architecture-diagram.svg`）</figcaption>
+    </figure>
+    <figure>
+      <img src="pwa-test-flow.svg" alt="PWA/XR テストフロー図">
+      <figcaption>PWA / XR テストフロー図（`output/pwa-test-flow.svg`）</figcaption>
+    </figure>
     <ul>
-      <li><strong>アーキテクチャ図 (SVG)</strong>: <code>output/architecture-diagram.svg</code></li>
-      <li><strong>PWA/XR テストフロー (SVG)</strong>: <code>output/pwa-test-flow.svg</code></li>
-      <li><strong>シーン取り込みチュートリアル</strong>: <code>output/scene-import-tutorial.md</code></li>
-      <li><strong>設定スキーマ概要</strong>: <code>output/settings-schema.md</code></li>
-      <li><strong>XR UI プロトタイプ仕様メモ</strong>: <code>output/xr-ui-prototype-notes.md</code></li>
+      <li><a href="scene-import-tutorial.md">シーン取り込みチュートリアル</a></li>
+      <li><a href="settings-schema.md">設定スキーマ概要</a></li>
+      <li><a href="xr-ui-prototype-notes.md">XR UI プロトタイプ仕様メモ</a></li>
     </ul>
   </section>
-<section id="materials">
-    <h2>9. 理解促進のためにあると良いもの</h2>
+
+  <section id="materials">
+    <h2>10. 理解促進のためにあると良いもの</h2>
     <ul>
-      <li><strong>アーキテクチャ図の拡張版:</strong> 現在の簡易図をベースに、ネットワーク（ngrok, adb reverse）、Service Worker、OPFS の関係を詳細に示した資料。</li>
-      <li><strong>シーン取込チュートリアル:</strong> 「任意の GLTF を読み込んで XR 表示に変換する」ステップをスクリーンショット付きで解説。</li>
-      <li><strong>XR UI プロトタイプレコーディング:</strong> Quest 上でフォームが浮かぶ様子を動画に収め、新メンバーの理解を助ける。</li>
-      <li><strong>設定スキーマ表:</strong> OPFS に保存する JSON スキーマ（シーン URL、既定サービス、UI 配置など）を一覧化。</li>
-      <li><strong>テストフロー図:</strong> adb reverse、ngrok、PWA インストール、オフライン検証までの手順を時系列で示した図。</li>
+      <li>アーキテクチャ図とネットワーク構成の詳細解説資料</li>
+      <li>シーン取り込み手順のスクリーンショット付きチュートリアル</li>
+      <li>XR UI プロトタイプの動画モック（将来的に収録）</li>
+      <li>設定スキーマを基にした OPFS / クラウド同期フロー図</li>
+      <li>テストフロー（adb reverse → npm run dev → ngrok → インストール → オフライン検証）の時系列図</li>
     </ul>
-    <p>上記資料を整えることで、新規メンバーやステークホルダーが両モードの違いと共通部分、実装ロードマップを直感的に把握できます。</p>
+    <p>これらの資料を整備することで、新規メンバーやステークホルダーが両モードの違いとロードマップを素早く把握できます。</p>
   </section>
 
   <footer>
