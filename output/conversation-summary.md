@@ -53,6 +53,22 @@
 - 新メンバーを迎える際は、本ドキュメントと既存の設計ドキュメント（UI/UX 設計、技術検証レポートなど）をセットで共有する想定。
 
 ## 6. 取り込み型＋ブックマークレット誘導戦略
+## 7. 共有資料リンク
+- `output/architecture-diagram.svg`
+- `output/pwa-test-flow.svg`
+- `output/scene-import-tutorial.md`
+- `output/settings-schema.md`
+- `output/xr-ui-prototype-notes.md`
+
+## 8. 理解促進のためにあると良いもの
+- `output/architecture-diagram.svg`
+- `output/pwa-test-flow.svg`
+- `output/scene-import-tutorial.md`
+- `output/settings-schema.md`
+- `output/xr-ui-prototype-notes.md`
+
+
+## 6. 取り込み型＋ブックマークレット誘導戦略
 - **ピボット背景**  
   - ユーザーが自分のコードに 1 行追加する方式は、心理的ハードルが高く、環境ごとのカメラ設定差異で ChocoDrop が意図どおり動かないケースが多い。  
   - 取り込み型であれば、ChocoDrop 側がシーン初期化を制御でき、挙動のばらつきを抑えられる。
@@ -69,6 +85,20 @@
   - 取り込むシーンの著作権やライセンス、安全なロード方式。  
   - PWA 内でのシーン設定やアセットの保存先（OPFS/クラウド）の整理、バージョン管理。  
   - 外部プラットフォームと連携する際の API 安定性、依存関係リスク、SLA。
+
+## 7. 共有資料リンク
+- `output/architecture-diagram.svg`
+- `output/pwa-test-flow.svg`
+- `output/scene-import-tutorial.md`
+- `output/settings-schema.md`
+- `output/xr-ui-prototype-notes.md`
+
+## 8. 理解促進のためにあると良いもの
+- アーキテクチャ図の拡張版とネットワーク構成説明
+- シーン取り込み手順のスクリーンショット付きチュートリアル
+- XR UI プロトタイプの動画モック（将来的に収録）
+- 設定スキーマを基にした OPFS/クラウド同期のフローチャート
+- テストフローの時系列図（adb reverse → npm run dev → ngrok → インストール → オフライン検証）
 
 ---
 本ドキュメントは 2025-10-31 の議論内容を詳細に整理したものです。開発チーム拡大時のコンテキスト共有に活用してください。
