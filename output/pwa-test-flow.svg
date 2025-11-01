@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="420" viewBox="0 0 960 420">
+  <style>
+    .box { fill:#fff; stroke:#0f172a; stroke-width:1.6; rx:12; ry:12; }
+    .step { font-size:18px; font-family:'Inter',sans-serif; fill:#0f172a; font-weight:600; }
+    .desc { font-size:14px; font-family:'Inter',sans-serif; fill:#334155; }
+    .arrow { stroke:#2563eb; stroke-width:2.4; fill:none; marker-end:url(#arrowhead); }
+  </style>
+  <defs>
+    <marker id="arrowhead" markerWidth="8" markerHeight="8" refX="6.5" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" fill="#2563eb" />
+    </marker>
+  </defs>
+  <rect fill="#f8fafc" x="0" y="0" width="960" height="420" rx="24" ry="24" />
+  <text x="40" y="48" font-size="26" font-family="Inter" fill="#1e293b" font-weight="700">PWA / XR テストフロー</text>
+
+  <g transform="translate(40,80)">
+    <rect class="box" width="200" height="90" />
+    <text class="step" x="18" y="32">1. ポート解放</text>
+    <text class="desc" x="18" y="56">- `lsof -i :3011` で確認</text>
+    <text class="desc" x="18" y="76">- 必要なら既存プロセス kill</text>
+  </g>
+  <path class="arrow" d="M240,125 H320" />
+
+  <g transform="translate(320,80)">
+    <rect class="box" width="220" height="90" />
+    <text class="step" x="18" y="32">2. サーバー起動</text>
+    <text class="desc" x="18" y="56">- `HOST=0.0.0.0 PORT=3011`</text>
+    <text class="desc" x="18" y="76">- `CLIENT_SERVER_URL=... npm run dev`</text>
+  </g>
+  <path class="arrow" d="M540,125 H620" />
+
+  <g transform="translate(620,80)">
+    <rect class="box" width="240" height="90" />
+    <text class="step" x="18" y="32">3. adb / トンネル</text>
+    <text class="desc" x="18" y="56">- `adb reverse tcp:3011 tcp:3011`</text>
+    <text class="desc" x="18" y="76">- 必要に応じて `ngrok http 3011`</text>
+  </g>
+
+  <path class="arrow" d="M160,220 V260" />
+  <g transform="translate(40,260)">
+    <rect class="box" width="220" height="110" />
+    <text class="step" x="18" y="32">4. PWA 検証</text>
+    <text class="desc" x="18" y="56">- `http://127.0.0.1:3011/index.html`</text>
+    <text class="desc" x="18" y="76">- インストール &amp; standalone 表示確認</text>
+    <text class="desc" x="18" y="96">- OPFS / Service Worker 状態確認</text>
+  </g>
+
+  <path class="arrow" d="M260,315 H340" />
+  <g transform="translate(340,260)">
+    <rect class="box" width="220" height="110" />
+    <text class="step" x="18" y="32">5. XR 起動</text>
+    <text class="desc" x="18" y="56">- `/immersive.html` を開く</text>
+    <text class="desc" x="18" y="76">- 「XR体験を開始する」ボタン</text>
+    <text class="desc" x="18" y="96">- セッション動作を確認</text>
+  </g>
+
+  <path class="arrow" d="M560,315 H640" />
+  <g transform="translate(640,260)">
+    <rect class="box" width="240" height="110" />
+    <text class="step" x="18" y="32">6. オフライン / ログ</text>
+    <text class="desc" x="18" y="56">- DevToolsで Offline モード</text>
+    <text class="desc" x="18" y="76">- モデル復元・バナー表示確認</text>
+    <text class="desc" x="18" y="96">- `chocodrop-dev.log` を確認・共有</text>
+  </g>
+</svg>

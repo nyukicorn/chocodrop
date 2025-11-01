@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="520" viewBox="0 0 960 520">
+  <style>
+    .box { fill:#eef2ff; stroke:#6366f1; stroke-width:2; rx:14; ry:14; }
+    .title { font-size:20px; font-family:'Inter',sans-serif; fill:#312e81; }
+    .label { font-size:14px; font-family:'Inter',sans-serif; fill:#1e293b; }
+    .note { font-size:13px; font-family:'Inter',sans-serif; fill:#475569; }
+    .arrow { stroke:#6366f1; stroke-width:2.5; fill:none; marker-end:url(#arrowhead); }
+    .arrow-alt { stroke:#22c55e; stroke-width:2.5; fill:none; marker-end:url(#arrowhead-green); }
+    .bg { fill:#f8fafc; }
+  </style>
+  <defs>
+    <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#6366f1" />
+    </marker>
+    <marker id="arrowhead-green" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#22c55e" />
+    </marker>
+  </defs>
+  <rect class="bg" x="0" y="0" width="960" height="520" rx="24" ry="24" />
+  <text class="title" x="30" y="44">ChocoDrop PWA / WebXR アーキテクチャ</text>
+
+  <!-- Browser -->
+  <rect class="box" x="60" y="90" width="220" height="120" />
+  <text class="label" x="80" y="120">Web ブラウザ (Quest / Chrome)</text>
+  <text class="note" x="80" y="150">- /index.html</text>
+  <text class="note" x="80" y="172">- /immersive.html</text>
+  <text class="note" x="80" y="194">- ブックマークレット起動</text>
+
+  <!-- PWA Shell -->
+  <rect class="box" x="360" y="70" width="240" height="160" fill="#ede9fe" />
+  <text class="label" x="380" y="110">PWA シェル</text>
+  <text class="note" x="380" y="140">- manifest.webmanifest</text>
+  <text class="note" x="380" y="162">- pwa-bootstrap.js</text>
+  <text class="note" x="380" y="184">- import map (three)</text>
+
+  <!-- SW -->
+  <rect class="box" x="660" y="90" width="240" height="120" fill="#e0e7ff" />
+  <text class="label" x="680" y="120">Service Worker</text>
+  <text class="note" x="680" y="150">- Precache APP_SHELL</text>
+  <text class="note" x="680" y="172">- Network / cacheFirst 戦略</text>
+
+  <!-- OPFS -->
+  <rect class="box" x="660" y="230" width="240" height="120" fill="#dcfce7" />
+  <text class="label" x="680" y="260">OPFS (chocodrop-cache)</text>
+  <text class="note" x="680" y="290">- session.json</text>
+  <text class="note" x="680" y="312">- models.json</text>
+  <text class="note" x="680" y="334">- chocodrop-dev.log</text>
+
+  <!-- XR Runtime -->
+  <rect class="box" x="360" y="260" width="240" height="160" fill="#fef3c7" />
+  <text class="label" x="380" y="300">WebXR ランタイム</text>
+  <text class="note" x="380" y="330">- immersive-launcher.js</text>
+  <text class="note" x="380" y="352">- createChocoDrop(scene,...)</text>
+  <text class="note" x="380" y="374">- SceneManager / UI ロジック</text>
+
+  <!-- Remote services -->
+  <rect class="box" x="60" y="260" width="220" height="160" fill="#fee2e2" />
+  <text class="label" x="80" y="300">ChocoDrop Server (node)</text>
+  <text class="note" x="80" y="330">- src/server/server.js</text>
+  <text class="note" x="80" y="352">- /api/generate /api/models</text>
+  <text class="note" x="80" y="374">- MCP クライアント</text>
+
+  <!-- Network helpers -->
+  <rect class="box" x="60" y="450" width="360" height="60" fill="#cffafe" />
+  <text class="label" x="80" y="485">開発支援: adb reverse, ngrok, HTTPS トンネル</text>
+
+  <!-- Arrows -->
+  <path class="arrow" d="M280,150 H360" />
+  <path class="arrow" d="M600,150 H660" />
+  <path class="arrow" d="M780,210 V230" />
+  <path class="arrow" d="M600,340 H660" />
+  <path class="arrow" d="M360,340 H280" />
+  <path class="arrow-alt" d="M200,260 V210" />
+  <path class="arrow" d="M480,230 V260" />
+
+  <!-- Legends -->
+  <text class="note" x="420" y="470">紫線: 静的/ランタイム依存関係</text>
+  <text class="note" x="420" y="492">緑線: ブックマークレットなどのユーザー→PWA 誘導</text>
+</svg>
