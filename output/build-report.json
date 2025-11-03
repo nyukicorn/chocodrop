@@ -1,0 +1,12 @@
+{
+  "localUrl": null,
+  "ngrokUrl": null,
+  "timestamp": null,
+  "manualTest": [
+    "npm run dev を起動して自動的に記録されるローカルURLを確認してください。",
+    "ngrok トンネルを開く場合は npm run tunnel を実行し、build-report.json の ngrokUrl が更新されることを確認してください。",
+    "immersive.html で初回ロードが2秒以内で完了することをストップウォッチで確認してください。",
+    "XR対応ヘッドセットで XRセッション開始 → 目視で 72fps 相当の滑らかさを確認してください。",
+    "importer.html で GLB/GLTF/JSON のみ受け付けること、かつ OPFS に保存されることを確認してください。"
+  ]
+}
