@@ -71,6 +71,12 @@ server.listen(0, host, async () => {
     timestamp: new Date().toISOString(),
     manualTest: defaultManualTestSteps(localUrl)
   });
+  if (process.env.CHOCODROP_DEV_ONCE === '1') {
+    console.log('CHOCODROP_DEV_ONCE=1: サーバーを自動停止します');
+    setTimeout(() => {
+      server.close(() => process.exit(0));
+    }, 500);
+  }
 });
 
 async function updateBuildReport(report) {
