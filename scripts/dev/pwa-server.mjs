@@ -97,10 +97,10 @@ async function updateBuildReport(report) {
 
 function defaultManualTestSteps(localUrl) {
   return [
-    `ブラウザで ${localUrl}/immersive.html を開き、初回ロードが2秒以内であることを確認`,
-    'XR対応デバイスで「XRセッション開始」をタップし、没入モードに入れることを確認',
-    '別タブで importer.html を開き、GLB/GLTF/JSON 以外が拒否されることをテスト',
-    '任意の GLB を読み込み、シーンに配置されることを確認してから OPFS に保存されるかを確認',
-    'service_worker.js が登録され、オンライン状態で一度読み込んだ後にオフラインでも利用できることを確認'
+    `PCブラウザで ${localUrl}/immersive.html を開き、初回ロードが2秒以内で完了することを確認`,
+    'Meta Quest ブラウザで build-report.json の ngrokUrl を開き、VR開始/AR開始ボタンからそれぞれセッションが起動することを確認',
+    'XRセッション中に左スティックでモデルを平面移動、右スティックで上下移動・回転・スケール操作ができるか確認',
+    'PCで importer.html を開き GLB/GLTF/JSON をアップロード → Quest側でも同期されること、OPFS 対応端末では保存一覧に表示されることを確認',
+    'service_worker.js が登録され、オンライン状態で1度読み込んだ後にオフラインでも利用できることを確認'
   ];
 }
