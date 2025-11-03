@@ -43,7 +43,11 @@ async function main() {
   attachClientStatus(client, overlayUI);
   const loaders = await setupLoaders(sceneManager);
   const { THREE, gltfLoader } = loaders;
-  setOverlayStatus(overlayUI, '準備完了', 'ファイルを選択またはドロップしてください。');
+  setOverlayStatus(
+    overlayUI,
+    '準備完了',
+    'ファイルを選択またはドロップしてください。VR/AR中は左スティック:平面移動, 右スティック:上下・回転・スケール。'
+  );
 
   const handleFiles = async files => {
     for (const file of files) {
@@ -54,7 +58,8 @@ async function main() {
       try {
         const result = await loadFileIntoScene(file, { gltfLoader, sceneManager, THREE });
         await persistFile(file, opfsAvailable);
-        await broadcastScene(result?.json, sceneManager, client);
+        const sceneJSON = sceneManager.exportSceneJSON();
+        await broadcastScene(sceneJSON, sceneManager, client);
         setOverlayStatus(
           overlayUI,
           'インポート完了',
@@ -104,8 +109,8 @@ async function loadFileIntoScene(file, { gltfLoader, sceneManager, THREE }) {
   if (lower.endsWith('.json')) {
     const text = await file.text();
     const json = JSON.parse(text);
-    await sceneManager.importJSON(json);
-    return { json };
+    const imported = await sceneManager.importJSON(json);
+    return { object: imported, json: sceneManager.exportSceneJSON() };
   }
 
   const arrayBuffer = await file.arrayBuffer();
@@ -116,7 +121,7 @@ async function loadFileIntoScene(file, { gltfLoader, sceneManager, THREE }) {
 
     centerScene(root, THREE);
     sceneManager.add(root);
-    return { json: root.toJSON() };
+    return { object: root, json: sceneManager.exportSceneJSON() };
   } finally {
     URL.revokeObjectURL(blobUrl);
   }
