@@ -15,6 +15,7 @@ const PRECACHE_URLS = [
 ];
 
 const THREE_RESOURCES = [
+  'https://cdn.jsdelivr.net/npm/es-module-shims@1.10.0/dist/es-module-shims.min.js',
   'https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.module.js',
   'https://cdn.jsdelivr.net/npm/three@0.158.0/examples/jsm/controls/OrbitControls.js',
   'https://cdn.jsdelivr.net/npm/three@0.158.0/examples/jsm/loaders/GLTFLoader.js',
