@@ -32,6 +32,10 @@ app.post('/api/commands', (req, res) => {
 
 app.use('/icons', express.static(path.join(projectRoot, 'public/icons')));
 app.use('/public', express.static(path.join(projectRoot, 'public')));
+app.get('/manifest.webmanifest', (req, res) => {
+  res.type('application/manifest+json');
+  res.sendFile(path.join(projectRoot, 'public/manifest.webmanifest'));
+});
 app.use(express.static(projectRoot));
 app.get('/favicon.ico', (req, res) => {
   res.sendFile(path.join(projectRoot, 'public/icons/icon-192.png'));
