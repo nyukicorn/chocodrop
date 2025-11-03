@@ -40,7 +40,8 @@ async function main() {
       }
     }
   });
-  attachClientStatus(client, overlayUI);
+  const pendingSync = { latest: null };
+  attachClientStatus(client, overlayUI, pendingSync);
   const loaders = await setupLoaders(sceneManager);
   const { THREE, gltfLoader } = loaders;
   setOverlayStatus(
@@ -59,7 +60,11 @@ async function main() {
         const result = await loadFileIntoScene(file, { gltfLoader, sceneManager, THREE });
         await persistFile(file, opfsAvailable);
         const sceneJSON = sceneManager.exportSceneJSON();
-        await broadcastScene(sceneJSON, sceneManager, client);
+        if (!(await broadcastScene(sceneJSON, sceneManager, client))) {
+          pendingSync.latest = sceneJSON;
+        } else {
+          pendingSync.latest = null;
+        }
         setOverlayStatus(
           overlayUI,
           'インポート完了',
@@ -240,14 +245,17 @@ async function setupLoaders(sceneManager) {
 }
 
 async function broadcastScene(json, sceneManager, client) {
-  if (!json || !client?.isConnected()) return;
+  if (!json || !client) return false;
+  if (!client.isConnected()) return false;
   try {
     client.send({ type: 'scene:clear' });
     client.send({ type: 'scene:json', payload: { json } });
     const { position, target } = exportCameraState(sceneManager);
     client.send({ type: 'camera:set', payload: { position, target } });
+    return true;
   } catch (error) {
     console.warn('Scene broadcast failed', error);
+    return false;
   }
 }
 
@@ -262,12 +270,23 @@ function exportCameraState(sceneManager) {
   };
 }
 
-function attachClientStatus(client, overlayUI) {
+function attachClientStatus(client, overlayUI, pendingSync) {
   if (!client || !overlayUI) return;
   client.on('connecting', () => setOverlayStatus(overlayUI, '同期サーバー接続中…', 'Quest への配信待機中。', 'info'));
   client.on('connected', () => setOverlayStatus(overlayUI, '同期オンライン', 'PC→Quest 間で自動反映します。', 'ok'));
   client.on('disconnected', () => setOverlayStatus(overlayUI, '同期切断', 'ローカルのみ更新されます。', 'warn'));
   client.on('error', () => setOverlayStatus(overlayUI, '同期エラー', 'WebSocket 接続を確認してください。', 'error'));
+  client.on('connected', async () => {
+    if (pendingSync?.latest) {
+      const sceneManager = client.sceneManager;
+      if (sceneManager) {
+        const success = await broadcastScene(pendingSync.latest, sceneManager, client);
+        if (success) {
+          pendingSync.latest = null;
+        }
+      }
+    }
+  });
 }
 
 main().catch(error => {
