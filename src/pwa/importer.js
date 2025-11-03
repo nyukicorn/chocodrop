@@ -5,7 +5,7 @@ import {
   loadDRACOLoader,
   loadKTX2Loader
 } from './utils/three-deps.js';
-import { saveModelToOPFS, listStoredModels } from '../opfs_store.js';
+import { saveModelToOPFS, listStoredModels } from '../../opfs_store.js';
 
 const ACCEPT_EXTENSIONS = ['.gltf', '.glb', '.json'];
 
