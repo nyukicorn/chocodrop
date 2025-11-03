@@ -50,6 +50,7 @@
         padding: 0.75rem 1.25rem;
         color: #e2e8f0;
         pointer-events: auto;
+        flex-wrap: wrap;
       }
       .pill {
         font-size: 0.85rem;
@@ -83,6 +84,15 @@
         transform: scale(0.97);
         filter: brightness(0.9);
       }
+      .panel .button-group {
+        display: inline-flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+      }
+      .panel .button-group button {
+        background: linear-gradient(135deg, #38bdf8, #6366f1);
+        padding: 0.5rem 1.1rem;
+      }
     </style>
   </head>
   <body>
@@ -96,7 +106,10 @@
       <div class="panel">
         <span class="pill">XR</span>
         <span data-xr-status data-state="idle">XR待機中</span>
-        <button data-action="enter-xr">XRセッション開始</button>
+        <div class="button-group">
+          <button data-action="enter-vr">VR開始</button>
+          <button data-action="enter-ar">AR開始</button>
+        </div>
       </div>
     </div>
     <noscript>この体験には JavaScript が必要です。</noscript>

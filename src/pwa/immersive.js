@@ -52,10 +52,10 @@ function createDefaultEnvironment(THREE, sceneManager) {
   ring.rotation.x = Math.PI / 2;
   ring.position.y = 1.4;
 
-  sceneManager.add(floor);
-  sceneManager.add(ambient);
-  sceneManager.add(pulseLight);
-  sceneManager.add(ring);
+  sceneManager.scene.add(floor);
+  sceneManager.scene.add(ambient);
+  sceneManager.scene.add(pulseLight);
+  sceneManager.scene.add(ring);
 
   let t = 0;
   sceneManager.options.onBeforeRender = delta => {
@@ -66,35 +66,65 @@ function createDefaultEnvironment(THREE, sceneManager) {
 }
 
 function setupXRControls(sceneManager) {
-  const xrButton = document.querySelector('[data-action=\"enter-xr\"]');
-  const xrStatus = document.querySelector('[data-xr-status]');
+  const statusEl = document.querySelector('[data-xr-status]');
+  const vrButton = document.querySelector('[data-action=\"enter-vr\"]');
+  const arButton = document.querySelector('[data-action=\"enter-ar\"]');
+
+  const setStatus = (text, state = 'idle') => {
+    statusEl.textContent = text;
+    statusEl.dataset.state = state;
+  };
 
   if (!navigator.xr) {
-    xrButton.disabled = true;
-    xrStatus.textContent = 'このブラウザはWebXRに対応していません';
-    xrStatus.dataset.state = 'error';
+    setStatus('このブラウザはWebXRに対応していません', 'error');
+    vrButton.disabled = true;
+    arButton.disabled = true;
     return;
   }
 
-  xrButton.addEventListener('click', async () => {
-    xrButton.disabled = true;
-    xrStatus.textContent = 'XRセッションを初期化中…';
+  let arSupported = false;
+  sceneManager.isSessionSupported('ar').then(supported => {
+    arSupported = supported;
+    if (!supported) {
+      arButton.disabled = true;
+      arButton.title = 'このデバイスは AR セッションをサポートしていません';
+    }
+  });
+
+  const enableButtons = () => {
+    vrButton.disabled = false;
+    arButton.disabled = !arSupported;
+  };
+
+  const handleEnter = async mode => {
+    vrButton.disabled = true;
+    arButton.disabled = true;
+    setStatus(`${mode === 'ar' ? 'AR' : 'VR'}セッションを初期化中…`, 'pending');
     try {
-      await sceneManager.enterXR();
-      xrStatus.textContent = 'XRセッション中';
-      xrStatus.dataset.state = 'ok';
+      await sceneManager.enterXR(mode);
+      setStatus(`${mode === 'ar' ? 'AR' : 'VR'}セッション中`, 'ok');
     } catch (error) {
       console.error(error);
-      xrStatus.textContent = 'XR開始に失敗しました';
-      xrStatus.dataset.state = 'error';
-      xrButton.disabled = false;
+      setStatus(`${mode === 'ar' ? 'AR' : 'VR'}開始に失敗しました`, 'error');
+      enableButtons();
     }
-  }, { passive: true });
+  };
+
+  vrButton.addEventListener('click', () => handleEnter('vr'), { passive: true });
+  arButton.addEventListener('click', () => handleEnter('ar'), { passive: true });
+
+  sceneManager.on('xr:entered', ({ detail }) => {
+    setStatus(`${detail.mode === 'immersive-ar' ? 'AR' : 'VR'}セッション中`, 'ok');
+  });
 
   sceneManager.on('xr:exit', () => {
-    xrStatus.textContent = 'XR待機中';
-    xrStatus.dataset.state = 'idle';
-    xrButton.disabled = false;
+    setStatus('XR待機中', 'idle');
+    enableButtons();
+  });
+
+  sceneManager.on('xr:error', () => {
+    setStatus('XR開始に失敗しました', 'error');
+    enableButtons();
   });
 }
 
