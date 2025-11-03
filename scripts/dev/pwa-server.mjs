@@ -30,7 +30,12 @@ app.post('/api/commands', (req, res) => {
   res.json({ ok: true });
 });
 
+app.use('/icons', express.static(path.join(projectRoot, 'public/icons')));
+app.use('/public', express.static(path.join(projectRoot, 'public')));
 app.use(express.static(projectRoot));
+app.get('/favicon.ico', (req, res) => {
+  res.sendFile(path.join(projectRoot, 'public/icons/icon-192.png'));
+});
 
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server, path: '/ws/live' });
