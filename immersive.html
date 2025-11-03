@@ -7,6 +7,15 @@
     <title>ChocoDrop Immersive</title>
     <link rel="manifest" href="/public/manifest.webmanifest">
     <link rel="icon" href="/public/icons/icon-192.png">
+    <script async src="https://cdn.jsdelivr.net/npm/es-module-shims@1.10.0/dist/es-module-shims.min.js"></script>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.module.js",
+          "three/examples/jsm/": "https://cdn.jsdelivr.net/npm/three@0.158.0/examples/jsm/"
+        }
+      }
+    </script>
     <style>
       :root {
         color-scheme: dark;
