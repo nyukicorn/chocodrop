@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#020817">
+    <title>ChocoDrop Immersive</title>
+    <link rel="manifest" href="/public/manifest.webmanifest">
+    <link rel="icon" href="/public/icons/icon-192.png">
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      }
+      body {
+        margin: 0;
+        background: #020617;
+        overflow: hidden;
+      }
+      canvas {
+        width: 100vw;
+        height: 100vh;
+        display: block;
+      }
+      [data-overlay] {
+        position: fixed;
+        inset: 1.5rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+        pointer-events: none;
+      }
+      .panel {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.75rem;
+        background: rgba(15, 23, 42, 0.72);
+        backdrop-filter: blur(16px);
+        border: 1px solid rgba(148, 163, 184, 0.3);
+        border-radius: 999px;
+        padding: 0.75rem 1.25rem;
+        color: #e2e8f0;
+        pointer-events: auto;
+      }
+      .pill {
+        font-size: 0.85rem;
+        font-weight: 600;
+        padding: 0.35rem 0.75rem;
+        border-radius: 999px;
+        background: rgba(37, 99, 235, 0.2);
+        border: 1px solid rgba(37, 99, 235, 0.4);
+      }
+      [data-status][data-state="ok"] { color: #4ade80; }
+      [data-status][data-state="error"] { color: #f87171; }
+      [data-status][data-state="pending"] { color: #facc15; }
+      [data-latency][data-state="warn"] { color: #f97316; }
+      button {
+        pointer-events: auto;
+        padding: 0.6rem 1.4rem;
+        border-radius: 999px;
+        border: none;
+        font-weight: 600;
+        background: radial-gradient(circle at top, #38bdf8, #2563eb);
+        color: white;
+        cursor: pointer;
+        transition: transform 0.15s ease, filter 0.15s ease;
+      }
+      button:disabled {
+        background: #1e293b;
+        color: #94a3b8;
+        cursor: not-allowed;
+      }
+      button:not(:disabled):active {
+        transform: scale(0.97);
+        filter: brightness(0.9);
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="immersive-canvas"></canvas>
+    <div data-overlay>
+      <div class="panel">
+        <span class="pill">Live</span>
+        <span data-status data-state="pending">接続待機中</span>
+        <span data-latency data-state="warn">-- ms</span>
+      </div>
+      <div class="panel">
+        <span class="pill">XR</span>
+        <span data-xr-status data-state="idle">XR待機中</span>
+        <button data-action="enter-xr">XRセッション開始</button>
+      </div>
+    </div>
+    <noscript>この体験には JavaScript が必要です。</noscript>
+    <script type="module" src="/src/pwa/immersive.js"></script>
+  </body>
+</html>
