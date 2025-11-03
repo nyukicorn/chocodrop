@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#020617">
+    <title>ChocoDrop Importer</title>
+    <link rel="manifest" href="/public/manifest.webmanifest">
+    <style>
+      :root { color-scheme: dark; font-family: 'Inter', system-ui, sans-serif; }
+      body {
+        margin: 0;
+        display: grid;
+        grid-template-columns: minmax(320px, 380px) 1fr;
+        min-height: 100vh;
+        background: #020617;
+        color: #e2e8f0;
+      }
+      aside {
+        padding: 2rem;
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+        border-right: 1px solid rgba(148, 163, 184, 0.2);
+        background: rgba(15, 23, 42, 0.6);
+        backdrop-filter: blur(18px);
+      }
+      main { position: relative; }
+      canvas {
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+      [data-dropzone] {
+        border: 2px dashed rgba(148, 163, 184, 0.5);
+        border-radius: 1rem;
+        padding: 1.5rem;
+        text-align: center;
+        transition: border-color 0.2s ease, background 0.2s ease;
+      }
+      [data-dropzone][data-state="over"] {
+        border-color: #38bdf8;
+        background: rgba(56, 189, 248, 0.12);
+      }
+      input[type="file"] {
+        width: 100%;
+        border: 1px solid rgba(148, 163, 184, 0.3);
+        border-radius: 0.75rem;
+        padding: 0.75rem;
+        background: rgba(15, 23, 42, 0.7);
+        color: inherit;
+      }
+      ul {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        max-height: 240px;
+        overflow-y: auto;
+      }
+      li {
+        padding: 0.5rem 0.75rem;
+        border-radius: 0.75rem;
+        background: rgba(30, 64, 175, 0.35);
+        border: 1px solid rgba(96, 165, 250, 0.35);
+      }
+      h1 {
+        margin: 0;
+        font-size: 1.4rem;
+      }
+      .note {
+        font-size: 0.85rem;
+        color: #cbd5f5;
+        line-height: 1.6;
+      }
+      @media (max-width: 960px) {
+        body {
+          grid-template-columns: 1fr;
+        }
+        aside {
+          position: sticky;
+          top: 0;
+          z-index: 1;
+          background: rgba(15, 23, 42, 0.92);
+        }
+        main {
+          min-height: 60vh;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <aside>
+      <h1>モデルインポーター</h1>
+      <p class="note">GLTF / GLB / Three.js JSON をアップロードして、シーンに即座に配置します。</p>
+      <label>ファイル選択
+        <input id="file-input" type="file" accept=".gltf,.glb,.json" multiple>
+      </label>
+      <div data-dropzone data-state="idle">
+        <strong>ドラッグ＆ドロップ</strong>
+        <p class="note">サポート形式以外は拒否します。</p>
+      </div>
+      <section>
+        <h2>保存済みモデル</h2>
+        <ul data-file-list>
+          <li>OPFS を初期化しています…</li>
+        </ul>
+      </section>
+    </aside>
+    <main>
+      <canvas id="importer-canvas"></canvas>
+      <div data-overlay></div>
+    </main>
+    <noscript>このページは JavaScript が有効である必要があります。</noscript>
+    <script type="module" src="/src/pwa/importer.js"></script>
+  </body>
+</html>
