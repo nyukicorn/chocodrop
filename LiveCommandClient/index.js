@@ -29,6 +29,10 @@ export class LiveCommandClient {
     this.sceneManager = sceneManager;
   }
 
+  isConnected() {
+    return this.socket?.readyState === WebSocket.OPEN;
+  }
+
   connect() {
     if (this.socket && (this.socket.readyState === WebSocket.OPEN || this.socket.readyState === WebSocket.CONNECTING)) {
       return;

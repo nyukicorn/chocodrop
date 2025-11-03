@@ -1,13 +1,14 @@
 {
-  "localUrl": "http://localhost:59654",
-  "ngrokUrl": null,
-  "timestamp": "2025-11-03T03:39:50.189Z",
+  "localUrl": "http://localhost:58333",
+  "ngrokUrl": "https://a80ce5864e93.ngrok-free.app",
+  "timestamp": "2025-11-03T14:26:58.561Z",
   "manualTest": [
     "開発マシンで npm run dev を実行し、build-report.json の localUrl を確認する",
     "別ターミナルで npm run tunnel を実行し、ngrokUrl が設定されることを確認する",
-    "Meta Quest ブラウザで ngrokUrl/immersive.html を開き、初回ロードが2秒以内に完了するか確認する",
-    "XRセッション開始ボタンを押して WebXR 権限を許可し、没入表示が72fps程度で安定しているか確認する",
-    "Quest から importer.html にアクセスし、GLB/GLTF/JSON 以外が拒否されることと OPFS 保存が動作するか確認する",
-    "PCブラウザでも importer.html を開き、同等の挙動と service_worker.js によるオフライン再訪問が可能か検証する"
-  ]
+    "PCブラウザで http://localhost:58333/immersive.html を開き、初回ロードが2秒以内であることを確認する",
+    "Meta Quest ブラウザで https://a80ce5864e93.ngrok-free.app/immersive.html を開き、XRセッション開始→没入表示が72fps程度で安定しているか確認する",
+    "PCで importer.html にGLB/GLTF/JSONをアップロードし、Quest側でも自動反映されることを確認する（失敗時は手動同期を確認）",
+    "service_worker.js が登録され、オンライン状態で一度読み込んだ後にオフラインでも利用できることを確認する"
+  ],
+  "ngrokUpdatedAt": "2025-11-03T14:34:19.192Z"
 }
