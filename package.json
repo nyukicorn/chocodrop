@@ -20,8 +20,10 @@
     "./server": "./src/server/index.js"
   },
   "scripts": {
-    "dev": "node src/server/server.js",
+    "dev": "node scripts/dev/pwa-server.mjs",
+    "dev:server": "node src/server/server.js",
     "start": "node src/server/server.js",
+    "tunnel": "node scripts/dev/open-ngrok.mjs",
     "build": "rollup -c rollup.config.js && rollup -c rollup.config.mjs",
     "postbuild": "cp dist/chocodrop-demo.umd.js public/chocodrop-demo.umd.js && cp dist/chocodrop-demo.umd.js public/chocodrop-demo.umd.min.js",
     "build:watch": "rollup -c -w",
@@ -59,7 +61,8 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.17.5",
     "cors": "^2.8.5",
-    "express": "^4.19.0"
+    "express": "^4.19.0",
+    "ws": "^8.18.3"
   },
   "devDependencies": {
     "@rollup/plugin-node-resolve": "^16.0.1",

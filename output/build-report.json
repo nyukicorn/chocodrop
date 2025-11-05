@@ -1,0 +1,13 @@
+{
+  "localUrl": "http://localhost:63617",
+  "ngrokUrl": "https://4cdc7ac36b2e.ngrok-free.app",
+  "timestamp": "2025-11-03T16:29:58.365Z",
+  "manualTest": [
+    "PCブラウザで http://localhost:63617/immersive.html を開き、初回ロードが2秒以内で完了することを確認",
+    "Meta Quest ブラウザで build-report.json の ngrokUrl を開き、VR開始/AR開始ボタンからそれぞれセッションが起動することを確認",
+    "XRセッション中に左スティックでモデルを平面移動、右スティックで上下移動・回転・スケール操作ができるか確認",
+    "PCで importer.html を開き GLB/GLTF/JSON をアップロード → Quest側でも同期されること、OPFS 対応端末では保存一覧に表示されることを確認",
+    "service_worker.js が登録され、オンライン状態で1度読み込んだ後にオフラインでも利用できることを確認"
+  ],
+  "ngrokUpdatedAt": "2025-11-03T16:30:36.703Z"
+}
