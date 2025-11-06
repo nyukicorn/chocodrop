@@ -6,6 +6,10 @@
   "start_url": "/immersive.html",
   "scope": "/",
   "display": "standalone",
+  "display_override": [
+    "fullscreen",
+    "standalone"
+  ],
   "background_color": "#0f172a",
   "theme_color": "#6f35bc",
   "orientation": "landscape",
@@ -29,9 +33,7 @@
   ],
   "categories": [
     "productivity",
-    "creative",
-    "art",
-    "graphics"
+    "xr"
   ],
   "shortcuts": [
     {
