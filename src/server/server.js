@@ -142,10 +142,17 @@ class ChocoDropServer {
         const passthroughHeaders = [
           'content-type',
           'content-length',
+          'content-language',
+          'content-encoding',
+          'content-disposition',
           'last-modified',
           'etag',
           'cache-control',
-          'expires'
+          'expires',
+          'accept-ranges',
+          'cross-origin-embedder-policy',
+          'cross-origin-opener-policy',
+          'cross-origin-resource-policy'
         ];
 
         passthroughHeaders.forEach(header => {
