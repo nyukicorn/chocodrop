@@ -6505,6 +6505,14 @@ export class SceneManager {
     return () => this.xr.events.removeEventListener(eventType, handler);
   }
 
+  setXRAutoResume(enabled) {
+    this.xr.autoResume = Boolean(enabled);
+    if (this.xr.bridge) {
+      this.xr.bridge.setAutoResume(this.xr.autoResume);
+    }
+    this._dispatchXREvent('autoResume', { enabled: this.xr.autoResume });
+  }
+
   async enterXR(mode = 'vr', options = {}) {
     const bridge = this.xr.bridge || this.initializeXRBridge(options);
     if (!bridge) {
