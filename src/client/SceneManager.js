@@ -3,6 +3,7 @@ import * as THREEModule from 'three';
 const THREE = globalThis.THREE || THREEModule;
 import { ChocoDropClient, ChocoDroClient, LiveCommandClient } from './LiveCommandClient.js';
 import { createObjectKeywords, matchKeywordWithFilename } from '../common/translation-dictionary.js';
+import { XRBridgeLoader } from './xr/XRBridgeLoader.js';
 
 /**
  * Scene Manager - 3D scene integration for ChocoDrop System
@@ -55,6 +56,16 @@ export class SceneManager {
     this.isRestoring = false;
     this.gltfLoader = null;
 
+    this.xr = {
+      bridge: null,
+      status: 'idle',
+      mode: null,
+      supported: { vr: null, ar: null },
+      autoResume: options.xrAutoResume !== false,
+      events: new EventTarget(),
+      error: null
+    };
+
     // Animation管理（UI要素用）
     this.clock = new THREE.Clock();
     
@@ -84,6 +95,22 @@ export class SceneManager {
     // デバッグやコンソール操作を容易にするためグローバル参照を保持
     if (typeof globalThis !== 'undefined') {
       globalThis.sceneManager = this;
+    }
+
+    if (this.renderer && options.enableXRBridge !== false) {
+      const initialize = () => {
+        try {
+          this.initializeXRBridge(options.xrBridgeOptions || {});
+        } catch (error) {
+          console.warn('⚠️ XRBridge initialization failed', error);
+          this._updateXRState('error', { error });
+        }
+      };
+      if (typeof queueMicrotask === 'function') {
+        queueMicrotask(initialize);
+      } else {
+        Promise.resolve().then(initialize);
+      }
     }
   }
   /**
@@ -6403,6 +6430,132 @@ export class SceneManager {
   /**
    * クリーンアップ
    */
+  initializeXRBridge(options = {}) {
+    if (this.xr.bridge) {
+      return this.xr.bridge;
+    }
+    if (!this.renderer) {
+      console.warn('XRBridge を初期化するには renderer が必要です');
+      return null;
+    }
+    const hasNavigatorXR = typeof navigator !== 'undefined' && navigator.xr;
+    if (!hasNavigatorXR) {
+      this.xr.supported = { vr: false, ar: false };
+      this._updateXRState('unsupported');
+      return null;
+    }
+
+    const domOverlayRoot = options.domOverlayRoot || options.domOverlay || (typeof document !== 'undefined' ? document.body : null);
+    const bridge = new XRBridgeLoader({
+      renderer: this.renderer,
+      sceneManager: this,
+      domOverlayRoot,
+      autoResume: this.xr.autoResume
+    });
+
+    const handleSupport = async mode => {
+      try {
+        const supported = await bridge.isSessionSupported(mode);
+        this.xr.supported[mode] = supported;
+        this._dispatchXREvent('support', { mode, supported });
+      } catch (error) {
+        this._dispatchXREvent('support:error', { mode, error });
+      }
+    };
+
+    bridge.addEventListener('installed', () => {
+      this._updateXRState('ready');
+    });
+    bridge.addEventListener('session:start', event => {
+      this.xr.mode = event.detail?.mode || null;
+      this._updateXRState('active', { mode: this.xr.mode });
+    });
+    bridge.addEventListener('session:end', () => {
+      this.xr.mode = null;
+      this._updateXRState('idle');
+    });
+    bridge.addEventListener('session:error', event => {
+      this.xr.error = event.detail?.error || null;
+      this._updateXRState('error', { mode: event.detail?.mode, error: this.xr.error });
+    });
+    bridge.addEventListener('loop:error', event => {
+      this.xr.error = event.detail?.error || null;
+      this._updateXRState('error', { error: this.xr.error });
+    });
+
+    try {
+      bridge.install();
+      this.xr.bridge = bridge;
+      handleSupport('vr');
+      handleSupport('ar');
+    } catch (error) {
+      this.xr.error = error;
+      this._updateXRState('error', { error });
+      console.warn('XRBridge install failed', error);
+      return null;
+    }
+
+    return bridge;
+  }
+
+  onXR(type, handler) {
+    if (!handler) return () => {};
+    const eventType = this._normalizeXREventType(type);
+    this.xr.events.addEventListener(eventType, handler);
+    return () => this.xr.events.removeEventListener(eventType, handler);
+  }
+
+  async enterXR(mode = 'vr', options = {}) {
+    const bridge = this.xr.bridge || this.initializeXRBridge(options);
+    if (!bridge) {
+      throw new Error('XRBridge が利用できません');
+    }
+    this._updateXRState('requesting', { mode });
+    try {
+      const session = await bridge.enter(mode, options);
+      return session;
+    } catch (error) {
+      this.xr.error = error;
+      this._updateXRState('error', { mode, error });
+      throw error;
+    }
+  }
+
+  async exitXR() {
+    if (!this.xr.bridge) return;
+    await this.xr.bridge.exit();
+    this._updateXRState('idle');
+  }
+
+  async isSessionSupported(mode = 'vr') {
+    if (!this.xr.bridge) {
+      if (typeof navigator === 'undefined' || !navigator.xr?.isSessionSupported) {
+        return false;
+      }
+      return navigator.xr.isSessionSupported(mode === 'ar' ? 'immersive-ar' : 'immersive-vr').catch(() => false);
+    }
+    return this.xr.bridge.isSessionSupported(mode);
+  }
+
+  _updateXRState(state, detail = {}) {
+    this.xr.status = state;
+    if (state !== 'error') {
+      this.xr.error = null;
+    }
+    this._dispatchXREvent('state', { state, ...detail });
+  }
+
+  _dispatchXREvent(type, detail) {
+    this.xr.events.dispatchEvent(new CustomEvent(this._normalizeXREventType(type), { detail }));
+  }
+
+  _normalizeXREventType(type) {
+    if (type.startsWith('xr:')) {
+      return type;
+    }
+    return `xr:${type}`;
+  }
+
   dispose() {
     this.clearAll();
     if (this.experimentGroup.parent) {

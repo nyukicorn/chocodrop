@@ -16,6 +16,8 @@ const DEFAULT_FEATURES = {
 
 const RAF_SUPPRESS_TOKEN = -1;
 
+const getXRSystem = () => (typeof globalThis !== 'undefined' && globalThis.navigator ? globalThis.navigator.xr : null);
+
 /**
  * WebXR セッションの開始/終了とレンダーループの橋渡しを担当するローダー。
  * ユーザーコードの requestAnimationFrame を捕捉し、XR セッション時のみ setAnimationLoop に切り替える。
@@ -54,10 +56,11 @@ export class XRBridgeLoader extends EventTarget {
   }
 
   async isSessionSupported(mode = 'vr') {
-    if (!navigator.xr?.isSessionSupported) return false;
+    const xr = getXRSystem();
+    if (!xr?.isSessionSupported) return false;
     const sessionMode = XR_MODES[mode] ?? XR_MODES.vr;
     try {
-      return await navigator.xr.isSessionSupported(sessionMode);
+      return await xr.isSessionSupported(sessionMode);
     } catch (error) {
       this.dispatchEvent(new CustomEvent('supportcheck:error', { detail: { error, mode: sessionMode } }));
       return false;
@@ -65,7 +68,8 @@ export class XRBridgeLoader extends EventTarget {
   }
 
   async enter(mode = 'vr', options = {}) {
-    if (!navigator.xr) {
+    const xr = getXRSystem();
+    if (!xr) {
       throw new Error('WebXR がサポートされていません');
     }
     const sessionMode = XR_MODES[mode] ?? XR_MODES.vr;
@@ -79,7 +83,7 @@ export class XRBridgeLoader extends EventTarget {
     this.dispatchEvent(new CustomEvent('session:request', { detail: { mode: sessionMode, init: sessionInit } }));
 
     try {
-      const session = await navigator.xr.requestSession(sessionMode, sessionInit);
+      const session = await xr.requestSession(sessionMode, sessionInit);
       await this._activateSession(session, mode, options);
       this._autoResumeAllowed = true;
       return session;
@@ -104,8 +108,9 @@ export class XRBridgeLoader extends EventTarget {
       this._restoreRAF();
       this._restoreRAF = null;
     }
-    if (this._sessionGrantedHandler && navigator.xr?.removeEventListener) {
-      navigator.xr.removeEventListener('sessiongranted', this._sessionGrantedHandler);
+    const xr = getXRSystem();
+    if (this._sessionGrantedHandler && xr?.removeEventListener) {
+      xr.removeEventListener('sessiongranted', this._sessionGrantedHandler);
       this._sessionGrantedHandler = null;
     }
     if (this._originalSetLoop) {
@@ -229,7 +234,8 @@ export class XRBridgeLoader extends EventTarget {
   }
 
   _installSessionGrantedListener() {
-    if (!navigator.xr?.addEventListener) return;
+    const xr = getXRSystem();
+    if (!xr?.addEventListener) return;
     this._sessionGrantedHandler = async () => {
       if (!this.autoResume || !this._autoResumeAllowed || this._xrActive || !this._lastRequestedMode) {
         return;
@@ -240,7 +246,7 @@ export class XRBridgeLoader extends EventTarget {
         this.dispatchEvent(new CustomEvent('session:error', { detail: { error, mode: this._lastRequestedMode } }));
       }
     };
-    navigator.xr.addEventListener('sessiongranted', this._sessionGrantedHandler);
+    xr.addEventListener('sessiongranted', this._sessionGrantedHandler);
   }
 }
 
