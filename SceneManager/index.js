@@ -1,4 +1,5 @@
 import { loadThree, loadOrbitControls } from '../src/pwa/utils/three-deps.js';
+import { XRBridgeLoader } from '../src/client/xr/XRBridgeLoader.js';
 
 const DEFAULT_BACKGROUND = '#0f172a';
 const TARGET_FPS = 72;
@@ -24,7 +25,17 @@ export class SceneManager {
       background: DEFAULT_BACKGROUND,
       onBeforeRender: null,
       onAfterRender: null,
+      xrBridge: {},
+      xrAutoResume: true,
       ...options
+    };
+
+    this.options.xrBridge = {
+      ...this.options.xrBridge,
+      autoResume: this.options.xrBridge?.autoResume ?? this.options.xrAutoResume,
+      domOverlayRoot:
+        this.options.xrBridge?.domOverlayRoot ?? (typeof document !== 'undefined' ? document.body : null),
+      captureRAF: this.options.xrBridge?.captureRAF ?? false
     };
 
     this.events = new EventTarget();
@@ -37,6 +48,10 @@ export class SceneManager {
     this.selectedObject = null;
     this._manipVectors = {};
     this._tmpEuler = null;
+    this.xrBridge = null;
+    this.xrSupport = { vr: null, ar: null };
+    this.xrState = 'idle';
+    this.xrError = null;
   }
 
   on(type, handler) {
@@ -68,13 +83,15 @@ export class SceneManager {
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.setAnimationLoop(null);
 
-    if (this.options.enableXR && 'xr' in navigator) {
+    const hasNavigatorXR = typeof navigator !== 'undefined' && navigator.xr;
+    if (this.options.enableXR && hasNavigatorXR) {
       this.renderer.xr.enabled = true;
-      this.renderer.xr.addEventListener?.('sessionend', () => {
-        this.xrSession = null;
-        this.xrMode = null;
-        this.emit('xr:exit');
-      });
+      this.renderer.xr.addEventListener?.('sessionend', this._handleXRSessionEnd);
+      this.disposables.add(() => this.renderer.xr?.removeEventListener?.('sessionend', this._handleXRSessionEnd));
+    }
+
+    if (this.options.enableXR && hasNavigatorXR) {
+      this._ensureXRBridge();
     }
 
     this.scene = new THREE.Scene();
@@ -179,29 +196,141 @@ export class SceneManager {
     this._updateXRManipulation(delta);
   }
 
+  _handleXRSessionEnd = () => {
+    if (this.xrBridge) {
+      return;
+    }
+    this.xrSession = null;
+    this.xrMode = null;
+    this._updateXRState('idle');
+    if (this.isRunning && this.renderer.setAnimationLoop) {
+      this.renderer.setAnimationLoop(time => {
+        if (!this.isRunning) return;
+        this._tick(time);
+      });
+    }
+    this.emit('xr:exit');
+  };
+
+  _ensureXRBridge() {
+    if (!this.options.enableXR) {
+      return null;
+    }
+    if (this.xrBridge) {
+      return this.xrBridge;
+    }
+    if (typeof navigator === 'undefined' || !navigator.xr) {
+      this._updateXRState('unsupported');
+      return null;
+    }
+
+    const bridge = new XRBridgeLoader({
+      renderer: this.renderer,
+      autoResume: this.options.xrBridge.autoResume !== false,
+      domOverlayRoot: this.options.xrBridge.domOverlayRoot,
+      captureRAF: this.options.xrBridge.captureRAF
+    });
+
+    bridge.addEventListener('installed', () => {
+      this._updateXRState('ready');
+    });
+    bridge.addEventListener('session:start', event => {
+      this.xrSession = event.detail?.session || null;
+      const mode = event.detail?.mode === 'immersive-ar' ? 'ar' : 'vr';
+      this.xrMode = mode;
+      this._setupXRControllers();
+      this._updateXRState('active', { mode: event.detail?.mode });
+      this.emit('xr:entered', { session: this.xrSession, mode: event.detail?.mode });
+    });
+    bridge.addEventListener('session:end', () => {
+      this.xrSession = null;
+      this.xrMode = null;
+      this._updateXRState('idle');
+      if (this.isRunning && this.renderer?.setAnimationLoop) {
+        this.renderer.setAnimationLoop(time => {
+          if (!this.isRunning) return;
+          this._tick(time);
+        });
+      }
+      this.emit('xr:exit');
+    });
+    bridge.addEventListener('session:error', event => {
+      this.xrError = event.detail?.error || null;
+      this._updateXRState('error', { mode: event.detail?.mode, error: this.xrError });
+      this.emit('xr:error', { error: this.xrError, mode: event.detail?.mode });
+    });
+    bridge.addEventListener('loop:error', event => {
+      this.xrError = event.detail?.error || null;
+      this.emit('xr:error', { error: this.xrError });
+    });
+    bridge.addEventListener('support', event => {
+      if (!event.detail) return;
+      this.xrSupport[event.detail.mode] = event.detail.supported;
+      this.emit('xr:support', event.detail);
+    });
+    bridge.addEventListener('support:error', event => {
+      this.emit('xr:support-error', event.detail);
+    });
+
+    try {
+      bridge.install();
+      this.xrBridge = bridge;
+      bridge.isSessionSupported('vr').then(supported => {
+        this.xrSupport.vr = supported;
+        this.emit('xr:support', { mode: 'vr', supported });
+      }).catch(error => {
+        this.emit('xr:support-error', { mode: 'vr', error });
+      });
+      bridge.isSessionSupported('ar').then(supported => {
+        this.xrSupport.ar = supported;
+        this.emit('xr:support', { mode: 'ar', supported });
+      }).catch(error => {
+        this.emit('xr:support-error', { mode: 'ar', error });
+      });
+    } catch (error) {
+      this.xrError = error;
+      this._updateXRState('error', { error });
+      this.emit('xr:error', { error });
+      return null;
+    }
+
+    return bridge;
+  }
+
+  _updateXRState(state, detail = {}) {
+    this.xrState = state;
+    if (state !== 'error') {
+      this.xrError = null;
+    }
+    this.emit('xr:state', { state, ...detail });
+  }
+
   async enterXR(mode = 'vr') {
-    if (!this.options.enableXR || !this.renderer.xr.enabled) {
+    const bridge = this._ensureXRBridge();
+    if (!bridge || !this.renderer.xr?.enabled) {
       throw new Error('WebXR はサポートされていません');
     }
-    const sessionType = mode === 'ar' ? 'immersive-ar' : 'immersive-vr';
     if (mode === 'ar') {
-      const supported = await this.isSessionSupported('ar');
+      const supported = await bridge.isSessionSupported('ar');
       if (!supported) {
         throw new Error('AR セッションはこのデバイスでサポートされていません');
       }
     }
+
+    const sessionType = mode === 'ar' ? 'immersive-ar' : 'immersive-vr';
+    this._updateXRState('requesting', { mode: sessionType });
     this.emit('xr:request', { mode: sessionType });
+
     try {
-      const session = await navigator.xr.requestSession(sessionType, {
-        requiredFeatures: mode === 'ar' ? ['local-floor', 'hit-test'] : ['local-floor', 'bounded-floor'],
-        optionalFeatures: ['hand-tracking', 'layers']
+      const session = await bridge.enter(mode, {
+        fallbackLoop: time => this._tick(time)
       });
-      await this.renderer.xr.setSession(session);
       this.xrSession = session;
       this.xrMode = mode;
-      this._setupXRControllers();
-      this.emit('xr:entered', { session: this.xrSession, mode: sessionType });
+      return session;
     } catch (error) {
+      this.xrError = error;
+      this._updateXRState('error', { mode: sessionType, error });
       this.emit('xr:error', { error, mode: sessionType });
       throw error;
     }
@@ -212,21 +341,23 @@ export class SceneManager {
   }
 
   async isSessionSupported(mode = 'vr') {
-    if (!navigator.xr?.isSessionSupported) return false;
-    try {
-      return await navigator.xr.isSessionSupported(mode === 'ar' ? 'immersive-ar' : 'immersive-vr');
-    } catch (error) {
-      console.warn('XR support check failed', error);
-      return false;
-    }
+    const bridge = this._ensureXRBridge();
+    if (!bridge) return false;
+    return bridge.isSessionSupported(mode);
   }
 
   async exitXR() {
-    if (!this.xrSession) return;
-    await this.xrSession.end();
-    this.xrSession = null;
-    this.xrMode = null;
-    this.emit('xr:exit');
+    if (this.xrBridge) {
+      await this.xrBridge.exit();
+    } else if (this.xrSession) {
+      await this.xrSession.end();
+    }
+    if (this.isRunning && this.renderer?.setAnimationLoop) {
+      this.renderer.setAnimationLoop(time => {
+        if (!this.isRunning) return;
+        this._tick(time);
+      });
+    }
   }
 
   add(object3d) {
@@ -280,6 +411,8 @@ export class SceneManager {
 
   dispose() {
     this.stop();
+    this.xrBridge?.dispose?.();
+    this.xrBridge = null;
     this.disposables.forEach(fn => {
       try { fn(); } catch (_) { /* noop */ }
     });

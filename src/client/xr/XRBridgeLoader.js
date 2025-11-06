@@ -29,6 +29,7 @@ export class XRBridgeLoader extends EventTarget {
     this.sceneManager = options.sceneManager ?? null;
     this.autoResume = options.autoResume !== false;
     this.domOverlayRoot = options.domOverlayRoot ?? null;
+    this.captureRAF = options.captureRAF !== false;
     this._restoreRAF = null;
     this._capturedLoop = null;
     this._originalSetLoop = null;
@@ -50,7 +51,9 @@ export class XRBridgeLoader extends EventTarget {
     }
     this.renderer.xr.enabled = true;
     this._originalSetLoop = this.renderer.setAnimationLoop?.bind(this.renderer) ?? null;
-    this._installRAFInterceptor();
+    if (this.captureRAF) {
+      this._installRAFInterceptor();
+    }
     this._installSessionGrantedListener();
     this.dispatchEvent(new CustomEvent('installed'));
   }
