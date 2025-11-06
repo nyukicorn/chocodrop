@@ -192,6 +192,11 @@ function setupRemoteLoader(sceneManager) {
     renderRecoveryActions(detail.recovery);
   });
 
+  loader.addEventListener('fallback', ({ detail }) => {
+    if (!detail) return;
+    statusEl.textContent = 'CORS制限のためプロキシで再試行しています…';
+  });
+
   const triggerAnalysis = async () => {
     const value = urlInput.value.trim();
     if (!value) {
