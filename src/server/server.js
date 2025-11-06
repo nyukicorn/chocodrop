@@ -103,6 +103,86 @@ class ChocoDropServer {
     this.app.get('/health', healthHandler);
     this.app.get('/v1/health', healthHandler);
 
+    this.app.get('/proxy', async (req, res) => {
+      const targetUrl = req.query.url;
+      if (!targetUrl) {
+        return res.status(400).json({ success: false, error: 'url クエリパラメータが必要です' });
+      }
+
+      let parsed;
+      try {
+        parsed = new URL(targetUrl);
+      } catch (error) {
+        return res.status(400).json({ success: false, error: 'URL の形式が不正です' });
+      }
+
+      if (!['https:'].includes(parsed.protocol)) {
+        return res.status(400).json({ success: false, error: 'HTTPS のみサポートしています' });
+      }
+
+      if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
+        return res.status(405).set('Allow', 'GET, HEAD, OPTIONS').json({ success: false, error: '許可されていないメソッドです' });
+      }
+
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 12000);
+
+      try {
+        const response = await fetch(parsed.href, {
+          method: req.method === 'HEAD' ? 'HEAD' : 'GET',
+          redirect: 'follow',
+          signal: controller.signal,
+          headers: {
+            'User-Agent': 'ChocoDrop-RemoteProxy/1.0 (+https://nyukicorn.github.io/chocodrop/)'
+          }
+        });
+
+        res.status(response.status);
+
+        const passthroughHeaders = [
+          'content-type',
+          'content-length',
+          'last-modified',
+          'etag',
+          'cache-control',
+          'expires'
+        ];
+
+        passthroughHeaders.forEach(header => {
+          const value = response.headers.get(header);
+          if (value) {
+            res.setHeader(header, value);
+          }
+        });
+
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
+        res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+        res.setHeader('Vary', 'Origin');
+
+        if (req.method === 'HEAD' || response.status === 204) {
+          return res.end();
+        }
+
+        if (!response.body) {
+          return res.end();
+        }
+
+        for await (const chunk of response.body) {
+          res.write(chunk);
+        }
+        res.end();
+      } catch (error) {
+        console.warn('⚠️ Proxy fetch failed', parsed.href, error.message);
+        if (error.name === 'AbortError') {
+          return res.status(504).json({ success: false, error: 'リモートサーバーの応答がタイムアウトしました' });
+        }
+        return res.status(502).json({ success: false, error: 'リモートシーンの取得に失敗しました' });
+      } finally {
+        clearTimeout(timeout);
+      }
+    });
+
     // 設定情報取得
     this.app.get('/api/config', (req, res) => {
       res.json({
