@@ -93,6 +93,62 @@
         background: linear-gradient(135deg, #38bdf8, #6366f1);
         padding: 0.5rem 1.1rem;
       }
+      .panel.remote-panel {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.6rem;
+        padding: 1.1rem 1.3rem;
+        background: linear-gradient(135deg, rgba(15, 23, 42, 0.82), rgba(30, 41, 59, 0.68));
+        border: 1px solid rgba(148, 163, 184, 0.3);
+        box-shadow: 0 16px 40px rgba(8, 47, 73, 0.35);
+      }
+      .remote-input-row {
+        display: flex;
+        gap: 0.6rem;
+        width: 100%;
+      }
+      .remote-input-row input[type="url"] {
+        flex: 1;
+        padding: 0.55rem 0.8rem;
+        border-radius: 0.9rem;
+        border: 1px solid rgba(148, 163, 184, 0.35);
+        background: rgba(15, 23, 42, 0.55);
+        color: #e2e8f0;
+        font-size: 0.9rem;
+        transition: border 0.2s ease, box-shadow 0.2s ease;
+      }
+      .remote-input-row input[type="url"]:focus {
+        outline: none;
+        border-color: rgba(96, 165, 250, 0.65);
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+      }
+      .remote-feedback {
+        font-size: 0.78rem;
+        color: #94a3b8;
+        min-height: 1.1rem;
+      }
+      [data-remote-actions] {
+        display: flex;
+        gap: 0.4rem;
+        flex-wrap: wrap;
+      }
+      [data-remote-container] {
+        position: fixed;
+        bottom: 1.5rem;
+        right: 1.5rem;
+        width: min(420px, 40vw);
+        height: min(260px, 40vh);
+        border-radius: 1.2rem;
+        overflow: hidden;
+        box-shadow: 0 20px 45px rgba(8, 47, 73, 0.4);
+        backdrop-filter: blur(18px);
+        border: 1px solid rgba(148, 163, 184, 0.35);
+        display: none;
+        z-index: 20;
+      }
+      [data-remote-container].visible {
+        display: block;
+      }
     </style>
   </head>
   <body>
@@ -111,7 +167,22 @@
           <button data-action="enter-ar">AR開始</button>
         </div>
       </div>
+      <div class="panel remote-panel" data-remote-panel>
+        <span class="pill">Remote Scene</span>
+        <div class="remote-input-row">
+          <input type="url" placeholder="https://example.com/three-scene" data-remote-url>
+          <button data-action="remote-scan">解析</button>
+        </div>
+        <div class="button-group">
+          <button data-action="remote-open">そのまま開く</button>
+          <button data-action="remote-proxy">プロキシで開く</button>
+          <button data-action="remote-close">プレビューを閉じる</button>
+        </div>
+        <div class="remote-feedback" data-remote-status>URLを貼り付けてリモートシーンをプレビュー</div>
+        <div data-remote-actions></div>
+      </div>
     </div>
+    <div data-remote-container></div>
     <noscript>この体験には JavaScript が必要です。</noscript>
     <script type="module" src="/src/pwa/immersive.js"></script>
   </body>

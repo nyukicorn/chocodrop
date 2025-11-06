@@ -1,5 +1,6 @@
 import { bootstrapApp } from './app-shell.js';
 import { loadThree } from './utils/three-deps.js';
+import RemoteSceneLoader from './remote/RemoteSceneLoader.js';
 
 async function main() {
   const canvas = document.querySelector('#immersive-canvas');
@@ -25,6 +26,7 @@ async function main() {
   const THREE = await loadThree();
   createDefaultEnvironment(THREE, sceneManager);
   setupXRControls(sceneManager);
+  setupRemoteLoader(sceneManager);
 }
 
 function createDefaultEnvironment(THREE, sceneManager) {
@@ -125,6 +127,113 @@ function setupXRControls(sceneManager) {
   sceneManager.on('xr:error', () => {
     setStatus('XR開始に失敗しました', 'error');
     enableButtons();
+  });
+}
+
+function setupRemoteLoader(sceneManager) {
+  const panel = document.querySelector('[data-remote-panel]');
+  const container = document.querySelector('[data-remote-container]');
+  if (!panel || !container) return;
+
+  const urlInput = panel.querySelector('[data-remote-url]');
+  const statusEl = panel.querySelector('[data-remote-status]');
+  const actionsEl = panel.querySelector('[data-remote-actions]');
+  if (!urlInput || !statusEl || !actionsEl) return;
+
+  const loader = new RemoteSceneLoader({
+    proxyOrigin: location.origin,
+    log: (event, payload) => console.debug('[RemoteSceneLoader]', event, payload)
+  });
+
+  const renderRecoveryActions = recovery => {
+    actionsEl.innerHTML = '';
+    if (!recovery?.actions) return;
+    recovery.actions
+      .filter(action => action.available !== false)
+      .forEach(action => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.textContent = action.label;
+        btn.style.background = 'linear-gradient(135deg, #22d3ee, #3b82f6)';
+        btn.style.padding = '0.4rem 0.9rem';
+        btn.style.borderRadius = '999px';
+        btn.style.border = 'none';
+        btn.style.cursor = 'pointer';
+        btn.addEventListener('click', () => {
+          if (action.type === 'proxy') {
+            triggerLoad(true);
+          } else if (action.type === 'guide' && action.url) {
+            window.open(action.url, '_blank', 'noopener');
+          } else if (action.type === 'download') {
+            sceneManager?.emit?.('remote:download', { url: recovery.url });
+            alert('CORS制限のためダウンロードしてローカルから読み込んでください。');
+          }
+        });
+        actionsEl.appendChild(btn);
+      });
+  };
+
+  loader.addEventListener('analyze', ({ detail }) => {
+    if (!detail) return;
+    const flavor = detail.needsProxy ? 'プロキシ推奨' : '直接読み込み可能';
+    statusEl.textContent = `${detail.url} を解析しました (${flavor})`;
+    renderRecoveryActions(null);
+  });
+
+  loader.addEventListener('loaded', ({ detail }) => {
+    if (!detail) return;
+    statusEl.textContent = detail.useProxy ? 'プロキシ経由で読み込みました' : 'リモートシーンを読み込みました';
+    container.classList.add('visible');
+  });
+
+  loader.addEventListener('error', ({ detail }) => {
+    if (!detail) return;
+    statusEl.textContent = 'リモートシーンの読み込みに失敗しました';
+    renderRecoveryActions(detail.recovery);
+  });
+
+  const triggerAnalysis = async () => {
+    const value = urlInput.value.trim();
+    if (!value) {
+      statusEl.textContent = 'URLを入力してください';
+      return;
+    }
+    try {
+      statusEl.textContent = 'URLを解析中…';
+      await loader.analyze(value);
+    } catch (error) {
+      statusEl.textContent = error?.message || 'URL解析に失敗しました';
+    }
+  };
+
+  const triggerLoad = async (useProxy = false) => {
+    const value = urlInput.value.trim();
+    if (!value) {
+      statusEl.textContent = 'URLを入力してください';
+      return;
+    }
+    try {
+      statusEl.textContent = useProxy ? 'プロキシ経由で読み込み中…' : 'リモートシーンを読み込み中…';
+      await loader.load(container, value, { forceProxy: useProxy });
+      renderRecoveryActions(null);
+    } catch (error) {
+      statusEl.textContent = error?.message || 'リモートシーンの読み込みに失敗しました';
+    }
+  };
+
+  const scanBtn = panel.querySelector('[data-action="remote-scan"]');
+  const openBtn = panel.querySelector('[data-action="remote-open"]');
+  const proxyBtn = panel.querySelector('[data-action="remote-proxy"]');
+  const closeBtn = panel.querySelector('[data-action="remote-close"]');
+
+  scanBtn?.addEventListener('click', triggerAnalysis);
+  openBtn?.addEventListener('click', () => triggerLoad(false));
+  proxyBtn?.addEventListener('click', () => triggerLoad(true));
+  closeBtn?.addEventListener('click', () => {
+    container.classList.remove('visible');
+    container.innerHTML = '';
+    statusEl.textContent = 'プレビューを閉じました';
+    renderRecoveryActions(null);
   });
 }
 
