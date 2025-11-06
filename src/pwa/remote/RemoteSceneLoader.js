@@ -44,6 +44,14 @@ export class RemoteSceneLoader extends EventTarget {
         const allowPrivate = response.headers.get('access-control-allow-private-network');
         result.corsAllowed = this._isCorsAllowed(allowOrigin, allowPrivate);
         result.needsProxy = !result.corsAllowed && !result.sameOrigin;
+
+        const framePolicy = this._evaluateFramePolicy({
+          url: target,
+          xFrameOptions: response.headers.get('x-frame-options'),
+          contentSecurityPolicy: response.headers.get('content-security-policy')
+        });
+        result.framePolicy = framePolicy;
+        result.frameBlocked = framePolicy.blocked;
       } else {
         result.needsProxy = !result.sameOrigin;
         result.error = new Error(`HEAD request failed: ${response?.status || 'unknown status'}`);
@@ -159,13 +167,86 @@ export class RemoteSceneLoader extends EventTarget {
       }
     ];
 
+    if (analysis.framePolicy?.blocked) {
+      actions.push({
+        id: 'frame-policy',
+        label: 'frame-ancestors 設定ガイド',
+        type: 'guide',
+        url: 'https://developer.mozilla.org/ja/docs/Web/HTTP/Headers/Content-Security-Policy/frame-ancestors',
+        note: analysis.framePolicy.reason
+      });
+    }
+
     return {
       url: analysis.url,
       origin: analysis.origin,
       extension: analysis.extension,
       sameOrigin: analysis.sameOrigin,
+      framePolicy: analysis.framePolicy,
       actions
     };
+  }
+
+  _evaluateFramePolicy({ url, xFrameOptions, contentSecurityPolicy }) {
+    const result = {
+      blocked: false,
+      reason: null,
+      headers: { xFrameOptions, contentSecurityPolicy }
+    };
+
+    const origin = typeof location !== 'undefined' ? location.origin : null;
+
+    if (xFrameOptions) {
+      const normalized = xFrameOptions.trim().toUpperCase();
+      if (normalized === 'DENY') {
+        result.blocked = true;
+        result.reason = 'X-Frame-Options: DENY が設定されています';
+        return result;
+      }
+      if (normalized === 'SAMEORIGIN') {
+        if (origin && origin !== url.origin) {
+          result.blocked = true;
+          result.reason = `X-Frame-Options: SAMEORIGIN により ${origin} からの埋め込みが拒否されます`;
+          return result;
+        }
+      }
+    }
+
+    if (contentSecurityPolicy) {
+      const frameDirective = this._extractFrameAncestors(contentSecurityPolicy);
+      if (frameDirective) {
+        if (frameDirective.includes("'none'")) {
+          result.blocked = true;
+          result.reason = "CSP frame-ancestors 'none' が設定されています";
+          return result;
+        }
+        const allowed = frameDirective.some(token => {
+          if (token === '*') return true;
+          if (!origin) return false;
+          if (token === origin) return true;
+          if (token.endsWith('://*')) {
+            const scheme = token.slice(0, token.indexOf('://') + 3);
+            return origin.startsWith(scheme);
+          }
+          return false;
+        });
+        if (!allowed) {
+          result.blocked = true;
+          result.reason = 'CSP frame-ancestors 制約により現在のオリジンからは埋め込めません';
+          return result;
+        }
+      }
+    }
+
+    return result;
+  }
+
+  _extractFrameAncestors(csp) {
+    const directives = csp.split(';').map(part => part.trim());
+    const frameDirective = directives.find(part => part.toLowerCase().startsWith('frame-ancestors'));
+    if (!frameDirective) return null;
+    const tokens = frameDirective.split(/\s+/).slice(1);
+    return tokens.length > 0 ? tokens : null;
   }
 }
 

@@ -151,6 +151,11 @@ function setupRemoteLoader(sceneManager) {
     recovery.actions
       .filter(action => action.available !== false)
       .forEach(action => {
+        const wrapper = document.createElement('div');
+        wrapper.style.display = 'flex';
+        wrapper.style.flexDirection = 'column';
+        wrapper.style.gap = '0.25rem';
+
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.textContent = action.label;
@@ -169,15 +174,43 @@ function setupRemoteLoader(sceneManager) {
             alert('CORS制限のためダウンロードしてローカルから読み込んでください。');
           }
         });
-        actionsEl.appendChild(btn);
+
+        wrapper.appendChild(btn);
+
+        if (action.note) {
+          const note = document.createElement('span');
+          note.textContent = action.note;
+          note.style.fontSize = '0.72rem';
+          note.style.color = '#cbd5f5';
+          note.style.maxWidth = '260px';
+          wrapper.appendChild(note);
+        }
+
+        actionsEl.appendChild(wrapper);
       });
   };
 
   loader.addEventListener('analyze', ({ detail }) => {
     if (!detail) return;
     const flavor = detail.needsProxy ? 'プロキシ推奨' : '直接読み込み可能';
-    statusEl.textContent = `${detail.url} を解析しました (${flavor})`;
-    renderRecoveryActions(null);
+    const hints = [];
+    if (detail.framePolicy?.blocked && detail.framePolicy?.reason) {
+      hints.push(detail.framePolicy.reason);
+    }
+    statusEl.textContent = `${detail.url} を解析しました (${flavor}${hints.length ? `｜${hints.join(' / ')}` : ''})`;
+    if (detail.framePolicy?.blocked) {
+      renderRecoveryActions({
+        actions: [{
+          id: 'frame-policy',
+          label: 'frame-ancestors 設定ガイド',
+          type: 'guide',
+          url: 'https://developer.mozilla.org/ja/docs/Web/HTTP/Headers/Content-Security-Policy/frame-ancestors',
+          note: detail.framePolicy.reason
+        }]
+      });
+    } else {
+      renderRecoveryActions(null);
+    }
   });
 
   loader.addEventListener('loaded', ({ detail }) => {
@@ -219,8 +252,8 @@ function setupRemoteLoader(sceneManager) {
     }
     try {
       statusEl.textContent = useProxy ? 'プロキシ経由で読み込み中…' : 'リモートシーンを読み込み中…';
-      await loader.load(container, value, { forceProxy: useProxy });
-      renderRecoveryActions(null);
+      const { recovery } = await loader.load(container, value, { forceProxy: useProxy });
+      renderRecoveryActions(recovery);
     } catch (error) {
       statusEl.textContent = error?.message || 'リモートシーンの読み込みに失敗しました';
     }
