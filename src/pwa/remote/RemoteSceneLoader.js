@@ -84,6 +84,7 @@ export class RemoteSceneLoader extends EventTarget {
 
     container.innerHTML = '';
     container.appendChild(frame);
+    container.classList.add('visible');
 
     const recovery = () => this._buildRecoveryPlan(analysis);
     const onLoad = () => {
@@ -97,6 +98,12 @@ export class RemoteSceneLoader extends EventTarget {
           recovery: recovery()
         }
       }));
+      if (!useProxy && this.proxyOrigin && options.allowAutoProxy !== false) {
+        this.dispatchEvent(new CustomEvent('fallback', { detail: { url: analysis.url, mode: 'proxy' } }));
+        this.load(container, rawUrl, { forceProxy: true, allowAutoProxy: false }).catch(error => {
+          console.warn('RemoteSceneLoader fallback failed', error);
+        });
+      }
     };
 
     frame.addEventListener('load', onLoad, { once: true });
