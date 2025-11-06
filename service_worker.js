@@ -155,6 +155,9 @@ function selectCache(request) {
     if (url.pathname.startsWith('/remote/')) {
       return SCENE_CACHE;
     }
+    if (url.pathname === '/proxy') {
+      return SCENE_CACHE;
+    }
     if (CORE_ASSET_SET.has(url.pathname) || request.destination === 'document') {
       return CORE_CACHE;
     }
