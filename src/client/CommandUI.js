@@ -3,6 +3,22 @@ import { GuidedOnboarding } from './onboarding/GuidedOnboarding.js';
 const IMAGE_SERVICE_STORAGE_KEY = 'chocodrop-service-image';
 const VIDEO_SERVICE_STORAGE_KEY = 'chocodrop-service-video';
 const KEYWORD_HIGHLIGHT_COLOR = '#ff6ad5';
+const XR_KEYFRAME_STYLE_ID = 'chocodrop-xr-keyframes';
+
+function injectXRKeyframes() {
+  if (typeof document === 'undefined') return;
+  if (document.getElementById(XR_KEYFRAME_STYLE_ID)) return;
+  const style = document.createElement('style');
+  style.id = XR_KEYFRAME_STYLE_ID;
+  style.textContent = `
+    @keyframes xrPulse {
+      0% { transform: scale(0.6); opacity: 0.45; }
+      60% { transform: scale(1); opacity: 0; }
+      100% { transform: scale(1); opacity: 0; }
+    }
+  `;
+  document.head.appendChild(style);
+}
 
 /**
  * Command UI - Web interface for ChocoDrop System
@@ -63,6 +79,13 @@ export class CommandUI {
     this.pendingVideoService = null;
     this.feedbackAutoClearTimer = null;
     this.currentFeedback = null;
+
+    this.xrState = 'idle';
+    this.xrSupport = { vr: null, ar: null };
+    this.xrAutoResume = this.sceneManager?.xr?.autoResume ?? true;
+    this.xrMode = null;
+    this.xrEventUnsubscribe = [];
+    this.xrUI = null;
 
     this.onboardingCoach = null;
     this.onboardingLauncherButton = null;
@@ -128,6 +151,7 @@ export class CommandUI {
     
     this.initUI();
     this.bindEvents();
+    this.bindXREvents();
 
     if (!this.client && this.sceneManager && this.sceneManager.client) {
       this.client = this.sceneManager.client;
@@ -153,6 +177,396 @@ export class CommandUI {
       this.openServiceModal(true);
     }
   }
+
+  createXRControlPanel() {
+    if (!this.sceneManager?.enterXR) {
+      return null;
+    }
+
+    const panel = document.createElement('div');
+    panel.className = 'xr-control-panel';
+    panel.style.cssText = `
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding: 16px;
+      margin: 12px 0;
+      border-radius: 18px;
+      background: ${this.isDarkMode ? 'linear-gradient(135deg, rgba(30, 41, 59, 0.85), rgba(15, 23, 42, 0.65))' : 'linear-gradient(135deg, rgba(248, 250, 252, 0.92), rgba(221, 242, 255, 0.88))'};
+      border: 1px solid ${this.isDarkMode ? 'rgba(148, 163, 184, 0.35)' : 'rgba(96, 165, 250, 0.25)'};
+      box-shadow: 0 20px 50px rgba(15, 23, 42, 0.25);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      transition: transform 0.4s cubic-bezier(0.16, 0.84, 0.44, 1), box-shadow 0.4s ease;
+      position: relative;
+      overflow: hidden;
+    `;
+
+    const ambientGlow = document.createElement('div');
+    ambientGlow.style.cssText = `
+      position: absolute;
+      inset: -40%;
+      background: radial-gradient(circle at 20% 20%, rgba(99, 102, 241, 0.18), transparent 55%),
+                  radial-gradient(circle at 80% 0, rgba(14, 165, 233, 0.15), transparent 60%);
+      pointer-events: none;
+      opacity: ${this.isDarkMode ? 1 : 0.7};
+      filter: blur(40px);
+      z-index: 0;
+    `;
+    panel.appendChild(ambientGlow);
+
+    const header = document.createElement('div');
+    header.style.cssText = `
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      z-index: 1;
+    `;
+
+    const statusDot = document.createElement('span');
+    statusDot.style.cssText = `
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #64748b;
+      box-shadow: 0 0 12px rgba(94, 234, 212, 0.35);
+      position: relative;
+    `;
+
+    const pulse = document.createElement('span');
+    pulse.style.cssText = `
+      content: '';
+      position: absolute;
+      inset: -8px;
+      border-radius: 50%;
+      background: currentColor;
+      opacity: 0.25;
+      animation: xrPulse 2.4s infinite;
+    `;
+    statusDot.appendChild(pulse);
+
+    const statusText = document.createElement('span');
+    statusText.style.cssText = `
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+      color: ${this.isDarkMode ? '#e2e8f0' : '#1e293b'};
+    `;
+    statusText.textContent = 'XR待機中';
+
+    header.appendChild(statusDot);
+    header.appendChild(statusText);
+
+    const buttonRow = document.createElement('div');
+    buttonRow.style.cssText = `
+      display: flex;
+      gap: 8px;
+      z-index: 1;
+      flex-wrap: wrap;
+    `;
+
+    const createXRButton = (label, mode, accent) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.textContent = label;
+      button.dataset.mode = mode;
+      button.style.cssText = `
+        flex: 1;
+        min-width: 96px;
+        padding: 10px 14px;
+        border-radius: 999px;
+        border: none;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        cursor: pointer;
+        color: white;
+        background: linear-gradient(135deg, ${accent[0]}, ${accent[1]});
+        box-shadow: 0 12px 30px rgba(59, 130, 246, 0.25);
+        transition: transform 0.2s ease, box-shadow 0.3s ease, filter 0.2s ease;
+      `;
+      button.addEventListener('mouseenter', () => {
+        button.style.transform = 'translateY(-2px)';
+        button.style.boxShadow = '0 18px 45px rgba(59, 130, 246, 0.3)';
+      });
+      button.addEventListener('mouseleave', () => {
+        button.style.transform = 'translateY(0)';
+        button.style.boxShadow = '0 12px 30px rgba(59, 130, 246, 0.25)';
+      });
+      button.addEventListener('click', () => this.handleEnterXR(mode));
+      return button;
+    };
+
+    const vrButton = createXRButton('VRモード', 'vr', ['#38bdf8', '#6366f1']);
+    const arButton = createXRButton('ARモード', 'ar', ['#f59e0b', '#ef4444']);
+
+    const exitButton = document.createElement('button');
+    exitButton.type = 'button';
+    exitButton.textContent = 'XR終了';
+    exitButton.style.cssText = `
+      padding: 9px 14px;
+      border-radius: 999px;
+      background: transparent;
+      border: 1px solid ${this.isDarkMode ? 'rgba(148, 163, 184, 0.4)' : 'rgba(15, 118, 110, 0.35)'};
+      color: ${this.isDarkMode ? '#bae6fd' : '#0f172a'};
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s ease, color 0.2s ease;
+      display: none;
+    `;
+    exitButton.addEventListener('mouseenter', () => {
+      exitButton.style.background = this.isDarkMode ? 'rgba(148, 163, 184, 0.25)' : 'rgba(14, 165, 233, 0.12)';
+    });
+    exitButton.addEventListener('mouseleave', () => {
+      exitButton.style.background = 'transparent';
+    });
+    exitButton.addEventListener('click', async () => {
+      if (!this.sceneManager?.exitXR) return;
+      exitButton.disabled = true;
+      try {
+        await this.sceneManager.exitXR();
+      } finally {
+        exitButton.disabled = false;
+      }
+    });
+
+    buttonRow.appendChild(vrButton);
+    buttonRow.appendChild(arButton);
+    buttonRow.appendChild(exitButton);
+
+    const toggleRow = document.createElement('label');
+    toggleRow.style.cssText = `
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: 12px;
+      color: ${this.isDarkMode ? 'rgba(226, 232, 240, 0.85)' : 'rgba(15, 23, 42, 0.75)'};
+      z-index: 1;
+    `;
+    toggleRow.textContent = 'sessiongranted 自動復帰';
+
+    const toggleWrapper = document.createElement('div');
+    toggleWrapper.style.cssText = `
+      position: relative;
+      width: 42px;
+      height: 24px;
+      border-radius: 999px;
+      background: ${this.isDarkMode ? 'rgba(148, 163, 184, 0.35)' : 'rgba(148, 163, 184, 0.32)'};
+      transition: background 0.2s ease;
+      cursor: pointer;
+    `;
+
+    const toggleThumb = document.createElement('div');
+    toggleThumb.style.cssText = `
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: ${this.isDarkMode ? '#0ea5e9' : '#2563eb'};
+      transform: ${this.xrAutoResume ? 'translateX(18px)' : 'translateX(0)'};
+      transition: transform 0.2s ease, box-shadow 0.3s ease;
+      box-shadow: 0 6px 14px rgba(14, 165, 233, 0.35);
+    `;
+
+    const toggleInput = document.createElement('input');
+    toggleInput.type = 'checkbox';
+    toggleInput.checked = this.xrAutoResume;
+    toggleInput.style.cssText = `
+      opacity: 0;
+      width: 0;
+      height: 0;
+      position: absolute;
+    `;
+
+    const updateToggleVisual = enabled => {
+      toggleWrapper.style.background = enabled
+        ? (this.isDarkMode ? 'rgba(59, 130, 246, 0.45)' : 'rgba(37, 99, 235, 0.35)')
+        : (this.isDarkMode ? 'rgba(148, 163, 184, 0.35)' : 'rgba(148, 163, 184, 0.32)');
+      toggleThumb.style.transform = enabled ? 'translateX(18px)' : 'translateX(0)';
+    };
+    updateToggleVisual(this.xrAutoResume);
+
+    toggleWrapper.addEventListener('click', () => {
+      toggleInput.checked = !toggleInput.checked;
+      this.updateXRAutoResume(toggleInput.checked);
+      updateToggleVisual(toggleInput.checked);
+      if (this.sceneManager?.setXRAutoResume) {
+        this.sceneManager.setXRAutoResume(toggleInput.checked);
+      }
+    });
+
+    toggleWrapper.appendChild(toggleThumb);
+    toggleWrapper.appendChild(toggleInput);
+    toggleRow.appendChild(toggleWrapper);
+
+    panel.appendChild(header);
+    panel.appendChild(buttonRow);
+    panel.appendChild(toggleRow);
+
+    this.xrUI = {
+      panel,
+      statusText,
+      statusDot,
+      vrButton,
+      arButton,
+      exitButton,
+      toggleInput,
+      toggleThumb,
+      toggleWrapper
+    };
+
+    this.updateXRSupport({ mode: 'vr', supported: this.xrSupport.vr });
+    this.updateXRSupport({ mode: 'ar', supported: this.xrSupport.ar });
+    this.updateXRState({ state: this.xrState, mode: this.xrMode });
+
+    injectXRKeyframes();
+
+    panel.addEventListener('mouseenter', () => {
+      panel.style.transform = 'translateY(-1px)';
+      panel.style.boxShadow = '0 26px 55px rgba(15, 23, 42, 0.32)';
+    });
+    panel.addEventListener('mouseleave', () => {
+      panel.style.transform = 'translateY(0)';
+      panel.style.boxShadow = '0 20px 50px rgba(15, 23, 42, 0.25)';
+    });
+
+    return panel;
+  }
+
+  updateXRState(detail = {}) {
+    const state = detail.state || this.xrState || 'idle';
+    this.xrState = state;
+    if (detail.mode) {
+      this.xrMode = detail.mode;
+    }
+    if (!this.xrUI) return;
+
+    const { statusText, statusDot, panel, exitButton } = this.xrUI;
+    const mode = this.xrMode;
+    const labelMap = {
+      idle: 'XR待機中',
+      ready: 'XR準備完了',
+      requesting: 'XR初期化中…',
+      active: mode === 'immersive-ar' || mode === 'ar' ? 'ARセッション中' : 'VRセッション中',
+      error: 'XRエラー',
+      unsupported: 'WebXR未対応'
+    };
+    statusText.textContent = labelMap[state] || 'XR待機中';
+
+    const colorMap = {
+      idle: '#64748b',
+      ready: '#34d399',
+      requesting: '#fbbf24',
+      active: '#22d3ee',
+      error: '#f87171',
+      unsupported: '#94a3b8'
+    };
+    const dotColor = colorMap[state] || '#64748b';
+    statusDot.style.background = dotColor;
+    statusDot.style.boxShadow = `0 0 14px ${dotColor}40`;
+    panel.dataset.xrState = state;
+
+    exitButton.style.display = state === 'active' ? 'inline-flex' : 'none';
+    exitButton.disabled = state !== 'active';
+
+    this.updateXRButtons();
+  }
+
+  updateXRSupport(detail = {}) {
+    const mode = detail.mode === 'immersive-ar' ? 'ar' : detail.mode;
+    if (!mode) return;
+    if (typeof detail.supported === 'boolean') {
+      this.xrSupport[mode] = detail.supported;
+    }
+    if (!this.xrUI) return;
+
+    const button = mode === 'ar' ? this.xrUI.arButton : this.xrUI.vrButton;
+    if (!button) return;
+
+    if (this.xrSupport[mode] === false) {
+      button.disabled = true;
+      button.style.opacity = '0.35';
+      button.title = mode === 'ar' ? 'このデバイスは AR セッションをサポートしていません' : 'このデバイスは VR セッションをサポートしていません';
+    } else {
+      button.style.opacity = '1';
+      button.title = mode === 'ar' ? 'ARセッションを開始' : 'VRセッションを開始';
+    }
+
+    this.updateXRButtons();
+  }
+
+  updateXRAutoResume(enabled) {
+    this.xrAutoResume = Boolean(enabled);
+    if (!this.xrUI) return;
+    const { toggleInput, toggleThumb, toggleWrapper } = this.xrUI;
+    if (toggleInput) {
+      toggleInput.checked = this.xrAutoResume;
+    }
+    if (toggleWrapper) {
+      toggleWrapper.style.background = this.xrAutoResume
+        ? (this.isDarkMode ? 'rgba(59, 130, 246, 0.45)' : 'rgba(37, 99, 235, 0.35)')
+        : (this.isDarkMode ? 'rgba(148, 163, 184, 0.35)' : 'rgba(148, 163, 184, 0.32)');
+    }
+    if (toggleThumb) {
+      toggleThumb.style.transform = this.xrAutoResume ? 'translateX(18px)' : 'translateX(0)';
+    }
+  }
+
+  updateXRButtons() {
+    if (!this.xrUI) return;
+    const { vrButton, arButton } = this.xrUI;
+    const busy = this.xrState === 'requesting';
+    const active = this.xrState === 'active';
+
+    if (vrButton) {
+      const unsupported = this.xrSupport.vr === false;
+      vrButton.disabled = busy || active || unsupported;
+      vrButton.style.filter = unsupported ? 'grayscale(0.6)' : 'none';
+    }
+
+    if (arButton) {
+      const unsupported = this.xrSupport.ar === false;
+      arButton.disabled = busy || active || unsupported;
+      arButton.style.filter = unsupported ? 'grayscale(0.7)' : 'none';
+    }
+  }
+
+  async handleEnterXR(mode = 'vr') {
+    if (!this.sceneManager?.enterXR || !this.xrUI) return;
+
+    if (mode === 'ar' && this.xrSupport.ar === false) {
+      this.showInputFeedback('このデバイスでは AR がサポートされていません。', 'error');
+      return;
+    }
+    if (mode === 'vr' && this.xrSupport.vr === false) {
+      this.showInputFeedback('このデバイスでは VR がサポートされていません。', 'error');
+      return;
+    }
+
+    const button = mode === 'ar' ? this.xrUI.arButton : this.xrUI.vrButton;
+    if (button) {
+      button.disabled = true;
+      button.style.filter = 'brightness(0.85)';
+    }
+    this.updateXRState({ state: 'requesting', mode: mode === 'ar' ? 'immersive-ar' : 'immersive-vr' });
+
+    try {
+      await this.sceneManager.enterXR(mode);
+    } catch (error) {
+      const message = error?.message || 'XRセッションの初期化に失敗しました';
+      this.showInputFeedback(message, 'error');
+      this.updateXRState({ state: 'idle' });
+    } finally {
+      if (button) {
+        button.disabled = this.xrState === 'requesting' || this.xrState === 'active';
+        button.style.filter = this.xrSupport[mode] === false ? 'grayscale(0.7)' : 'none';
+      }
+      this.updateXRButtons();
+    }
+  }
+
 
   logDebug(...args) {
     if (!this.config.enableDebugLogging) {
@@ -331,6 +745,8 @@ export class CommandUI {
     // ミニマルアクションボタン
     const actionContainer = this.createMinimalActions();
 
+    const xrControls = this.createXRControlPanel();
+
     // ×クローズボタンをフォーム右上に追加
     const closeButton = document.createElement('div');
     closeButton.innerHTML = '×';
@@ -407,6 +823,9 @@ export class CommandUI {
 
     this.container.appendChild(this.onboardingLauncherButton);
     this.container.appendChild(modeSelector);
+    if (xrControls) {
+      this.container.appendChild(xrControls);
+    }
     this.container.appendChild(this.inputWrapper);
     this.container.appendChild(actionContainer);
 
@@ -2924,6 +3343,38 @@ export class CommandUI {
   /**
    * イベントバインディング
    */
+  bindXREvents() {
+    if (!this.sceneManager?.onXR) {
+      return;
+    }
+    if (this.xrEventUnsubscribe.length > 0) {
+      this.xrEventUnsubscribe.forEach(unsub => {
+        try {
+          unsub?.();
+        } catch (error) {
+          console.warn('⚠️ Failed to unsubscribe XR listener:', error);
+        }
+      });
+      this.xrEventUnsubscribe = [];
+    }
+
+    this.xrEventUnsubscribe.push(
+      this.sceneManager.onXR('state', event => {
+        this.updateXRState(event?.detail || {});
+      })
+    );
+    this.xrEventUnsubscribe.push(
+      this.sceneManager.onXR('support', event => {
+        this.updateXRSupport(event?.detail || {});
+      })
+    );
+    this.xrEventUnsubscribe.push(
+      this.sceneManager.onXR('autoResume', event => {
+        this.updateXRAutoResume(event?.detail?.enabled ?? this.xrAutoResume);
+      })
+    );
+  }
+
   bindEvents() {
     // キーボードショートカット
     document.addEventListener('keydown', (e) => {
@@ -6707,6 +7158,17 @@ export class CommandUI {
     // フローティングチョコアイコンのクリーンアップ
     if (this.floatingChocolateIcon && this.floatingChocolateIcon.parentNode) {
       this.floatingChocolateIcon.parentNode.removeChild(this.floatingChocolateIcon);
+    }
+
+    if (this.xrEventUnsubscribe.length > 0) {
+      this.xrEventUnsubscribe.forEach(unsub => {
+        try {
+          unsub?.();
+        } catch (error) {
+          console.warn('⚠️ Failed to dispose XR listener:', error);
+        }
+      });
+      this.xrEventUnsubscribe = [];
     }
 
     if (this.container && this.container.parentElement) {
