@@ -30,6 +30,11 @@ class ChocoDropServer {
 
     // SSE進捗管理
     this.progressClients = new Map();
+    this.proxyMetrics = new Map();
+    this.proxyRateLimit = {
+      windowMs: options.proxyWindowMs || 60_000,
+      max: options.proxyMaxRequests || 60
+    };
 
     this.app = express();
     this.setupMiddleware();
@@ -104,6 +109,11 @@ class ChocoDropServer {
     this.app.get('/v1/health', healthHandler);
 
     this.app.get('/proxy', async (req, res) => {
+      const rateLimitResult = this.enforceProxyRateLimit(req, res);
+      if (!rateLimitResult.allowed) {
+        return;
+      }
+
       const targetUrl = req.query.url;
       if (!targetUrl) {
         return res.status(400).json({ success: false, error: 'url クエリパラメータが必要です' });
@@ -127,6 +137,7 @@ class ChocoDropServer {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 12000);
 
+      const startedAt = Date.now();
       try {
         const response = await fetch(parsed.href, {
           method: req.method === 'HEAD' ? 'HEAD' : 'GET',
@@ -138,6 +149,9 @@ class ChocoDropServer {
         });
 
         res.status(response.status);
+        res.setHeader('X-RateLimit-Limit', this.proxyRateLimit.max.toString());
+        res.setHeader('X-RateLimit-Remaining', Math.max(rateLimitResult.remaining, 0).toString());
+        res.setHeader('X-RateLimit-Reset', Math.floor(rateLimitResult.reset / 1000).toString());
 
         const passthroughHeaders = [
           'content-type',
@@ -175,10 +189,19 @@ class ChocoDropServer {
           return res.end();
         }
 
-        for await (const chunk of response.body) {
-          res.write(chunk);
+        if (response.body) {
+          for await (const chunk of response.body) {
+            res.write(chunk);
+          }
         }
         res.end();
+
+        console.info('🌐 proxy success', {
+          url: parsed.href,
+          status: response.status,
+          durationMs: Date.now() - startedAt,
+          ip: rateLimitResult.clientKey
+        });
       } catch (error) {
         console.warn('⚠️ Proxy fetch failed', parsed.href, error.message);
         if (error.name === 'AbortError') {
@@ -537,6 +560,40 @@ class ChocoDropServer {
         errorCategory: this.classifyError(error)
       });
     });
+  }
+
+  enforceProxyRateLimit(req, res) {
+    const now = Date.now();
+    const key = this.extractClientKey(req);
+    const entry = this.proxyMetrics.get(key) || { count: 0, reset: now + this.proxyRateLimit.windowMs };
+
+    if (now > entry.reset) {
+      entry.count = 0;
+      entry.reset = now + this.proxyRateLimit.windowMs;
+    }
+
+    entry.count += 1;
+    this.proxyMetrics.set(key, entry);
+
+    const remaining = this.proxyRateLimit.max - entry.count;
+    if (entry.count > this.proxyRateLimit.max) {
+      res.setHeader('Retry-After', Math.ceil((entry.reset - now) / 1000).toString());
+      res.setHeader('X-RateLimit-Limit', this.proxyRateLimit.max.toString());
+      res.setHeader('X-RateLimit-Remaining', '0');
+      res.setHeader('X-RateLimit-Reset', Math.floor(entry.reset / 1000).toString());
+      res.status(429).json({ success: false, error: 'プロキシ利用が一時的に制限されています。しばらく待って再試行してください。' });
+      return { allowed: false, clientKey: key, remaining: 0, reset: entry.reset };
+    }
+
+    return { allowed: true, clientKey: key, remaining, reset: entry.reset };
+  }
+
+  extractClientKey(req) {
+    const forwarded = req.headers['x-forwarded-for'];
+    if (typeof forwarded === 'string' && forwarded.length > 0) {
+      return forwarded.split(',')[0].trim();
+    }
+    return req.ip || req.connection?.remoteAddress || 'unknown';
   }
 
   /**
