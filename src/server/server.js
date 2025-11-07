@@ -5,6 +5,7 @@ import { fileURLToPath } from 'url';
 import { MCPClient } from './mcp-client.js';
 import { selectModelFromCommand } from '../config/models.js';
 import config from '../config/config.js';
+import { logger } from '../common/logger.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -15,6 +16,7 @@ const __dirname = path.dirname(__filename);
  */
 class ChocoDropServer {
   constructor(options = {}) {
+    this.log = logger.child('server');
     this.port = options.port || config.get('server.port');
     this.host = options.host || config.get('server.host');
     this.publicDir = options.publicDir || path.join(__dirname, '../../public');
@@ -40,7 +42,7 @@ class ChocoDropServer {
     this.setupMiddleware();
     this.setupRoutes();
 
-    console.log('🍫 ChocoDropServer initialized');
+    this.log.info('🍫 ChocoDropServer initialized');
   }
 
   /**
@@ -71,7 +73,7 @@ class ChocoDropServer {
         if (!origin || uniqueCorsOrigins.includes(origin)) {
           return callback(null, true);
         }
-        console.warn(`⚠️ CORS denied for origin: ${origin}`);
+        this.log.warn(`⚠️ CORS denied for origin: ${origin}`);
         return callback(new Error('Not allowed by CORS'));
       },
       methods: ['GET', 'POST', 'PUT', 'DELETE'],
@@ -87,7 +89,7 @@ class ChocoDropServer {
     
     // ログミドルウェア
     this.app.use((req, res, next) => {
-      console.log(`${new Date().toISOString()} ${req.method} ${req.path}`);
+      this.log.debug(`${new Date().toISOString()} ${req.method} ${req.path}`);
       next();
     });
   }
@@ -196,14 +198,14 @@ class ChocoDropServer {
         }
         res.end();
 
-        console.info('🌐 proxy success', {
+        this.log.info('🌐 proxy success', {
           url: parsed.href,
           status: response.status,
           durationMs: Date.now() - startedAt,
           ip: rateLimitResult.clientKey
         });
       } catch (error) {
-        console.warn('⚠️ Proxy fetch failed', parsed.href, error.message);
+        this.log.warn('⚠️ Proxy fetch failed', parsed.href, error.message);
         if (error.name === 'AbortError') {
           return res.status(504).json({ success: false, error: 'リモートサーバーの応答がタイムアウトしました' });
         }
@@ -296,7 +298,7 @@ class ChocoDropServer {
           });
         }
 
-        console.log(`🎨 Image generation request: "${prompt}" with service: ${service}`);
+        this.log.info(`🎨 Image generation request: "${prompt}" with service: ${service}`);
 
         // タスクID生成
         const taskId = `task_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -324,7 +326,7 @@ class ChocoDropServer {
         res.json(result);
 
       } catch (error) {
-        console.error('❌ Image generation API error:', error);
+        this.log.error('❌ Image generation API error:', error);
         res.status(500).json({
           success: false,
           error: error.message,
@@ -361,7 +363,7 @@ class ChocoDropServer {
           });
         }
 
-        console.log(`🎬 Video generation request: "${prompt}" with model: ${model}`);
+        this.log.info(`🎬 Video generation request: "${prompt}" with model: ${model}`);
 
         // タスクID生成
         const taskId = `task_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -433,7 +435,7 @@ class ChocoDropServer {
         res.json(result);
 
       } catch (error) {
-        console.error('❌ Video generation API error:', error);
+        this.log.error('❌ Video generation API error:', error);
         res.status(500).json({
           success: false,
           error: error.message,
@@ -475,14 +477,14 @@ class ChocoDropServer {
           });
         }
 
-        console.log(`🎯 Natural language command: "${command}"`);
+        this.log.info(`🎯 Natural language command: "${command}"`);
 
         // タスクID生成
         const taskId = `task_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
         // コマンド解析とタイプ判定
         const parsed = this.parseCommand(command);
-        console.log(`📊 Parsed command:`, parsed);
+        this.log.debug('📊 Parsed command:', parsed);
 
         let result;
         switch (parsed.type) {
@@ -534,7 +536,7 @@ class ChocoDropServer {
         res.json(result);
 
       } catch (error) {
-        console.error('❌ Command API error:', error);
+        this.log.error('❌ Command API error:', error);
         res.status(500).json({
           success: false,
           error: error.message,
@@ -553,7 +555,7 @@ class ChocoDropServer {
 
     // エラーハンドラー
     this.app.use((error, req, res, next) => {
-      console.error('❌ Server error:', error);
+      this.log.error('❌ Server error:', error);
       res.status(500).json({
         success: false,
         error: 'サーバーエラーが発生しました',
@@ -753,7 +755,7 @@ class ChocoDropServer {
         });
         client.write(`data: ${data}\n\n`);
       } catch (error) {
-        console.error(`⚠️ Failed to send progress to ${taskId}:`, error);
+        this.log.warn(`⚠️ Failed to send progress to ${taskId}:`, error);
         this.progressClients.delete(taskId);
       }
     }
@@ -766,8 +768,8 @@ class ChocoDropServer {
     return new Promise((resolve, reject) => {
       try {
         this.server = this.app.listen(this.port, this.host, () => {
-          console.log(`🚀 ChocoDrop Server running at http://${this.host}:${this.port}`);
-          console.log(`📁 Static files served from: ${this.publicDir}`);
+          this.log.info(`🚀 ChocoDrop Server running at http://${this.host}:${this.port}`);
+          this.log.info(`📁 Static files served from: ${this.publicDir}`);
           resolve({ host: this.host, port: this.port });
         });
       } catch (error) {
@@ -783,7 +785,7 @@ class ChocoDropServer {
     return new Promise((resolve) => {
       if (this.server) {
         this.server.close(() => {
-          console.log('🛑 ChocoDrop Server stopped');
+          this.log.info('🛑 ChocoDrop Server stopped');
           resolve();
         });
       } else {
@@ -795,19 +797,20 @@ class ChocoDropServer {
 
 // CLI実行時の処理
 if (import.meta.url === `file://${process.argv[1]}`) {
+  const cliLogger = logger.child('server-cli');
   const server = new ChocoDropServer({
     port: process.env.PORT || config.get('server.port'),
     host: process.env.HOST || 'localhost'
   });
 
   server.start().catch(error => {
-    console.error('❌ Server startup failed:', error);
+    cliLogger.error('❌ Server startup failed:', error);
     process.exit(1);
   });
 
   // Graceful shutdown
   process.on('SIGINT', async () => {
-    console.log('\n🔄 Shutting down server...');
+    cliLogger.info('\n🔄 Shutting down server...');
     await server.stop();
     process.exit(0);
   });
