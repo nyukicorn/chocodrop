@@ -33,6 +33,7 @@
     "lint:fix": "eslint src/ scripts/ --ext .js,.mjs --fix",
     "format": "prettier --write \"**/*.{js,mjs,json,md,html,css}\"",
     "format:check": "prettier --check \"**/*.{js,mjs,json,md,html,css}\"",
+    "test:e2e": "node tests/e2e/run-playwright.mjs",
     "setup:mcp": "node scripts/setup-mcp-config.mjs",
     "example:basic": "python -m http.server 8000 --directory examples",
     "example:server": "node src/server/server.js --port 3011"
@@ -70,6 +71,7 @@
     "@types/node": "^20.0.0",
     "@types/three": "^0.170.0",
     "eslint": "^8.57.0",
+    "playwright": "^1.48.2",
     "prettier": "^3.2.5",
     "rollup": "^4.52.0"
   },
