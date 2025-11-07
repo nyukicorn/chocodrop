@@ -1,3 +1,7 @@
+import { logger } from '../common/logger.js';
+
+const log = logger.child('remote-scene-loader');
+
 const THREE_LIKE_EXT = ['.html', '.htm', '.gltf', '.glb', '.json', '.js'];
 const HTTPS_ONLY_ERROR = 'RemoteSceneLoader は HTTPS のみ対応しています';
 
@@ -16,7 +20,7 @@ export class RemoteSceneLoader extends EventTarget {
     this.fetcher = options.fetcher || defaultFetcher;
     this.allowedProtocols = options.allowedProtocols || ['https:'];
     this.corsRetryLimit = options.corsRetryLimit ?? 1;
-    this.log = options.log || (() => {});
+    this.log = options.log || ((event, payload) => log.debug(event, payload));
   }
 
   async analyze(rawUrl) {
@@ -52,9 +56,20 @@ export class RemoteSceneLoader extends EventTarget {
         });
         result.framePolicy = framePolicy;
         result.frameBlocked = framePolicy.blocked;
+        result.crossOriginPolicy = {
+          coop: response.headers.get('cross-origin-opener-policy'),
+          coep: response.headers.get('cross-origin-embedder-policy')
+        };
+        this.log('analyze:success', {
+          url: target.href,
+          needsProxy: result.needsProxy,
+          frameBlocked: framePolicy.blocked,
+          crossOriginPolicy: result.crossOriginPolicy
+        });
       } else {
         result.needsProxy = !result.sameOrigin;
         result.error = new Error(`HEAD request failed: ${response?.status || 'unknown status'}`);
+        this.log('analyze:http-error', { url: target.href, status: response?.status });
       }
     } catch (error) {
       result.needsProxy = !result.sameOrigin;
@@ -92,13 +107,16 @@ export class RemoteSceneLoader extends EventTarget {
 
     container.innerHTML = '';
     container.appendChild(frame);
-    container.classList.add('visible');
+    this.log('iframe:attached', { url: analysis.url, useProxy });
 
     const recovery = () => this._buildRecoveryPlan(analysis);
     const onLoad = () => {
+      container.classList.add('visible');
+      this.log('iframe:load', { url: analysis.url, useProxy });
       this.dispatchEvent(new CustomEvent('loaded', { detail: { url: analysis.url, useProxy } }));
     };
     const onError = () => {
+      this.log('iframe:error', { url: analysis.url, useProxy });
       this.dispatchEvent(new CustomEvent('error', {
         detail: {
           url: analysis.url,
@@ -108,8 +126,9 @@ export class RemoteSceneLoader extends EventTarget {
       }));
       if (!useProxy && this.proxyOrigin && options.allowAutoProxy !== false) {
         this.dispatchEvent(new CustomEvent('fallback', { detail: { url: analysis.url, mode: 'proxy' } }));
+        this.log('fallback:proxy', { url: analysis.url });
         this.load(container, rawUrl, { forceProxy: true, allowAutoProxy: false }).catch(error => {
-          console.warn('RemoteSceneLoader fallback failed', error);
+          this.log('fallback:error', { url: analysis.url, message: error?.message });
         });
       }
     };

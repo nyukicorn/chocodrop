@@ -1,6 +1,9 @@
 import { bootstrapApp } from './app-shell.js';
 import { loadThree } from './utils/three-deps.js';
 import RemoteSceneLoader from './remote/RemoteSceneLoader.js';
+import { logger } from '../common/logger.js';
+
+const uiLogger = logger.child('immersive-ui');
 
 async function main() {
   const canvas = document.querySelector('#immersive-canvas');
@@ -90,6 +93,7 @@ function setupXRControls(sceneManager) {
     if (!supported) {
       arButton.disabled = true;
       arButton.title = 'このデバイスは AR セッションをサポートしていません';
+      setStatus('このデバイスは AR セッションをサポートしていません', 'error');
     }
   });
 
@@ -103,10 +107,11 @@ function setupXRControls(sceneManager) {
     arButton.disabled = true;
     setStatus(`${mode === 'ar' ? 'AR' : 'VR'}セッションを初期化中…`, 'pending');
     try {
-      await sceneManager.enterXR(mode);
+      const overlayRoot = document.body;
+      await sceneManager.enterXR(mode, mode === 'ar' ? { domOverlayRoot: overlayRoot } : {});
       setStatus(`${mode === 'ar' ? 'AR' : 'VR'}セッション中`, 'ok');
     } catch (error) {
-      console.error(error);
+      uiLogger.error('XR start failed', error);
       setStatus(`${mode === 'ar' ? 'AR' : 'VR'}開始に失敗しました`, 'error');
       enableButtons();
     }
@@ -142,7 +147,7 @@ function setupRemoteLoader(sceneManager) {
 
   const loader = new RemoteSceneLoader({
     proxyOrigin: location.origin,
-    log: (event, payload) => console.debug('[RemoteSceneLoader]', event, payload)
+    log: (event, payload) => uiLogger.debug(`[RemoteSceneLoader] ${event}`, payload)
   });
 
   const renderRecoveryActions = recovery => {
@@ -256,6 +261,7 @@ function setupRemoteLoader(sceneManager) {
       renderRecoveryActions(recovery);
     } catch (error) {
       statusEl.textContent = error?.message || 'リモートシーンの読み込みに失敗しました';
+      uiLogger.warn('Remote scene load failed', error);
     }
   };
 
@@ -276,7 +282,7 @@ function setupRemoteLoader(sceneManager) {
 }
 
 main().catch(error => {
-  console.error('immersive bootstrap failed', error);
+  uiLogger.error('immersive bootstrap failed', error);
   const overlay = document.querySelector('[data-overlay]');
   if (overlay) {
     overlay.dataset.state = 'error';
