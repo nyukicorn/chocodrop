@@ -43,11 +43,12 @@
 ### 6.1 XR ブリッジ機能
 - `XRBridge Loader` は以下を自動で実行すること：
   - `window.THREE` または ES Module import から `THREE.WebGLRenderer` を検出し、`renderer.xr.enabled = true` を設定。
-  - 既存の `requestAnimationFrame` ループを `renderer.setAnimationLoop` に差し替える際、元の update 処理をフックして二重呼び出しを防ぐ。
+  - 既存の `requestAnimationFrame` ループ／`renderer.getAnimationLoop()` を捕捉し、XR セッション中も **元のホストループに `XRFrame` オブジェクトを渡したまま** 実行されるように `setAnimationLoop` をラップする。
   - `sessiongranted` をハンドリングし、ユーザーが一度許可したデバイスでは自動再接続を許容する。[^needle-session]
 - 失敗時は UI トーストでモードごとのエラー理由（`navigator.xr` 未対応、権限拒否等）を表示し、2D 表示へフォールバックする。
 - ブリッジ処理が例外を投げた場合は即座にパッチを解除し、`renderer` を元の実装に戻して副作用を残さない。
 - ユーザーが意図せず XR セッションへ入らないよう、明示的な UI 操作（ボタン）を経ない限り `requestSession` を呼び出さない。
+- `immersive-ar` を開始する場合は `requiredFeatures` に `local-floor`, `hit-test`, `dom-overlay` を必ず含め、対応していないブラウザでは UI 上に非対応メッセージと Vision Pro / Quest への誘導を表示する。
 
 ### 6.2 入力・操作
 - VR モード：XR コントローラ／ハンドトラッキングイベント（`selectstart/end`、`squeeze`）を SceneManager のオブジェクト操作 API にバインドする。
@@ -65,6 +66,7 @@
 - セキュリティ：未知のスクリプトが親フレームへアクセスしないよう `postMessage` で許可されたメッセージのみ受理する。
 - プロキシが HTML／JS を書き換える場合は改ざん検出用にハッシュを付与し、ログへ残す。
 - 共有プロキシを運用する場合は API キーやレート制限を設け、第三者による悪用を防ぐ。
+- `X-Frame-Options` / `Content-Security-Policy: frame-ancestors` / `COOP` / `COEP` を HEAD レスポンスから解析し、ブロック要因が判明した場合は UI にラベル付きテレメトリ（`frame-policy` アクション）を表示する。
 
 ### 6.4 PWA／Web アプリ要件
 - `manifest.json` に以下を追加：`display": "standalone"`, `display_override`: `"fullscreen"`, `categories`: `["productivity","xr"]`, `orientation`: `"landscape"`。
@@ -78,6 +80,21 @@
 - `WebXR Layers` による 2D HUD 描画と 3D オブジェクト描画を分離し、省電力と視認性を両立する。[^webxr-layers]
 - シーン履歴を IndexedDB に保存し、最近開いた URL を PWA 起動時にサジェストする。
 - テレメトリ：XR セッション時間・エラー率・コマンド成功率を送信し、ユーザー行動を分析。
+
+## 8. ロギングと監視
+- `src/common/logger.js` で `info` / `warn` / `error` / `debug` を定義し、サーバー（Express プロキシ＆XRコマンド API）とクライアント（XRBridge, RemoteScene Loader, PWA UI）はすべてこのロガー経由で出力する。
+- 重要イベント（`session:start`, `session:end`, `proxy:fallback`, `remote:error` 等）は必ずレベル分類し、テレメトリ収集の基盤とする。
+
+## 9. 自動テスト
+- 最低限の E2E を Playwright で実装し、次の 2 シナリオを常時グリーンに保つ：
+  1. XRBridge が既存レンダーループを捕捉し、XRFrame を渡したまま `fallbackLoop` を実行する
+  2. RemoteScene Loader が CORS 失敗 → プロキシ再試行で成功する
+- Playwright のブラウザキャッシュはリポジトリ直下 `.playwright-browsers/` を利用し、CI では `npx playwright install webkit` をワークスペース内で実行すると再現可能とする。
+- ローカル実行コマンド：
+  ```bash
+  npm run test:e2e
+  ```
+
 
 ## 7. 非機能要件
 - **パフォーマンス**：

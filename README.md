@@ -157,7 +157,19 @@ threejs.org など、Three.js を使っている既存サイトにも ChocoDrop 
    # 既存ポートと衝突する場合は --port 43111 などを付与
    ```
 3. **SDK を読み込む（CDN 方式）**
-   HTML の `<head>` などに以下を追加します。
+  HTML の `<head>` などに以下を追加します。
+
+### 🧪 Testing & Validation
+
+- **XR ブリッジ／Remote Scene** の最小E2Eは Playwright で提供しています。
+- 事前にブラウザをインストールする場合は `npx playwright install webkit` をワークスペース内で実行してください。
+- 実行コマンド：
+  ```bash
+  npm run test:e2e
+  ```
+  1. XRBridge が既存レンダーループを捕捉し、`XRFrame` をホストループに渡せているか
+  2. RemoteScene Loader が CORS エラー→プロキシ再試行→成功のテレメトリを発火するか
+  の2シナリオを自動で検証します。
    ```html
    <script src="http://127.0.0.1:43110/sdk.js"></script>
    ```
