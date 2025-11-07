@@ -305,7 +305,7 @@ export class SceneManager {
     this.emit('xr:state', { state, ...detail });
   }
 
-  async enterXR(mode = 'vr') {
+  async enterXR(mode = 'vr', options = {}) {
     const bridge = this._ensureXRBridge();
     if (!bridge || !this.renderer.xr?.enabled) {
       throw new Error('WebXR はサポートされていません');
@@ -323,7 +323,9 @@ export class SceneManager {
 
     try {
       const session = await bridge.enter(mode, {
-        fallbackLoop: time => this._tick(time)
+        fallbackLoop: (time, frame) => this._tick(time, frame),
+        ...options,
+        domOverlayRoot: options.domOverlayRoot || (typeof document !== 'undefined' ? document.body : null)
       });
       this.xrSession = session;
       this.xrMode = mode;

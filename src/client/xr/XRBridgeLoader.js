@@ -1,3 +1,7 @@
+import { logger } from '../../common/logger.js';
+
+const log = logger.child('xrbridge');
+
 const XR_MODES = {
   vr: 'immersive-vr',
   ar: 'immersive-ar'
@@ -40,6 +44,10 @@ export class XRBridgeLoader extends EventTarget {
     this._sessionGrantedHandler = null;
     this._rafHandles = new Map();
     this._rafId = 1;
+    this._originalRAF = null;
+    this._originalCancelRAF = null;
+    this._rendererSetLoopRestore = null;
+    this._rawSetAnimationLoop = null;
   }
 
   install() {
@@ -50,7 +58,10 @@ export class XRBridgeLoader extends EventTarget {
       throw new Error('XRBridgeLoader: 指定された renderer は WebXR に対応していません');
     }
     this.renderer.xr.enabled = true;
+    this._rawSetAnimationLoop = this.renderer.setAnimationLoop;
     this._originalSetLoop = this.renderer.setAnimationLoop?.bind(this.renderer) ?? null;
+    this._captureRendererLoop();
+    this._patchRendererSetAnimationLoop();
     if (this.captureRAF) {
       this._installRAFInterceptor();
     }
@@ -116,9 +127,9 @@ export class XRBridgeLoader extends EventTarget {
       xr.removeEventListener('sessiongranted', this._sessionGrantedHandler);
       this._sessionGrantedHandler = null;
     }
-    if (this._originalSetLoop) {
-      this.renderer.setAnimationLoop = this._originalSetLoop;
-      this._originalSetLoop = null;
+    if (this._rendererSetLoopRestore) {
+      this._rendererSetLoopRestore();
+      this._rendererSetLoopRestore = null;
     }
   }
 
@@ -131,7 +142,8 @@ export class XRBridgeLoader extends EventTarget {
     const required = new Set(presets.required);
     const optional = new Set(presets.optional);
 
-    if (options.domOverlayRoot || this.domOverlayRoot) {
+    const domOverlayRoot = options.domOverlayRoot || this.domOverlayRoot || (typeof document !== 'undefined' ? document.body : null);
+    if (domOverlayRoot) {
       required.add('dom-overlay');
     }
 
@@ -147,8 +159,8 @@ export class XRBridgeLoader extends EventTarget {
       optionalFeatures: Array.from(optional)
     };
 
-    if (options.domOverlayRoot || this.domOverlayRoot) {
-      init.domOverlay = { root: options.domOverlayRoot || this.domOverlayRoot };
+    if (domOverlayRoot) {
+      init.domOverlay = { root: domOverlayRoot };
     }
 
     if (mode === 'ar' && options.hitTestSource) {
@@ -156,6 +168,40 @@ export class XRBridgeLoader extends EventTarget {
     }
 
     return init;
+  }
+
+  _captureRendererLoop() {
+    if (this._capturedLoop || !this.renderer?.getAnimationLoop) {
+      return;
+    }
+    const existingLoop = this.renderer.getAnimationLoop();
+    if (typeof existingLoop === 'function') {
+      this._setCapturedLoop(existingLoop);
+    }
+  }
+
+  _patchRendererSetAnimationLoop() {
+    if (!this.renderer || typeof this._rawSetAnimationLoop !== 'function' || this._rendererSetLoopRestore) {
+      return;
+    }
+    const original = this._rawSetAnimationLoop;
+    const bridge = this;
+    this.renderer.setAnimationLoop = function patchedSetAnimationLoop(loop) {
+      if (!bridge._xrActive && typeof loop === 'function') {
+        bridge._setCapturedLoop(loop);
+      }
+      return original.call(this, loop);
+    };
+    this._rendererSetLoopRestore = () => {
+      this.renderer.setAnimationLoop = original;
+    };
+  }
+
+  _setCapturedLoop(loop) {
+    if (typeof loop !== 'function') return;
+    this._capturedLoop = loop;
+    log.debug('Captured main render loop');
+    this.dispatchEvent(new CustomEvent('loop:captured', { detail: { callback: loop } }));
   }
 
   async _activateSession(session, mode, options) {
@@ -187,42 +233,45 @@ export class XRBridgeLoader extends EventTarget {
 
   _installRenderLoop(loop) {
     if (!this._originalSetLoop) return;
-    this.renderer.setAnimationLoop(time => {
+    this._originalSetLoop((time, frame) => {
       try {
         if (loop.length >= 2) {
-          loop(time, { frame: this._currentSession?.renderState });
+          loop(time, frame ?? null);
         } else {
           loop(time);
         }
       } catch (error) {
+        log.error('XR render loop error', error);
         this.dispatchEvent(new CustomEvent('loop:error', { detail: { error } }));
       }
     });
   }
 
   _installRAFInterceptor() {
-    if (this._restoreRAF || typeof window === 'undefined') {
+    if (this._restoreRAF || typeof window === 'undefined' || typeof window.requestAnimationFrame !== 'function') {
       return;
     }
     const originalRAF = window.requestAnimationFrame.bind(window);
+    const originalCancel = typeof window.cancelAnimationFrame === 'function'
+      ? window.cancelAnimationFrame.bind(window)
+      : null;
     const rafHandles = this._rafHandles;
     const getHandle = () => this._rafId++;
-    const self = this;
+    const bridge = this;
 
     window.requestAnimationFrame = function xrBridgeWrapped(callback) {
       if (typeof callback !== 'function') {
         return originalRAF(callback);
       }
 
-      if (!self._capturedLoop) {
-        self._capturedLoop = callback;
-        self.dispatchEvent(new CustomEvent('loop:captured', { detail: { callback } }));
+      if (!bridge._capturedLoop) {
+        bridge._setCapturedLoop(callback);
       }
 
-      if (self._xrActive && callback === self._capturedLoop) {
+      if (bridge._xrActive && callback === bridge._capturedLoop) {
         const handle = getHandle();
         rafHandles.set(handle, callback);
-        return RAF_SUPPRESS_TOKEN;
+        return handle;
       }
 
       return originalRAF(time => {
@@ -230,8 +279,18 @@ export class XRBridgeLoader extends EventTarget {
       });
     };
 
+    window.cancelAnimationFrame = function xrBridgeCancel(handle) {
+      if (rafHandles.delete(handle)) {
+        return;
+      }
+      return originalCancel?.(handle);
+    };
+
     this._restoreRAF = () => {
       window.requestAnimationFrame = originalRAF;
+      if (originalCancel) {
+        window.cancelAnimationFrame = originalCancel;
+      }
       rafHandles.clear();
     };
   }
