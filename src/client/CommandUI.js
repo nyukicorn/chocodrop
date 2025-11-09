@@ -86,6 +86,9 @@ export class CommandUI {
     this.xrMode = null;
     this.xrEventUnsubscribe = [];
     this.xrUI = null;
+    this.xrAnchor = { active: false, supported: null, position: null };
+    this.xrAnchorStatusEl = null;
+    this.xrAnchorActionButton = null;
 
     this.onboardingCoach = null;
     this.onboardingLauncherButton = null;
@@ -405,6 +408,88 @@ export class CommandUI {
     panel.appendChild(buttonRow);
     panel.appendChild(toggleRow);
 
+    const anchorRow = document.createElement('div');
+    anchorRow.style.cssText = `
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 14px;
+      border-radius: 16px;
+      background: ${this.isDarkMode
+        ? 'linear-gradient(135deg, rgba(14,23,42,0.85), rgba(30,41,59,0.65))'
+        : 'linear-gradient(135deg, rgba(248,250,252,0.92), rgba(226,244,255,0.88))'};
+      border: 1px solid ${this.isDarkMode ? 'rgba(56,189,248,0.25)' : 'rgba(14,165,233,0.3)'};
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.1);
+      gap: 12px;
+      z-index: 1;
+    `;
+
+    const anchorInfo = document.createElement('div');
+    anchorInfo.style.cssText = `
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    `;
+
+    const anchorDot = document.createElement('span');
+    anchorDot.style.cssText = `
+      width: 14px;
+      height: 14px;
+      border-radius: 999px;
+      background: radial-gradient(circle at 30% 30%, #38bdf8, #0ea5e9);
+      box-shadow: 0 0 12px rgba(56, 189, 248, 0.7);
+      opacity: 0.8;
+    `;
+
+    const anchorStatus = document.createElement('div');
+    anchorStatus.style.cssText = `
+      display: flex;
+      flex-direction: column;
+      font-size: 12px;
+      color: ${this.isDarkMode ? '#e2e8f0' : '#0f172a'};
+      line-height: 1.4;
+    `;
+    const anchorStatusPrimary = document.createElement('strong');
+    anchorStatusPrimary.style.cssText = 'font-size: 13px; font-weight: 600;';
+    anchorStatusPrimary.textContent = 'サーフェス未固定';
+    const anchorStatusMeta = document.createElement('span');
+    anchorStatusMeta.style.cssText = 'opacity: 0.75;';
+    anchorStatusMeta.textContent = 'トリガーでアンカーをセット';
+    anchorStatus.appendChild(anchorStatusPrimary);
+    anchorStatus.appendChild(anchorStatusMeta);
+
+    anchorInfo.appendChild(anchorDot);
+    anchorInfo.appendChild(anchorStatus);
+
+    const anchorButton = document.createElement('button');
+    anchorButton.type = 'button';
+    anchorButton.textContent = 'リセット';
+    anchorButton.disabled = true;
+    anchorButton.style.cssText = `
+      padding: 6px 12px;
+      border-radius: 999px;
+      border: 1px solid ${this.isDarkMode ? 'rgba(56,189,248,0.4)' : 'rgba(14,116,144,0.4)'};
+      background: transparent;
+      color: ${this.isDarkMode ? '#bae6fd' : '#0e7490'};
+      font-size: 12px;
+      font-weight: 600;
+      cursor: not-allowed;
+      transition: all 0.2s ease;
+    `;
+    anchorButton.addEventListener('click', () => {
+      if (!anchorButton.disabled) {
+        this.sceneManager?.clearXRPlacementAnchor?.();
+      }
+    });
+
+    anchorRow.appendChild(anchorInfo);
+    anchorRow.appendChild(anchorButton);
+
+    panel.appendChild(anchorRow);
+
+    this.xrAnchorStatusEl = { primary: anchorStatusPrimary, meta: anchorStatusMeta, dot: anchorDot };
+    this.xrAnchorActionButton = anchorButton;
+
     this.xrUI = {
       panel,
       statusText,
@@ -420,6 +505,15 @@ export class CommandUI {
     this.updateXRSupport({ mode: 'vr', supported: this.xrSupport.vr });
     this.updateXRSupport({ mode: 'ar', supported: this.xrSupport.ar });
     this.updateXRState({ state: this.xrState, mode: this.xrMode });
+    if (this.sceneManager?.xr) {
+      this.updateXRAnchorState({
+        supported: this.sceneManager.xr.anchorSupported,
+        active: Boolean(this.sceneManager.xr.anchor),
+        position: this.sceneManager.xr.anchor?.position || null
+      });
+    } else {
+      this.updateXRAnchorState({});
+    }
 
     injectXRKeyframes();
 
@@ -511,6 +605,55 @@ export class CommandUI {
     }
     if (toggleThumb) {
       toggleThumb.style.transform = this.xrAutoResume ? 'translateX(18px)' : 'translateX(0)';
+    }
+  }
+
+  updateXRAnchorState(detail = {}) {
+    this.xrAnchor = {
+      active: detail.active ?? this.xrAnchor.active,
+      supported: detail.supported ?? this.xrAnchor.supported,
+      position: detail.position ?? this.xrAnchor.position
+    };
+    if (!this.xrAnchorStatusEl || !this.xrAnchorActionButton) {
+      return;
+    }
+
+    const { primary, meta, dot } = this.xrAnchorStatusEl;
+    const supported = this.xrAnchor.supported;
+    const active = this.xrAnchor.active;
+
+    if (supported === false) {
+      primary.textContent = 'ヒットテスト未対応';
+      meta.textContent = '対応ブラウザでのみ利用可能';
+      dot.style.background = 'radial-gradient(circle at 30% 30%, #f87171, #ef4444)';
+      dot.style.boxShadow = '0 0 10px rgba(248, 113, 113, 0.7)';
+      this.xrAnchorActionButton.disabled = true;
+      this.xrAnchorActionButton.textContent = '非対応';
+      this.xrAnchorActionButton.style.cursor = 'not-allowed';
+      return;
+    }
+
+    if (active) {
+      primary.textContent = 'アンカー固定済み';
+      if (this.xrAnchor.position) {
+        const { x, y, z } = this.xrAnchor.position;
+        meta.textContent = `(${x.toFixed(2)}, ${y.toFixed(2)}, ${z.toFixed(2)})`;
+      } else {
+        meta.textContent = '最新のヒットテスト座標';
+      }
+      dot.style.background = 'radial-gradient(circle at 30% 30%, #22d3ee, #0ea5e9)';
+      dot.style.boxShadow = '0 0 14px rgba(14, 165, 233, 0.75)';
+      this.xrAnchorActionButton.disabled = false;
+      this.xrAnchorActionButton.textContent = 'アンカー解除';
+      this.xrAnchorActionButton.style.cursor = 'pointer';
+    } else {
+      primary.textContent = 'サーフェス未固定';
+      meta.textContent = 'トリガーでアンカーをセット';
+      dot.style.background = 'radial-gradient(circle at 30% 30%, #fcd34d, #f59e0b)';
+      dot.style.boxShadow = '0 0 12px rgba(245, 158, 11, 0.6)';
+      this.xrAnchorActionButton.disabled = true;
+      this.xrAnchorActionButton.textContent = '待機中';
+      this.xrAnchorActionButton.style.cursor = 'not-allowed';
     }
   }
 
@@ -3371,6 +3514,11 @@ export class CommandUI {
     this.xrEventUnsubscribe.push(
       this.sceneManager.onXR('autoResume', event => {
         this.updateXRAutoResume(event?.detail?.enabled ?? this.xrAutoResume);
+      })
+    );
+    this.xrEventUnsubscribe.push(
+      this.sceneManager.onXR('anchor', event => {
+        this.updateXRAnchorState(event?.detail || {});
       })
     );
   }
