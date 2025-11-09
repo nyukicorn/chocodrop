@@ -63,7 +63,9 @@ export class SceneManager {
       supported: { vr: null, ar: null },
       autoResume: options.xrAutoResume !== false,
       events: new EventTarget(),
-      error: null
+      error: null,
+      anchor: null,
+      anchorSupported: false
     };
 
     // Animation管理（UI要素用）
@@ -2217,10 +2219,21 @@ export class SceneManager {
       }
 
       // 位置決め
-      const finalPosition = this.camera
-        ? this.calculateCameraRelativePosition(position)
-        : position;
-      modelRoot.position.set(finalPosition.x, finalPosition.y, finalPosition.z);
+      const finalPosition = this.resolveSpawnPosition(position);
+      modelRoot.position.copy(finalPosition);
+
+      if (position?.orientation) {
+        if (position.orientation.isQuaternion) {
+          modelRoot.quaternion.copy(position.orientation);
+        } else {
+          modelRoot.quaternion.set(
+            position.orientation.x ?? 0,
+            position.orientation.y ?? 0,
+            position.orientation.z ?? 0,
+            position.orientation.w ?? 1
+          );
+        }
+      }
 
       if (rotation) {
         modelRoot.rotation.set(rotation.x || 0, rotation.y || 0, rotation.z || 0);
@@ -2804,6 +2817,28 @@ export class SceneManager {
    * 位置情報解析（カメラ相対位置）
    */
   parsePosition(command) {
+    if (this.xr.mode === 'immersive-ar' && this.xr.anchor?.position) {
+      const orientation = this.xr.anchor.orientation
+        ? (typeof this.xr.anchor.orientation.clone === 'function'
+            ? this.xr.anchor.orientation.clone()
+            : new THREE.Quaternion(
+                this.xr.anchor.orientation.x ?? 0,
+                this.xr.anchor.orientation.y ?? 0,
+                this.xr.anchor.orientation.z ?? 0,
+                this.xr.anchor.orientation.w ?? 1
+              ))
+        : null;
+      const anchorPosition = this.xr.anchor.position;
+      console.log(`📍 Using XR anchor position: (${anchorPosition.x.toFixed(2)}, ${anchorPosition.y.toFixed(2)}, ${anchorPosition.z.toFixed(2)})`);
+      return {
+        x: anchorPosition.x,
+        y: anchorPosition.y,
+        z: anchorPosition.z,
+        absolute: true,
+        orientation
+      };
+    }
+
     const defaultPos = { x: 0, y: 5, z: -10 }; // カメラ前方10m（手前方向を負）
     
     // 基本方向の解析（カメラ相対座標系）
@@ -3037,13 +3072,12 @@ export class SceneManager {
       material.needsUpdate = true;
 
       // カメラ相対位置で配置（カメラの向きも考慮）
-      if (this.camera) {
-        const finalPosition = this.calculateCameraRelativePosition(parsed.position);
-        plane.position.copy(finalPosition);
+      const finalPosition = this.resolveSpawnPosition(parsed.position);
+      plane.position.copy(finalPosition);
+
+      const oriented = this.applyOrientationFromPosition(plane, parsed.position);
+      if (!oriented && this.camera) {
         this.alignPlaneToCamera(plane);
-      } else {
-        // フォールバック: 絶対座標
-        plane.position.set(parsed.position.x, parsed.position.y, parsed.position.z);
       }
       
       // スケールは幅計算に含めているので、ここでは1.0に固定
@@ -3191,12 +3225,12 @@ export class SceneManager {
       material.depthWrite = true; // 深度書き込みも有効に
       
       // カメラ相対位置で配置
-      if (this.camera) {
-        const finalPosition = this.calculateCameraRelativePosition(parsed.position);
-        plane.position.copy(finalPosition);
+      const finalPosition = this.resolveSpawnPosition(parsed.position);
+      plane.position.copy(finalPosition);
+
+      const oriented = this.applyOrientationFromPosition(plane, parsed.position);
+      if (!oriented && this.camera) {
         this.alignPlaneToCamera(plane);
-      } else {
-        plane.position.set(parsed.position.x, parsed.position.y, parsed.position.z);
       }
 
       // スケールは幅計算に含めているので、ここでは1.0に固定
@@ -3271,12 +3305,12 @@ export class SceneManager {
       const plane = new THREE.Mesh(geometry, material);
       
       // カメラ相対位置で配置
-      if (this.camera) {
-        const finalPosition = this.calculateCameraRelativePosition(parsed.position);
-        plane.position.copy(finalPosition);
+      const fallbackPosition = this.resolveSpawnPosition(parsed.position);
+      plane.position.copy(fallbackPosition);
+
+      const fallbackOriented = this.applyOrientationFromPosition(plane, parsed.position);
+      if (!fallbackOriented && this.camera) {
         this.alignPlaneToCamera(plane);
-      } else {
-        plane.position.set(parsed.position.x, parsed.position.y, parsed.position.z);
       }
 
       plane.scale.setScalar(1.0);
@@ -3368,12 +3402,12 @@ export class SceneManager {
       material.depthWrite = true;
       
       // カメラ相対位置で配置
-      if (this.camera) {
-        const finalPosition = this.calculateCameraRelativePosition(position);
-        plane.position.copy(finalPosition);
+      const finalPosition = this.resolveSpawnPosition(position);
+      plane.position.copy(finalPosition);
+
+      const oriented = this.applyOrientationFromPosition(plane, position);
+      if (!oriented && this.camera) {
         this.alignPlaneToCamera(plane);
-      } else {
-        plane.position.set(position.x, position.y, position.z);
       }
       
       plane.scale.setScalar(1.0);
@@ -3502,12 +3536,12 @@ export class SceneManager {
       plane.renderOrder = 1001;
       
       // カメラ相対位置で配置
-      if (this.camera) {
-        const finalPosition = this.calculateCameraRelativePosition(position);
-        plane.position.copy(finalPosition);
+      const finalPosition = this.resolveSpawnPosition(position);
+      plane.position.copy(finalPosition);
+
+      const oriented = this.applyOrientationFromPosition(plane, position);
+      if (!oriented && this.camera) {
         this.alignPlaneToCamera(plane);
-      } else {
-        plane.position.set(position.x, position.y, position.z);
       }
       
       plane.scale.setScalar(1.0);
@@ -5175,17 +5209,16 @@ export class SceneManager {
     
     const indicator = new THREE.Mesh(geometry, material);
     
-    // カメラ相対位置でインジケーターも配置
-    if (this.camera) {
-      const indicatorPos = this.calculateCameraRelativePosition({
+    const indicatorPos = this.resolveSpawnPosition(
+      {
         x: relativePosition.x,
-        y: relativePosition.y + 2, // オブジェクトの少し上に表示
-        z: relativePosition.z
-      });
-      indicator.position.copy(indicatorPos);
-    } else {
-      indicator.position.set(relativePosition.x, relativePosition.y + 2, relativePosition.z);
-    }
+        y: relativePosition.y,
+        z: relativePosition.z,
+        absolute: relativePosition?.absolute
+      },
+      { offsetY: 2 }
+    );
+    indicator.position.copy(indicatorPos);
     
     console.log(`🟢 インジケーター表示: (${indicator.position.x.toFixed(1)}, ${indicator.position.y.toFixed(1)}, ${indicator.position.z.toFixed(1)})`);
     
@@ -5304,6 +5337,110 @@ export class SceneManager {
       console.error('❌ Camera relative position calculation failed:', error);
       return new THREE.Vector3(relativePosition.x, relativePosition.y, relativePosition.z);
     }
+  }
+
+  resolveSpawnPosition(position = { x: 0, y: 0, z: -10 }, options = {}) {
+    const offsetY = options.offsetY ?? 0;
+    const base = {
+      x: position?.x ?? 0,
+      y: position?.y ?? 0,
+      z: position?.z ?? -10,
+      absolute: position?.absolute === true
+    };
+
+    if (!this.camera) {
+      return new THREE.Vector3(base.x, base.y + offsetY, base.z);
+    }
+
+    if (base.absolute) {
+      return new THREE.Vector3(base.x, base.y + offsetY, base.z);
+    }
+
+    return this.calculateCameraRelativePosition({
+      x: base.x,
+      y: base.y + offsetY,
+      z: base.z
+    });
+  }
+
+  setXRPlacementAnchor(anchor) {
+    if (!anchor || !anchor.position) {
+      this.clearXRPlacementAnchor();
+      return;
+    }
+
+    const toVector = input => {
+      if (!input) return new THREE.Vector3();
+      if (input.isVector3) {
+        return input.clone();
+      }
+      return new THREE.Vector3(input.x ?? 0, input.y ?? 0, input.z ?? 0);
+    };
+
+    const toQuaternion = input => {
+      if (!input) return null;
+      if (input.isQuaternion) {
+        return input.clone();
+      }
+      return new THREE.Quaternion(input.x ?? 0, input.y ?? 0, input.z ?? 0, input.w ?? 1);
+    };
+
+    const normalized = {
+      position: toVector(anchor.position),
+      orientation: toQuaternion(anchor.orientation),
+      timestamp: typeof performance !== 'undefined' ? performance.now() : Date.now()
+    };
+
+    this.xr.anchor = normalized;
+    this._dispatchXREvent('anchor', {
+      active: true,
+      supported: this.xr.anchorSupported,
+      position: {
+        x: normalized.position.x,
+        y: normalized.position.y,
+        z: normalized.position.z
+      }
+    });
+  }
+
+  clearXRPlacementAnchor() {
+    if (!this.xr.anchor) {
+      return;
+    }
+    this.xr.anchor = null;
+    this._dispatchXREvent('anchor', {
+      active: false,
+      supported: this.xr.anchorSupported
+    });
+  }
+
+  setXRAnchorSupport(supported) {
+    if (this.xr.anchorSupported === supported) {
+      return;
+    }
+    this.xr.anchorSupported = supported;
+    this._dispatchXREvent('anchor', {
+      supported,
+      active: Boolean(this.xr.anchor)
+    });
+  }
+
+  applyOrientationFromPosition(object, position) {
+    if (!object || !position?.orientation) {
+      return false;
+    }
+    const orientation = position.orientation;
+    if (orientation.isQuaternion) {
+      object.quaternion.copy(orientation);
+    } else {
+      object.quaternion.set(
+        orientation.x ?? 0,
+        orientation.y ?? 0,
+        orientation.z ?? 0,
+        orientation.w ?? 1
+      );
+    }
+    return true;
   }
 
   /**
