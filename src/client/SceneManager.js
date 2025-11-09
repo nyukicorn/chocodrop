@@ -4,6 +4,7 @@ const THREE = globalThis.THREE || THREEModule;
 import { ChocoDropClient, ChocoDroClient, LiveCommandClient } from './LiveCommandClient.js';
 import { createObjectKeywords, matchKeywordWithFilename } from '../common/translation-dictionary.js';
 import { XRBridgeLoader } from './xr/XRBridgeLoader.js';
+import { XRInteractionManager } from './xr/XRInteractionManager.js';
 
 /**
  * Scene Manager - 3D scene integration for ChocoDrop System
@@ -23,6 +24,7 @@ export class SceneManager {
     // Tone Mapping + Exposure設定（2025年標準：暗いシーンでも3Dモデルが見える）
     if (this.renderer) {
       this.setupToneMapping();
+      this._ensureXRInteractionManager();
     }
     // ChocoDrop Client（共通クライアント注入を優先）
     // 外部フォルダから共有する場合は options.client でクライアントを再利用
@@ -65,7 +67,8 @@ export class SceneManager {
       events: new EventTarget(),
       error: null,
       anchor: null,
-      anchorSupported: false
+      anchorSupported: false,
+      interaction: null
     };
 
     // Animation管理（UI要素用）
@@ -6582,6 +6585,8 @@ export class SceneManager {
       return null;
     }
 
+    this._ensureXRInteractionManager();
+
     const domOverlayRoot = options.domOverlayRoot || options.domOverlay || (typeof document !== 'undefined' ? document.body : null);
     const bridge = new XRBridgeLoader({
       renderer: this.renderer,
@@ -6606,12 +6611,26 @@ export class SceneManager {
     bridge.addEventListener('session:start', event => {
       this.xr.mode = event.detail?.mode || null;
       this._updateXRState('active', { mode: this.xr.mode });
+      this.clearXRPlacementAnchor();
+      const interaction = this._ensureXRInteractionManager();
+      if (interaction && event.detail?.session) {
+        Promise.resolve(interaction.attachSession(event.detail.session, { mode: this.xr.mode })).catch(error => {
+          console.warn('XRInteraction attach failed', error);
+        });
+      }
     });
     bridge.addEventListener('session:end', () => {
       this.xr.mode = null;
+      if (this.xr.interaction) {
+        this.xr.interaction.detachSession();
+      }
+      this.clearXRPlacementAnchor();
       this._updateXRState('idle');
     });
     bridge.addEventListener('session:error', event => {
+      if (this.xr.interaction) {
+        this.xr.interaction.detachSession();
+      }
       this.xr.error = event.detail?.error || null;
       this._updateXRState('error', { mode: event.detail?.mode, error: this.xr.error });
     });
@@ -6690,6 +6709,18 @@ export class SceneManager {
     this._dispatchXREvent('state', { state, ...detail });
   }
 
+  _ensureXRInteractionManager() {
+    if (this.xr.interaction || !this.renderer) {
+      return this.xr.interaction;
+    }
+    this.xr.interaction = new XRInteractionManager({
+      renderer: this.renderer,
+      scene: this.scene,
+      sceneManager: this
+    });
+    return this.xr.interaction;
+  }
+
   _dispatchXREvent(type, detail) {
     this.xr.events.dispatchEvent(new CustomEvent(this._normalizeXREventType(type), { detail }));
   }
@@ -6705,6 +6736,9 @@ export class SceneManager {
     this.clearAll();
     if (this.experimentGroup.parent) {
       this.experimentGroup.parent.remove(this.experimentGroup);
+    }
+    if (this.xr.interaction) {
+      this.xr.interaction.detachSession();
     }
   }
 }
