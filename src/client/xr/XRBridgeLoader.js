@@ -22,6 +22,18 @@ const RAF_SUPPRESS_TOKEN = -1;
 
 const getXRSystem = () => (typeof globalThis !== 'undefined' && globalThis.navigator ? globalThis.navigator.xr : null);
 
+const createBridgeEvent = (type, detail) => {
+  if (typeof CustomEvent === 'function') {
+    return new CustomEvent(type, { detail });
+  }
+  if (typeof Event === 'function') {
+    const event = new Event(type);
+    event.detail = detail;
+    return event;
+  }
+  return { type, detail };
+};
+
 /**
  * WebXR セッションの開始/終了とレンダーループの橋渡しを担当するローダー。
  * ユーザーコードの requestAnimationFrame を捕捉し、XR セッション時のみ setAnimationLoop に切り替える。
@@ -48,9 +60,13 @@ export class XRBridgeLoader extends EventTarget {
     this._originalCancelRAF = null;
     this._rendererSetLoopRestore = null;
     this._rawSetAnimationLoop = null;
+    this._installed = false;
   }
 
   install() {
+    if (this._installed) {
+      return;
+    }
     if (!this.renderer) {
       throw new Error('XRBridgeLoader: renderer が指定されていません');
     }
@@ -66,7 +82,8 @@ export class XRBridgeLoader extends EventTarget {
       this._installRAFInterceptor();
     }
     this._installSessionGrantedListener();
-    this.dispatchEvent(new CustomEvent('installed'));
+    this._installed = true;
+    this.dispatchEvent(createBridgeEvent('installed'));
   }
 
   async isSessionSupported(mode = 'vr') {
@@ -76,12 +93,15 @@ export class XRBridgeLoader extends EventTarget {
     try {
       return await xr.isSessionSupported(sessionMode);
     } catch (error) {
-      this.dispatchEvent(new CustomEvent('supportcheck:error', { detail: { error, mode: sessionMode } }));
+      this.dispatchEvent(createBridgeEvent('supportcheck:error', { error, mode: sessionMode }));
       return false;
     }
   }
 
   async enter(mode = 'vr', options = {}) {
+    if (!this._installed) {
+      this.install();
+    }
     const xr = getXRSystem();
     if (!xr) {
       throw new Error('WebXR がサポートされていません');
@@ -94,7 +114,7 @@ export class XRBridgeLoader extends EventTarget {
 
     const sessionInit = this._buildSessionInit(mode, options);
     this._lastRequestedMode = mode;
-    this.dispatchEvent(new CustomEvent('session:request', { detail: { mode: sessionMode, init: sessionInit } }));
+    this.dispatchEvent(createBridgeEvent('session:request', { mode: sessionMode, init: sessionInit }));
 
     try {
       const session = await xr.requestSession(sessionMode, sessionInit);
@@ -102,7 +122,7 @@ export class XRBridgeLoader extends EventTarget {
       this._autoResumeAllowed = true;
       return session;
     } catch (error) {
-      this.dispatchEvent(new CustomEvent('session:error', { detail: { error, mode: sessionMode } }));
+      this.dispatchEvent(createBridgeEvent('session:error', { error, mode: sessionMode }));
       throw error;
     }
   }
@@ -122,6 +142,7 @@ export class XRBridgeLoader extends EventTarget {
       this._restoreRAF();
       this._restoreRAF = null;
     }
+    this._installed = false;
     const xr = getXRSystem();
     if (this._sessionGrantedHandler && xr?.removeEventListener) {
       xr.removeEventListener('sessiongranted', this._sessionGrantedHandler);
@@ -201,13 +222,13 @@ export class XRBridgeLoader extends EventTarget {
     if (typeof loop !== 'function') return;
     this._capturedLoop = loop;
     log.debug('Captured main render loop');
-    this.dispatchEvent(new CustomEvent('loop:captured', { detail: { callback: loop } }));
+    this.dispatchEvent(createBridgeEvent('loop:captured', { callback: loop }));
   }
 
   async _activateSession(session, mode, options) {
     this._currentSession = session;
     this._xrActive = true;
-    this.dispatchEvent(new CustomEvent('session:start', { detail: { session, mode } }));
+    this.dispatchEvent(createBridgeEvent('session:start', { session, mode }));
 
     session.addEventListener('end', () => this._teardownSession(), { once: true });
 
@@ -228,7 +249,7 @@ export class XRBridgeLoader extends EventTarget {
     if (this._originalSetLoop) {
       this.renderer.setAnimationLoop(null);
     }
-    this.dispatchEvent(new CustomEvent('session:end'));
+    this.dispatchEvent(createBridgeEvent('session:end'));
   }
 
   _installRenderLoop(loop) {
@@ -242,7 +263,7 @@ export class XRBridgeLoader extends EventTarget {
         }
       } catch (error) {
         log.error('XR render loop error', error);
-        this.dispatchEvent(new CustomEvent('loop:error', { detail: { error } }));
+        this.dispatchEvent(createBridgeEvent('loop:error', { error }));
       }
     });
   }
@@ -305,7 +326,7 @@ export class XRBridgeLoader extends EventTarget {
       try {
         await this.enter(this._lastRequestedMode);
       } catch (error) {
-        this.dispatchEvent(new CustomEvent('session:error', { detail: { error, mode: this._lastRequestedMode } }));
+        this.dispatchEvent(createBridgeEvent('session:error', { error, mode: this._lastRequestedMode }));
       }
     };
     xr.addEventListener('sessiongranted', this._sessionGrantedHandler);
