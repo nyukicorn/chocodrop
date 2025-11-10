@@ -5,6 +5,7 @@ import { fileURLToPath } from 'url';
 import { MCPClient } from './mcp-client.js';
 import { selectModelFromCommand } from '../config/models.js';
 import config from '../config/config.js';
+import { logger } from '../common/logger.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -15,6 +16,7 @@ const __dirname = path.dirname(__filename);
  */
 class ChocoDropServer {
   constructor(options = {}) {
+    this.log = logger.child('server');
     this.port = options.port || config.get('server.port');
     this.host = options.host || config.get('server.host');
     this.publicDir = options.publicDir || path.join(__dirname, '../../public');
@@ -30,12 +32,17 @@ class ChocoDropServer {
 
     // SSE進捗管理
     this.progressClients = new Map();
+    this.proxyMetrics = new Map();
+    this.proxyRateLimit = {
+      windowMs: options.proxyWindowMs || 60_000,
+      max: options.proxyMaxRequests || 60
+    };
 
     this.app = express();
     this.setupMiddleware();
     this.setupRoutes();
 
-    console.log('🍫 ChocoDropServer initialized');
+    this.log.info('🍫 ChocoDropServer initialized');
   }
 
   /**
@@ -66,7 +73,7 @@ class ChocoDropServer {
         if (!origin || uniqueCorsOrigins.includes(origin)) {
           return callback(null, true);
         }
-        console.warn(`⚠️ CORS denied for origin: ${origin}`);
+        this.log.warn(`⚠️ CORS denied for origin: ${origin}`);
         return callback(new Error('Not allowed by CORS'));
       },
       methods: ['GET', 'POST', 'PUT', 'DELETE'],
@@ -78,11 +85,12 @@ class ChocoDropServer {
     
     // 静的ファイル配信
     this.app.use('/generated', express.static(path.join(this.publicDir, 'generated')));
+    this.app.use('/xr', express.static(path.join(this.publicDir, 'xr')));
     this.app.use(express.static(this.publicDir));
     
     // ログミドルウェア
     this.app.use((req, res, next) => {
-      console.log(`${new Date().toISOString()} ${req.method} ${req.path}`);
+      this.log.debug(`${new Date().toISOString()} ${req.method} ${req.path}`);
       next();
     });
   }
@@ -102,6 +110,111 @@ class ChocoDropServer {
 
     this.app.get('/health', healthHandler);
     this.app.get('/v1/health', healthHandler);
+
+    this.app.get('/proxy', async (req, res) => {
+      const rateLimitResult = this.enforceProxyRateLimit(req, res);
+      if (!rateLimitResult.allowed) {
+        return;
+      }
+
+      const targetUrl = req.query.url;
+      if (!targetUrl) {
+        return res.status(400).json({ success: false, error: 'url クエリパラメータが必要です' });
+      }
+
+      let parsed;
+      try {
+        parsed = new URL(targetUrl);
+      } catch (error) {
+        return res.status(400).json({ success: false, error: 'URL の形式が不正です' });
+      }
+
+      if (!['https:'].includes(parsed.protocol)) {
+        return res.status(400).json({ success: false, error: 'HTTPS のみサポートしています' });
+      }
+
+      if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
+        return res.status(405).set('Allow', 'GET, HEAD, OPTIONS').json({ success: false, error: '許可されていないメソッドです' });
+      }
+
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 12000);
+
+      const startedAt = Date.now();
+      try {
+        const response = await fetch(parsed.href, {
+          method: req.method === 'HEAD' ? 'HEAD' : 'GET',
+          redirect: 'follow',
+          signal: controller.signal,
+          headers: {
+            'User-Agent': 'ChocoDrop-RemoteProxy/1.0 (+https://nyukicorn.github.io/chocodrop/)'
+          }
+        });
+
+        res.status(response.status);
+        res.setHeader('X-RateLimit-Limit', this.proxyRateLimit.max.toString());
+        res.setHeader('X-RateLimit-Remaining', Math.max(rateLimitResult.remaining, 0).toString());
+        res.setHeader('X-RateLimit-Reset', Math.floor(rateLimitResult.reset / 1000).toString());
+
+        const passthroughHeaders = [
+          'content-type',
+          'content-length',
+          'content-language',
+          'content-encoding',
+          'content-disposition',
+          'last-modified',
+          'etag',
+          'cache-control',
+          'expires',
+          'accept-ranges',
+          'cross-origin-embedder-policy',
+          'cross-origin-opener-policy',
+          'cross-origin-resource-policy'
+        ];
+
+        passthroughHeaders.forEach(header => {
+          const value = response.headers.get(header);
+          if (value) {
+            res.setHeader(header, value);
+          }
+        });
+
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
+        res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+        res.setHeader('Vary', 'Origin');
+
+        if (req.method === 'HEAD' || response.status === 204) {
+          return res.end();
+        }
+
+        if (!response.body) {
+          return res.end();
+        }
+
+        if (response.body) {
+          for await (const chunk of response.body) {
+            res.write(chunk);
+          }
+        }
+        res.end();
+
+        this.log.info('🌐 proxy success', {
+          url: parsed.href,
+          status: response.status,
+          durationMs: Date.now() - startedAt,
+          ip: rateLimitResult.clientKey
+        });
+      } catch (error) {
+        this.log.warn('⚠️ Proxy fetch failed', parsed.href, error.message);
+        if (error.name === 'AbortError') {
+          return res.status(504).json({ success: false, error: 'リモートサーバーの応答がタイムアウトしました' });
+        }
+        return res.status(502).json({ success: false, error: 'リモートシーンの取得に失敗しました' });
+      } finally {
+        clearTimeout(timeout);
+      }
+    });
 
     // 設定情報取得
     this.app.get('/api/config', (req, res) => {
@@ -186,7 +299,7 @@ class ChocoDropServer {
           });
         }
 
-        console.log(`🎨 Image generation request: "${prompt}" with service: ${service}`);
+        this.log.info(`🎨 Image generation request: "${prompt}" with service: ${service}`);
 
         // タスクID生成
         const taskId = `task_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -214,7 +327,7 @@ class ChocoDropServer {
         res.json(result);
 
       } catch (error) {
-        console.error('❌ Image generation API error:', error);
+        this.log.error('❌ Image generation API error:', error);
         res.status(500).json({
           success: false,
           error: error.message,
@@ -251,7 +364,7 @@ class ChocoDropServer {
           });
         }
 
-        console.log(`🎬 Video generation request: "${prompt}" with model: ${model}`);
+        this.log.info(`🎬 Video generation request: "${prompt}" with model: ${model}`);
 
         // タスクID生成
         const taskId = `task_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -323,7 +436,7 @@ class ChocoDropServer {
         res.json(result);
 
       } catch (error) {
-        console.error('❌ Video generation API error:', error);
+        this.log.error('❌ Video generation API error:', error);
         res.status(500).json({
           success: false,
           error: error.message,
@@ -365,14 +478,14 @@ class ChocoDropServer {
           });
         }
 
-        console.log(`🎯 Natural language command: "${command}"`);
+        this.log.info(`🎯 Natural language command: "${command}"`);
 
         // タスクID生成
         const taskId = `task_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
         // コマンド解析とタイプ判定
         const parsed = this.parseCommand(command);
-        console.log(`📊 Parsed command:`, parsed);
+        this.log.debug('📊 Parsed command:', parsed);
 
         let result;
         switch (parsed.type) {
@@ -424,7 +537,7 @@ class ChocoDropServer {
         res.json(result);
 
       } catch (error) {
-        console.error('❌ Command API error:', error);
+        this.log.error('❌ Command API error:', error);
         res.status(500).json({
           success: false,
           error: error.message,
@@ -443,13 +556,47 @@ class ChocoDropServer {
 
     // エラーハンドラー
     this.app.use((error, req, res, next) => {
-      console.error('❌ Server error:', error);
+      this.log.error('❌ Server error:', error);
       res.status(500).json({
         success: false,
         error: 'サーバーエラーが発生しました',
         errorCategory: this.classifyError(error)
       });
     });
+  }
+
+  enforceProxyRateLimit(req, res) {
+    const now = Date.now();
+    const key = this.extractClientKey(req);
+    const entry = this.proxyMetrics.get(key) || { count: 0, reset: now + this.proxyRateLimit.windowMs };
+
+    if (now > entry.reset) {
+      entry.count = 0;
+      entry.reset = now + this.proxyRateLimit.windowMs;
+    }
+
+    entry.count += 1;
+    this.proxyMetrics.set(key, entry);
+
+    const remaining = this.proxyRateLimit.max - entry.count;
+    if (entry.count > this.proxyRateLimit.max) {
+      res.setHeader('Retry-After', Math.ceil((entry.reset - now) / 1000).toString());
+      res.setHeader('X-RateLimit-Limit', this.proxyRateLimit.max.toString());
+      res.setHeader('X-RateLimit-Remaining', '0');
+      res.setHeader('X-RateLimit-Reset', Math.floor(entry.reset / 1000).toString());
+      res.status(429).json({ success: false, error: 'プロキシ利用が一時的に制限されています。しばらく待って再試行してください。' });
+      return { allowed: false, clientKey: key, remaining: 0, reset: entry.reset };
+    }
+
+    return { allowed: true, clientKey: key, remaining, reset: entry.reset };
+  }
+
+  extractClientKey(req) {
+    const forwarded = req.headers['x-forwarded-for'];
+    if (typeof forwarded === 'string' && forwarded.length > 0) {
+      return forwarded.split(',')[0].trim();
+    }
+    return req.ip || req.connection?.remoteAddress || 'unknown';
   }
 
   /**
@@ -609,7 +756,7 @@ class ChocoDropServer {
         });
         client.write(`data: ${data}\n\n`);
       } catch (error) {
-        console.error(`⚠️ Failed to send progress to ${taskId}:`, error);
+        this.log.warn(`⚠️ Failed to send progress to ${taskId}:`, error);
         this.progressClients.delete(taskId);
       }
     }
@@ -622,8 +769,8 @@ class ChocoDropServer {
     return new Promise((resolve, reject) => {
       try {
         this.server = this.app.listen(this.port, this.host, () => {
-          console.log(`🚀 ChocoDrop Server running at http://${this.host}:${this.port}`);
-          console.log(`📁 Static files served from: ${this.publicDir}`);
+          this.log.info(`🚀 ChocoDrop Server running at http://${this.host}:${this.port}`);
+          this.log.info(`📁 Static files served from: ${this.publicDir}`);
           resolve({ host: this.host, port: this.port });
         });
       } catch (error) {
@@ -639,7 +786,7 @@ class ChocoDropServer {
     return new Promise((resolve) => {
       if (this.server) {
         this.server.close(() => {
-          console.log('🛑 ChocoDrop Server stopped');
+          this.log.info('🛑 ChocoDrop Server stopped');
           resolve();
         });
       } else {
@@ -651,19 +798,20 @@ class ChocoDropServer {
 
 // CLI実行時の処理
 if (import.meta.url === `file://${process.argv[1]}`) {
+  const cliLogger = logger.child('server-cli');
   const server = new ChocoDropServer({
     port: process.env.PORT || config.get('server.port'),
     host: process.env.HOST || 'localhost'
   });
 
   server.start().catch(error => {
-    console.error('❌ Server startup failed:', error);
+    cliLogger.error('❌ Server startup failed:', error);
     process.exit(1);
   });
 
   // Graceful shutdown
   process.on('SIGINT', async () => {
-    console.log('\n🔄 Shutting down server...');
+    cliLogger.info('\n🔄 Shutting down server...');
     await server.stop();
     process.exit(0);
   });

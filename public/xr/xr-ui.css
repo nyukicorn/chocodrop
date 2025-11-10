@@ -1,0 +1,304 @@
+:root {
+  color-scheme: dark;
+  font-family: "Inter", "SF Pro Display", "Noto Sans JP", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  --panel-bg: rgba(15, 23, 42, 0.72);
+  --panel-border: rgba(148, 163, 184, 0.3);
+  --pill-bg: rgba(37, 99, 235, 0.2);
+  --pill-border: rgba(37, 99, 235, 0.4);
+  --gradient-start: #38bdf8;
+  --gradient-end: #6366f1;
+  --success: #4ade80;
+  --error: #f87171;
+  --pending: #facc15;
+  --warn: #f97316;
+  --text-muted: #94a3b8;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: radial-gradient(circle at top, #0f172a, #020617 65%);
+  color: #e2e8f0;
+  overflow: hidden;
+}
+
+canvas {
+  width: 100vw;
+  height: 100vh;
+  display: block;
+}
+
+[data-overlay] {
+  position: fixed;
+  inset: clamp(1rem, 2vw, 2rem);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  pointer-events: none;
+}
+
+.panel {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: var(--panel-bg);
+  backdrop-filter: blur(16px) saturate(140%);
+  border: 1px solid var(--panel-border);
+  border-radius: 999px;
+  padding: 0.75rem 1.25rem;
+  color: #e2e8f0;
+  pointer-events: auto;
+  flex-wrap: wrap;
+  box-shadow: 0 8px 30px rgba(2, 6, 23, 0.45);
+  animation: panel-fade 320ms ease;
+}
+
+@keyframes panel-fade {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.pill {
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  background: var(--pill-bg);
+  border: 1px solid var(--pill-border);
+}
+
+[data-status][data-state="ok"] { color: var(--success); }
+[data-status][data-state="error"] { color: var(--error); }
+[data-status][data-state="pending"] { color: var(--pending); }
+[data-latency][data-state="warn"] { color: var(--warn); }
+
+button {
+  pointer-events: auto;
+  padding: 0.65rem 1.5rem;
+  border-radius: 999px;
+  border: none;
+  font-weight: 600;
+  background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
+  color: white;
+  cursor: pointer;
+  transition: transform 0.15s ease, filter 0.15s ease, box-shadow 0.15s ease;
+  box-shadow: 0 12px 24px rgba(56, 189, 248, 0.25);
+}
+
+button:disabled {
+  background: rgba(30, 41, 59, 0.92);
+  color: var(--text-muted);
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+button:not(:disabled):hover {
+  filter: brightness(1.05);
+}
+
+button:not(:disabled):active {
+  transform: scale(0.97);
+}
+
+.panel .button-group {
+  display: inline-flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.panel .button-group button {
+  background: radial-gradient(circle at top, var(--gradient-start), var(--gradient-end));
+  padding: 0.5rem 1.1rem;
+}
+
+@media (max-width: 640px) {
+  [data-overlay] {
+    inset: 1rem;
+  }
+
+  .panel {
+    border-radius: 24px;
+    width: 100%;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+.remote-panel {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.6rem;
+}
+
+.remote-panel .remote-headline {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+[data-remote-audit] {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  background: rgba(59, 130, 246, 0.15);
+  border: 1px solid rgba(59, 130, 246, 0.35);
+}
+
+.remote-input {
+  display: flex;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.remote-input input {
+  flex: 1;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(15, 23, 42, 0.6);
+  color: #e2e8f0;
+  padding: 0.55rem 1rem;
+  font-size: 0.95rem;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.remote-input input:focus {
+  border-color: #38bdf8;
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.25);
+}
+
+.remote-input button {
+  border-radius: 999px;
+  padding: 0.55rem 1.2rem;
+}
+
+[data-remote-status] {
+  font-size: 0.85rem;
+  color: #cbd5f5;
+  transition: color 0.2s ease;
+}
+
+[data-remote-status][data-state="pending"] { color: #facc15; }
+[data-remote-status][data-state="ok"] { color: #4ade80; }
+[data-remote-status][data-state="error"] { color: #fb7185; }
+
+[data-remote-detail] {
+  font-size: 0.75rem;
+  color: #94a3b8;
+}
+
+[data-remote-actions] {
+  display: flex;
+  gap: 0.5rem;
+  opacity: 0;
+  transform: translateY(-4px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  pointer-events: none;
+}
+
+[data-remote-actions][data-active="true"] {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+[data-remote-actions] button {
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  padding: 0.4rem 0.9rem;
+}
+
+.remote-dock {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  width: clamp(260px, 28vw, 420px);
+  backdrop-filter: blur(18px);
+  background: rgba(15, 23, 42, 0.78);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 1.25rem;
+  padding: 1rem;
+  color: #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  pointer-events: auto;
+}
+
+.remote-dock header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 600;
+}
+
+[data-remote-pulse] {
+  font-size: 0.8rem;
+  color: #cbd5f5;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.4);
+}
+
+[data-remote-pulse][data-state="proxy"] {
+  border-color: rgba(249, 115, 22, 0.6);
+  color: #fb923c;
+}
+
+.remote-stage {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 1rem;
+  overflow: hidden;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  background: rgba(2, 6, 23, 0.9);
+}
+
+.remote-stage::before {
+  content: 'XR対応サイトをここでプレビュー';
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #94a3b8;
+  font-size: 0.9rem;
+  text-align: center;
+  padding: 1rem;
+  transition: opacity 0.2s ease;
+}
+
+.remote-stage[data-state="loaded"]::before,
+.remote-stage[data-state="pending"]::before {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.remote-stage iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: #000;
+}
+
+[data-remote-container] [data-remotescenecontainer] {
+  width: 100%;
+  height: 100%;
+  pointer-events: auto;
+}
+
+@media (max-width: 960px) {
+  .remote-dock {
+    position: static;
+    width: auto;
+    margin: 1rem;
+  }
+}

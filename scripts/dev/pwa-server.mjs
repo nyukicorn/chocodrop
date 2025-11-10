@@ -31,6 +31,7 @@ app.post('/api/commands', (req, res) => {
 });
 
 app.use('/icons', express.static(path.join(projectRoot, 'public/icons')));
+app.use('/xr', express.static(path.join(projectRoot, 'public/xr')));
 app.use('/public', express.static(path.join(projectRoot, 'public')));
 app.get('/manifest.webmanifest', (req, res) => {
   res.type('application/manifest+json');
