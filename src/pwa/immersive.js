@@ -1,6 +1,6 @@
 import { bootstrapApp } from './app-shell.js';
 import { loadThree } from './utils/three-deps.js';
-import RemoteSceneLoader from './remote/RemoteSceneLoader.js';
+import RemoteSceneLoader from '../client/remote/RemoteSceneLoader.js';
 import { logger } from '../common/logger.js';
 
 const uiLogger = logger.child('immersive-ui');
@@ -29,7 +29,7 @@ async function main() {
   const THREE = await loadThree();
   createDefaultEnvironment(THREE, sceneManager);
   setupXRControls(sceneManager);
-  setupRemoteLoader(sceneManager);
+  setupRemoteSceneLoader(sceneManager);
 }
 
 function createDefaultEnvironment(THREE, sceneManager) {
@@ -135,150 +135,179 @@ function setupXRControls(sceneManager) {
   });
 }
 
-function setupRemoteLoader(sceneManager) {
-  const panel = document.querySelector('[data-remote-panel]');
-  const container = document.querySelector('[data-remote-container]');
-  if (!panel || !container) return;
+function setupRemoteSceneLoader(sceneManager) {
+  const form = document.querySelector('[data-remote-form]');
+  const stage = document.querySelector('[data-remote-container]');
+  if (!form || !stage) return;
 
-  const urlInput = panel.querySelector('[data-remote-url]');
-  const statusEl = panel.querySelector('[data-remote-status]');
-  const actionsEl = panel.querySelector('[data-remote-actions]');
-  if (!urlInput || !statusEl || !actionsEl) return;
+  const urlInput = form.querySelector('input[type="url"]');
+  const statusEl = form.querySelector('[data-remote-status]');
+  const detailEl = form.querySelector('[data-remote-detail]');
+  const actionsEl = form.querySelector('[data-remote-actions]');
+  const auditBadge = form.querySelector('[data-remote-audit]');
+  const pulseEl = document.querySelector('[data-remote-pulse]');
+  const proxyButton = form.querySelector('[data-action="remote-proxy"]');
+  const downloadButton = form.querySelector('[data-action="remote-download"]');
+
+  const trustedOrigins = new Set([
+    window.location.origin,
+    'https://nyukicorn.github.io',
+    'https://threejs.org'
+  ]);
 
   const loader = new RemoteSceneLoader({
-    proxyOrigin: location.origin,
-    log: (event, payload) => uiLogger.debug(`[RemoteSceneLoader] ${event}`, payload)
+    container: stage,
+    serviceWorker: navigator.serviceWorker,
+    proxyEndpoint: '/proxy',
+    telemetry: entry => uiLogger.debug('[RemoteSceneLoader]', entry)
   });
 
-  const renderRecoveryActions = recovery => {
-    actionsEl.innerHTML = '';
-    if (!recovery?.actions) return;
-    recovery.actions
-      .filter(action => action.available !== false)
-      .forEach(action => {
-        const wrapper = document.createElement('div');
-        wrapper.style.display = 'flex';
-        wrapper.style.flexDirection = 'column';
-        wrapper.style.gap = '0.25rem';
-
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.textContent = action.label;
-        btn.style.background = 'linear-gradient(135deg, #22d3ee, #3b82f6)';
-        btn.style.padding = '0.4rem 0.9rem';
-        btn.style.borderRadius = '999px';
-        btn.style.border = 'none';
-        btn.style.cursor = 'pointer';
-        btn.addEventListener('click', () => {
-          if (action.type === 'proxy') {
-            triggerLoad(true);
-          } else if (action.type === 'guide' && action.url) {
-            window.open(action.url, '_blank', 'noopener');
-          } else if (action.type === 'download') {
-            sceneManager?.emit?.('remote:download', { url: recovery.url });
-            alert('CORS制限のためダウンロードしてローカルから読み込んでください。');
-          }
-        });
-
-        wrapper.appendChild(btn);
-
-        if (action.note) {
-          const note = document.createElement('span');
-          note.textContent = action.note;
-          note.style.fontSize = '0.72rem';
-          note.style.color = '#cbd5f5';
-          note.style.maxWidth = '260px';
-          wrapper.appendChild(note);
-        }
-
-        actionsEl.appendChild(wrapper);
-      });
+  const setStatus = (text, state = 'idle') => {
+    if (!statusEl) return;
+    statusEl.textContent = text;
+    statusEl.dataset.state = state;
   };
 
-  loader.addEventListener('analyze', ({ detail }) => {
-    if (!detail) return;
-    const flavor = detail.needsProxy ? 'プロキシ推奨' : '直接読み込み可能';
-    const hints = [];
-    if (detail.framePolicy?.blocked && detail.framePolicy?.reason) {
-      hints.push(detail.framePolicy.reason);
-    }
-    statusEl.textContent = `${detail.url} を解析しました (${flavor}${hints.length ? `｜${hints.join(' / ')}` : ''})`;
-    if (detail.framePolicy?.blocked) {
-      renderRecoveryActions({
-        actions: [{
-          id: 'frame-policy',
-          label: 'frame-ancestors 設定ガイド',
-          type: 'guide',
-          url: 'https://developer.mozilla.org/ja/docs/Web/HTTP/Headers/Content-Security-Policy/frame-ancestors',
-          note: detail.framePolicy.reason
-        }]
-      });
-    } else {
-      renderRecoveryActions(null);
-    }
-  });
+  const setDetail = text => {
+    if (!detailEl) return;
+    detailEl.textContent = text ?? '';
+  };
 
-  loader.addEventListener('loaded', ({ detail }) => {
-    if (!detail) return;
-    statusEl.textContent = detail.useProxy ? 'プロキシ経由で読み込みました' : 'リモートシーンを読み込みました';
-    container.classList.add('visible');
-  });
+  const setActionsVisible = visible => {
+    if (!actionsEl) return;
+    actionsEl.dataset.active = visible ? 'true' : 'false';
+  };
 
-  loader.addEventListener('error', ({ detail }) => {
-    if (!detail) return;
-    statusEl.textContent = 'リモートシーンの読み込みに失敗しました';
-    renderRecoveryActions(detail.recovery);
-  });
-
-  loader.addEventListener('fallback', ({ detail }) => {
-    if (!detail) return;
-    statusEl.textContent = 'CORS制限のためプロキシで再試行しています…';
-  });
-
-  const triggerAnalysis = async () => {
-    const value = urlInput.value.trim();
-    if (!value) {
-      statusEl.textContent = 'URLを入力してください';
-      return;
-    }
-    try {
-      statusEl.textContent = 'URLを解析中…';
-      await loader.analyze(value);
-    } catch (error) {
-      statusEl.textContent = error?.message || 'URL解析に失敗しました';
+  const setAuditLabel = label => {
+    if (auditBadge) {
+      auditBadge.textContent = label;
     }
   };
 
-  const triggerLoad = async (useProxy = false) => {
-    const value = urlInput.value.trim();
-    if (!value) {
-      statusEl.textContent = 'URLを入力してください';
+  const setPulse = (mode, label) => {
+    if (!pulseEl) return;
+    pulseEl.dataset.state = mode;
+    pulseEl.textContent = label;
+  };
+
+  loader.setContainer(stage);
+  stage.dataset.state = 'idle';
+
+  loader.on('progress', event => {
+    const stageName = event?.detail?.stage;
+    if (stageName === 'probing') {
+      stage.dataset.state = 'pending';
+      setStatus('セキュリティ診断中…', 'pending');
+      setAuditLabel('Zero-Trust');
+      setPulse('direct', 'Standby');
+    }
+    if (stageName === 'loading-iframe') {
+      setStatus('リモートシーンを読み込み中…', 'pending');
+    }
+    if (stageName === 'loading-proxy') {
+      setStatus('Proxy Relay 経由でロード中…', 'pending');
+      setPulse('proxy', 'Proxy Relay');
+    }
+  });
+
+  loader.on('analyzed', event => {
+    const metadata = event?.detail?.metadata;
+    if (!metadata?.url) return;
+    setDetail(new URL(metadata.url).hostname);
+  });
+
+  loader.on('loaded', event => {
+    const { metadata, viaProxy } = event.detail || {};
+    if (metadata?.url) {
+      const origin = new URL(metadata.url).origin;
+      trustedOrigins.add(origin);
+      setDetail(origin);
+    }
+    setStatus('リモートシーンを埋め込みました', 'ok');
+    setActionsVisible(false);
+    setAuditLabel(viaProxy ? 'Proxy Relay' : 'Direct Secure');
+    setPulse(viaProxy ? 'proxy' : 'direct', viaProxy ? 'Proxy Relay' : 'Direct');
+    stage.dataset.state = 'loaded';
+  });
+
+  loader.on('fallback', event => {
+    const reason = event?.detail?.reason || 'CORS制限のため直接読み込めません';
+    setStatus(reason, 'error');
+    setActionsVisible(true);
+    stage.dataset.state = 'idle';
+  });
+
+  loader.on('error', event => {
+    const reason = event?.detail?.error?.message || '読み込みに失敗しました';
+    setStatus(reason, 'error');
+    setActionsVisible(true);
+    stage.dataset.state = 'idle';
+    setPulse('proxy', 'Retry Needed');
+  });
+
+  window.addEventListener('message', messageEvent => {
+    if (!trustedOrigins.has(messageEvent.origin)) return;
+    const data = messageEvent.data;
+    if (!data || typeof data !== 'object') return;
+    if (data.type === 'chocodrop:telemetry' && data.latency) {
+      setPulse('direct', `${messageEvent.origin.replace(/^https?:\/\//, '')} · ${Math.round(data.latency)}ms`);
+    }
+    if (data.type === 'chocodrop:status' && data.message) {
+      setStatus(data.message, 'ok');
+    }
+  });
+
+  const startLoad = ({ preferProxy = false } = {}) => {
+    const normalized = normalizeRemoteUrl(urlInput.value.trim());
+    if (!normalized) {
+      setStatus('URLの形式が正しくありません', 'error');
+      setActionsVisible(true);
       return;
     }
-    try {
-      statusEl.textContent = useProxy ? 'プロキシ経由で読み込み中…' : 'リモートシーンを読み込み中…';
-      const { recovery } = await loader.load(container, value, { forceProxy: useProxy });
-      renderRecoveryActions(recovery);
-    } catch (error) {
-      statusEl.textContent = error?.message || 'リモートシーンの読み込みに失敗しました';
+    stage.dataset.state = 'pending';
+    setStatus('セキュリティ診断中…', 'pending');
+    setDetail(new URL(normalized).hostname);
+    setActionsVisible(false);
+    loader.load(normalized, { autoProxy: preferProxy }).catch(error => {
       uiLogger.warn('Remote scene load failed', error);
-    }
+      setStatus(error?.message || 'リモートシーンの読み込みに失敗しました', 'error');
+      setActionsVisible(true);
+      stage.dataset.state = 'idle';
+    });
   };
 
-  const scanBtn = panel.querySelector('[data-action="remote-scan"]');
-  const openBtn = panel.querySelector('[data-action="remote-open"]');
-  const proxyBtn = panel.querySelector('[data-action="remote-proxy"]');
-  const closeBtn = panel.querySelector('[data-action="remote-close"]');
-
-  scanBtn?.addEventListener('click', triggerAnalysis);
-  openBtn?.addEventListener('click', () => triggerLoad(false));
-  proxyBtn?.addEventListener('click', () => triggerLoad(true));
-  closeBtn?.addEventListener('click', () => {
-    container.classList.remove('visible');
-    container.innerHTML = '';
-    statusEl.textContent = 'プレビューを閉じました';
-    renderRecoveryActions(null);
+  form.addEventListener('submit', event => {
+    event.preventDefault();
+    startLoad();
   });
+
+  proxyButton?.addEventListener('click', () => {
+    startLoad({ preferProxy: true });
+  });
+
+  downloadButton?.addEventListener('click', () => {
+    const normalized = normalizeRemoteUrl(urlInput.value.trim());
+    if (normalized) {
+      window.open(normalized, '_blank', 'noopener');
+    }
+  });
+
+  setStatus('GitHub Pages / threejs.org などのURLを入力してください。', 'idle');
+  setDetail('コネクション未確立');
+  setActionsVisible(false);
+}
+
+function normalizeRemoteUrl(value) {
+  if (!value) return null;
+  try {
+    return new URL(value).toString();
+  } catch {
+    try {
+      return new URL(`https://${value}`).toString();
+    } catch {
+      return null;
+    }
+  }
 }
 
 main().catch(error => {

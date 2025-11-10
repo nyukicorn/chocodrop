@@ -10,6 +10,7 @@ const CORE_ASSETS = [
   '/immersive.html',
   '/importer.html',
   '/bookmarklet.js',
+  '/xr/xr-ui.css',
   '/service_worker.js',
   '/opfs_store.js',
   '/SceneManager/index.js',
@@ -25,7 +26,7 @@ const CORE_ASSETS = [
 
 const XR_ASSETS = [
   '/src/client/xr/XRBridgeLoader.js',
-  '/src/pwa/remote/RemoteSceneLoader.js',
+  '/src/client/remote/RemoteSceneLoader.js',
   '/src/client/SceneManager.js',
   '/src/pwa/utils/three-deps.js'
 ];
@@ -42,7 +43,7 @@ const XR_CDN_RESOURCES = [
 
 const XR_PATTERNS = [
   /\/src\/client\/xr\//,
-  /\/src\/pwa\/remote\//
+  /\/src\/client\/remote\//
 ];
 
 const CORE_ASSET_SET = new Set(CORE_ASSETS);
@@ -94,7 +95,27 @@ self.addEventListener('message', event => {
   if (event.data === 'clearCaches') {
     event.waitUntil(clearAllCaches());
   }
+  if (event?.data && typeof event.data === 'object' && event.data.type === 'REMOTE_SCENE_PROXY_REQUEST') {
+    const port = event.ports?.[0];
+    if (port) {
+      event.waitUntil(handleRemoteProxyRequest(event.data, port));
+    }
+  }
 });
+
+async function handleRemoteProxyRequest(data, port) {
+  try {
+    const targetUrl = data?.url;
+    if (!targetUrl) {
+      throw new Error('url パラメータが必要です');
+    }
+    const proxyUrl = new URL('/proxy', self.location.origin);
+    proxyUrl.searchParams.set('url', targetUrl);
+    port.postMessage({ ok: true, url: proxyUrl.toString() });
+  } catch (error) {
+    port.postMessage({ ok: false, message: error?.message || 'Proxy route is unavailable' });
+  }
+}
 
 async function precacheAll() {
   await Promise.all([

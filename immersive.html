@@ -7,6 +7,7 @@
     <title>ChocoDrop Immersive</title>
     <link rel="manifest" href="/manifest.webmanifest">
     <link rel="icon" href="/icons/icon-192.png">
+    <link rel="stylesheet" href="/xr/xr-ui.css">
     <script async src="https://cdn.jsdelivr.net/npm/es-module-shims@1.10.0/dist/es-module-shims.min.js"></script>
     <script type="importmap">
       {
@@ -16,140 +17,6 @@
         }
       }
     </script>
-    <style>
-      :root {
-        color-scheme: dark;
-        font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-      }
-      body {
-        margin: 0;
-        background: #020617;
-        overflow: hidden;
-      }
-      canvas {
-        width: 100vw;
-        height: 100vh;
-        display: block;
-      }
-      [data-overlay] {
-        position: fixed;
-        inset: 1.5rem;
-        display: flex;
-        flex-direction: column;
-        gap: 0.75rem;
-        pointer-events: none;
-      }
-      .panel {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.75rem;
-        background: rgba(15, 23, 42, 0.72);
-        backdrop-filter: blur(16px);
-        border: 1px solid rgba(148, 163, 184, 0.3);
-        border-radius: 999px;
-        padding: 0.75rem 1.25rem;
-        color: #e2e8f0;
-        pointer-events: auto;
-        flex-wrap: wrap;
-      }
-      .pill {
-        font-size: 0.85rem;
-        font-weight: 600;
-        padding: 0.35rem 0.75rem;
-        border-radius: 999px;
-        background: rgba(37, 99, 235, 0.2);
-        border: 1px solid rgba(37, 99, 235, 0.4);
-      }
-      [data-status][data-state="ok"] { color: #4ade80; }
-      [data-status][data-state="error"] { color: #f87171; }
-      [data-status][data-state="pending"] { color: #facc15; }
-      [data-latency][data-state="warn"] { color: #f97316; }
-      button {
-        pointer-events: auto;
-        padding: 0.6rem 1.4rem;
-        border-radius: 999px;
-        border: none;
-        font-weight: 600;
-        background: radial-gradient(circle at top, #38bdf8, #2563eb);
-        color: white;
-        cursor: pointer;
-        transition: transform 0.15s ease, filter 0.15s ease;
-      }
-      button:disabled {
-        background: #1e293b;
-        color: #94a3b8;
-        cursor: not-allowed;
-      }
-      button:not(:disabled):active {
-        transform: scale(0.97);
-        filter: brightness(0.9);
-      }
-      .panel .button-group {
-        display: inline-flex;
-        gap: 0.5rem;
-        flex-wrap: wrap;
-      }
-      .panel .button-group button {
-        background: linear-gradient(135deg, #38bdf8, #6366f1);
-        padding: 0.5rem 1.1rem;
-      }
-      .panel.remote-panel {
-        flex-direction: column;
-        align-items: stretch;
-        gap: 0.6rem;
-        padding: 1.1rem 1.3rem;
-        background: linear-gradient(135deg, rgba(15, 23, 42, 0.82), rgba(30, 41, 59, 0.68));
-        border: 1px solid rgba(148, 163, 184, 0.3);
-        box-shadow: 0 16px 40px rgba(8, 47, 73, 0.35);
-      }
-      .remote-input-row {
-        display: flex;
-        gap: 0.6rem;
-        width: 100%;
-      }
-      .remote-input-row input[type="url"] {
-        flex: 1;
-        padding: 0.55rem 0.8rem;
-        border-radius: 0.9rem;
-        border: 1px solid rgba(148, 163, 184, 0.35);
-        background: rgba(15, 23, 42, 0.55);
-        color: #e2e8f0;
-        font-size: 0.9rem;
-        transition: border 0.2s ease, box-shadow 0.2s ease;
-      }
-      .remote-input-row input[type="url"]:focus {
-        outline: none;
-        border-color: rgba(96, 165, 250, 0.65);
-        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
-      }
-      .remote-feedback {
-        font-size: 0.78rem;
-        color: #94a3b8;
-        min-height: 1.1rem;
-      }
-      [data-remote-actions] {
-        display: flex;
-        gap: 0.4rem;
-        flex-wrap: wrap;
-      }
-      [data-remote-container] {
-        position: fixed;
-        bottom: 1.5rem;
-        right: 1.5rem;
-        width: min(420px, 40vw);
-        height: min(260px, 40vh);
-        border-radius: 1.2rem;
-        overflow: hidden;
-        box-shadow: 0 20px 45px rgba(8, 47, 73, 0.4);
-        backdrop-filter: blur(18px);
-        border: 1px solid rgba(148, 163, 184, 0.35);
-        display: none;
-        z-index: 20;
-      }
-      [data-remote-container].visible {
-        display: block;
-      }
-    </style>
   </head>
   <body>
     <canvas id="immersive-canvas"></canvas>
@@ -167,22 +34,30 @@
           <button data-action="enter-ar">AR開始</button>
         </div>
       </div>
-      <div class="panel remote-panel" data-remote-panel>
-        <span class="pill">Remote Scene</span>
-        <div class="remote-input-row">
-          <input type="url" placeholder="https://example.com/three-scene" data-remote-url>
-          <button data-action="remote-scan">解析</button>
+      <form class="panel remote-panel" data-remote-form novalidate>
+        <div class="remote-headline">
+          <span class="pill">Remote</span>
+          <span data-remote-audit>Zero-Trust</span>
         </div>
-        <div class="button-group">
-          <button data-action="remote-open">そのまま開く</button>
-          <button data-action="remote-proxy">プロキシで開く</button>
-          <button data-action="remote-close">プレビューを閉じる</button>
+        <div class="remote-input">
+          <input type="url" name="remote-url" placeholder="https://example.github.io/scene/" autocomplete="off" required>
+          <button type="submit">診断してロード</button>
         </div>
-        <div class="remote-feedback" data-remote-status>URLを貼り付けてリモートシーンをプレビュー</div>
-        <div data-remote-actions></div>
-      </div>
+        <p data-remote-status data-state="idle">GitHub Pages / threejs.org などのURLを入力してください。</p>
+        <small data-remote-detail>コネクション未確立</small>
+        <div class="remote-actions" data-remote-actions>
+          <button type="button" data-action="remote-proxy">Proxyで再試行</button>
+          <button type="button" data-action="remote-download">ブラウザで開く</button>
+        </div>
+      </form>
     </div>
-    <div data-remote-container></div>
+    <section class="remote-dock">
+      <header>
+        <span>Remote Scene Preview</span>
+        <span data-remote-pulse data-state="direct">Standby</span>
+      </header>
+      <div class="remote-stage" data-remote-container data-state="idle"></div>
+    </section>
     <noscript>この体験には JavaScript が必要です。</noscript>
     <script type="module" src="/src/pwa/immersive.js"></script>
   </body>

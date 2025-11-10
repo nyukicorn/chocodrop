@@ -85,6 +85,7 @@ class ChocoDropServer {
     
     // 静的ファイル配信
     this.app.use('/generated', express.static(path.join(this.publicDir, 'generated')));
+    this.app.use('/xr', express.static(path.join(this.publicDir, 'xr')));
     this.app.use(express.static(this.publicDir));
     
     // ログミドルウェア
