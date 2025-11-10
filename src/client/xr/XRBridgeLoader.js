@@ -112,12 +112,25 @@ export class XRBridgeLoader extends EventTarget {
       throw new Error(`${sessionMode} セッションはサポートされていません`);
     }
 
-    const sessionInit = this._buildSessionInit(mode, options);
+    let sessionInit = this._buildSessionInit(mode, options);
     this._lastRequestedMode = mode;
     this.dispatchEvent(createBridgeEvent('session:request', { mode: sessionMode, init: sessionInit }));
 
+    const attemptSession = async init => xr.requestSession(sessionMode, init);
+
     try {
-      const session = await xr.requestSession(sessionMode, sessionInit);
+      let session;
+      try {
+        session = await attemptSession(sessionInit);
+      } catch (error) {
+        if (this._shouldRetryWithoutDomOverlay(error, sessionInit)) {
+          const fallbackInit = this._stripDomOverlayFeature(sessionInit);
+          sessionInit = fallbackInit;
+          session = await attemptSession(fallbackInit);
+        } else {
+          throw error;
+        }
+      }
       await this._activateSession(session, mode, options);
       this._autoResumeAllowed = true;
       return session;
@@ -156,6 +169,32 @@ export class XRBridgeLoader extends EventTarget {
 
   setAutoResume(value) {
     this.autoResume = Boolean(value);
+  }
+
+  _shouldRetryWithoutDomOverlay(error, init) {
+    if (!error || error.name !== 'NotSupportedError') {
+      return false;
+    }
+    if (!init?.requiredFeatures) {
+      return false;
+    }
+    return init.requiredFeatures.includes('dom-overlay');
+  }
+
+  _stripDomOverlayFeature(init = {}) {
+    const clone = {
+      requiredFeatures: Array.isArray(init.requiredFeatures)
+        ? init.requiredFeatures.filter(feature => feature !== 'dom-overlay')
+        : [],
+      optionalFeatures: Array.isArray(init.optionalFeatures)
+        ? init.optionalFeatures.filter(feature => feature !== 'dom-overlay')
+        : []
+    };
+    const stripped = { ...init, ...clone };
+    if (stripped.domOverlay) {
+      delete stripped.domOverlay;
+    }
+    return stripped;
   }
 
   _buildSessionInit(mode, options) {

@@ -47,8 +47,9 @@ export class RemoteSceneLoader {
     this.telemetry = options.telemetry || (() => {});
     this.controllerAbort = null;
     this.defaultReferrerPolicy = options.referrerPolicy || 'no-referrer';
-    this.defaultSandbox = options.sandbox || 'allow-scripts allow-same-origin';
-    this.defaultAllow = options.allow || 'xr-spatial-tracking; vr';
+    this.defaultSandbox = options.sandbox || 'allow-scripts allow-downloads allow-popups';
+    this.defaultAllow = options.allow
+      || 'xr-spatial-tracking; accelerometer; gyroscope; magnetometer; fullscreen';
   }
 
   on(type, handler) {
@@ -270,11 +271,16 @@ export class RemoteSceneLoader {
 
     const context = options.context || null;
     const baseStart = context?.startTime ?? this.now();
+    const viaProxy = options.viaProxy === true;
     const iframe = document.createElement('iframe');
     iframe.dataset.role = 'remote-scene';
     iframe.allow = this.defaultAllow;
     iframe.referrerPolicy = this.defaultReferrerPolicy;
-    iframe.sandbox = this.defaultSandbox;
+    const sandboxFlags = new Set(this.defaultSandbox.split(/\s+/).filter(Boolean));
+    if (viaProxy) {
+      sandboxFlags.add('allow-same-origin');
+    }
+    iframe.sandbox = Array.from(sandboxFlags).join(' ');
     iframe.style.cssText = `
       width: 100%;
       height: 100%;
@@ -285,7 +291,6 @@ export class RemoteSceneLoader {
       transform-origin: center;
       transition: transform 0.6s cubic-bezier(0.25, 0.8, 0.25, 1);
     `;
-    const viaProxy = options.viaProxy === true;
     const onLoad = () => {
       iframe.dataset.state = 'loaded';
       iframe.style.transform = 'scale(1)';

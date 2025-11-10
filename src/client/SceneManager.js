@@ -6587,7 +6587,7 @@ export class SceneManager {
 
     this._ensureXRInteractionManager();
 
-    const domOverlayRoot = options.domOverlayRoot || options.domOverlay || (typeof document !== 'undefined' ? document.body : null);
+    const domOverlayRoot = options.domOverlayRoot || options.domOverlay || null;
     const bridge = new XRBridgeLoader({
       renderer: this.renderer,
       sceneManager: this,
