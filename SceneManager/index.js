@@ -1,4 +1,4 @@
-import { loadThree, loadOrbitControls } from '../src/pwa/utils/three-deps.js';
+import { loadThree, loadOrbitControls, loadGLTFLoader, loadDRACOLoader } from '../src/pwa/utils/three-deps.js';
 import { XRBridgeLoader } from '../src/client/xr/XRBridgeLoader.js';
 
 const DEFAULT_BACKGROUND = '#0f172a';
@@ -9,6 +9,10 @@ const TRANSLATION_SPEED = 1.5;
 const VERTICAL_SPEED = 1.2;
 const ROTATION_SPEED = Math.PI;
 const SCALE_SPEED = 0.8;
+const ASSET_BASE_SIZE = 3.5;
+const VIDEO_BASE_SIZE = 4.5;
+const DEFAULT_ASSET_DISTANCE = 3.2;
+const DRACO_DECODER_CDN = 'https://cdn.jsdelivr.net/npm/three@0.158.0/examples/jsm/libs/draco/';
 
 /**
  * XR/非XR両対応の軽量シーンマネージャ。
@@ -52,6 +56,11 @@ export class SceneManager {
     this.xrSupport = { vr: null, ar: null };
     this.xrState = 'idle';
     this.xrError = null;
+    this.sceneRoot = null;
+    this.assetRoot = null;
+    this._textureLoader = null;
+    this._gltfLoaderPromise = null;
+    this._gltfLoader = null;
   }
 
   on(type, handler) {
@@ -99,6 +108,12 @@ export class SceneManager {
     this.dynamicRoot = new THREE.Group();
     this.dynamicRoot.name = 'SceneManagerDynamicRoot';
     this.scene.add(this.dynamicRoot);
+    this.sceneRoot = new THREE.Group();
+    this.sceneRoot.name = 'SceneContentRoot';
+    this.assetRoot = new THREE.Group();
+    this.assetRoot.name = 'SceneAssetRoot';
+    this.dynamicRoot.add(this.sceneRoot);
+    this.dynamicRoot.add(this.assetRoot);
 
     this.camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 1000);
     this.camera.position.set(0, 1.6, 3);
@@ -363,33 +378,65 @@ export class SceneManager {
   }
 
   add(object3d) {
-    this.dynamicRoot.add(object3d);
+    const targetRoot = this.sceneRoot || this.dynamicRoot;
+    targetRoot.add(object3d);
     this.emit('object:add', { object3d });
     this.setSelectedObject(object3d);
   }
 
   remove(object3d) {
-    this.dynamicRoot.remove(object3d);
+    if (!object3d) return;
+    if (this.sceneRoot?.children?.includes(object3d) || object3d.parent === this.sceneRoot) {
+      this.sceneRoot.remove(object3d);
+    } else if (this.assetRoot?.children?.includes(object3d) || object3d.parent === this.assetRoot) {
+      this.assetRoot.remove(object3d);
+    } else {
+      this.dynamicRoot.remove(object3d);
+    }
     this.emit('object:remove', { object3d });
     if (this.selectedObject === object3d) {
       this.setSelectedObject(null);
     }
   }
 
-  clear() {
-    [...this.dynamicRoot.children].forEach(child => {
-      this.dynamicRoot.remove(child);
-      child.traverse?.(node => {
-        if (node.material) {
-          const materials = Array.isArray(node.material) ? node.material : [node.material];
-          materials.forEach(mat => mat.dispose?.());
-        }
-        node.geometry?.dispose?.();
-        node.dispose?.();
-      });
-    });
-    this.emit('scene:cleared');
+  clear(options = {}) {
+    const { preserveAssets = false } = options;
+    this._clearGroup(this.sceneRoot ?? this.dynamicRoot);
+    if (!preserveAssets) {
+      this._clearGroup(this.assetRoot);
+    }
+    this.emit('scene:cleared', { preserveAssets });
     this.setSelectedObject(null);
+  }
+
+  clearAssets() {
+    this._clearGroup(this.assetRoot);
+    this.emit('assets:cleared');
+  }
+
+  async spawnAssetFromPayload(payload = {}) {
+    if (!payload?.kind) {
+      console.warn('spawnAssetFromPayload: kind is required');
+      return null;
+    }
+    const position = this._resolveAssetPosition(payload.position);
+    try {
+      switch (payload.kind) {
+        case 'image':
+          return await this._spawnImageAsset(payload, position);
+        case 'video':
+          return await this._spawnVideoAsset(payload, position);
+        case 'model':
+          return await this._spawnModelAsset(payload, position);
+        default:
+          console.warn('spawnAssetFromPayload: unsupported kind', payload.kind);
+          return null;
+      }
+    } catch (error) {
+      console.error('spawnAssetFromPayload failed', error);
+      this.emit('asset:error', { error, payload });
+      throw error;
+    }
   }
 
   async importJSON(json) {
@@ -397,17 +444,140 @@ export class SceneManager {
     const loader = new ObjectLoader();
     const object = loader.parse(json);
     if (object && object.name === 'SceneManagerDynamicRoot') {
-      this.clear();
-      object.children.forEach(child => this.dynamicRoot.add(child));
-      this.emit('import:json', { object: this.dynamicRoot });
-      if (this.dynamicRoot.children[0]) {
-        this.setSelectedObject(this.dynamicRoot.children[0]);
+      const sceneChild = object.children.find(child => child.name === 'SceneContentRoot') || null;
+      const assetChild = object.children.find(child => child.name === 'SceneAssetRoot') || null;
+
+      this._clearGroup(this.sceneRoot ?? this.dynamicRoot);
+      const sceneSources = sceneChild ? sceneChild.children : object.children.filter(child => child !== assetChild);
+      sceneSources.forEach(child => this.sceneRoot.add(child));
+
+      if (assetChild) {
+        this._clearGroup(this.assetRoot);
+        assetChild.children.forEach(child => this.assetRoot.add(child));
       }
-      return this.dynamicRoot;
+
+      this.emit('import:json', { object: this.sceneRoot });
+      if (this.sceneRoot.children[0]) {
+        this.setSelectedObject(this.sceneRoot.children[0]);
+      }
+      return this.sceneRoot;
     }
-    this.dynamicRoot.add(object);
+    (this.sceneRoot ?? this.dynamicRoot).add(object);
     this.emit('import:json', { object });
     this.setSelectedObject(object);
+    return object;
+  }
+
+  async _spawnImageAsset(payload, position) {
+    if (!payload.dataUrl) {
+      throw new Error('Image asset payload missing dataUrl');
+    }
+    const loader = this._ensureTextureLoader();
+    const texture = await loader.loadAsync(payload.dataUrl);
+    texture.colorSpace = this.THREE.SRGBColorSpace;
+    const width = texture.image?.naturalWidth || texture.image?.width || 1;
+    const height = texture.image?.naturalHeight || texture.image?.height || 1;
+    const aspect = width && height ? width / height : 1;
+    const geometry = this._createPlaneGeometry(aspect, ASSET_BASE_SIZE);
+    const material = new this.THREE.MeshBasicMaterial({
+      map: texture,
+      transparent: true,
+      side: this.THREE.DoubleSide,
+      toneMapped: false
+    });
+    material.alphaTest = 0.01;
+    const plane = new this.THREE.Mesh(geometry, material);
+    plane.position.copy(position);
+    this._faceObjectToCamera(plane);
+    plane.renderOrder = 1000;
+    plane.userData.asset = this._buildAssetMetadata(payload, { texture });
+    const assetTarget = this.assetRoot || this.dynamicRoot;
+    assetTarget.add(plane);
+    this.setSelectedObject(plane);
+    this.emit('asset:added', { object: plane, payload });
+    return plane;
+  }
+
+  async _spawnVideoAsset(payload, position) {
+    if (!payload.dataUrl) {
+      throw new Error('Video asset payload missing dataUrl');
+    }
+    const objectUrl = await this._dataUrlToObjectUrl(payload.dataUrl, payload.mimeType);
+    const video = document.createElement('video');
+    video.src = objectUrl;
+    video.loop = true;
+    video.muted = true;
+    video.playsInline = true;
+    video.autoplay = true;
+    video.preload = 'auto';
+
+    await new Promise((resolve, reject) => {
+      const handleLoaded = () => resolve();
+      const handleError = event => reject(event?.error || new Error('video metadata load failed'));
+      video.addEventListener('loadedmetadata', handleLoaded, { once: true });
+      video.addEventListener('error', handleError, { once: true });
+      video.load();
+    });
+
+    try {
+      await video.play();
+    } catch (error) {
+      console.warn('Video autoplay prevented, will require user gesture', error);
+    }
+
+    const aspect = video.videoWidth && video.videoHeight ? video.videoWidth / video.videoHeight : 1;
+    const geometry = this._createPlaneGeometry(aspect, VIDEO_BASE_SIZE);
+    const videoTexture = new this.THREE.VideoTexture(video);
+    videoTexture.colorSpace = this.THREE.SRGBColorSpace;
+    videoTexture.minFilter = this.THREE.LinearFilter;
+    videoTexture.magFilter = this.THREE.LinearFilter;
+    videoTexture.generateMipmaps = false;
+    const material = new this.THREE.MeshBasicMaterial({
+      map: videoTexture,
+      transparent: true,
+      side: this.THREE.DoubleSide,
+      toneMapped: false
+    });
+    material.alphaTest = 0.01;
+    const plane = new this.THREE.Mesh(geometry, material);
+    plane.position.copy(position);
+    this._faceObjectToCamera(plane);
+    plane.renderOrder = 1001;
+    plane.userData.asset = this._buildAssetMetadata(payload, {
+      videoElement: video,
+      videoTexture,
+      objectURL: objectUrl,
+      pixelWidth: video.videoWidth,
+      pixelHeight: video.videoHeight
+    });
+    const assetTarget = this.assetRoot || this.dynamicRoot;
+    assetTarget.add(plane);
+    this.setSelectedObject(plane);
+    this.emit('asset:added', { object: plane, payload });
+    return plane;
+  }
+
+  async _spawnModelAsset(payload, position) {
+    if (!payload.dataUrl) {
+      throw new Error('Model asset payload missing dataUrl');
+    }
+    const loader = await this._ensureGLTFLoader();
+    const arrayBuffer = await this._dataUrlToArrayBuffer(payload.dataUrl);
+    const gltf = await loader.parseAsync(arrayBuffer, '');
+    const object = gltf.scene || new this.THREE.Group();
+    object.position.copy(position);
+    this._autoScaleObject(object, payload.desiredSize ?? 1.8);
+    object.traverse(node => {
+      if (node.isMesh) {
+        node.castShadow = true;
+        node.receiveShadow = true;
+      }
+    });
+    object.userData.asset = this._buildAssetMetadata(payload, { format: 'gltf', animations: gltf.animations?.length });
+    const assetTarget = this.assetRoot || this.dynamicRoot;
+    assetTarget.add(object);
+    this.setSelectedObject(object);
+    this.emit('asset:added', { object, payload });
     return object;
   }
 
@@ -431,8 +601,19 @@ export class SceneManager {
     this.emit('selection:changed', { object });
   }
 
-  exportSceneJSON() {
-    return this.dynamicRoot.toJSON();
+  exportSceneJSON(options = {}) {
+    const { includeAssets = false } = options;
+    if (!this.assetRoot || includeAssets) {
+      return this.dynamicRoot.toJSON();
+    }
+    this.dynamicRoot.remove(this.assetRoot);
+    let json = null;
+    try {
+      json = this.dynamicRoot.toJSON();
+    } finally {
+      this.dynamicRoot.add(this.assetRoot);
+    }
+    return json;
   }
 
   _setupXRControllers() {
@@ -495,6 +676,143 @@ export class SceneManager {
         }
       }
     });
+  }
+
+  _clearGroup(group) {
+    if (!group) return;
+    [...group.children].forEach(child => {
+      group.remove(child);
+      this._disposeObject(child);
+    });
+  }
+
+  _disposeObject(object) {
+    if (!object) return;
+    object.traverse?.(node => {
+      if (node.material) {
+        const materials = Array.isArray(node.material) ? node.material : [node.material];
+        materials.forEach(mat => mat.dispose?.());
+      }
+      node.geometry?.dispose?.();
+      node.userData?.asset?.videoTexture?.dispose?.();
+      node.userData?.asset?.texture?.dispose?.();
+      if (node.userData?.asset?.objectURL) {
+        URL.revokeObjectURL(node.userData.asset.objectURL);
+      }
+      if (node.userData?.asset?.videoElement) {
+        node.userData.asset.videoElement.pause?.();
+        node.userData.asset.videoElement.src = '';
+      }
+    });
+  }
+
+  _buildAssetMetadata(payload, extra = {}) {
+    const id = payload.id || `asset_${Date.now()}`;
+    return {
+      id,
+      kind: payload.kind,
+      fileName: payload.fileName,
+      mimeType: payload.mimeType,
+      size: payload.size,
+      source: payload.source || 'remote-upload',
+      createdAt: payload.createdAt || Date.now(),
+      ...extra
+    };
+  }
+
+  _ensureTextureLoader() {
+    if (!this.THREE) {
+      throw new Error('TextureLoader requires THREE to be ready');
+    }
+    if (!this._textureLoader) {
+      this._textureLoader = new this.THREE.TextureLoader();
+    }
+    return this._textureLoader;
+  }
+
+  async _ensureGLTFLoader() {
+    if (this._gltfLoader) {
+      return this._gltfLoader;
+    }
+    if (!this._gltfLoaderPromise) {
+      this._gltfLoaderPromise = (async () => {
+        const GLTFLoader = await loadGLTFLoader();
+        const loader = new GLTFLoader();
+        try {
+          const DRACOLoader = await loadDRACOLoader();
+          const draco = new DRACOLoader();
+          draco.setDecoderPath(DRACO_DECODER_CDN);
+          loader.setDRACOLoader(draco);
+        } catch (error) {
+          console.warn('DRACO loader unavailable, continuing without compression support', error);
+        }
+        return loader;
+      })();
+    }
+    this._gltfLoader = await this._gltfLoaderPromise;
+    return this._gltfLoader;
+  }
+
+  _createPlaneGeometry(aspectRatio, baseSize) {
+    const width = aspectRatio >= 1 ? baseSize : baseSize * aspectRatio;
+    const height = aspectRatio >= 1 ? baseSize / aspectRatio : baseSize;
+    return new this.THREE.PlaneGeometry(width, height);
+  }
+
+  _resolveAssetPosition(position) {
+    if (position && ['x', 'y', 'z'].every(key => typeof position[key] === 'number')) {
+      return new this.THREE.Vector3(position.x, position.y, position.z);
+    }
+    const fallback = new this.THREE.Vector3(0, 1.5, -DEFAULT_ASSET_DISTANCE);
+    if (!this.camera) return fallback;
+    const result = this.camera.position.clone();
+    const forward = new this.THREE.Vector3();
+    this.camera.getWorldDirection(forward);
+    if (forward.lengthSq() === 0) {
+      forward.set(0, 0, -1);
+    }
+    forward.normalize().multiplyScalar(DEFAULT_ASSET_DISTANCE);
+    result.add(forward);
+    return result;
+  }
+
+  _faceObjectToCamera(object) {
+    if (!this.camera || !object?.lookAt) return;
+    const target = this.camera.position.clone();
+    target.y = object.position.y;
+    object.lookAt(target);
+  }
+
+  _autoScaleObject(object, targetSize) {
+    if (!this.THREE || !object) return;
+    const box = new this.THREE.Box3().setFromObject(object);
+    const size = box.getSize(new this.THREE.Vector3());
+    const maxAxis = Math.max(size.x, size.y, size.z);
+    if (!isFinite(maxAxis) || maxAxis <= 0) return;
+    const desiredSize = typeof targetSize === 'number' ? targetSize : 1.5;
+    const scale = desiredSize / maxAxis;
+    if (scale > 0 && isFinite(scale)) {
+      object.scale.multiplyScalar(scale);
+    }
+  }
+
+  async _dataUrlToArrayBuffer(dataUrl) {
+    const blob = await this._dataUrlToBlob(dataUrl);
+    return blob.arrayBuffer();
+  }
+
+  async _dataUrlToObjectUrl(dataUrl, mimeType) {
+    const blob = await this._dataUrlToBlob(dataUrl);
+    const typedBlob = mimeType ? blob.slice(0, blob.size, mimeType) : blob;
+    return URL.createObjectURL(typedBlob);
+  }
+
+  async _dataUrlToBlob(dataUrl) {
+    const response = await fetch(dataUrl);
+    if (!response.ok) {
+      throw new Error('Failed to decode data URL');
+    }
+    return response.blob();
   }
 }
 

@@ -2,6 +2,13 @@
  * サーバーからのライブコマンドを受け取り SceneManager に橋渡しするクライアント。
  * WebSocket を使用し、切断時には指数バックオフで再接続を試みる。
  */
+const createClientId = () => {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return `client_${Date.now().toString(16)}_${Math.random().toString(16).slice(2)}`;
+};
+
 export class LiveCommandClient {
   constructor(options = {}) {
     this.url = options.url || `${location.origin.replace(/^http/, 'ws')}/ws/live`;
@@ -14,6 +21,7 @@ export class LiveCommandClient {
     this._heartbeatTimer = null;
     this._reconnectTimer = null;
     this._lastCommandAt = 0;
+    this.clientId = options.clientId || createClientId();
   }
 
   on(type, handler) {
@@ -61,7 +69,16 @@ export class LiveCommandClient {
     if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
       throw new Error('WebSocket が接続されていません');
     }
-    const payload = typeof command === 'string' ? command : JSON.stringify(command);
+    let payload;
+    if (typeof command === 'string') {
+      payload = command;
+    } else {
+      const enriched = { ...command };
+      if (!enriched.origin) {
+        enriched.origin = this.clientId;
+      }
+      payload = JSON.stringify(enriched);
+    }
     this.socket.send(payload);
   }
 
@@ -95,6 +112,16 @@ export class LiveCommandClient {
         break;
       case 'camera:set':
         this._applyCamera(payload);
+        break;
+      case 'asset:spawn':
+        if (this.sceneManager?.spawnAssetFromPayload) {
+          Promise.resolve(this.sceneManager.spawnAssetFromPayload(payload)).catch(error =>
+            this.emit('command:error', { error, data })
+          );
+        }
+        break;
+      case 'asset:clear':
+        this.sceneManager?.clearAssets?.();
         break;
       default:
         this.emit('command:unhandled', data);
