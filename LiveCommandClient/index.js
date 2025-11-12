@@ -103,7 +103,7 @@ export class LiveCommandClient {
     const { type, payload } = data;
     switch (type) {
       case 'scene:clear':
-        this.sceneManager.clear();
+        this.sceneManager.clear(payload || {});
         break;
       case 'scene:json':
         if (payload?.json) {

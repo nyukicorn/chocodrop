@@ -420,6 +420,12 @@ export class SceneManager {
       return null;
     }
     const position = this._resolveAssetPosition(payload.position);
+    if (payload.id) {
+      const existing = this._findAssetById(payload.id);
+      if (existing) {
+        return existing;
+      }
+    }
     try {
       switch (payload.kind) {
         case 'image':
@@ -718,6 +724,11 @@ export class SceneManager {
       createdAt: payload.createdAt || Date.now(),
       ...extra
     };
+  }
+
+  _findAssetById(assetId) {
+    if (!assetId || !this.assetRoot) return null;
+    return this.assetRoot.children.find(child => child.userData?.asset?.id === assetId) || null;
   }
 
   _ensureTextureLoader() {

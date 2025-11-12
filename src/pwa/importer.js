@@ -8,13 +8,18 @@ import {
 import { saveModelToOPFS, listStoredModels, isOPFSSupported } from '../../opfs_store.js';
 
 const ACCEPT_EXTENSIONS = ['.gltf', '.glb', '.json'];
+const MEDIA_MODEL_EXTENSIONS = ['.glb', '.gltf'];
 
 async function main() {
   const canvas = document.querySelector('#importer-canvas');
   const overlay = document.querySelector('[data-overlay]');
   const fileInput = document.querySelector('#file-input');
   const dropZone = document.querySelector('[data-dropzone]');
+  const mediaInput = document.querySelector('#media-input');
+  const mediaDropZone = document.querySelector('[data-media-dropzone]');
   const fileList = document.querySelector('[data-file-list]');
+  const mediaStatus = document.querySelector('[data-media-status]');
+  const setMediaStatus = createMediaStatusController(mediaStatus);
   const overlayUI = createOverlayStatus(overlay);
   setOverlayStatus(overlayUI, '初期化中…', 'Quest からのアクセスも待機しています。');
 
@@ -41,7 +46,8 @@ async function main() {
     }
   });
   const pendingSync = { latest: null };
-  attachClientStatus(client, overlayUI, pendingSync);
+  const pendingAssets = [];
+  attachClientStatus(client, overlayUI, pendingSync, pendingAssets, setMediaStatus);
   const loaders = await setupLoaders(sceneManager);
   const { THREE, gltfLoader } = loaders;
   setOverlayStatus(
@@ -84,6 +90,39 @@ async function main() {
     handleFiles(event.target.files);
   });
 
+  const handleMediaFiles = async files => {
+    const targets = files ? Array.from(files) : [];
+    if (targets.length === 0) return;
+    for (const file of targets) {
+      const kind = detectMediaKind(file);
+      if (!kind) {
+        setMediaStatus(`${file.name} は未対応形式です`, 'error');
+        continue;
+      }
+      setMediaStatus(`${file.name} を準備中…`, 'pending');
+      try {
+        const { sent } = await processMediaFile(file, kind, {
+          sceneManager,
+          client,
+          pendingAssets
+        });
+        if (sent) {
+          setMediaStatus(`${file.name} を Quest に送信しました`, 'ok');
+        } else {
+          setMediaStatus(`${file.name} をローカルに配置（再送待ち）`, 'warn');
+        }
+      } catch (error) {
+        console.error('Media cast failed', error);
+        setMediaStatus(`${file.name} の送信に失敗: ${error?.message ?? '不明なエラー'}`, 'error');
+      }
+    }
+  };
+
+  mediaInput?.addEventListener('change', event => {
+    handleMediaFiles(event.target.files);
+    event.target.value = '';
+  });
+
   dropZone.addEventListener('dragover', event => {
     event.preventDefault();
     dropZone.dataset.state = 'over';
@@ -99,6 +138,21 @@ async function main() {
     handleFiles(event.dataTransfer.files);
   });
 
+  if (mediaDropZone) {
+    mediaDropZone.addEventListener('dragover', event => {
+      event.preventDefault();
+      mediaDropZone.dataset.state = 'over';
+    });
+    mediaDropZone.addEventListener('dragleave', () => {
+      mediaDropZone.dataset.state = 'idle';
+    });
+    mediaDropZone.addEventListener('drop', event => {
+      event.preventDefault();
+      mediaDropZone.dataset.state = 'idle';
+      handleMediaFiles(event.dataTransfer.files);
+    });
+  }
+
   await refreshStoredList(fileList, opfsAvailable);
 }
 
@@ -109,7 +163,7 @@ function validateFile(file) {
 
 async function loadFileIntoScene(file, { gltfLoader, sceneManager, THREE }) {
   const lower = file.name.toLowerCase();
-  sceneManager.clear();
+  sceneManager.clear({ preserveAssets: true });
 
   if (lower.endsWith('.json')) {
     const text = await file.text();
@@ -248,7 +302,7 @@ async function broadcastScene(json, sceneManager, client) {
   if (!json || !client) return false;
   if (!client.isConnected()) return false;
   try {
-    client.send({ type: 'scene:clear' });
+    client.send({ type: 'scene:clear', payload: { preserveAssets: true } });
     client.send({ type: 'scene:json', payload: { json } });
     const { position, target } = exportCameraState(sceneManager);
     client.send({ type: 'camera:set', payload: { position, target } });
@@ -270,7 +324,7 @@ function exportCameraState(sceneManager) {
   };
 }
 
-function attachClientStatus(client, overlayUI, pendingSync) {
+function attachClientStatus(client, overlayUI, pendingSync, pendingAssets, setMediaStatus) {
   if (!client || !overlayUI) return;
   client.on('connecting', () => setOverlayStatus(overlayUI, '同期サーバー接続中…', 'Quest への配信待機中。', 'info'));
   client.on('connected', () => setOverlayStatus(overlayUI, '同期オンライン', 'PC→Quest 間で自動反映します。', 'ok'));
@@ -286,7 +340,114 @@ function attachClientStatus(client, overlayUI, pendingSync) {
         }
       }
     }
+    if (pendingAssets?.length) {
+      const flushed = await flushPendingAssets(pendingAssets, client);
+      if (flushed > 0 && setMediaStatus) {
+        setMediaStatus(`未送信メディア ${flushed} 件を Quest に送信しました`, 'ok');
+      }
+    }
   });
+}
+
+function detectMediaKind(file) {
+  if (!file) return null;
+  if (file.type?.startsWith('image/')) return 'image';
+  if (file.type?.startsWith('video/')) return 'video';
+  const lower = file.name?.toLowerCase() || '';
+  if (MEDIA_MODEL_EXTENSIONS.some(ext => lower.endsWith(ext))) {
+    return 'model';
+  }
+  return null;
+}
+
+async function processMediaFile(file, kind, context) {
+  const dataUrl = await readFileAsDataURL(file);
+  const payload = buildAssetPayload(file, kind, dataUrl);
+  await context.sceneManager.spawnAssetFromPayload(payload);
+  const sent = await sendAssetPayload(context.client, payload);
+  if (!sent && context.pendingAssets) {
+    context.pendingAssets.push(payload);
+  }
+  return { payload, sent };
+}
+
+function buildAssetPayload(file, kind, dataUrl) {
+  return {
+    id: createAssetId(),
+    kind,
+    fileName: file.name,
+    mimeType: file.type || guessMimeFromName(file.name, kind),
+    size: file.size,
+    createdAt: Date.now(),
+    dataUrl,
+    source: 'importer'
+  };
+}
+
+function guessMimeFromName(name = '', kind) {
+  const lower = name.toLowerCase();
+  if (kind === 'model') {
+    if (lower.endsWith('.gltf')) return 'model/gltf+json';
+    return 'model/gltf-binary';
+  }
+  if (kind === 'image') return 'image/png';
+  if (kind === 'video') return 'video/mp4';
+  return 'application/octet-stream';
+}
+
+function createAssetId() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return `asset_${Date.now().toString(16)}_${Math.random().toString(16).slice(2)}`;
+}
+
+function createMediaStatusController(element) {
+  if (!element) {
+    return () => {};
+  }
+  return (text, state = 'idle') => {
+    element.textContent = text;
+    element.dataset.state = state;
+  };
+}
+
+async function readFileAsDataURL(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(reader.error || new Error('ファイル読み込みに失敗しました'));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function sendAssetPayload(client, payload) {
+  if (!client?.isConnected()) {
+    return false;
+  }
+  try {
+    client.send({ type: 'asset:spawn', payload });
+    return true;
+  } catch (error) {
+    console.warn('Asset payload send failed', error);
+    return false;
+  }
+}
+
+async function flushPendingAssets(queue, client) {
+  if (!queue || queue.length === 0) return 0;
+  if (!client?.isConnected()) return 0;
+  let sent = 0;
+  while (queue.length) {
+    const payload = queue.shift();
+    const success = await sendAssetPayload(client, payload);
+    if (!success) {
+      queue.unshift(payload);
+      break;
+    }
+    sent += 1;
+  }
+  return sent;
 }
 
 main().catch(error => {
