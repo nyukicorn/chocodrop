@@ -29,6 +29,7 @@ async function main() {
   const THREE = await loadThree();
   createDefaultEnvironment(THREE, sceneManager);
   setupXRControls(sceneManager);
+  setupAssetStatus(sceneManager);
   setupRemoteSceneLoader(sceneManager);
 }
 
@@ -141,6 +142,25 @@ function setupXRControls(sceneManager) {
   sceneManager.on('xr:error', () => {
     setStatus('XR開始に失敗しました', 'error');
     enableButtons();
+  });
+}
+
+function setupAssetStatus(sceneManager) {
+  const statusEl = document.querySelector('[data-asset-status]');
+  if (!statusEl) return;
+  const setStatus = (text, state = 'idle') => {
+    statusEl.textContent = text;
+    statusEl.dataset.state = state;
+  };
+  setStatus('メディア待機中', 'idle');
+  sceneManager.on('asset:added', ({ detail }) => {
+    const label = detail?.payload?.fileName || detail?.payload?.kind || 'メディア';
+    setStatus(`${label} を受信`, 'ok');
+  });
+  sceneManager.on('assets:cleared', () => setStatus('メディアなし', 'warn'));
+  sceneManager.on('scene:cleared', ({ detail }) => {
+    if (detail?.preserveAssets) return;
+    setStatus('メディアをリセットしました', 'warn');
   });
 }
 
