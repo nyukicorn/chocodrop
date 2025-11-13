@@ -13,6 +13,8 @@ const ASSET_BASE_SIZE = 3.5;
 const VIDEO_BASE_SIZE = 4.5;
 const DEFAULT_ASSET_DISTANCE = 3.2;
 const DRACO_DECODER_CDN = 'https://cdn.jsdelivr.net/npm/three@0.158.0/examples/jsm/libs/draco/';
+const DEFAULT_ASSET_LIMIT = 24;
+const ASSET_WARNING_RATIO = 0.85;
 
 /**
  * XR/非XR両対応の軽量シーンマネージャ。
@@ -61,6 +63,8 @@ export class SceneManager {
     this._textureLoader = null;
     this._gltfLoaderPromise = null;
     this._gltfLoader = null;
+    this.assetLimit = this.options.assetLimit ?? DEFAULT_ASSET_LIMIT;
+    this.assetHistory = [];
   }
 
   on(type, handler) {
@@ -386,6 +390,7 @@ export class SceneManager {
 
   remove(object3d) {
     if (!object3d) return;
+    const wasAsset = this._isAssetNode(object3d);
     if (this.sceneRoot?.children?.includes(object3d) || object3d.parent === this.sceneRoot) {
       this.sceneRoot.remove(object3d);
     } else if (this.assetRoot?.children?.includes(object3d) || object3d.parent === this.assetRoot) {
@@ -393,9 +398,16 @@ export class SceneManager {
     } else {
       this.dynamicRoot.remove(object3d);
     }
+    if (wasAsset) {
+      this._dropFromHistory(object3d);
+    }
     this.emit('object:remove', { object3d });
     if (this.selectedObject === object3d) {
       this.setSelectedObject(null);
+    }
+    if (wasAsset) {
+      this.emit('asset:removed', { object: object3d, id: object3d?.userData?.asset?.id });
+      this._emitAssetCount();
     }
   }
 
@@ -404,14 +416,18 @@ export class SceneManager {
     this._clearGroup(this.sceneRoot ?? this.dynamicRoot);
     if (!preserveAssets) {
       this._clearGroup(this.assetRoot);
+      this.assetHistory = [];
     }
     this.emit('scene:cleared', { preserveAssets });
     this.setSelectedObject(null);
+    this._emitAssetCount();
   }
 
   clearAssets() {
     this._clearGroup(this.assetRoot);
-    this.emit('assets:cleared');
+    this.assetHistory = [];
+    this.emit('assets:cleared', { reason: 'manual' });
+    this._emitAssetCount();
   }
 
   async spawnAssetFromPayload(payload = {}) {
@@ -445,6 +461,23 @@ export class SceneManager {
     }
   }
 
+  listAssets() {
+    if (!this.assetRoot) return [];
+    return this.assetRoot.children
+      .filter(child => child.userData?.asset)
+      .map(child => ({
+        ...child.userData.asset,
+        object3d: child
+      }));
+  }
+
+  removeAssetById(assetId) {
+    const target = this._findAssetById(assetId);
+    if (!target) return false;
+    this.remove(target);
+    return true;
+  }
+
   async importJSON(json) {
     const { ObjectLoader } = this.THREE;
     const loader = new ObjectLoader();
@@ -460,6 +493,11 @@ export class SceneManager {
       if (assetChild) {
         this._clearGroup(this.assetRoot);
         assetChild.children.forEach(child => this.assetRoot.add(child));
+        this.assetHistory = [...this.assetRoot.children];
+        this._emitAssetCount();
+      } else {
+        this.assetHistory = [];
+        this._emitAssetCount();
       }
 
       this.emit('import:json', { object: this.sceneRoot });
@@ -475,11 +513,12 @@ export class SceneManager {
   }
 
   async _spawnImageAsset(payload, position) {
-    if (!payload.dataUrl) {
-      throw new Error('Image asset payload missing dataUrl');
-    }
     const loader = this._ensureTextureLoader();
-    const texture = await loader.loadAsync(payload.dataUrl);
+    const source = this._resolveAssetSource(payload, 'image');
+    const texture = await loader.loadAsync(source.url);
+    if (source.revokeAfterLoad) {
+      URL.revokeObjectURL(source.url);
+    }
     texture.colorSpace = this.THREE.SRGBColorSpace;
     const width = texture.image?.naturalWidth || texture.image?.width || 1;
     const height = texture.image?.naturalHeight || texture.image?.height || 1;
@@ -496,19 +535,23 @@ export class SceneManager {
     plane.position.copy(position);
     this._faceObjectToCamera(plane);
     plane.renderOrder = 1000;
-    plane.userData.asset = this._buildAssetMetadata(payload, { texture });
+    const metadata = this._buildAssetMetadata(payload, { texture });
+    if (payload.preserveObjectUrl === false && metadata.objectURL) {
+      URL.revokeObjectURL(metadata.objectURL);
+      metadata.objectURL = null;
+    }
+    plane.userData.asset = metadata;
     const assetTarget = this.assetRoot || this.dynamicRoot;
     assetTarget.add(plane);
     this.setSelectedObject(plane);
     this.emit('asset:added', { object: plane, payload });
+    this._registerAsset(plane);
     return plane;
   }
 
   async _spawnVideoAsset(payload, position) {
-    if (!payload.dataUrl) {
-      throw new Error('Video asset payload missing dataUrl');
-    }
-    const objectUrl = await this._dataUrlToObjectUrl(payload.dataUrl, payload.mimeType);
+    const source = this._resolveAssetSource(payload, 'video');
+    const objectUrl = source.url;
     const video = document.createElement('video');
     video.src = objectUrl;
     video.loop = true;
@@ -549,26 +592,25 @@ export class SceneManager {
     plane.position.copy(position);
     this._faceObjectToCamera(plane);
     plane.renderOrder = 1001;
-    plane.userData.asset = this._buildAssetMetadata(payload, {
+    const metadata = this._buildAssetMetadata(payload, {
       videoElement: video,
       videoTexture,
       objectURL: objectUrl,
       pixelWidth: video.videoWidth,
       pixelHeight: video.videoHeight
     });
+    plane.userData.asset = metadata;
     const assetTarget = this.assetRoot || this.dynamicRoot;
     assetTarget.add(plane);
     this.setSelectedObject(plane);
     this.emit('asset:added', { object: plane, payload });
+    this._registerAsset(plane);
     return plane;
   }
 
   async _spawnModelAsset(payload, position) {
-    if (!payload.dataUrl) {
-      throw new Error('Model asset payload missing dataUrl');
-    }
     const loader = await this._ensureGLTFLoader();
-    const arrayBuffer = await this._dataUrlToArrayBuffer(payload.dataUrl);
+    const arrayBuffer = await this._getArrayBufferFromPayload(payload);
     const gltf = await loader.parseAsync(arrayBuffer, '');
     const object = gltf.scene || new this.THREE.Group();
     object.position.copy(position);
@@ -579,11 +621,17 @@ export class SceneManager {
         node.receiveShadow = true;
       }
     });
-    object.userData.asset = this._buildAssetMetadata(payload, { format: 'gltf', animations: gltf.animations?.length });
+    const metadata = this._buildAssetMetadata(payload, { format: 'gltf', animations: gltf.animations?.length });
+    if (payload.preserveObjectUrl === false && metadata.objectURL) {
+      URL.revokeObjectURL(metadata.objectURL);
+      metadata.objectURL = null;
+    }
+    object.userData.asset = metadata;
     const assetTarget = this.assetRoot || this.dynamicRoot;
     assetTarget.add(object);
     this.setSelectedObject(object);
     this.emit('asset:added', { object, payload });
+    this._registerAsset(object);
     return object;
   }
 
@@ -684,11 +732,51 @@ export class SceneManager {
     });
   }
 
+  _isAssetNode(object) {
+    return !!object?.userData?.asset;
+  }
+
+  _registerAsset(object) {
+    if (!this.assetRoot || !object) return;
+    if (!this.assetHistory.includes(object)) {
+      this.assetHistory.push(object);
+    }
+    this._emitAssetCount();
+    this._enforceAssetLimit();
+  }
+
+  _dropFromHistory(object) {
+    const idx = this.assetHistory.indexOf(object);
+    if (idx >= 0) {
+      this.assetHistory.splice(idx, 1);
+    }
+  }
+
+  _emitAssetCount() {
+    const count = this.assetRoot?.children?.length || 0;
+    this.emit('asset:count', { count, limit: this.assetLimit, warnThreshold: Math.floor(this.assetLimit * ASSET_WARNING_RATIO) });
+  }
+
+  _enforceAssetLimit() {
+    if (!this.assetRoot) return;
+    while (this.assetRoot.children.length > this.assetLimit && this.assetHistory.length) {
+      const oldest = this.assetHistory.shift();
+      if (oldest) {
+        this.remove(oldest);
+        this.emit('asset:auto-removed', { object: oldest, limit: this.assetLimit });
+      }
+    }
+  }
+
   _clearGroup(group) {
     if (!group) return;
     [...group.children].forEach(child => {
       group.remove(child);
+      const wasAsset = this._isAssetNode(child);
       this._disposeObject(child);
+      if (wasAsset) {
+        this._dropFromHistory(child);
+      }
     });
   }
 
@@ -712,8 +800,10 @@ export class SceneManager {
     });
   }
 
-  _buildAssetMetadata(payload, extra = {}) {
+  _buildAssetMetadata(payload, extra = {}, options = {}) {
     const id = payload.id || `asset_${Date.now()}`;
+    const persistObjectUrl = options.persistObjectUrl ?? (payload.preserveObjectUrl ?? (payload.kind === 'video'));
+    const storedObjectUrl = persistObjectUrl ? (payload.objectUrl || extra.objectURL || null) : null;
     return {
       id,
       kind: payload.kind,
@@ -722,6 +812,7 @@ export class SceneManager {
       size: payload.size,
       source: payload.source || 'remote-upload',
       createdAt: payload.createdAt || Date.now(),
+      objectURL: storedObjectUrl,
       ...extra
     };
   }
@@ -768,6 +859,39 @@ export class SceneManager {
     const width = aspectRatio >= 1 ? baseSize : baseSize * aspectRatio;
     const height = aspectRatio >= 1 ? baseSize / aspectRatio : baseSize;
     return new this.THREE.PlaneGeometry(width, height);
+  }
+
+  _resolveAssetSource(payload, kind) {
+    if (payload.dataUrl) {
+      return { url: payload.dataUrl, revokeAfterLoad: false };
+    }
+    if (payload.objectUrl) {
+      const revokeAfterLoad = payload.preserveObjectUrl === false && kind !== 'video';
+      return { url: payload.objectUrl, revokeAfterLoad };
+    }
+    if (payload.blob) {
+      const url = URL.createObjectURL(payload.blob);
+      const revokeAfterLoad = !(payload.preserveObjectUrl ?? (kind === 'video'));
+      return { url, revokeAfterLoad };
+    }
+    throw new Error('Asset payload missing data source');
+  }
+
+  async _getArrayBufferFromPayload(payload) {
+    if (payload.dataUrl) {
+      return this._dataUrlToArrayBuffer(payload.dataUrl);
+    }
+    if (payload.objectUrl) {
+      const response = await fetch(payload.objectUrl);
+      if (!response.ok) {
+        throw new Error('Failed to fetch object URL');
+      }
+      return response.arrayBuffer();
+    }
+    if (payload.blob) {
+      return payload.blob.arrayBuffer();
+    }
+    throw new Error('Model payload missing binary data');
   }
 
   _resolveAssetPosition(position) {

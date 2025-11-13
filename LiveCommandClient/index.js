@@ -9,6 +9,16 @@ const createClientId = () => {
   return `client_${Date.now().toString(16)}_${Math.random().toString(16).slice(2)}`;
 };
 
+const base64ToUint8Array = base64 => {
+  const binary = atob(base64);
+  const len = binary.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i += 1) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+};
+
 export class LiveCommandClient {
   constructor(options = {}) {
     this.url = options.url || `${location.origin.replace(/^http/, 'ws')}/ws/live`;
@@ -22,6 +32,7 @@ export class LiveCommandClient {
     this._reconnectTimer = null;
     this._lastCommandAt = 0;
     this.clientId = options.clientId || createClientId();
+    this._assetTransfers = new Map();
   }
 
   on(type, handler) {
@@ -62,6 +73,7 @@ export class LiveCommandClient {
     this.socket.close();
     this.socket = null;
     this._stopHeartbeat();
+    this._assetTransfers.clear();
     this.emit('disconnected');
   }
 
@@ -123,6 +135,18 @@ export class LiveCommandClient {
       case 'asset:clear':
         this.sceneManager?.clearAssets?.();
         break;
+      case 'asset:begin':
+        this._handleAssetBegin(payload);
+        break;
+      case 'asset:chunk':
+        this._handleAssetChunk(payload);
+        break;
+      case 'asset:end':
+        this._handleAssetEnd(payload);
+        break;
+      case 'asset:abort':
+        this._assetTransfers.delete(payload?.id);
+        break;
       default:
         this.emit('command:unhandled', data);
     }
@@ -142,6 +166,7 @@ export class LiveCommandClient {
   _handleClose = event => {
     this.emit('disconnected', { code: event.code, reason: event.reason });
     this._stopHeartbeat();
+    this._assetTransfers.clear();
     this._scheduleReconnect();
   };
 
@@ -176,6 +201,57 @@ export class LiveCommandClient {
     if (this._heartbeatTimer) {
       clearInterval(this._heartbeatTimer);
       this._heartbeatTimer = null;
+    }
+  }
+
+  _handleAssetBegin(payload = {}) {
+    if (!payload.id) return;
+    this._assetTransfers.set(payload.id, {
+      meta: payload,
+      buffers: [],
+      received: 0
+    });
+  }
+
+  _handleAssetChunk(payload = {}) {
+    const store = payload.id ? this._assetTransfers.get(payload.id) : null;
+    if (!store || !payload.data) return;
+    try {
+      const bytes = base64ToUint8Array(payload.data);
+      store.buffers.push(bytes);
+      store.received += bytes.byteLength;
+    } catch (error) {
+      this.emit('command:error', { error, data: payload });
+    }
+  }
+
+  _handleAssetEnd(payload = {}) {
+    const store = payload.id ? this._assetTransfers.get(payload.id) : null;
+    if (!store) return;
+    this._assetTransfers.delete(payload.id);
+    if (!this.sceneManager) return;
+    try {
+      const blob = new Blob(store.buffers, { type: store.meta.mimeType || 'application/octet-stream' });
+      const objectUrl = URL.createObjectURL(blob);
+      const shouldPersistUrl = store.meta.kind === 'video';
+      const finalPayload = {
+        ...store.meta,
+        objectUrl,
+        preserveObjectUrl: shouldPersistUrl,
+        size: blob.size,
+        source: store.meta.source || 'chunk-stream'
+      };
+      Promise.resolve(this.sceneManager.spawnAssetFromPayload(finalPayload))
+        .catch(error => {
+          this.emit('command:error', { error, data: finalPayload });
+        })
+        .finally(() => {
+          if (!shouldPersistUrl) {
+            URL.revokeObjectURL(objectUrl);
+          }
+        });
+    } catch (error) {
+      this.emit('command:error', { error, data: payload });
     }
   }
 }
