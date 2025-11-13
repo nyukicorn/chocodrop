@@ -164,6 +164,9 @@ export class SceneManager {
 
   _handleResize = () => {
     if (!this.isReady) return;
+    if (this.renderer?.xr?.isPresenting) {
+      return;
+    }
     const width = this.canvas.clientWidth || window.innerWidth;
     const height = this.canvas.clientHeight || window.innerHeight;
     this.camera.aspect = width / height;

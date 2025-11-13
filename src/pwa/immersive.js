@@ -109,8 +109,25 @@ function setupXRControls(sceneManager) {
     setStatus(`${mode === 'ar' ? 'AR' : 'VR'}セッションを初期化中…`, 'pending');
     try {
       const overlayRoot = document.body;
-      const xrOptions = mode === 'ar' ? { domOverlayRoot: overlayRoot } : {};
-      await sceneManager.enterXR(mode, xrOptions);
+      const attempt = async useOverlay => {
+        if (mode !== 'ar') {
+          await sceneManager.enterXR(mode, {});
+          return;
+        }
+        const options = useOverlay ? { domOverlayRoot: overlayRoot } : {};
+        await sceneManager.enterXR('ar', options);
+      };
+
+      try {
+        await attempt(true);
+      } catch (error) {
+        const message = error?.message || '';
+        if (mode === 'ar' && message.includes('dom-overlay')) {
+          await attempt(false);
+        } else {
+          throw error;
+        }
+      }
 
       // XRInteractionManagerが有効になっていることを確認
       if (sceneManager.xr && sceneManager.xr.interaction) {
