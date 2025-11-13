@@ -655,6 +655,25 @@ export class SceneManager {
     this.emit('selection:changed', { object });
   }
 
+  focusOnObject(object, options = {}) {
+    if (!object || !this.camera || !this.controls) return;
+    if (this.renderer?.xr?.isPresenting) return;
+    const { distance = 5, verticalOffset = 0 } = options;
+    const targetPosition = object.position.clone();
+    targetPosition.y += verticalOffset;
+    const direction = new this.THREE.Vector3();
+    direction.subVectors(this.camera.position, targetPosition);
+    if (direction.lengthSq() === 0) {
+      this.camera.getWorldDirection(direction);
+      direction.multiplyScalar(-1);
+    }
+    direction.normalize().multiplyScalar(distance);
+    const newPosition = targetPosition.clone().add(direction);
+    this.camera.position.copy(newPosition);
+    this.controls.target.copy(targetPosition);
+    this.controls.update?.();
+  }
+
   exportSceneJSON(options = {}) {
     const { includeAssets = false } = options;
     if (!this.assetRoot || includeAssets) {
@@ -679,45 +698,52 @@ export class SceneManager {
   }
 
   _updateXRManipulation(deltaMs) {
-    if (!this.xrSession || !this.selectedObject || !this.renderer?.xr) return;
-    if (!this._manipVectors.forward && this.THREE) {
+    if (!this.xrSession || !this.selectedObject || !this.renderer?.xr || !this.THREE) return;
+    if (!this._manipVectors.forward) {
       this._setupXRControllers();
     }
     const session = this.renderer.xr.getSession();
     if (!session) return;
     const delta = deltaMs / 1000;
-    const forward = this._manipVectors.forward;
-    const right = this._manipVectors.right;
-    const up = this.camera.up;
+    const inputSources = Array.from(session.inputSources || []).filter(source => source.gamepad);
+    if (!inputSources.length) return;
 
-    this.camera.getWorldDirection(forward);
-    forward.y = 0;
-    if (forward.lengthSq() === 0) return;
-    forward.normalize();
-    right.copy(forward).applyAxisAngle(up, Math.PI / 2);
+    const leftSource = inputSources.find(source => source.handedness === 'left');
+    const rightSource = inputSources.find(source => source.handedness === 'right');
 
-    const sources = Array.from(session.inputSources || []);
-    sources.forEach((source, index) => {
-      const { gamepad } = source;
-      if (!gamepad || !gamepad.axes?.length) return;
-      const [ax0 = 0, ax1 = 0, ax2 = 0, ax3 = 0] = gamepad.axes;
+    const up = this.camera.up.clone().normalize();
+    const planarForward = this._manipVectors.forward;
+    const planarRight = this._manipVectors.right;
+    this.camera.getWorldDirection(planarForward);
+    const forwardFull = planarForward.clone().normalize();
+    planarForward.y = 0;
+    if (planarForward.lengthSq() === 0) {
+      planarForward.set(0, 0, -1);
+    }
+    planarForward.normalize();
+    planarRight.copy(planarForward).applyAxisAngle(up, Math.PI / 2).normalize();
 
-      if (index === 0) {
-        if (Math.abs(ax0) > DEADZONE) {
-          this.selectedObject.position.addScaledVector(right, ax0 * TRANSLATION_SPEED * delta);
-        }
-        if (Math.abs(ax1) > DEADZONE) {
-          this.selectedObject.position.addScaledVector(forward, -ax1 * TRANSLATION_SPEED * delta);
-        }
-      } else if (index === 1) {
-        if (Math.abs(ax1) > DEADZONE) {
-          this.selectedObject.position.addScaledVector(up, ax1 * VERTICAL_SPEED * delta);
-        }
-        if (Math.abs(ax2) > DEADZONE) {
-          this.selectedObject.rotateOnAxis(up, ax2 * ROTATION_SPEED * delta);
-        }
-        if (Math.abs(ax3) > DEADZONE) {
-          const scaleDelta = 1 + ax3 * SCALE_SPEED * delta;
+    if (leftSource?.gamepad?.axes) {
+      const [lx = 0, ly = 0] = leftSource.gamepad.axes;
+      if (Math.abs(lx) > DEADZONE) {
+        this.selectedObject.position.addScaledVector(planarRight, lx * TRANSLATION_SPEED * delta);
+      }
+      if (Math.abs(ly) > DEADZONE) {
+        this.selectedObject.position.addScaledVector(planarForward, -ly * TRANSLATION_SPEED * delta);
+      }
+    }
+
+    if (rightSource?.gamepad) {
+      const { axes = [], buttons = [] } = rightSource.gamepad;
+      const [rx = 0, ry = 0] = axes;
+      const triggerValue = buttons[0]?.value ?? 0; // index trigger
+      const gripValue = buttons[1]?.value ?? 0; // grip button
+      if (Math.abs(rx) > DEADZONE) {
+        this.selectedObject.rotateOnAxis(up, rx * ROTATION_SPEED * delta);
+      }
+      if (Math.abs(ry) > DEADZONE) {
+        if (gripValue > 0.25) {
+          const scaleDelta = 1 - ry * SCALE_SPEED * delta;
           if (scaleDelta > 0) {
             this.selectedObject.scale.multiplyScalar(scaleDelta);
             const clamp = value => Math.min(Math.max(value, 0.05), 25);
@@ -727,9 +753,13 @@ export class SceneManager {
               clamp(this.selectedObject.scale.z)
             );
           }
+        } else if (triggerValue > 0.25) {
+          this.selectedObject.position.addScaledVector(forwardFull, -ry * TRANSLATION_SPEED * delta);
+        } else {
+          this.selectedObject.position.addScaledVector(up, ry * VERTICAL_SPEED * delta);
         }
       }
-    });
+    }
   }
 
   _isAssetNode(object) {

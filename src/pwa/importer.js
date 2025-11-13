@@ -48,6 +48,10 @@ async function main() {
   });
   const pendingSync = { latest: null };
   const pendingAssets = [];
+  const transformUI = setupTransformControls(sceneManager);
+  sceneManager.on('selection:changed', ({ detail }) => {
+    transformUI.update(detail?.object);
+  });
   attachClientStatus(client, overlayUI, pendingSync, pendingAssets, setMediaStatus);
   const loaders = await setupLoaders(sceneManager);
   const { THREE, gltfLoader } = loaders;
@@ -105,7 +109,8 @@ async function main() {
         const { sent } = await processMediaFile(file, kind, {
           sceneManager,
           client,
-          pendingAssets
+          pendingAssets,
+          transformUI
         });
         if (sent) {
           setMediaStatus(`${file.name} を Quest に送信しました`, 'ok');
@@ -350,6 +355,112 @@ function attachClientStatus(client, overlayUI, pendingSync, pendingAssets, setMe
   });
 }
 
+function setupTransformControls(sceneManager) {
+  const labelEl = document.querySelector('[data-transform-label]');
+  const scaleInput = document.querySelector('[data-transform-scale]');
+  const buttons = Array.from(document.querySelectorAll('[data-transform-buttons] button'));
+  const resetBtn = document.querySelector('[data-action="reset-transform"]');
+  const THREE = sceneManager.THREE;
+  const forward = new THREE.Vector3();
+  const planarForward = new THREE.Vector3();
+  const planarRight = new THREE.Vector3();
+  const up = new THREE.Vector3(0, 1, 0);
+  let current = null;
+
+  const setEnabled = enabled => {
+    if (scaleInput) scaleInput.disabled = !enabled;
+    if (resetBtn) resetBtn.disabled = !enabled;
+    buttons.forEach(button => {
+      button.disabled = !enabled;
+    });
+    if (!enabled && scaleInput) {
+      scaleInput.value = 1;
+    }
+  };
+
+  const update = object => {
+    current = object || null;
+    if (labelEl) {
+      labelEl.textContent = current?.name || current?.userData?.id || '--';
+    }
+    setEnabled(!!current);
+    if (current && scaleInput) {
+      const avgScale = (current.scale.x + current.scale.y + current.scale.z) / 3;
+      scaleInput.value = avgScale.toFixed(2);
+    }
+  };
+
+  const applyScale = value => {
+    if (!current || !Number.isFinite(value)) return;
+    current.scale.set(value, value, value);
+  };
+
+  scaleInput?.addEventListener('input', event => {
+    const value = parseFloat(event.target.value);
+    applyScale(Math.min(Math.max(value, 0.2), 4));
+  });
+
+  const handleNudge = direction => {
+    if (!current) return;
+    const step = 0.35;
+    const verticalStep = 0.25;
+    up.copy(sceneManager.camera.up).normalize();
+    sceneManager.camera.getWorldDirection(forward).normalize();
+    planarForward.copy(forward);
+    planarForward.y = 0;
+    if (planarForward.lengthSq() === 0) {
+      planarForward.set(0, 0, -1);
+    }
+    planarForward.normalize();
+    planarRight.copy(planarForward).applyAxisAngle(up, Math.PI / 2).normalize();
+
+    switch (direction) {
+      case 'forward':
+        current.position.addScaledVector(planarForward, -step);
+        break;
+      case 'back':
+        current.position.addScaledVector(planarForward, step);
+        break;
+      case 'left':
+        current.position.addScaledVector(planarRight, -step);
+        break;
+      case 'right':
+        current.position.addScaledVector(planarRight, step);
+        break;
+      case 'up':
+        current.position.addScaledVector(up, verticalStep);
+        break;
+      case 'down':
+        current.position.addScaledVector(up, -verticalStep);
+        break;
+      case 'near':
+        current.position.addScaledVector(forward, -step);
+        break;
+      case 'far':
+        current.position.addScaledVector(forward, step);
+        break;
+      default:
+        break;
+    }
+  };
+
+  buttons.forEach(button => {
+    button.addEventListener('click', () => handleNudge(button.dataset.nudge));
+  });
+
+  resetBtn?.addEventListener('click', () => {
+    if (!current) return;
+    current.scale.set(1, 1, 1);
+    if (scaleInput) {
+      scaleInput.value = '1';
+    }
+    sceneManager.focusOnObject?.(current, { distance: 5 });
+  });
+
+  setEnabled(false);
+  return { update };
+}
+
 function detectMediaKind(file) {
   if (!file) return null;
   if (file.type?.startsWith('image/')) return 'image';
@@ -367,7 +478,9 @@ async function processMediaFile(file, kind, context) {
     objectUrl,
     preserveObjectUrl: kind === 'video'
   });
-  await context.sceneManager.spawnAssetFromPayload(localPayload);
+  const spawned = await context.sceneManager.spawnAssetFromPayload(localPayload);
+  context.sceneManager.focusOnObject?.(spawned, { distance: 6 });
+  context.transformUI?.update(spawned);
   const remotePayload = {
     ...localPayload,
     objectUrl: null,

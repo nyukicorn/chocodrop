@@ -20,22 +20,29 @@
       :root { color-scheme: dark; font-family: 'Inter', system-ui, sans-serif; }
       body {
         margin: 0;
-        display: grid;
-        grid-template-columns: minmax(320px, 380px) 1fr;
+        display: flex;
         min-height: 100vh;
         background: #020617;
         color: #e2e8f0;
+        overflow: hidden;
       }
       aside {
+        width: 360px;
         padding: 2rem;
         display: flex;
         flex-direction: column;
         gap: 1.5rem;
         border-right: 1px solid rgba(148, 163, 184, 0.2);
-        background: rgba(15, 23, 42, 0.6);
+        background: rgba(15, 23, 42, 0.7);
         backdrop-filter: blur(18px);
+        height: 100vh;
+        overflow-y: auto;
       }
-      main { position: relative; }
+      main {
+        position: relative;
+        flex: 1;
+        height: 100vh;
+      }
       canvas {
         width: 100%;
         height: 100%;
@@ -112,17 +119,49 @@
       }
       @media (max-width: 960px) {
         body {
-          grid-template-columns: 1fr;
+          flex-direction: column;
         }
         aside {
-          position: sticky;
-          top: 0;
-          z-index: 1;
-          background: rgba(15, 23, 42, 0.92);
+          width: 100%;
+          height: auto;
+          max-height: 60vh;
         }
         main {
-          min-height: 60vh;
+          height: 40vh;
         }
+      }
+      .media-controls {
+        padding: 1rem 0;
+        border-top: 1px solid rgba(148, 163, 184, 0.2);
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+      }
+      .media-controls .control-group {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+      }
+      .media-controls button {
+        flex: 1 1 30%;
+        min-width: 90px;
+        border: 1px solid rgba(148, 163, 184, 0.4);
+        border-radius: 0.5rem;
+        background: rgba(15, 23, 42, 0.5);
+        color: inherit;
+        padding: 0.4rem 0.6rem;
+        cursor: pointer;
+      }
+      .media-controls button:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+      .media-controls input[type="range"] {
+        width: 100%;
+      }
+      .media-controls__label {
+        font-size: 0.85rem;
+        color: #94a3b8;
       }
     </style>
   </head>
@@ -154,6 +193,24 @@
         <ul data-file-list>
           <li>OPFS を初期化しています…</li>
         </ul>
+      </section>
+      <section class="media-controls">
+        <h2>メディア調整</h2>
+        <div class="media-controls__label">選択中: <span data-transform-label>--</span></div>
+        <label>スケール
+          <input type="range" data-transform-scale min="0.2" max="4" step="0.05" value="1" disabled>
+        </label>
+        <div class="control-group" data-transform-buttons>
+          <button type="button" data-nudge="forward">前へ</button>
+          <button type="button" data-nudge="back">後ろへ</button>
+          <button type="button" data-nudge="left">左へ</button>
+          <button type="button" data-nudge="right">右へ</button>
+          <button type="button" data-nudge="up">上へ</button>
+          <button type="button" data-nudge="down">下へ</button>
+          <button type="button" data-nudge="near">近づける</button>
+          <button type="button" data-nudge="far">遠ざける</button>
+        </div>
+        <button type="button" data-action="reset-transform" disabled>リセット</button>
       </section>
     </aside>
     <main>

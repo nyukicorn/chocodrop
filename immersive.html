@@ -61,6 +61,15 @@
         justify-content: space-between;
         gap: 0.75rem;
       }
+      .control-hint ul {
+        list-style: none;
+        padding: 0;
+        margin: 0.5rem 0 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+        font-size: 0.85rem;
+      }
     </style>
   </head>
   <body>
@@ -90,6 +99,15 @@
         <div class="media-panel__actions">
           <button type="button" data-action="clear-assets">全メディア削除</button>
         </div>
+      </div>
+      <div class="panel control-hint">
+        <span class="pill">XR操作</span>
+        <ul>
+          <li>左スティック: 平面移動</li>
+          <li>右スティック上下: 高さ調整 / 右トリガー + 上下: 近づけ・遠ざけ</li>
+          <li>右スティック左右: 水平回転</li>
+          <li>右グリップ + 右スティック上下: スケール調整</li>
+        </ul>
       </div>
       <form class="panel remote-panel" data-remote-form novalidate>
         <div class="remote-headline">
