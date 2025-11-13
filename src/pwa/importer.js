@@ -9,6 +9,7 @@ import { saveModelToOPFS, listStoredModels, isOPFSSupported } from '../../opfs_s
 
 const ACCEPT_EXTENSIONS = ['.gltf', '.glb', '.json'];
 const MEDIA_MODEL_EXTENSIONS = ['.glb', '.gltf'];
+const MEDIA_CHUNK_SIZE = 256 * 1024; // 256KB
 
 async function main() {
   const canvas = document.querySelector('#importer-canvas');
@@ -341,7 +342,7 @@ function attachClientStatus(client, overlayUI, pendingSync, pendingAssets, setMe
       }
     }
     if (pendingAssets?.length) {
-      const flushed = await flushPendingAssets(pendingAssets, client);
+      const flushed = await flushPendingAssets(pendingAssets, client, setMediaStatus);
       if (flushed > 0 && setMediaStatus) {
         setMediaStatus(`未送信メディア ${flushed} 件を Quest に送信しました`, 'ok');
       }
@@ -361,26 +362,34 @@ function detectMediaKind(file) {
 }
 
 async function processMediaFile(file, kind, context) {
-  const dataUrl = await readFileAsDataURL(file);
-  const payload = buildAssetPayload(file, kind, dataUrl);
-  await context.sceneManager.spawnAssetFromPayload(payload);
-  const sent = await sendAssetPayload(context.client, payload);
+  const objectUrl = URL.createObjectURL(file);
+  const localPayload = buildAssetPayload(file, kind, {
+    objectUrl,
+    preserveObjectUrl: kind === 'video'
+  });
+  await context.sceneManager.spawnAssetFromPayload(localPayload);
+  const remotePayload = {
+    ...localPayload,
+    objectUrl: null,
+    source: 'importer-stream'
+  };
+  const sent = await streamAssetToClient({ client: context.client, file, payload: remotePayload });
   if (!sent && context.pendingAssets) {
-    context.pendingAssets.push(payload);
+    context.pendingAssets.push({ file, payload: remotePayload, kind });
   }
-  return { payload, sent };
+  return { payload: remotePayload, sent };
 }
 
-function buildAssetPayload(file, kind, dataUrl) {
+function buildAssetPayload(file, kind, overrides = {}) {
   return {
-    id: createAssetId(),
+    id: overrides.id || createAssetId(),
     kind,
     fileName: file.name,
     mimeType: file.type || guessMimeFromName(file.name, kind),
     size: file.size,
     createdAt: Date.now(),
-    dataUrl,
-    source: 'importer'
+    source: 'importer',
+    ...overrides
   };
 }
 
@@ -412,42 +421,79 @@ function createMediaStatusController(element) {
   };
 }
 
-async function readFileAsDataURL(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = () => reject(reader.error || new Error('ファイル読み込みに失敗しました'));
-    reader.readAsDataURL(file);
-  });
-}
-
-async function sendAssetPayload(client, payload) {
-  if (!client?.isConnected()) {
-    return false;
-  }
-  try {
-    client.send({ type: 'asset:spawn', payload });
-    return true;
-  } catch (error) {
-    console.warn('Asset payload send failed', error);
-    return false;
-  }
-}
-
-async function flushPendingAssets(queue, client) {
+async function flushPendingAssets(queue, client, setMediaStatus) {
   if (!queue || queue.length === 0) return 0;
   if (!client?.isConnected()) return 0;
   let sent = 0;
   while (queue.length) {
-    const payload = queue.shift();
-    const success = await sendAssetPayload(client, payload);
+    const task = queue[0];
+    const success = await streamAssetToClient({ client, file: task.file, payload: task.payload });
     if (!success) {
-      queue.unshift(payload);
       break;
     }
+    queue.shift();
     sent += 1;
+    if (setMediaStatus) {
+      setMediaStatus(`${task.payload.fileName} を Quest に再送しました`, 'ok');
+    }
   }
   return sent;
+}
+
+async function streamAssetToClient({ client, file, payload }) {
+  if (!client?.isConnected()) {
+    return false;
+  }
+  try {
+    client.send({ type: 'asset:begin', payload: { ...payload, chunkSize: MEDIA_CHUNK_SIZE } });
+    let index = 0;
+    for await (const chunk of iterateFileChunks(file, MEDIA_CHUNK_SIZE)) {
+      const base64 = bytesToBase64(chunk);
+      client.send({ type: 'asset:chunk', payload: { id: payload.id, index, data: base64 } });
+      index += 1;
+    }
+    client.send({ type: 'asset:end', payload: { id: payload.id } });
+    return true;
+  } catch (error) {
+    console.warn('streamAssetToClient failed', error);
+    try {
+      client.send({ type: 'asset:abort', payload: { id: payload.id } });
+    } catch (_) {
+      /* noop */
+    }
+    return false;
+  }
+}
+
+async function* iterateFileChunks(file, chunkSize) {
+  if (file.stream) {
+    const reader = file.stream().getReader();
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (value) {
+        yield new Uint8Array(value);
+      }
+    }
+    return;
+  }
+  let offset = 0;
+  while (offset < file.size) {
+    const slice = file.slice(offset, offset + chunkSize);
+    const buffer = await slice.arrayBuffer();
+    yield new Uint8Array(buffer);
+    offset += chunkSize;
+  }
+}
+
+function bytesToBase64(bytes) {
+  let binary = '';
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const sub = bytes.subarray(i, i + chunkSize);
+    binary += String.fromCharCode(...sub);
+  }
+  return btoa(binary);
 }
 
 main().catch(error => {
