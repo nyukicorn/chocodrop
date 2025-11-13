@@ -147,21 +147,125 @@ function setupXRControls(sceneManager) {
 
 function setupAssetStatus(sceneManager) {
   const statusEl = document.querySelector('[data-asset-status]');
+  const listEl = document.querySelector('[data-asset-list]');
+  const clearBtn = document.querySelector('[data-action="clear-assets"]');
   if (!statusEl) return;
+
+  const assets = new Map();
+
   const setStatus = (text, state = 'idle') => {
     statusEl.textContent = text;
     statusEl.dataset.state = state;
   };
+
+  const renderList = () => {
+    if (!listEl) return;
+    listEl.innerHTML = '';
+    if (!assets.size) {
+      const empty = document.createElement('li');
+      empty.dataset.empty = 'true';
+      empty.textContent = 'メディアなし';
+      listEl.appendChild(empty);
+    } else {
+      assets.forEach(asset => {
+        const li = document.createElement('li');
+        li.dataset.assetId = asset.id;
+        const label = document.createElement('span');
+        label.textContent = `${getAssetIcon(asset.kind)} ${asset.fileName || asset.kind}`;
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.dataset.action = 'remove-asset';
+        removeBtn.dataset.assetId = asset.id;
+        removeBtn.textContent = '削除';
+        li.appendChild(label);
+        li.appendChild(removeBtn);
+        listEl.appendChild(li);
+      });
+    }
+    if (clearBtn) {
+      clearBtn.disabled = assets.size === 0;
+    }
+  };
+
+  const registerAsset = asset => {
+    if (!asset?.id) return;
+    assets.set(asset.id, asset);
+    renderList();
+  };
+
+  const removeAsset = id => {
+    if (!id) return;
+    assets.delete(id);
+    renderList();
+  };
+
   setStatus('メディア待機中', 'idle');
+  sceneManager.listAssets().forEach(asset => registerAsset(asset));
+  renderList();
+
   sceneManager.on('asset:added', ({ detail }) => {
-    const label = detail?.payload?.fileName || detail?.payload?.kind || 'メディア';
-    setStatus(`${label} を受信`, 'ok');
+    const meta = detail?.object?.userData?.asset || detail?.payload;
+    if (meta) {
+      registerAsset(meta);
+      const label = meta.fileName || meta.kind || 'メディア';
+      setStatus(`${label} を受信`, 'ok');
+    }
   });
-  sceneManager.on('assets:cleared', () => setStatus('メディアなし', 'warn'));
+  sceneManager.on('asset:removed', ({ detail }) => {
+    removeAsset(detail?.id || detail?.object?.userData?.asset?.id);
+  });
+  sceneManager.on('assets:cleared', () => {
+    assets.clear();
+    renderList();
+    setStatus('メディアなし', 'warn');
+  });
+  sceneManager.on('asset:auto-removed', ({ detail }) => {
+    removeAsset(detail?.object?.userData?.asset?.id);
+    setStatus('上限超過: 古いメディアを削除しました', 'warn');
+  });
   sceneManager.on('scene:cleared', ({ detail }) => {
     if (detail?.preserveAssets) return;
+    assets.clear();
+    renderList();
     setStatus('メディアをリセットしました', 'warn');
   });
+  sceneManager.on('asset:count', ({ detail }) => {
+    const { count = 0, limit = 0, warnThreshold = 0 } = detail || {};
+    if (count === 0) {
+      setStatus('メディアなし', 'idle');
+    } else if (count >= limit && limit > 0) {
+      setStatus(`上限 ${limit} 件に到達`, 'error');
+    } else if (count >= warnThreshold) {
+      setStatus(`残り ${limit - count} 件で上限`, 'warn');
+    } else {
+      setStatus(`${count} 件のメディア`, 'ok');
+    }
+  });
+
+  listEl?.addEventListener('click', event => {
+    const target = event.target;
+    if (target?.dataset?.action === 'remove-asset') {
+      const assetId = target.dataset.assetId;
+      sceneManager.removeAssetById(assetId);
+    }
+  });
+
+  clearBtn?.addEventListener('click', () => {
+    sceneManager.clearAssets();
+  });
+}
+
+function getAssetIcon(kind) {
+  switch (kind) {
+    case 'image':
+      return '🖼️';
+    case 'video':
+      return '🎬';
+    case 'model':
+      return '📦';
+    default:
+      return '📁';
+  }
 }
 
 function setupRemoteSceneLoader(sceneManager) {

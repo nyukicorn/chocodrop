@@ -17,6 +17,51 @@
         }
       }
     </script>
+    <style>
+      .media-panel ul {
+        list-style: none;
+        margin: 0.5rem 0 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+      }
+      .media-panel li {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+        font-size: 0.85rem;
+      }
+      .media-panel li[data-empty] {
+        justify-content: flex-start;
+        color: rgba(226, 232, 240, 0.8);
+      }
+      .media-panel__actions {
+        margin-top: 0.5rem;
+        display: flex;
+        justify-content: flex-end;
+      }
+      .media-panel__actions button,
+      [data-asset-list] button {
+        border: 1px solid rgba(148, 163, 184, 0.4);
+        border-radius: 999px;
+        padding: 0.2rem 0.8rem;
+        background: rgba(15, 23, 42, 0.4);
+        color: #e2e8f0;
+        font-size: 0.75rem;
+        cursor: pointer;
+      }
+      [data-asset-list] button:hover {
+        background: rgba(59, 130, 246, 0.2);
+      }
+      .media-panel__head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+      }
+    </style>
   </head>
   <body>
     <canvas id="immersive-canvas"></canvas>
@@ -34,9 +79,17 @@
           <button data-action="enter-ar">AR開始</button>
         </div>
       </div>
-      <div class="panel">
-        <span class="pill">Media</span>
-        <span data-asset-status data-state="idle">メディア待機中</span>
+      <div class="panel media-panel">
+        <div class="media-panel__head">
+          <span class="pill">Media</span>
+          <span data-asset-status data-state="idle">メディア待機中</span>
+        </div>
+        <ul data-asset-list>
+          <li data-empty>メディアなし</li>
+        </ul>
+        <div class="media-panel__actions">
+          <button type="button" data-action="clear-assets">全メディア削除</button>
+        </div>
       </div>
       <form class="panel remote-panel" data-remote-form novalidate>
         <div class="remote-headline">
