@@ -11,7 +11,9 @@ const ROTATION_SPEED = Math.PI;
 const SCALE_SPEED = 0.8;
 const ASSET_BASE_SIZE = 3.5;
 const VIDEO_BASE_SIZE = 4.5;
-const DEFAULT_ASSET_DISTANCE = 3.2;
+const DEFAULT_ASSET_DISTANCE_DESKTOP = 3.2;
+const DEFAULT_ASSET_DISTANCE_XR = 5.5;
+const XR_VERTICAL_BASE = 1.35;
 const DRACO_DECODER_CDN = 'https://cdn.jsdelivr.net/npm/three@0.158.0/examples/jsm/libs/draco/';
 const DEFAULT_ASSET_LIMIT = 24;
 const ASSET_WARNING_RATIO = 0.85;
@@ -708,14 +710,20 @@ export class SceneManager {
     const inputSources = Array.from(session.inputSources || []).filter(source => source.gamepad);
     if (!inputSources.length) return;
 
-    const leftSource = inputSources.find(source => source.handedness === 'left');
-    const rightSource = inputSources.find(source => source.handedness === 'right');
+    let leftSource = inputSources.find(source => source.handedness === 'left');
+    let rightSource = inputSources.find(source => source.handedness === 'right');
+    if (!leftSource) {
+      leftSource = inputSources[0];
+    }
+    if (!rightSource) {
+      rightSource = inputSources[inputSources.length - 1];
+    }
 
     const up = this.camera.up.clone().normalize();
     const planarForward = this._manipVectors.forward;
     const planarRight = this._manipVectors.right;
     this.camera.getWorldDirection(planarForward);
-    const forwardFull = planarForward.clone().normalize();
+    const depthForward = planarForward.clone().normalize();
     planarForward.y = 0;
     if (planarForward.lengthSq() === 0) {
       planarForward.set(0, 0, -1);
@@ -723,43 +731,51 @@ export class SceneManager {
     planarForward.normalize();
     planarRight.copy(planarForward).applyAxisAngle(up, Math.PI / 2).normalize();
 
-    if (leftSource?.gamepad?.axes) {
-      const [lx = 0, ly = 0] = leftSource.gamepad.axes;
-      if (Math.abs(lx) > DEADZONE) {
-        this.selectedObject.position.addScaledVector(planarRight, lx * TRANSLATION_SPEED * delta);
-      }
-      if (Math.abs(ly) > DEADZONE) {
-        this.selectedObject.position.addScaledVector(planarForward, -ly * TRANSLATION_SPEED * delta);
-      }
+    const leftAxes = this._getThumbstickAxes(leftSource);
+    if (Math.abs(leftAxes.x) > DEADZONE) {
+      this.selectedObject.position.addScaledVector(planarRight, leftAxes.x * TRANSLATION_SPEED * delta);
+    }
+    if (Math.abs(leftAxes.y) > DEADZONE) {
+      this.selectedObject.position.addScaledVector(planarForward, -leftAxes.y * TRANSLATION_SPEED * delta);
     }
 
-    if (rightSource?.gamepad) {
-      const { axes = [], buttons = [] } = rightSource.gamepad;
-      const [rx = 0, ry = 0] = axes;
-      const triggerValue = buttons[0]?.value ?? 0; // index trigger
-      const gripValue = buttons[1]?.value ?? 0; // grip button
-      if (Math.abs(rx) > DEADZONE) {
-        this.selectedObject.rotateOnAxis(up, rx * ROTATION_SPEED * delta);
-      }
-      if (Math.abs(ry) > DEADZONE) {
-        if (gripValue > 0.25) {
-          const scaleDelta = 1 - ry * SCALE_SPEED * delta;
-          if (scaleDelta > 0) {
-            this.selectedObject.scale.multiplyScalar(scaleDelta);
-            const clamp = value => Math.min(Math.max(value, 0.05), 25);
-            this.selectedObject.scale.set(
-              clamp(this.selectedObject.scale.x),
-              clamp(this.selectedObject.scale.y),
-              clamp(this.selectedObject.scale.z)
-            );
-          }
-        } else if (triggerValue > 0.25) {
-          this.selectedObject.position.addScaledVector(forwardFull, -ry * TRANSLATION_SPEED * delta);
-        } else {
-          this.selectedObject.position.addScaledVector(up, ry * VERTICAL_SPEED * delta);
+    const rightAxes = this._getThumbstickAxes(rightSource);
+    if (Math.abs(rightAxes.x) > DEADZONE) {
+      this.selectedObject.rotateOnAxis(up, rightAxes.x * ROTATION_SPEED * delta);
+    }
+
+    if (Math.abs(rightAxes.y) > DEADZONE) {
+      const buttons = (rightSource?.gamepad?.buttons ?? []);
+      const triggerValue = Math.max(buttons[0]?.value ?? 0, buttons[0]?.pressed ? 1 : 0);
+      const gripValue = Math.max(buttons[1]?.value ?? 0, buttons[1]?.pressed ? 1 : 0);
+      if (gripValue > 0.25) {
+        const scaleDelta = 1 - rightAxes.y * SCALE_SPEED * delta;
+        if (scaleDelta > 0) {
+          this.selectedObject.scale.multiplyScalar(scaleDelta);
+          const clamp = value => Math.min(Math.max(value, 0.05), 25);
+          this.selectedObject.scale.set(
+            clamp(this.selectedObject.scale.x),
+            clamp(this.selectedObject.scale.y),
+            clamp(this.selectedObject.scale.z)
+          );
         }
+      } else if (triggerValue > 0.25) {
+        this.selectedObject.position.addScaledVector(up, rightAxes.y * VERTICAL_SPEED * delta);
+      } else {
+        this.selectedObject.position.addScaledVector(depthForward, -rightAxes.y * TRANSLATION_SPEED * delta);
       }
     }
+  }
+
+  _getThumbstickAxes(source) {
+    if (!source?.gamepad?.axes?.length) {
+      return { x: 0, y: 0 };
+    }
+    const axes = source.gamepad.axes;
+    if (axes.length >= 4) {
+      return { x: axes[2], y: axes[3] };
+    }
+    return { x: axes[0], y: axes[1] };
   }
 
   _isAssetNode(object) {
@@ -928,7 +944,24 @@ export class SceneManager {
     if (position && ['x', 'y', 'z'].every(key => typeof position[key] === 'number')) {
       return new this.THREE.Vector3(position.x, position.y, position.z);
     }
-    const fallback = new this.THREE.Vector3(0, 1.5, -DEFAULT_ASSET_DISTANCE);
+
+    if (this.xrSession) {
+      const base = this._getXRSpawnOrigin();
+      const forward = new this.THREE.Vector3(0, 0, -1);
+      if (this.camera) {
+        this.camera.getWorldDirection(forward);
+        forward.y = 0;
+        if (forward.lengthSq() === 0) {
+          forward.set(0, 0, -1);
+        }
+      }
+      forward.normalize().multiplyScalar(DEFAULT_ASSET_DISTANCE_XR);
+      const spawn = base.addScaledVector(forward, -1);
+      spawn.y = XR_VERTICAL_BASE;
+      return spawn;
+    }
+
+    const fallback = new this.THREE.Vector3(0, 1.5, -DEFAULT_ASSET_DISTANCE_DESKTOP);
     if (!this.camera) return fallback;
     const result = this.camera.position.clone();
     const forward = new this.THREE.Vector3();
@@ -936,9 +969,23 @@ export class SceneManager {
     if (forward.lengthSq() === 0) {
       forward.set(0, 0, -1);
     }
-    forward.normalize().multiplyScalar(DEFAULT_ASSET_DISTANCE);
+    forward.normalize().multiplyScalar(DEFAULT_ASSET_DISTANCE_DESKTOP);
     result.add(forward);
     return result;
+  }
+
+  _getXRSpawnOrigin() {
+    const anchorPos = this.xr?.anchor?.position;
+    if (anchorPos?.isVector3) {
+      return anchorPos.clone();
+    }
+    if (anchorPos) {
+      return new this.THREE.Vector3(anchorPos.x ?? 0, anchorPos.y ?? XR_VERTICAL_BASE, anchorPos.z ?? -DEFAULT_ASSET_DISTANCE_XR);
+    }
+    if (this.controls?.target) {
+      return this.controls.target.clone();
+    }
+    return new this.THREE.Vector3(0, XR_VERTICAL_BASE, -DEFAULT_ASSET_DISTANCE_XR);
   }
 
   _faceObjectToCamera(object) {

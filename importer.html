@@ -18,15 +18,19 @@
     </script>
     <style>
       :root { color-scheme: dark; font-family: 'Inter', system-ui, sans-serif; }
+      html, body { height: 100%; }
       body {
         margin: 0;
-        display: flex;
-        min-height: 100vh;
+        padding-left: 360px;
         background: #020617;
         color: #e2e8f0;
         overflow: hidden;
       }
       aside {
+        position: fixed;
+        top: 0;
+        left: 0;
+        bottom: 0;
         width: 360px;
         padding: 2rem;
         display: flex;
@@ -35,13 +39,13 @@
         border-right: 1px solid rgba(148, 163, 184, 0.2);
         background: rgba(15, 23, 42, 0.7);
         backdrop-filter: blur(18px);
-        height: 100vh;
         overflow-y: auto;
+        z-index: 2;
       }
       main {
         position: relative;
-        flex: 1;
         height: 100vh;
+        width: calc(100% - 360px);
       }
       canvas {
         width: 100%;
@@ -119,15 +123,18 @@
       }
       @media (max-width: 960px) {
         body {
-          flex-direction: column;
+          padding-left: 0;
+          overflow: visible;
         }
         aside {
+          position: relative;
           width: 100%;
           height: auto;
-          max-height: 60vh;
+          max-height: none;
         }
         main {
-          height: 40vh;
+          width: 100%;
+          height: 60vh;
         }
       }
       .media-controls {
