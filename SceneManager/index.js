@@ -5,10 +5,10 @@ const DEFAULT_BACKGROUND = '#0f172a';
 const TARGET_FPS = 72;
 const TARGET_DELTA = 1000 / TARGET_FPS;
 const DEADZONE = 0.15;
-const TRANSLATION_SPEED = 1.5;
-const VERTICAL_SPEED = 1.2;
+const TRANSLATION_SPEED = 1.6;
+const VERTICAL_SPEED = 1.25;
 const ROTATION_SPEED = Math.PI;
-const SCALE_SPEED = 0.8;
+const SCALE_SPEED = 0.85;
 const ASSET_BASE_SIZE = 3.5;
 const VIDEO_BASE_SIZE = 4.5;
 const DEFAULT_ASSET_DISTANCE_DESKTOP = 3.2;
@@ -749,9 +749,9 @@ export class SceneManager {
 
     if (Math.abs(rightAxes.y) > DEADZONE) {
       const buttons = (rightSource?.gamepad?.buttons ?? []);
-      const triggerValue = Math.max(buttons[0]?.value ?? 0, buttons[0]?.pressed ? 1 : 0);
-      const gripValue = Math.max(buttons[1]?.value ?? 0, buttons[1]?.pressed ? 1 : 0);
-      if (gripValue > 0.25) {
+      const triggerPressed = buttons[0]?.pressed || buttons[0]?.value > 0.5;
+      const gripPressed = buttons[1]?.pressed || buttons[1]?.value > 0.5;
+      if (gripPressed) {
         const scaleDelta = 1 - rightAxes.y * SCALE_SPEED * delta;
         if (scaleDelta > 0) {
           this.selectedObject.scale.multiplyScalar(scaleDelta);
@@ -762,8 +762,8 @@ export class SceneManager {
             clamp(this.selectedObject.scale.z)
           );
         }
-      } else if (triggerValue > 0.25) {
-        this.selectedObject.position.addScaledVector(up, rightAxes.y * VERTICAL_SPEED * delta);
+      } else if (triggerPressed) {
+        this.selectedObject.position.addScaledVector(up, -rightAxes.y * VERTICAL_SPEED * delta);
       } else {
         this.selectedObject.position.addScaledVector(depthForward, -rightAxes.y * TRANSLATION_SPEED * delta);
       }

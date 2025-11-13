@@ -461,6 +461,17 @@ function setupTransformControls(sceneManager) {
   return { update };
 }
 
+function enableVideoAudio(object) {
+  if (!object?.userData?.asset?.videoElement) return;
+  const video = object.userData.asset.videoElement;
+  video.muted = false;
+  video.autoplay = true;
+  video.loop = true;
+  video.play().catch(() => {
+    // XRデバイスでのユーザー操作待ち
+  });
+}
+
 function detectMediaKind(file) {
   if (!file) return null;
   if (file.type?.startsWith('image/')) return 'image';
@@ -479,6 +490,9 @@ async function processMediaFile(file, kind, context) {
     preserveObjectUrl: kind === 'video'
   });
   const spawned = await context.sceneManager.spawnAssetFromPayload(localPayload);
+  if (kind === 'video') {
+    enableVideoAudio(spawned);
+  }
   context.sceneManager.focusOnObject?.(spawned, { distance: 6 });
   context.transformUI?.update(spawned);
   const remotePayload = {

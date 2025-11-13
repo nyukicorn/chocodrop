@@ -27,10 +27,11 @@ async function main() {
   });
 
   const THREE = await loadThree();
-  createDefaultEnvironment(THREE, sceneManager);
+  const environment = createDefaultEnvironment(THREE, sceneManager);
   setupXRControls(sceneManager);
   setupAssetStatus(sceneManager);
   setupRemoteSceneLoader(sceneManager);
+  setupEnvironmentToggle(environment);
 }
 
 function createDefaultEnvironment(THREE, sceneManager) {
@@ -69,6 +70,21 @@ function createDefaultEnvironment(THREE, sceneManager) {
     pulseLight.intensity = 1.5 + Math.sin(t) * 0.6;
     ring.material.emissiveIntensity = 0.4 + Math.abs(Math.sin(t)) * 0.4;
   };
+  return { floor, ambient, pulseLight, ring, sceneManager };
+}
+
+function setupEnvironmentToggle(environment) {
+  const toggle = document.querySelector('[data-action="toggle-environment"]');
+  if (!toggle || !environment) return;
+  const setVisible = visible => {
+    ['floor', 'ambient', 'pulseLight', 'ring'].forEach(key => {
+      if (environment[key]) {
+        environment[key].visible = visible;
+      }
+    });
+  };
+  toggle.addEventListener('change', event => setVisible(event.target.checked));
+  setVisible(toggle.checked);
 }
 
 function setupXRControls(sceneManager) {
