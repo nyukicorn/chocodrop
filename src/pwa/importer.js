@@ -360,6 +360,7 @@ function setupTransformControls(sceneManager) {
   const scaleInput = document.querySelector('[data-transform-scale]');
   const buttons = Array.from(document.querySelectorAll('[data-transform-buttons] button'));
   const resetBtn = document.querySelector('[data-action="reset-transform"]');
+  const audioBtn = document.querySelector('[data-action="toggle-audio"]');
   const THREE = sceneManager.THREE;
   const forward = new THREE.Vector3();
   const planarForward = new THREE.Vector3();
@@ -370,6 +371,7 @@ function setupTransformControls(sceneManager) {
   const setEnabled = enabled => {
     if (scaleInput) scaleInput.disabled = !enabled;
     if (resetBtn) resetBtn.disabled = !enabled;
+    if (audioBtn) audioBtn.disabled = !(enabled && hasAudio(current));
     buttons.forEach(button => {
       button.disabled = !enabled;
     });
@@ -387,6 +389,9 @@ function setupTransformControls(sceneManager) {
     if (current && scaleInput) {
       const avgScale = (current.scale.x + current.scale.y + current.scale.z) / 3;
       scaleInput.value = avgScale.toFixed(2);
+    }
+    if (audioBtn && current?.userData?.asset?.videoElement) {
+      audioBtn.textContent = current.userData.asset.videoElement.muted ? '音声ON' : '音声OFF';
     }
   };
 
@@ -457,6 +462,12 @@ function setupTransformControls(sceneManager) {
     sceneManager.focusOnObject?.(current, { distance: 5 });
   });
 
+  audioBtn?.addEventListener('click', () => {
+    if (!current || !hasAudio(current)) return;
+    toggleObjectAudio(current);
+    audioBtn.textContent = current.userData.asset.videoElement.muted ? '音声ON' : '音声OFF';
+  });
+
   setEnabled(false);
   return { update };
 }
@@ -464,12 +475,24 @@ function setupTransformControls(sceneManager) {
 function enableVideoAudio(object) {
   if (!object?.userData?.asset?.videoElement) return;
   const video = object.userData.asset.videoElement;
-  video.muted = false;
-  video.autoplay = true;
   video.loop = true;
+  video.muted = true;
   video.play().catch(() => {
     // XRデバイスでのユーザー操作待ち
   });
+}
+
+function toggleObjectAudio(object) {
+  const video = object?.userData?.asset?.videoElement;
+  if (!video) return;
+  video.muted = !video.muted;
+  if (!video.muted) {
+    video.play().catch(() => undefined);
+  }
+}
+
+function hasAudio(object) {
+  return !!object?.userData?.asset?.videoElement;
 }
 
 function detectMediaKind(file) {
