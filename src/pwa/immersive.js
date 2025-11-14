@@ -205,13 +205,27 @@ function setupAssetStatus(sceneManager) {
         li.dataset.assetId = asset.id;
         const label = document.createElement('span');
         label.textContent = `${getAssetIcon(asset.kind)} ${asset.fileName || asset.kind}`;
+        const buttonGroup = document.createElement('span');
+        buttonGroup.className = 'media-action-group';
+
+        if (asset.kind === 'video') {
+          const audioBtn = document.createElement('button');
+          audioBtn.type = 'button';
+          audioBtn.dataset.action = 'toggle-audio';
+          audioBtn.dataset.assetId = asset.id;
+          audioBtn.textContent = asset.muted ? '🔇' : '🔊';
+          buttonGroup.appendChild(audioBtn);
+        }
+
         const removeBtn = document.createElement('button');
         removeBtn.type = 'button';
         removeBtn.dataset.action = 'remove-asset';
         removeBtn.dataset.assetId = asset.id;
         removeBtn.textContent = '削除';
+        buttonGroup.appendChild(removeBtn);
+
         li.appendChild(label);
-        li.appendChild(removeBtn);
+        li.appendChild(buttonGroup);
         listEl.appendChild(li);
       });
     }
@@ -280,6 +294,9 @@ function setupAssetStatus(sceneManager) {
     if (target?.dataset?.action === 'remove-asset') {
       const assetId = target.dataset.assetId;
       sceneManager.removeAssetById(assetId);
+    } else if (target?.dataset?.action === 'toggle-audio') {
+      const assetId = target.dataset.assetId;
+      sceneManager.toggleAssetAudio?.(assetId);
     }
   });
 

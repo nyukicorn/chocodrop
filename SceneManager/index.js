@@ -411,9 +411,9 @@ export class SceneManager {
       this.setSelectedObject(null);
     }
     if (wasAsset) {
-      this.emit('asset:removed', { object: object3d, id: object3d?.userData?.asset?.id });
-      this._emitAssetCount();
-    }
+    this.emit('asset:removed', { object: object3d, id: object3d?.userData?.asset?.id });
+    this._emitAssetCount();
+  }
   }
 
   clear(options = {}) {
@@ -480,6 +480,19 @@ export class SceneManager {
     const target = this._findAssetById(assetId);
     if (!target) return false;
     this.remove(target);
+    return true;
+  }
+
+  toggleAssetAudio(assetId) {
+    const target = this._findAssetById(assetId);
+    if (!target) return false;
+    const video = target.userData?.asset?.videoElement;
+    if (!video) return false;
+    video.muted = !video.muted;
+    if (!video.muted) {
+      video.play().catch(() => undefined);
+    }
+    this.emit('asset:audio', { id: assetId, muted: video.muted });
     return true;
   }
 

@@ -61,6 +61,25 @@
         justify-content: space-between;
         gap: 0.75rem;
       }
+      .toggle-control {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        font-size: 0.85rem;
+        color: #e2e8f0;
+      }
+      .media-action-group {
+        display: flex;
+        gap: 0.35rem;
+      }
+      .media-action-group button {
+        border: 1px solid rgba(148, 163, 184, 0.4);
+        border-radius: 999px;
+        padding: 0.2rem 0.6rem;
+        background: rgba(15, 23, 42, 0.55);
+        color: #e2e8f0;
+        font-size: 0.75rem;
+      }
       .control-hint ul {
         list-style: none;
         padding: 0;
@@ -115,6 +134,10 @@
           <span class="pill">Remote</span>
           <span data-remote-audit>Zero-Trust</span>
         </div>
+        <label class="toggle-control">
+          <input type="checkbox" data-action="toggle-environment" checked>
+          <span>環境エフェクト</span>
+        </label>
         <div class="remote-input">
           <input type="url" name="remote-url" placeholder="https://example.github.io/scene/" autocomplete="off" required>
           <button type="submit">診断してロード</button>
