@@ -288,6 +288,17 @@ function setupAssetStatus(sceneManager) {
       setStatus(`${count} 件のメディア`, 'ok');
     }
   });
+  sceneManager.on('asset:audio', ({ detail }) => {
+    if (!detail?.id || !assets.has(detail.id)) return;
+    const existing = assets.get(detail.id);
+    assets.set(detail.id, { ...existing, muted: detail.muted });
+    renderList();
+  });
+  sceneManager.on('asset:audio-volume', ({ detail }) => {
+    if (!detail?.id || !assets.has(detail.id)) return;
+    const existing = assets.get(detail.id);
+    assets.set(detail.id, { ...existing, audioVolume: detail.volume });
+  });
 
   listEl?.addEventListener('click', event => {
     const target = event.target;

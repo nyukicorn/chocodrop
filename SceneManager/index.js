@@ -67,6 +67,7 @@ export class SceneManager {
     this._gltfLoader = null;
     this.assetLimit = this.options.assetLimit ?? DEFAULT_ASSET_LIMIT;
     this.assetHistory = [];
+    this._xrButtonState = {};
   }
 
   on(type, handler) {
@@ -483,16 +484,29 @@ export class SceneManager {
     return true;
   }
 
+  getAssetById(assetId) {
+    return this._findAssetById(assetId);
+  }
+
+  setAssetVolume(assetId, volume) {
+    const target = this._findAssetById(assetId);
+    return this._setObjectVolume(target, volume);
+  }
+
+  adjustAssetVolume(assetId, delta) {
+    const target = this._findAssetById(assetId);
+    if (!target) return false;
+    const current = target.userData?.asset?.audioVolume ?? target.userData?.asset?.videoElement?.volume ?? 1;
+    return this._setObjectVolume(target, current + delta);
+  }
+
   toggleAssetAudio(assetId) {
     const target = this._findAssetById(assetId);
     if (!target) return false;
     const video = target.userData?.asset?.videoElement;
     if (!video) return false;
-    video.muted = !video.muted;
-    if (!video.muted) {
-      video.play().catch(() => undefined);
-    }
-    this.emit('asset:audio', { id: assetId, muted: video.muted });
+    const muted = !video.muted;
+    this._setObjectMuted(target, muted);
     return true;
   }
 
@@ -615,7 +629,9 @@ export class SceneManager {
       videoTexture,
       objectURL: objectUrl,
       pixelWidth: video.videoWidth,
-      pixelHeight: video.videoHeight
+      pixelHeight: video.videoHeight,
+      muted: true,
+      audioVolume: 1
     });
     plane.userData.asset = metadata;
     const assetTarget = this.assetRoot || this.dynamicRoot;
@@ -781,6 +797,33 @@ export class SceneManager {
         this.selectedObject.position.addScaledVector(depthForward, -rightAxes.y * TRANSLATION_SPEED * delta);
       }
     }
+
+    this._handleXRButtonControls(leftSource, rightSource);
+  }
+
+  _handleXRButtonControls(leftSource, rightSource) {
+    const target = this.selectedObject;
+    if (!target?.userData?.asset?.videoElement) return;
+    const leftButtons = leftSource?.gamepad?.buttons || [];
+    const rightButtons = rightSource?.gamepad?.buttons || [];
+    this._handleXRButtonEdge('rightA', rightButtons[4], () => this._adjustObjectVolume(target, -0.05));
+    this._handleXRButtonEdge('rightB', rightButtons[5], () => this._adjustObjectVolume(target, 0.05));
+    this._handleXRButtonEdge('leftX', leftButtons[4], () => this._setObjectMuted(target, !target?.userData?.asset?.muted));
+  }
+
+  _handleXRButtonEdge(key, button, onPress) {
+    const pressed = button ? (button.pressed || button.value > 0.5) : false;
+    if (pressed && !this._xrButtonState[key]) {
+      onPress?.();
+    }
+    this._xrButtonState[key] = pressed;
+  }
+
+  _adjustObjectVolume(object, delta) {
+    if (!object) return;
+    const current = object.userData?.asset?.audioVolume ?? object.userData?.asset?.videoElement?.volume ?? 1;
+    const next = Math.min(Math.max(current + delta, 0), 1);
+    this._setObjectVolume(object, next);
   }
 
   _getThumbstickAxes(source) {
@@ -817,6 +860,27 @@ export class SceneManager {
   _emitAssetCount() {
     const count = this.assetRoot?.children?.length || 0;
     this.emit('asset:count', { count, limit: this.assetLimit, warnThreshold: Math.floor(this.assetLimit * ASSET_WARNING_RATIO) });
+  }
+
+  _setObjectVolume(object, volume) {
+    if (!object?.userData?.asset?.videoElement) return false;
+    const value = Math.min(Math.max(volume, 0), 1);
+    object.userData.asset.videoElement.volume = value;
+    object.userData.asset.audioVolume = value;
+    this.emit('asset:audio-volume', { id: object.userData.asset.id, volume: value });
+    return true;
+  }
+
+  _setObjectMuted(object, muted) {
+    const video = object?.userData?.asset?.videoElement;
+    if (!video) return false;
+    video.muted = muted;
+    object.userData.asset.muted = muted;
+    if (!muted) {
+      video.play().catch(() => undefined);
+    }
+    this.emit('asset:audio', { id: object.userData.asset.id, muted });
+    return true;
   }
 
   _enforceAssetLimit() {

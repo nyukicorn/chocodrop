@@ -358,9 +358,11 @@ function attachClientStatus(client, overlayUI, pendingSync, pendingAssets, setMe
 function setupTransformControls(sceneManager) {
   const labelEl = document.querySelector('[data-transform-label]');
   const scaleInput = document.querySelector('[data-transform-scale]');
+  const audioInput = document.querySelector('[data-audio-volume]');
   const buttons = Array.from(document.querySelectorAll('[data-transform-buttons] button'));
   const resetBtn = document.querySelector('[data-action="reset-transform"]');
   const audioBtn = document.querySelector('[data-action="toggle-audio"]');
+  const mediaSelect = document.querySelector('[data-media-select]');
   const THREE = sceneManager.THREE;
   const forward = new THREE.Vector3();
   const planarForward = new THREE.Vector3();
@@ -370,6 +372,7 @@ function setupTransformControls(sceneManager) {
 
   const setEnabled = enabled => {
     if (scaleInput) scaleInput.disabled = !enabled;
+    if (audioInput) audioInput.disabled = !(enabled && hasAudio(current));
     if (resetBtn) resetBtn.disabled = !enabled;
     if (audioBtn) audioBtn.disabled = !(enabled && hasAudio(current));
     buttons.forEach(button => {
@@ -389,6 +392,9 @@ function setupTransformControls(sceneManager) {
     if (current && scaleInput) {
       const avgScale = (current.scale.x + current.scale.y + current.scale.z) / 3;
       scaleInput.value = avgScale.toFixed(2);
+    }
+    if (audioInput && current?.userData?.asset?.audioVolume != null) {
+      audioInput.value = current.userData.asset.audioVolume;
     }
     if (audioBtn && current?.userData?.asset?.videoElement) {
       audioBtn.textContent = current.userData.asset.videoElement.muted ? '音声ON' : '音声OFF';
@@ -468,6 +474,55 @@ function setupTransformControls(sceneManager) {
     audioBtn.textContent = current.userData.asset.videoElement.muted ? '音声ON' : '音声OFF';
   });
 
+  audioInput?.addEventListener('input', event => {
+    if (!current || !hasAudio(current)) return;
+    const volume = parseFloat(event.target.value);
+    setObjectVolume(current, volume);
+  });
+
+  const refreshSelect = () => {
+    if (!mediaSelect) return;
+    const assets = sceneManager.listAssets?.() || [];
+    const previous = mediaSelect.value;
+    mediaSelect.innerHTML = '<option value="">最新のメディアを選択</option>';
+    assets.forEach(asset => {
+      const id = asset.userData?.asset?.id;
+      if (!id) return;
+      const option = document.createElement('option');
+      option.value = id;
+      option.textContent = asset.userData?.asset?.fileName || asset.name || id;
+      if (id === previous) {
+        option.selected = true;
+      }
+      mediaSelect.appendChild(option);
+    });
+    if (!mediaSelect.value && assets.length) {
+      const latest = assets[assets.length - 1].userData?.asset?.id;
+      if (latest) {
+        mediaSelect.value = latest;
+        const asset = sceneManager.getAssetById?.(latest);
+        if (asset) {
+          sceneManager.setSelectedObject(asset);
+          update(asset);
+        }
+      }
+    }
+  };
+
+  mediaSelect?.addEventListener('change', event => {
+    const id = event.target.value;
+    if (!id) return;
+    const asset = sceneManager.getAssetById?.(id);
+    if (asset) {
+      sceneManager.setSelectedObject(asset);
+      update(asset);
+    }
+  });
+
+  sceneManager.on('asset:added', () => refreshSelect());
+  sceneManager.on('asset:removed', () => refreshSelect());
+  refreshSelect();
+
   setEnabled(false);
   return { update };
 }
@@ -476,23 +531,28 @@ function enableVideoAudio(object) {
   if (!object?.userData?.asset?.videoElement) return;
   const video = object.userData.asset.videoElement;
   video.loop = true;
-  video.muted = true;
+  if (object.userData.asset.audioVolume == null) {
+    object.userData.asset.audioVolume = 1;
+  }
+  video.volume = object.userData.asset.audioVolume;
   video.play().catch(() => {
     // XRデバイスでのユーザー操作待ち
   });
 }
 
 function toggleObjectAudio(object) {
-  const video = object?.userData?.asset?.videoElement;
-  if (!video) return;
-  video.muted = !video.muted;
-  if (!video.muted) {
-    video.play().catch(() => undefined);
-  }
+  const id = object?.userData?.asset?.id;
+  sceneManager.toggleAssetAudio?.(id);
 }
 
 function hasAudio(object) {
   return !!object?.userData?.asset?.videoElement;
+}
+
+function setObjectVolume(object, volume) {
+  const id = object?.userData?.asset?.id;
+  if (!id) return;
+  sceneManager.setAssetVolume?.(id, volume);
 }
 
 function detectMediaKind(file) {
