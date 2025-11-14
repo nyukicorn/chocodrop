@@ -474,6 +474,53 @@ ChocoDrop は常駐 daemon + ブラウザ SDK の構成で動作します。
 
 ---
 
+## 🧪 開発者向けテストガイド
+
+ChocoDrop のフォームUI（`CommandUI.js` / `CommandUIDemo.js`）を修正した際のテスト手順です。
+
+### SDK版テスト（画像生成・MCP設定機能）
+
+```bash
+# 既存サーバー停止
+lsof -ti:3011 | xargs kill -9 2>/dev/null || true
+lsof -ti:8080 | xargs kill -9 2>/dev/null || true
+
+# サーバー起動
+node src/server/server.js --port 3011 &
+python -m http.server 8080 --directory examples/sdk-test &
+```
+
+→ ブラウザで **`http://localhost:8080/`** を開く
+- ✅ 画像生成機能・MCP設定が動作確認できます
+- ✅ **ビルド不要**（ソース直読み込み）
+
+### デモ版テスト（インポート機能のみ）
+
+```bash
+# ビルド
+npm run build
+
+# 既存サーバー停止
+lsof -ti:3011 | xargs kill -9 2>/dev/null || true
+lsof -ti:8000 | xargs kill -9 2>/dev/null || true
+
+# サーバー起動（プロジェクトルートから）
+node src/server/server.js --port 3011 &
+python -m http.server 8000 &
+```
+
+→ ブラウザで **`http://localhost:8000/examples/basic/`** を開く
+- ✅ インポート機能が動作確認できます
+- ⚠️ **ビルド必要**（`npm run build`）
+
+### ⚠️ 重要
+
+- ❌ **`http://localhost:3011/` は開かないでください**（管理画面のみ・Three.jsシーンなし）
+- ✅ SDK版: `localhost:8080`、デモ版: `localhost:8000/examples/basic/` が正しいURLです
+- 📝 詳細: `.claude/commands/edit-chocodrop-form.md`
+
+---
+
 ## 📚 詳細ドキュメント
 - [トラブルシューティング](docs/TROUBLESHOOTING.md)
 - [API リファレンス](docs/API.md)
