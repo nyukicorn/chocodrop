@@ -15,6 +15,7 @@ async function main() {
     options: {
       sceneManager: {
         background: '#020817',
+        defaultVideoMuted: false,
         onBeforeRender: delta => {
           // 軽量なフレームタイミング可視化
           performance.mark('frame-end');

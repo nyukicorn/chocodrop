@@ -35,6 +35,7 @@ export class SceneManager {
       onAfterRender: null,
       xrBridge: {},
       xrAutoResume: true,
+      defaultVideoMuted: true,
       ...options
     };
 
@@ -630,9 +631,10 @@ export class SceneManager {
       objectURL: objectUrl,
       pixelWidth: video.videoWidth,
       pixelHeight: video.videoHeight,
-      muted: true,
+      muted: this.options.defaultVideoMuted !== false,
       audioVolume: 1
     });
+    video.muted = metadata.muted;
     plane.userData.asset = metadata;
     const assetTarget = this.assetRoot || this.dynamicRoot;
     assetTarget.add(plane);
