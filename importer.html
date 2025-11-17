@@ -18,24 +18,35 @@
     </script>
     <style>
       :root { color-scheme: dark; font-family: 'Inter', system-ui, sans-serif; }
+      html, body { height: 100%; }
       body {
         margin: 0;
-        display: grid;
-        grid-template-columns: minmax(320px, 380px) 1fr;
-        min-height: 100vh;
+        padding-left: 360px;
         background: #020617;
         color: #e2e8f0;
+        overflow: hidden;
       }
       aside {
+        position: fixed;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        width: 360px;
         padding: 2rem;
         display: flex;
         flex-direction: column;
         gap: 1.5rem;
         border-right: 1px solid rgba(148, 163, 184, 0.2);
-        background: rgba(15, 23, 42, 0.6);
+        background: rgba(15, 23, 42, 0.7);
         backdrop-filter: blur(18px);
+        overflow-y: auto;
+        z-index: 2;
       }
-      main { position: relative; }
+      main {
+        position: relative;
+        height: 100vh;
+        width: calc(100% - 360px);
+      }
       canvas {
         width: 100%;
         height: 100%;
@@ -51,6 +62,18 @@
       [data-dropzone][data-state="over"] {
         border-color: #38bdf8;
         background: rgba(56, 189, 248, 0.12);
+      }
+      [data-media-dropzone] {
+        border: 2px dashed rgba(190, 100, 255, 0.45);
+        border-radius: 1rem;
+        padding: 1.5rem;
+        text-align: center;
+        transition: border-color 0.2s ease, background 0.2s ease;
+        background: rgba(76, 29, 149, 0.2);
+      }
+      [data-media-dropzone][data-state="over"] {
+        border-color: #f0abfc;
+        background: rgba(216, 180, 254, 0.2);
       }
       input[type="file"] {
         width: 100%;
@@ -76,6 +99,19 @@
         background: rgba(30, 64, 175, 0.35);
         border: 1px solid rgba(96, 165, 250, 0.35);
       }
+      .media-caster {
+        padding: 1rem 0;
+        border-top: 1px solid rgba(148, 163, 184, 0.2);
+        border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+      }
+      .media-status[data-state="ok"] { color: #4ade80; }
+      .media-status[data-state="warn"] { color: #facc15; }
+      .media-status[data-state="error"] { color: #f87171; }
+      .media-status[data-state="pending"] { color: #38bdf8; }
+      .media-status[data-state="idle"] { color: #cbd5f5; }
       h1 {
         margin: 0;
         font-size: 1.4rem;
@@ -87,17 +123,65 @@
       }
       @media (max-width: 960px) {
         body {
-          grid-template-columns: 1fr;
+          padding-left: 0;
+          overflow: visible;
         }
         aside {
-          position: sticky;
-          top: 0;
-          z-index: 1;
-          background: rgba(15, 23, 42, 0.92);
+          position: relative;
+          width: 100%;
+          height: auto;
+          max-height: none;
         }
         main {
-          min-height: 60vh;
+          width: 100%;
+          height: 60vh;
         }
+      }
+      .media-controls {
+        padding: 1rem 0;
+        border-top: 1px solid rgba(148, 163, 184, 0.2);
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+      }
+      .media-controls .control-group {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+      }
+      .media-controls button {
+        flex: 1 1 30%;
+        min-width: 90px;
+        border: 1px solid rgba(148, 163, 184, 0.4);
+        border-radius: 0.5rem;
+        background: rgba(15, 23, 42, 0.5);
+        color: inherit;
+        padding: 0.4rem 0.6rem;
+        cursor: pointer;
+      }
+      .media-select {
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+      }
+      .media-select select {
+        width: 100%;
+        border-radius: 0.5rem;
+        border: 1px solid rgba(148, 163, 184, 0.4);
+        background: rgba(15, 23, 42, 0.5);
+        color: inherit;
+        padding: 0.45rem 0.5rem;
+      }
+      .media-controls button:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+      .media-controls input[type="range"] {
+        width: 100%;
+      }
+      .media-controls__label {
+        font-size: 0.85rem;
+        color: #94a3b8;
       }
     </style>
   </head>
@@ -112,11 +196,53 @@
         <strong>ドラッグ＆ドロップ</strong>
         <p class="note">サポート形式以外は拒否します。</p>
       </div>
+      <section class="media-caster">
+        <h2>メディアキャスト β</h2>
+        <p class="note">画像 / 動画 / GLB を Quest へ即時同期します。シーン全体とは独立して扱われます。</p>
+        <label>個別メディア
+          <input id="media-input" type="file" accept="image/*,video/*,.glb,.gltf" multiple>
+        </label>
+        <div data-media-dropzone data-state="idle">
+          <strong>画像・動画・GLB をドロップ</strong>
+          <p class="note">最大 150MB 程度を推奨。アップロード後ただちにQuestへ送信します。</p>
+        </div>
+        <p class="note media-status" data-media-status data-state="idle">待機中: Quest 接続時にライブ送信します。</p>
+      </section>
       <section>
         <h2>保存済みモデル</h2>
         <ul data-file-list>
           <li>OPFS を初期化しています…</li>
         </ul>
+      </section>
+      <section class="media-controls">
+        <h2>メディア調整</h2>
+        <label class="media-select">
+          <span>対象メディア</span>
+          <select data-media-select>
+            <option value="">最新のメディアを選択</option>
+          </select>
+        </label>
+        <div class="media-controls__label">選択中: <span data-transform-label>--</span></div>
+        <label>スケール
+          <input type="range" data-transform-scale min="0.2" max="4" step="0.05" value="1" disabled>
+        </label>
+        <label>音量
+          <input type="range" data-audio-volume min="0" max="1" step="0.05" value="1" disabled>
+        </label>
+        <div class="control-group" data-transform-buttons>
+          <button type="button" data-nudge="forward">前へ</button>
+          <button type="button" data-nudge="back">後ろへ</button>
+          <button type="button" data-nudge="left">左へ</button>
+          <button type="button" data-nudge="right">右へ</button>
+          <button type="button" data-nudge="up">上へ</button>
+          <button type="button" data-nudge="down">下へ</button>
+          <button type="button" data-nudge="near">近づける</button>
+          <button type="button" data-nudge="far">遠ざける</button>
+        </div>
+        <div class="control-group">
+          <button type="button" data-action="reset-transform" disabled>リセット</button>
+          <button type="button" data-action="toggle-audio" disabled>音声ON</button>
+        </div>
       </section>
     </aside>
     <main>

@@ -8,13 +8,19 @@ import {
 import { saveModelToOPFS, listStoredModels, isOPFSSupported } from '../../opfs_store.js';
 
 const ACCEPT_EXTENSIONS = ['.gltf', '.glb', '.json'];
+const MEDIA_MODEL_EXTENSIONS = ['.glb', '.gltf'];
+const MEDIA_CHUNK_SIZE = 256 * 1024; // 256KB
 
 async function main() {
   const canvas = document.querySelector('#importer-canvas');
   const overlay = document.querySelector('[data-overlay]');
   const fileInput = document.querySelector('#file-input');
   const dropZone = document.querySelector('[data-dropzone]');
+  const mediaInput = document.querySelector('#media-input');
+  const mediaDropZone = document.querySelector('[data-media-dropzone]');
   const fileList = document.querySelector('[data-file-list]');
+  const mediaStatus = document.querySelector('[data-media-status]');
+  const setMediaStatus = createMediaStatusController(mediaStatus);
   const overlayUI = createOverlayStatus(overlay);
   setOverlayStatus(overlayUI, '初期化中…', 'Quest からのアクセスも待機しています。');
 
@@ -41,7 +47,12 @@ async function main() {
     }
   });
   const pendingSync = { latest: null };
-  attachClientStatus(client, overlayUI, pendingSync);
+  const pendingAssets = [];
+  const transformUI = setupTransformControls(sceneManager);
+  sceneManager.on('selection:changed', ({ detail }) => {
+    transformUI.update(detail?.object);
+  });
+  attachClientStatus(client, overlayUI, pendingSync, pendingAssets, setMediaStatus);
   const loaders = await setupLoaders(sceneManager);
   const { THREE, gltfLoader } = loaders;
   setOverlayStatus(
@@ -84,6 +95,40 @@ async function main() {
     handleFiles(event.target.files);
   });
 
+  const handleMediaFiles = async files => {
+    const targets = files ? Array.from(files) : [];
+    if (targets.length === 0) return;
+    for (const file of targets) {
+      const kind = detectMediaKind(file);
+      if (!kind) {
+        setMediaStatus(`${file.name} は未対応形式です`, 'error');
+        continue;
+      }
+      setMediaStatus(`${file.name} を準備中…`, 'pending');
+      try {
+        const { sent } = await processMediaFile(file, kind, {
+          sceneManager,
+          client,
+          pendingAssets,
+          transformUI
+        });
+        if (sent) {
+          setMediaStatus(`${file.name} を Quest に送信しました`, 'ok');
+        } else {
+          setMediaStatus(`${file.name} をローカルに配置（再送待ち）`, 'warn');
+        }
+      } catch (error) {
+        console.error('Media cast failed', error);
+        setMediaStatus(`${file.name} の送信に失敗: ${error?.message ?? '不明なエラー'}`, 'error');
+      }
+    }
+  };
+
+  mediaInput?.addEventListener('change', event => {
+    handleMediaFiles(event.target.files);
+    event.target.value = '';
+  });
+
   dropZone.addEventListener('dragover', event => {
     event.preventDefault();
     dropZone.dataset.state = 'over';
@@ -99,6 +144,21 @@ async function main() {
     handleFiles(event.dataTransfer.files);
   });
 
+  if (mediaDropZone) {
+    mediaDropZone.addEventListener('dragover', event => {
+      event.preventDefault();
+      mediaDropZone.dataset.state = 'over';
+    });
+    mediaDropZone.addEventListener('dragleave', () => {
+      mediaDropZone.dataset.state = 'idle';
+    });
+    mediaDropZone.addEventListener('drop', event => {
+      event.preventDefault();
+      mediaDropZone.dataset.state = 'idle';
+      handleMediaFiles(event.dataTransfer.files);
+    });
+  }
+
   await refreshStoredList(fileList, opfsAvailable);
 }
 
@@ -109,7 +169,7 @@ function validateFile(file) {
 
 async function loadFileIntoScene(file, { gltfLoader, sceneManager, THREE }) {
   const lower = file.name.toLowerCase();
-  sceneManager.clear();
+  sceneManager.clear({ preserveAssets: true });
 
   if (lower.endsWith('.json')) {
     const text = await file.text();
@@ -248,7 +308,7 @@ async function broadcastScene(json, sceneManager, client) {
   if (!json || !client) return false;
   if (!client.isConnected()) return false;
   try {
-    client.send({ type: 'scene:clear' });
+    client.send({ type: 'scene:clear', payload: { preserveAssets: true } });
     client.send({ type: 'scene:json', payload: { json } });
     const { position, target } = exportCameraState(sceneManager);
     client.send({ type: 'camera:set', payload: { position, target } });
@@ -270,7 +330,7 @@ function exportCameraState(sceneManager) {
   };
 }
 
-function attachClientStatus(client, overlayUI, pendingSync) {
+function attachClientStatus(client, overlayUI, pendingSync, pendingAssets, setMediaStatus) {
   if (!client || !overlayUI) return;
   client.on('connecting', () => setOverlayStatus(overlayUI, '同期サーバー接続中…', 'Quest への配信待機中。', 'info'));
   client.on('connected', () => setOverlayStatus(overlayUI, '同期オンライン', 'PC→Quest 間で自動反映します。', 'ok'));
@@ -286,7 +346,364 @@ function attachClientStatus(client, overlayUI, pendingSync) {
         }
       }
     }
+    if (pendingAssets?.length) {
+      const flushed = await flushPendingAssets(pendingAssets, client, setMediaStatus);
+      if (flushed > 0 && setMediaStatus) {
+        setMediaStatus(`未送信メディア ${flushed} 件を Quest に送信しました`, 'ok');
+      }
+    }
   });
+}
+
+function setupTransformControls(sceneManager) {
+  const labelEl = document.querySelector('[data-transform-label]');
+  const scaleInput = document.querySelector('[data-transform-scale]');
+  const audioInput = document.querySelector('[data-audio-volume]');
+  const buttons = Array.from(document.querySelectorAll('[data-transform-buttons] button'));
+  const resetBtn = document.querySelector('[data-action="reset-transform"]');
+  const audioBtn = document.querySelector('[data-action="toggle-audio"]');
+  const mediaSelect = document.querySelector('[data-media-select]');
+  const THREE = sceneManager.THREE;
+  const forward = new THREE.Vector3();
+  const planarForward = new THREE.Vector3();
+  const planarRight = new THREE.Vector3();
+  const up = new THREE.Vector3(0, 1, 0);
+  let current = null;
+
+  const setEnabled = enabled => {
+    if (scaleInput) scaleInput.disabled = !enabled;
+    if (audioInput) audioInput.disabled = !(enabled && hasAudio(current));
+    if (resetBtn) resetBtn.disabled = !enabled;
+    if (audioBtn) audioBtn.disabled = !(enabled && hasAudio(current));
+    buttons.forEach(button => {
+      button.disabled = !enabled;
+    });
+    if (!enabled && scaleInput) {
+      scaleInput.value = 1;
+    }
+  };
+
+  const update = object => {
+    current = object || null;
+    if (labelEl) {
+      labelEl.textContent = current?.name || current?.userData?.id || '--';
+    }
+    setEnabled(!!current);
+    if (current && scaleInput) {
+      const avgScale = (current.scale.x + current.scale.y + current.scale.z) / 3;
+      scaleInput.value = avgScale.toFixed(2);
+    }
+    if (audioInput && current?.userData?.asset?.audioVolume != null) {
+      audioInput.value = current.userData.asset.audioVolume;
+    }
+    if (audioBtn && current?.userData?.asset?.videoElement) {
+      audioBtn.textContent = current.userData.asset.videoElement.muted ? '音声ON' : '音声OFF';
+    }
+  };
+
+  const applyScale = value => {
+    if (!current || !Number.isFinite(value)) return;
+    current.scale.set(value, value, value);
+  };
+
+  scaleInput?.addEventListener('input', event => {
+    const value = parseFloat(event.target.value);
+    applyScale(Math.min(Math.max(value, 0.2), 4));
+  });
+
+  const handleNudge = direction => {
+    if (!current) return;
+    const step = 0.35;
+    const verticalStep = 0.25;
+    up.copy(sceneManager.camera.up).normalize();
+    sceneManager.camera.getWorldDirection(forward).normalize();
+    planarForward.copy(forward);
+    planarForward.y = 0;
+    if (planarForward.lengthSq() === 0) {
+      planarForward.set(0, 0, -1);
+    }
+    planarForward.normalize();
+    planarRight.copy(planarForward).applyAxisAngle(up, Math.PI / 2).normalize();
+
+    switch (direction) {
+      case 'forward':
+        current.position.addScaledVector(planarForward, -step);
+        break;
+      case 'back':
+        current.position.addScaledVector(planarForward, step);
+        break;
+      case 'left':
+        current.position.addScaledVector(planarRight, -step);
+        break;
+      case 'right':
+        current.position.addScaledVector(planarRight, step);
+        break;
+      case 'up':
+        current.position.addScaledVector(up, verticalStep);
+        break;
+      case 'down':
+        current.position.addScaledVector(up, -verticalStep);
+        break;
+      case 'near':
+        current.position.addScaledVector(forward, -step);
+        break;
+      case 'far':
+        current.position.addScaledVector(forward, step);
+        break;
+      default:
+        break;
+    }
+  };
+
+  buttons.forEach(button => {
+    button.addEventListener('click', () => handleNudge(button.dataset.nudge));
+  });
+
+  resetBtn?.addEventListener('click', () => {
+    if (!current) return;
+    current.scale.set(1, 1, 1);
+    if (scaleInput) {
+      scaleInput.value = '1';
+    }
+    sceneManager.focusOnObject?.(current, { distance: 5 });
+  });
+
+  audioBtn?.addEventListener('click', () => {
+    if (!current || !hasAudio(current)) return;
+    toggleObjectAudio(current);
+    audioBtn.textContent = current.userData.asset.videoElement.muted ? '音声ON' : '音声OFF';
+  });
+
+  audioInput?.addEventListener('input', event => {
+    if (!current || !hasAudio(current)) return;
+    const volume = parseFloat(event.target.value);
+    setObjectVolume(current, volume);
+  });
+
+  const refreshSelect = () => {
+    if (!mediaSelect) return;
+    const assets = sceneManager.listAssets?.() || [];
+    const previous = mediaSelect.value;
+    mediaSelect.innerHTML = '<option value="">最新のメディアを選択</option>';
+    assets.forEach(asset => {
+      const id = asset.userData?.asset?.id;
+      if (!id) return;
+      const option = document.createElement('option');
+      option.value = id;
+      option.textContent = asset.userData?.asset?.fileName || asset.name || id;
+      if (id === previous) {
+        option.selected = true;
+      }
+      mediaSelect.appendChild(option);
+    });
+    if (!mediaSelect.value && assets.length) {
+      const latest = assets[assets.length - 1].userData?.asset?.id;
+      if (latest) {
+        mediaSelect.value = latest;
+        const asset = sceneManager.getAssetById?.(latest);
+        if (asset) {
+          sceneManager.setSelectedObject(asset);
+          update(asset);
+        }
+      }
+    }
+  };
+
+  mediaSelect?.addEventListener('change', event => {
+    const id = event.target.value;
+    if (!id) return;
+    const asset = sceneManager.getAssetById?.(id);
+    if (asset) {
+      sceneManager.setSelectedObject(asset);
+      update(asset);
+    }
+  });
+
+  sceneManager.on('asset:added', () => refreshSelect());
+  sceneManager.on('asset:removed', () => refreshSelect());
+  refreshSelect();
+
+  setEnabled(false);
+  return { update };
+}
+
+function enableVideoAudio(object) {
+  if (!object?.userData?.asset?.videoElement) return;
+  const video = object.userData.asset.videoElement;
+  video.loop = true;
+  if (object.userData.asset.audioVolume == null) {
+    object.userData.asset.audioVolume = 1;
+  }
+  video.volume = object.userData.asset.audioVolume;
+  video.play().catch(() => {
+    // XRデバイスでのユーザー操作待ち
+  });
+}
+
+function toggleObjectAudio(object) {
+  const id = object?.userData?.asset?.id;
+  sceneManager.toggleAssetAudio?.(id);
+}
+
+function hasAudio(object) {
+  return !!object?.userData?.asset?.videoElement;
+}
+
+function setObjectVolume(object, volume) {
+  const id = object?.userData?.asset?.id;
+  if (!id) return;
+  sceneManager.setAssetVolume?.(id, volume);
+}
+
+function detectMediaKind(file) {
+  if (!file) return null;
+  if (file.type?.startsWith('image/')) return 'image';
+  if (file.type?.startsWith('video/')) return 'video';
+  const lower = file.name?.toLowerCase() || '';
+  if (MEDIA_MODEL_EXTENSIONS.some(ext => lower.endsWith(ext))) {
+    return 'model';
+  }
+  return null;
+}
+
+async function processMediaFile(file, kind, context) {
+  const objectUrl = URL.createObjectURL(file);
+  const localPayload = buildAssetPayload(file, kind, {
+    objectUrl,
+    preserveObjectUrl: kind === 'video'
+  });
+  const spawned = await context.sceneManager.spawnAssetFromPayload(localPayload);
+  if (kind === 'video') {
+    enableVideoAudio(spawned);
+  }
+  context.sceneManager.focusOnObject?.(spawned, { distance: 6 });
+  context.transformUI?.update(spawned);
+  const remotePayload = {
+    ...localPayload,
+    objectUrl: null,
+    source: 'importer-stream'
+  };
+  const sent = await streamAssetToClient({ client: context.client, file, payload: remotePayload });
+  if (!sent && context.pendingAssets) {
+    context.pendingAssets.push({ file, payload: remotePayload, kind });
+  }
+  return { payload: remotePayload, sent };
+}
+
+function buildAssetPayload(file, kind, overrides = {}) {
+  return {
+    id: overrides.id || createAssetId(),
+    kind,
+    fileName: file.name,
+    mimeType: file.type || guessMimeFromName(file.name, kind),
+    size: file.size,
+    createdAt: Date.now(),
+    source: 'importer',
+    ...overrides
+  };
+}
+
+function guessMimeFromName(name = '', kind) {
+  const lower = name.toLowerCase();
+  if (kind === 'model') {
+    if (lower.endsWith('.gltf')) return 'model/gltf+json';
+    return 'model/gltf-binary';
+  }
+  if (kind === 'image') return 'image/png';
+  if (kind === 'video') return 'video/mp4';
+  return 'application/octet-stream';
+}
+
+function createAssetId() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return `asset_${Date.now().toString(16)}_${Math.random().toString(16).slice(2)}`;
+}
+
+function createMediaStatusController(element) {
+  if (!element) {
+    return () => {};
+  }
+  return (text, state = 'idle') => {
+    element.textContent = text;
+    element.dataset.state = state;
+  };
+}
+
+async function flushPendingAssets(queue, client, setMediaStatus) {
+  if (!queue || queue.length === 0) return 0;
+  if (!client?.isConnected()) return 0;
+  let sent = 0;
+  while (queue.length) {
+    const task = queue[0];
+    const success = await streamAssetToClient({ client, file: task.file, payload: task.payload });
+    if (!success) {
+      break;
+    }
+    queue.shift();
+    sent += 1;
+    if (setMediaStatus) {
+      setMediaStatus(`${task.payload.fileName} を Quest に再送しました`, 'ok');
+    }
+  }
+  return sent;
+}
+
+async function streamAssetToClient({ client, file, payload }) {
+  if (!client?.isConnected()) {
+    return false;
+  }
+  try {
+    client.send({ type: 'asset:begin', payload: { ...payload, chunkSize: MEDIA_CHUNK_SIZE } });
+    let index = 0;
+    for await (const chunk of iterateFileChunks(file, MEDIA_CHUNK_SIZE)) {
+      const base64 = bytesToBase64(chunk);
+      client.send({ type: 'asset:chunk', payload: { id: payload.id, index, data: base64 } });
+      index += 1;
+    }
+    client.send({ type: 'asset:end', payload: { id: payload.id } });
+    return true;
+  } catch (error) {
+    console.warn('streamAssetToClient failed', error);
+    try {
+      client.send({ type: 'asset:abort', payload: { id: payload.id } });
+    } catch (_) {
+      /* noop */
+    }
+    return false;
+  }
+}
+
+async function* iterateFileChunks(file, chunkSize) {
+  if (file.stream) {
+    const reader = file.stream().getReader();
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (value) {
+        yield new Uint8Array(value);
+      }
+    }
+    return;
+  }
+  let offset = 0;
+  while (offset < file.size) {
+    const slice = file.slice(offset, offset + chunkSize);
+    const buffer = await slice.arrayBuffer();
+    yield new Uint8Array(buffer);
+    offset += chunkSize;
+  }
+}
+
+function bytesToBase64(bytes) {
+  let binary = '';
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const sub = bytes.subarray(i, i + chunkSize);
+    binary += String.fromCharCode(...sub);
+  }
+  return btoa(binary);
 }
 
 main().catch(error => {
