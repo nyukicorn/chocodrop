@@ -75,7 +75,9 @@
         border-color: #f0abfc;
         background: rgba(216, 180, 254, 0.2);
       }
-      input[type="file"] {
+      input[type="file"],
+      input[type="url"],
+      input[type="text"] {
         width: 100%;
         border: 1px solid rgba(148, 163, 184, 0.3);
         border-radius: 0.75rem;
@@ -83,6 +85,31 @@
         background: rgba(15, 23, 42, 0.7);
         color: inherit;
       }
+      .url-import {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+      }
+      .url-import__controls {
+        display: flex;
+        gap: 0.5rem;
+      }
+      .url-import__controls input {
+        flex: 1;
+      }
+      .url-import__controls button {
+        border: 1px solid rgba(148, 163, 184, 0.4);
+        border-radius: 0.75rem;
+        padding: 0.75rem 1rem;
+        background: rgba(15, 23, 42, 0.7);
+        color: inherit;
+        cursor: pointer;
+        min-width: 120px;
+      }
+      .inline-status[data-state="pending"] { color: #38bdf8; }
+      .inline-status[data-state="ok"] { color: #4ade80; }
+      .inline-status[data-state="warn"] { color: #facc15; }
+      .inline-status[data-state="error"] { color: #f87171; }
       ul {
         list-style: none;
         margin: 0;
@@ -196,6 +223,14 @@
         <strong>ドラッグ＆ドロップ</strong>
         <p class="note">サポート形式以外は拒否します。</p>
       </div>
+      <section class="url-import">
+        <label for="remote-url-input">URL から読み込み</label>
+        <div class="url-import__controls">
+          <input id="remote-url-input" type="url" inputmode="url" placeholder="https://raw.githubusercontent.com/user/repo/main/model.glb" autocomplete="off">
+          <button type="button" data-action="import-url">読み込む</button>
+        </div>
+        <p class="note inline-status" data-url-status data-state="idle">GLB / GLTF / JSON ファイルの直接リンクを貼り付けてください。</p>
+      </section>
       <section class="media-caster">
         <h2>メディアキャスト β</h2>
         <p class="note">画像 / 動画 / GLB を Quest へ即時同期します。シーン全体とは独立して扱われます。</p>
