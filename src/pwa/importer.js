@@ -83,20 +83,23 @@ async function main() {
       }
       try {
         const result = await loadFileIntoScene(file, { gltfLoader, sceneManager, THREE });
-        await persistFile(file, opfsAvailable);
+        const persisted = await persistFile(file, {
+          opfsAvailable,
+          onError: message => setOverlayStatus(overlayUI, '保存エラー', message, 'warn')
+        });
         const sceneJSON = sceneManager.exportSceneJSON();
-        if (!(await broadcastScene(sceneJSON, sceneManager, client))) {
+        const syncResult = await broadcastScene(sceneJSON, sceneManager, client);
+        if (!syncResult.sent) {
           pendingSync.latest = sceneJSON;
         } else {
           pendingSync.latest = null;
         }
-        setOverlayStatus(
-          overlayUI,
-          'インポート完了',
-          client?.isConnected()
-            ? 'Quest など他デバイスにも同期しました。'
-            : 'ローカルのみ更新されました。'
-        );
+        const detailMessage = buildImportDetailMessage({
+          client,
+          persisted,
+          syncResult
+        });
+        setOverlayStatus(overlayUI, detailMessage.title, detailMessage.detail, detailMessage.tone);
       } catch (error) {
         console.error('Failed to import', error);
         setOverlayStatus(overlayUI, 'インポート失敗', error?.message || '不明なエラー', 'error');
@@ -232,12 +235,17 @@ function centerScene(object, THREE) {
   }
 }
 
-async function persistFile(file, opfsAvailable) {
-  if (!opfsAvailable) return;
+async function persistFile(file, { opfsAvailable, onError } = {}) {
+  if (!opfsAvailable) return false;
   try {
     await saveModelToOPFS(file);
+    return true;
   } catch (error) {
     console.warn('Failed to persist model to OPFS', error);
+    if (typeof onError === 'function') {
+      onError('ローカル保存に失敗しました（OPFS）');
+    }
+    return false;
   }
 }
 
@@ -262,6 +270,52 @@ async function refreshStoredList(container, opfsAvailable) {
   } catch (error) {
     container.textContent = 'OPFS へのアクセスに失敗しました';
   }
+}
+
+function buildImportDetailMessage({ client, persisted, syncResult }) {
+  if (syncResult?.sent) {
+    const detail = client?.isConnected()
+      ? 'Quest など他デバイスにも同期しました。'
+      : 'ローカルのみ更新されました。';
+    if (persisted) {
+      return { title: 'インポート完了', detail, tone: 'ok' };
+    }
+    return {
+      title: 'インポート完了（保存注意）',
+      detail: `${detail} ローカル保存には失敗しました。`,
+      tone: 'warn'
+    };
+  }
+
+  if (syncResult?.reason === 'disconnected') {
+    return {
+      title: 'Quest未接続',
+      detail: '接続復帰しだい自動同期します。ChocoDrop Questアプリを起動してください。',
+      tone: 'warn'
+    };
+  }
+
+  if (syncResult?.reason === 'no-client') {
+    return {
+      title: '同期クライアント未接続',
+      detail: 'Quest への送信が無効です。ページを再読み込みして再接続してください。',
+      tone: 'warn'
+    };
+  }
+
+  if (syncResult?.reason === 'error') {
+    return {
+      title: 'Quest送信失敗',
+      detail: '送信エラーが発生しました。接続を確認して再試行してください。',
+      tone: 'error'
+    };
+  }
+
+  return {
+    title: 'インポート完了',
+    detail: persisted ? 'ファイルを読み込みました。' : 'ファイルを読み込みました（保存失敗）。',
+    tone: persisted ? 'ok' : 'warn'
+  };
 }
 
 function createInlineStatusController(element, { iconMap } = {}) {
@@ -586,9 +640,13 @@ function createFileLike(arrayBuffer, name, mimeType) {
     return new File([arrayBuffer], name, { type: mimeType });
   }
   const blob = new Blob([arrayBuffer], { type: mimeType });
+  const bufferCopy = arrayBuffer.slice(0);
   return Object.assign(blob, {
     name,
-    lastModified: Date.now()
+    lastModified: Date.now(),
+    async arrayBuffer() {
+      return bufferCopy;
+    }
   });
 }
 
@@ -628,17 +686,17 @@ async function setupLoaders(sceneManager) {
 }
 
 async function broadcastScene(json, sceneManager, client) {
-  if (!json || !client) return false;
-  if (!client.isConnected()) return false;
+  if (!json || !client) return { sent: false, reason: 'no-client' };
+  if (!client.isConnected()) return { sent: false, reason: 'disconnected' };
   try {
     client.send({ type: 'scene:clear', payload: { preserveAssets: true } });
     client.send({ type: 'scene:json', payload: { json } });
     const { position, target } = exportCameraState(sceneManager);
     client.send({ type: 'camera:set', payload: { position, target } });
-    return true;
+    return { sent: true };
   } catch (error) {
     console.warn('Scene broadcast failed', error);
-    return false;
+    return { sent: false, reason: 'error', error };
   }
 }
 
@@ -663,8 +721,8 @@ function attachClientStatus(client, overlayUI, pendingSync, pendingAssets, setMe
     if (pendingSync?.latest) {
       const sceneManager = client.sceneManager;
       if (sceneManager) {
-        const success = await broadcastScene(pendingSync.latest, sceneManager, client);
-        if (success) {
+        const syncResult = await broadcastScene(pendingSync.latest, sceneManager, client);
+        if (syncResult.sent) {
           pendingSync.latest = null;
         }
       }
