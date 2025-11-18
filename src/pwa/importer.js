@@ -10,12 +10,26 @@ import { saveModelToOPFS, listStoredModels, isOPFSSupported } from '../../opfs_s
 const ACCEPT_EXTENSIONS = ['.gltf', '.glb', '.json'];
 const MEDIA_MODEL_EXTENSIONS = ['.glb', '.gltf'];
 const MEDIA_CHUNK_SIZE = 256 * 1024; // 256KB
+const URL_HISTORY_STORAGE_KEY = 'chocodrop:urlHistory';
+const URL_HISTORY_LIMIT = 6;
+const URL_STATUS_ICONS = {
+  idle: 'ℹ️',
+  typing: '⌨️',
+  pending: '⏳',
+  ok: '✅',
+  warn: '⚠️',
+  error: '❌'
+};
 
 async function main() {
   const canvas = document.querySelector('#importer-canvas');
   const overlay = document.querySelector('[data-overlay]');
   const fileInput = document.querySelector('#file-input');
   const dropZone = document.querySelector('[data-dropzone]');
+  const urlInput = document.querySelector('#remote-url-input');
+  const urlButton = document.querySelector('[data-action="import-url"]');
+  const urlStatus = document.querySelector('[data-url-status]');
+  const urlHistory = document.querySelector('[data-url-history]');
   const mediaInput = document.querySelector('#media-input');
   const mediaDropZone = document.querySelector('[data-media-dropzone]');
   const fileList = document.querySelector('[data-file-list]');
@@ -69,20 +83,23 @@ async function main() {
       }
       try {
         const result = await loadFileIntoScene(file, { gltfLoader, sceneManager, THREE });
-        await persistFile(file, opfsAvailable);
+        const persisted = await persistFile(file, {
+          opfsAvailable,
+          onError: message => setOverlayStatus(overlayUI, '保存エラー', message, 'warn')
+        });
         const sceneJSON = sceneManager.exportSceneJSON();
-        if (!(await broadcastScene(sceneJSON, sceneManager, client))) {
+        const syncResult = await broadcastScene(sceneJSON, sceneManager, client);
+        if (!syncResult.sent) {
           pendingSync.latest = sceneJSON;
         } else {
           pendingSync.latest = null;
         }
-        setOverlayStatus(
-          overlayUI,
-          'インポート完了',
-          client?.isConnected()
-            ? 'Quest など他デバイスにも同期しました。'
-            : 'ローカルのみ更新されました。'
-        );
+        const detailMessage = buildImportDetailMessage({
+          client,
+          persisted,
+          syncResult
+        });
+        setOverlayStatus(overlayUI, detailMessage.title, detailMessage.detail, detailMessage.tone);
       } catch (error) {
         console.error('Failed to import', error);
         setOverlayStatus(overlayUI, 'インポート失敗', error?.message || '不明なエラー', 'error');
@@ -93,6 +110,15 @@ async function main() {
 
   fileInput.addEventListener('change', event => {
     handleFiles(event.target.files);
+  });
+
+  setupUrlImport({
+    input: urlInput,
+    button: urlButton,
+    statusElement: urlStatus,
+    historyElement: urlHistory,
+    onImport: handleFiles,
+    overlayUI
   });
 
   const handleMediaFiles = async files => {
@@ -163,7 +189,11 @@ async function main() {
 }
 
 function validateFile(file) {
-  const lower = file.name.toLowerCase();
+  return isSupportedModelFileName(file.name);
+}
+
+function isSupportedModelFileName(name = '') {
+  const lower = String(name).toLowerCase();
   return ACCEPT_EXTENSIONS.some(ext => lower.endsWith(ext));
 }
 
@@ -205,12 +235,17 @@ function centerScene(object, THREE) {
   }
 }
 
-async function persistFile(file, opfsAvailable) {
-  if (!opfsAvailable) return;
+async function persistFile(file, { opfsAvailable, onError } = {}) {
+  if (!opfsAvailable) return false;
   try {
     await saveModelToOPFS(file);
+    return true;
   } catch (error) {
     console.warn('Failed to persist model to OPFS', error);
+    if (typeof onError === 'function') {
+      onError('ローカル保存に失敗しました（OPFS）');
+    }
+    return false;
   }
 }
 
@@ -235,6 +270,214 @@ async function refreshStoredList(container, opfsAvailable) {
   } catch (error) {
     container.textContent = 'OPFS へのアクセスに失敗しました';
   }
+}
+
+function buildImportDetailMessage({ client, persisted, syncResult }) {
+  if (syncResult?.sent) {
+    const detail = client?.isConnected()
+      ? 'Quest など他デバイスにも同期しました。'
+      : 'ローカルのみ更新されました。';
+    if (persisted) {
+      return { title: 'インポート完了', detail, tone: 'ok' };
+    }
+    return {
+      title: 'インポート完了（保存注意）',
+      detail: `${detail} ローカル保存には失敗しました。`,
+      tone: 'warn'
+    };
+  }
+
+  if (syncResult?.reason === 'disconnected') {
+    return {
+      title: 'Quest未接続',
+      detail: '接続復帰しだい自動同期します。ChocoDrop Questアプリを起動してください。',
+      tone: 'warn'
+    };
+  }
+
+  if (syncResult?.reason === 'no-client') {
+    return {
+      title: '同期クライアント未接続',
+      detail: 'Quest への送信が無効です。ページを再読み込みして再接続してください。',
+      tone: 'warn'
+    };
+  }
+
+  if (syncResult?.reason === 'error') {
+    return {
+      title: 'Quest送信失敗',
+      detail: '送信エラーが発生しました。接続を確認して再試行してください。',
+      tone: 'error'
+    };
+  }
+
+  return {
+    title: 'インポート完了',
+    detail: persisted ? 'ファイルを読み込みました。' : 'ファイルを読み込みました（保存失敗）。',
+    tone: persisted ? 'ok' : 'warn'
+  };
+}
+
+function createInlineStatusController(element, { iconMap } = {}) {
+  if (!element) {
+    return () => {};
+  }
+  const textElement = element.querySelector('[data-url-status-text]') || element;
+  const iconElement = element.querySelector('[data-url-status-icon]');
+  return (message, state = 'info') => {
+    element.dataset.state = state;
+    textElement.textContent = message;
+    if (iconElement) {
+      const icons = iconMap || {};
+      iconElement.textContent = icons[state] || icons.info || 'ℹ️';
+    }
+  };
+}
+
+function setupUrlImport({ input, button, statusElement, historyElement, onImport, overlayUI }) {
+  if (!input || !button || typeof onImport !== 'function') return;
+  const setStatus = createInlineStatusController(statusElement, { iconMap: URL_STATUS_ICONS });
+  let history = loadUrlHistory();
+  const historyController = createUrlHistoryController(historyElement, {
+    onSelect: url => {
+      input.value = url;
+      importFromUrl(url);
+    }
+  });
+  historyController.render(history);
+
+  const rememberUrl = url => {
+    history = upsertUrlHistory(url, history);
+    historyController.render(history);
+    saveUrlHistory(history);
+  };
+
+  const toggleDisabled = disabled => {
+    input.disabled = disabled;
+    button.disabled = disabled;
+  };
+
+  async function importFromUrl(sourceUrl) {
+    const rawValue = typeof sourceUrl === 'string' ? sourceUrl.trim() : input.value.trim();
+    if (!rawValue) {
+      setStatus('URL を入力してください。', 'warn');
+      input.focus();
+      return;
+    }
+
+    let normalizedUrl;
+    try {
+      normalizedUrl = new URL(rawValue);
+    } catch (error) {
+      setStatus('URL の形式が正しくありません。', 'error');
+      return;
+    }
+
+    toggleDisabled(true);
+    setStatus('取得中…', 'pending');
+    try {
+      const remoteFile = await fetchRemoteModelFile(normalizedUrl.toString());
+      await onImport([remoteFile]);
+      setStatus(`${remoteFile.name} を読み込みました。`, 'ok');
+      rememberUrl(normalizedUrl.toString());
+      input.value = '';
+    } catch (error) {
+      const tone = error?.type === 'cors' ? 'warn' : 'error';
+      const hint = error?.suggestion ? ` ${error.suggestion}` : '';
+      const message = error?.friendlyMessage || error?.message || 'URL からの読み込みに失敗しました。';
+      setStatus(`${message}${hint}`, tone);
+      if (overlayUI) {
+        setOverlayStatus(overlayUI, 'URL読み込み失敗', `${message}${hint}`, 'error');
+      }
+    } finally {
+      toggleDisabled(false);
+    }
+  }
+
+  button.addEventListener('click', event => {
+    event.preventDefault();
+    importFromUrl();
+  });
+
+  input.addEventListener('keydown', event => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      importFromUrl();
+    }
+  });
+
+  input.addEventListener('input', () => {
+    if (!input.value.trim()) {
+      setStatus('GLB / GLTF / JSON ファイルの直接リンクを貼り付けてください。', 'idle');
+    } else {
+      setStatus('Enterキーまたはボタンで読み込みます。', 'typing');
+    }
+  });
+
+}
+
+function createUrlHistoryController(container, { onSelect } = {}) {
+  if (!container) {
+    return { render: () => {} };
+  }
+  const listEl = container.querySelector('[data-url-history-list]') || container;
+  container.hidden = true;
+
+  const render = items => {
+    listEl.innerHTML = '';
+    if (!items?.length) {
+      container.hidden = true;
+      return;
+    }
+    container.hidden = false;
+    items.forEach(url => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.textContent = url;
+      button.dataset.urlShortcut = url;
+      listEl.appendChild(button);
+    });
+  };
+
+  container.addEventListener('click', event => {
+    const shortcut = event.target.closest('[data-url-shortcut]');
+    if (shortcut?.dataset?.urlShortcut && typeof onSelect === 'function') {
+      event.preventDefault();
+      onSelect(shortcut.dataset.urlShortcut);
+    }
+  });
+
+  return { render };
+}
+
+function loadUrlHistory() {
+  try {
+    const raw = localStorage.getItem(URL_HISTORY_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      return parsed.filter(entry => typeof entry === 'string');
+    }
+  } catch (error) {
+    // ローカルストレージが利用できない場合は無視
+  }
+  return [];
+}
+
+function saveUrlHistory(history) {
+  try {
+    localStorage.setItem(URL_HISTORY_STORAGE_KEY, JSON.stringify(history));
+  } catch (error) {
+    // 保存できなくても致命的ではない
+  }
+}
+
+function upsertUrlHistory(url, current = []) {
+  if (!url) return current;
+  const normalized = url.trim();
+  if (!normalized) return current;
+  const next = [normalized, ...current.filter(entry => entry !== normalized)];
+  return next.slice(0, URL_HISTORY_LIMIT);
 }
 
 function createOverlayStatus(overlay) {
@@ -278,6 +521,144 @@ function setOverlayStatus(overlayUI, title, detail = '', tone = 'info') {
   overlayUI.title.style.color = colors[tone] || colors.info;
 }
 
+async function fetchRemoteModelFile(url) {
+  let response;
+  try {
+    response = await fetch(url, { mode: 'cors' });
+  } catch (cause) {
+    throw createFetchError({
+      type: 'network',
+      message: 'ネットワークエラー: ファイルにアクセスできませんでした。',
+      suggestion: '接続状況とURLを確認し、再試行してください。',
+      cause
+    });
+  }
+
+  if (response.type === 'opaque') {
+    throw createFetchError({
+      type: 'cors',
+      message: 'CORS が許可されていない URL です。',
+      suggestion: 'raw.githubusercontent.com など CORS 許可済みのホストを利用してください。'
+    });
+  }
+
+  if (!response.ok) {
+    throw createFetchError({
+      type: 'http',
+      message: `HTTP ${response.status} で取得に失敗しました。`,
+      suggestion: 'URL の公開状態や署名の期限を確認してください。'
+    });
+  }
+
+  let arrayBuffer;
+  try {
+    arrayBuffer = await response.arrayBuffer();
+  } catch (cause) {
+    throw createFetchError({
+      type: 'data',
+      message: 'レスポンスデータの読み取りに失敗しました。',
+      suggestion: '時間を置いて再試行してください。',
+      cause
+    });
+  }
+
+  if (!arrayBuffer || arrayBuffer.byteLength === 0) {
+    throw createFetchError({
+      type: 'data',
+      message: '取得したファイルが空のようです。',
+      suggestion: 'URL とアクセス権限を確認してください。'
+    });
+  }
+
+  const headers = response.headers;
+  const contentType = (headers && headers.get && headers.get('content-type')) || 'application/octet-stream';
+  const fileName = ensureSupportedFileName(extractRemoteFileName(headers, url), contentType);
+
+  if (!isSupportedModelFileName(fileName)) {
+    throw createFetchError({
+      type: 'data',
+      message: 'GLB / GLTF / JSON 以外のファイルは読み込めません。',
+      suggestion: 'ファイル拡張子または Content-Type を確認してください。'
+    });
+  }
+
+  return createFileLike(arrayBuffer, fileName, contentType);
+}
+
+function extractRemoteFileName(headers, url) {
+  const disposition = headers && typeof headers.get === 'function' ? headers.get('content-disposition') : null;
+  const byHeader = disposition ? extractFileNameFromContentDisposition(disposition) : null;
+  if (byHeader) return byHeader;
+  return deriveFileNameFromUrl(url);
+}
+
+function extractFileNameFromContentDisposition(header) {
+  if (!header) return null;
+  const extended = header.match(/filename\*=([^']*)''([^;]+)/i);
+  if (extended && extended[2]) {
+    return decodeURIComponent(extended[2]);
+  }
+  const basic = header.match(/filename="?([^";]+)"?/i);
+  return basic ? basic[1] : null;
+}
+
+function deriveFileNameFromUrl(url) {
+  try {
+    const parsed = new URL(url);
+    const segments = parsed.pathname.split('/').filter(Boolean);
+    if (segments.length) {
+      return decodeURIComponent(segments[segments.length - 1]);
+    }
+  } catch (error) {
+    // noop
+  }
+  return 'remote-model';
+}
+
+function ensureSupportedFileName(name, contentType) {
+  if (isSupportedModelFileName(name)) {
+    return name;
+  }
+  const guessed = guessExtensionFromContentType(contentType);
+  if (guessed) {
+    const suffix = guessed.startsWith('.') ? guessed : `.${guessed}`;
+    return `${name}${suffix}`;
+  }
+  return name;
+}
+
+function guessExtensionFromContentType(contentType = '') {
+  const lower = contentType.toLowerCase();
+  if (lower.includes('model/gltf+json')) return '.gltf';
+  if (lower.includes('model/gltf-binary') || lower.includes('application/octet-stream')) return '.glb';
+  if (lower.includes('application/json') || lower.includes('text/plain')) return '.json';
+  return null;
+}
+
+function createFileLike(arrayBuffer, name, mimeType) {
+  if (typeof File === 'function') {
+    return new File([arrayBuffer], name, { type: mimeType });
+  }
+  const blob = new Blob([arrayBuffer], { type: mimeType });
+  const bufferCopy = arrayBuffer.slice(0);
+  return Object.assign(blob, {
+    name,
+    lastModified: Date.now(),
+    async arrayBuffer() {
+      return bufferCopy;
+    }
+  });
+}
+
+function createFetchError({ type, message, suggestion, cause }) {
+  const error = new Error(message);
+  error.type = type;
+  error.friendlyMessage = message;
+  if (suggestion) error.suggestion = suggestion;
+  if (cause) error.cause = cause;
+  return error;
+}
+
 async function setupLoaders(sceneManager) {
   const THREE = await loadThree();
   const GLTFLoader = await loadGLTFLoader();
@@ -305,17 +686,17 @@ async function setupLoaders(sceneManager) {
 }
 
 async function broadcastScene(json, sceneManager, client) {
-  if (!json || !client) return false;
-  if (!client.isConnected()) return false;
+  if (!json || !client) return { sent: false, reason: 'no-client' };
+  if (!client.isConnected()) return { sent: false, reason: 'disconnected' };
   try {
     client.send({ type: 'scene:clear', payload: { preserveAssets: true } });
     client.send({ type: 'scene:json', payload: { json } });
     const { position, target } = exportCameraState(sceneManager);
     client.send({ type: 'camera:set', payload: { position, target } });
-    return true;
+    return { sent: true };
   } catch (error) {
     console.warn('Scene broadcast failed', error);
-    return false;
+    return { sent: false, reason: 'error', error };
   }
 }
 
@@ -340,8 +721,8 @@ function attachClientStatus(client, overlayUI, pendingSync, pendingAssets, setMe
     if (pendingSync?.latest) {
       const sceneManager = client.sceneManager;
       if (sceneManager) {
-        const success = await broadcastScene(pendingSync.latest, sceneManager, client);
-        if (success) {
+        const syncResult = await broadcastScene(pendingSync.latest, sceneManager, client);
+        if (syncResult.sent) {
           pendingSync.latest = null;
         }
       }
