@@ -16,6 +16,9 @@ async function main() {
   const overlay = document.querySelector('[data-overlay]');
   const fileInput = document.querySelector('#file-input');
   const dropZone = document.querySelector('[data-dropzone]');
+  const urlInput = document.querySelector('#remote-url-input');
+  const urlButton = document.querySelector('[data-action="import-url"]');
+  const urlStatus = document.querySelector('[data-url-status]');
   const mediaInput = document.querySelector('#media-input');
   const mediaDropZone = document.querySelector('[data-media-dropzone]');
   const fileList = document.querySelector('[data-file-list]');
@@ -95,6 +98,14 @@ async function main() {
     handleFiles(event.target.files);
   });
 
+  setupUrlImport({
+    input: urlInput,
+    button: urlButton,
+    statusElement: urlStatus,
+    onImport: handleFiles,
+    overlayUI
+  });
+
   const handleMediaFiles = async files => {
     const targets = files ? Array.from(files) : [];
     if (targets.length === 0) return;
@@ -163,7 +174,11 @@ async function main() {
 }
 
 function validateFile(file) {
-  const lower = file.name.toLowerCase();
+  return isSupportedModelFileName(file.name);
+}
+
+function isSupportedModelFileName(name = '') {
+  const lower = String(name).toLowerCase();
   return ACCEPT_EXTENSIONS.some(ext => lower.endsWith(ext));
 }
 
@@ -237,6 +252,72 @@ async function refreshStoredList(container, opfsAvailable) {
   }
 }
 
+function createInlineStatusController(element) {
+  if (!element) {
+    return () => {};
+  }
+  return (message, state = 'info') => {
+    element.textContent = message;
+    element.dataset.state = state;
+  };
+}
+
+function setupUrlImport({ input, button, statusElement, onImport, overlayUI }) {
+  if (!input || !button || typeof onImport !== 'function') return;
+  const setStatus = createInlineStatusController(statusElement);
+  const toggleDisabled = disabled => {
+    input.disabled = disabled;
+    button.disabled = disabled;
+  };
+
+  const importFromUrl = async () => {
+    const raw = input.value.trim();
+    if (!raw) {
+      setStatus('URL を入力してください。', 'warn');
+      input.focus();
+      return;
+    }
+
+    let normalizedUrl;
+    try {
+      normalizedUrl = new URL(raw);
+    } catch (error) {
+      setStatus('URL の形式が正しくありません。', 'error');
+      return;
+    }
+
+    toggleDisabled(true);
+    setStatus('取得中…', 'pending');
+    try {
+      const remoteFile = await fetchRemoteModelFile(normalizedUrl.toString());
+      await onImport([remoteFile]);
+      setStatus(`${remoteFile.name} を読み込みました。`, 'ok');
+      input.value = '';
+    } catch (error) {
+      const tone = error?.code === 'CORS' ? 'warn' : 'error';
+      const message = error?.friendlyMessage || error?.message || 'URL からの読み込みに失敗しました。';
+      setStatus(message, tone);
+      if (overlayUI) {
+        setOverlayStatus(overlayUI, 'URL読み込み失敗', message, 'error');
+      }
+    } finally {
+      toggleDisabled(false);
+    }
+  };
+
+  button.addEventListener('click', event => {
+    event.preventDefault();
+    importFromUrl();
+  });
+
+  input.addEventListener('keydown', event => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      importFromUrl();
+    }
+  });
+}
+
 function createOverlayStatus(overlay) {
   if (!overlay) return null;
   overlay.innerHTML = '';
@@ -276,6 +357,108 @@ function setOverlayStatus(overlayUI, title, detail = '', tone = 'info') {
     error: '#f87171'
   };
   overlayUI.title.style.color = colors[tone] || colors.info;
+}
+
+async function fetchRemoteModelFile(url) {
+  let response;
+  try {
+    response = await fetch(url, { mode: 'cors' });
+  } catch (cause) {
+    throw createCorsError(
+      'ファイルを取得できませんでした。CORS を許可した URL（raw.githubusercontent.com など）を利用してください。',
+      cause
+    );
+  }
+
+  if (response.type === 'opaque') {
+    throw createCorsError('CORS が許可されていない URL です。サーバーの設定を確認してください。');
+  }
+
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status} で取得に失敗しました。`);
+  }
+
+  const arrayBuffer = await response.arrayBuffer();
+  const headers = response.headers;
+  const contentType = headers.get('content-type') || 'application/octet-stream';
+  const fileName = ensureSupportedFileName(extractRemoteFileName(headers, url), contentType);
+
+  if (!isSupportedModelFileName(fileName)) {
+    throw new Error('GLB / GLTF / JSON 以外のファイルは読み込めません。');
+  }
+
+  return createFileLike(arrayBuffer, fileName, contentType);
+}
+
+function extractRemoteFileName(headers, url) {
+  const disposition = headers && typeof headers.get === 'function' ? headers.get('content-disposition') : null;
+  const byHeader = disposition ? extractFileNameFromContentDisposition(disposition) : null;
+  if (byHeader) return byHeader;
+  return deriveFileNameFromUrl(url);
+}
+
+function extractFileNameFromContentDisposition(header) {
+  if (!header) return null;
+  const extended = header.match(/filename\*=([^']*)''([^;]+)/i);
+  if (extended && extended[2]) {
+    return decodeURIComponent(extended[2]);
+  }
+  const basic = header.match(/filename="?([^";]+)"?/i);
+  return basic ? basic[1] : null;
+}
+
+function deriveFileNameFromUrl(url) {
+  try {
+    const parsed = new URL(url);
+    const segments = parsed.pathname.split('/').filter(Boolean);
+    if (segments.length) {
+      return decodeURIComponent(segments[segments.length - 1]);
+    }
+  } catch (error) {
+    // noop
+  }
+  return 'remote-model';
+}
+
+function ensureSupportedFileName(name, contentType) {
+  if (isSupportedModelFileName(name)) {
+    return name;
+  }
+  const guessed = guessExtensionFromContentType(contentType);
+  if (guessed) {
+    const suffix = guessed.startsWith('.') ? guessed : `.${guessed}`;
+    return `${name}${suffix}`;
+  }
+  return name;
+}
+
+function guessExtensionFromContentType(contentType = '') {
+  const lower = contentType.toLowerCase();
+  if (lower.includes('model/gltf+json')) return '.gltf';
+  if (lower.includes('model/gltf-binary') || lower.includes('application/octet-stream')) return '.glb';
+  if (lower.includes('application/json') || lower.includes('text/plain')) return '.json';
+  return null;
+}
+
+function createFileLike(arrayBuffer, name, mimeType) {
+  if (typeof File === 'function') {
+    return new File([arrayBuffer], name, { type: mimeType });
+  }
+  const blob = new Blob([arrayBuffer], { type: mimeType });
+  return Object.assign(blob, {
+    name,
+    lastModified: Date.now()
+  });
+}
+
+function createCorsError(message, cause) {
+  const error = new Error(message);
+  error.code = 'CORS';
+  if (cause) {
+    error.cause = cause;
+  }
+  error.friendlyMessage = message;
+  return error;
 }
 
 async function setupLoaders(sceneManager) {
