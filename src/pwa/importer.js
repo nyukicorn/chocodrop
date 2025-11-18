@@ -10,6 +10,16 @@ import { saveModelToOPFS, listStoredModels, isOPFSSupported } from '../../opfs_s
 const ACCEPT_EXTENSIONS = ['.gltf', '.glb', '.json'];
 const MEDIA_MODEL_EXTENSIONS = ['.glb', '.gltf'];
 const MEDIA_CHUNK_SIZE = 256 * 1024; // 256KB
+const URL_HISTORY_STORAGE_KEY = 'chocodrop:urlHistory';
+const URL_HISTORY_LIMIT = 6;
+const URL_STATUS_ICONS = {
+  idle: 'ℹ️',
+  typing: '⌨️',
+  pending: '⏳',
+  ok: '✅',
+  warn: '⚠️',
+  error: '❌'
+};
 
 async function main() {
   const canvas = document.querySelector('#importer-canvas');
@@ -19,6 +29,7 @@ async function main() {
   const urlInput = document.querySelector('#remote-url-input');
   const urlButton = document.querySelector('[data-action="import-url"]');
   const urlStatus = document.querySelector('[data-url-status]');
+  const urlHistory = document.querySelector('[data-url-history]');
   const mediaInput = document.querySelector('#media-input');
   const mediaDropZone = document.querySelector('[data-media-dropzone]');
   const fileList = document.querySelector('[data-file-list]');
@@ -102,6 +113,7 @@ async function main() {
     input: urlInput,
     button: urlButton,
     statusElement: urlStatus,
+    historyElement: urlHistory,
     onImport: handleFiles,
     overlayUI
   });
@@ -252,27 +264,48 @@ async function refreshStoredList(container, opfsAvailable) {
   }
 }
 
-function createInlineStatusController(element) {
+function createInlineStatusController(element, { iconMap } = {}) {
   if (!element) {
     return () => {};
   }
+  const textElement = element.querySelector('[data-url-status-text]') || element;
+  const iconElement = element.querySelector('[data-url-status-icon]');
   return (message, state = 'info') => {
-    element.textContent = message;
     element.dataset.state = state;
+    textElement.textContent = message;
+    if (iconElement) {
+      const icons = iconMap || {};
+      iconElement.textContent = icons[state] || icons.info || 'ℹ️';
+    }
   };
 }
 
-function setupUrlImport({ input, button, statusElement, onImport, overlayUI }) {
+function setupUrlImport({ input, button, statusElement, historyElement, onImport, overlayUI }) {
   if (!input || !button || typeof onImport !== 'function') return;
-  const setStatus = createInlineStatusController(statusElement);
+  const setStatus = createInlineStatusController(statusElement, { iconMap: URL_STATUS_ICONS });
+  let history = loadUrlHistory();
+  const historyController = createUrlHistoryController(historyElement, {
+    onSelect: url => {
+      input.value = url;
+      importFromUrl(url);
+    }
+  });
+  historyController.render(history);
+
+  const rememberUrl = url => {
+    history = upsertUrlHistory(url, history);
+    historyController.render(history);
+    saveUrlHistory(history);
+  };
+
   const toggleDisabled = disabled => {
     input.disabled = disabled;
     button.disabled = disabled;
   };
 
-  const importFromUrl = async () => {
-    const raw = input.value.trim();
-    if (!raw) {
+  async function importFromUrl(sourceUrl) {
+    const rawValue = typeof sourceUrl === 'string' ? sourceUrl.trim() : input.value.trim();
+    if (!rawValue) {
       setStatus('URL を入力してください。', 'warn');
       input.focus();
       return;
@@ -280,7 +313,7 @@ function setupUrlImport({ input, button, statusElement, onImport, overlayUI }) {
 
     let normalizedUrl;
     try {
-      normalizedUrl = new URL(raw);
+      normalizedUrl = new URL(rawValue);
     } catch (error) {
       setStatus('URL の形式が正しくありません。', 'error');
       return;
@@ -292,18 +325,20 @@ function setupUrlImport({ input, button, statusElement, onImport, overlayUI }) {
       const remoteFile = await fetchRemoteModelFile(normalizedUrl.toString());
       await onImport([remoteFile]);
       setStatus(`${remoteFile.name} を読み込みました。`, 'ok');
+      rememberUrl(normalizedUrl.toString());
       input.value = '';
     } catch (error) {
-      const tone = error?.code === 'CORS' ? 'warn' : 'error';
+      const tone = error?.type === 'cors' ? 'warn' : 'error';
+      const hint = error?.suggestion ? ` ${error.suggestion}` : '';
       const message = error?.friendlyMessage || error?.message || 'URL からの読み込みに失敗しました。';
-      setStatus(message, tone);
+      setStatus(`${message}${hint}`, tone);
       if (overlayUI) {
-        setOverlayStatus(overlayUI, 'URL読み込み失敗', message, 'error');
+        setOverlayStatus(overlayUI, 'URL読み込み失敗', `${message}${hint}`, 'error');
       }
     } finally {
       toggleDisabled(false);
     }
-  };
+  }
 
   button.addEventListener('click', event => {
     event.preventDefault();
@@ -316,6 +351,79 @@ function setupUrlImport({ input, button, statusElement, onImport, overlayUI }) {
       importFromUrl();
     }
   });
+
+  input.addEventListener('input', () => {
+    if (!input.value.trim()) {
+      setStatus('GLB / GLTF / JSON ファイルの直接リンクを貼り付けてください。', 'idle');
+    } else {
+      setStatus('Enterキーまたはボタンで読み込みます。', 'typing');
+    }
+  });
+
+}
+
+function createUrlHistoryController(container, { onSelect } = {}) {
+  if (!container) {
+    return { render: () => {} };
+  }
+  const listEl = container.querySelector('[data-url-history-list]') || container;
+  container.hidden = true;
+
+  const render = items => {
+    listEl.innerHTML = '';
+    if (!items?.length) {
+      container.hidden = true;
+      return;
+    }
+    container.hidden = false;
+    items.forEach(url => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.textContent = url;
+      button.dataset.urlShortcut = url;
+      listEl.appendChild(button);
+    });
+  };
+
+  container.addEventListener('click', event => {
+    const shortcut = event.target.closest('[data-url-shortcut]');
+    if (shortcut?.dataset?.urlShortcut && typeof onSelect === 'function') {
+      event.preventDefault();
+      onSelect(shortcut.dataset.urlShortcut);
+    }
+  });
+
+  return { render };
+}
+
+function loadUrlHistory() {
+  try {
+    const raw = localStorage.getItem(URL_HISTORY_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      return parsed.filter(entry => typeof entry === 'string');
+    }
+  } catch (error) {
+    // ローカルストレージが利用できない場合は無視
+  }
+  return [];
+}
+
+function saveUrlHistory(history) {
+  try {
+    localStorage.setItem(URL_HISTORY_STORAGE_KEY, JSON.stringify(history));
+  } catch (error) {
+    // 保存できなくても致命的ではない
+  }
+}
+
+function upsertUrlHistory(url, current = []) {
+  if (!url) return current;
+  const normalized = url.trim();
+  if (!normalized) return current;
+  const next = [normalized, ...current.filter(entry => entry !== normalized)];
+  return next.slice(0, URL_HISTORY_LIMIT);
 }
 
 function createOverlayStatus(overlay) {
@@ -364,27 +472,60 @@ async function fetchRemoteModelFile(url) {
   try {
     response = await fetch(url, { mode: 'cors' });
   } catch (cause) {
-    throw createCorsError(
-      'ファイルを取得できませんでした。CORS を許可した URL（raw.githubusercontent.com など）を利用してください。',
+    throw createFetchError({
+      type: 'network',
+      message: 'ネットワークエラー: ファイルにアクセスできませんでした。',
+      suggestion: '接続状況とURLを確認し、再試行してください。',
       cause
-    );
+    });
   }
 
   if (response.type === 'opaque') {
-    throw createCorsError('CORS が許可されていない URL です。サーバーの設定を確認してください。');
+    throw createFetchError({
+      type: 'cors',
+      message: 'CORS が許可されていない URL です。',
+      suggestion: 'raw.githubusercontent.com など CORS 許可済みのホストを利用してください。'
+    });
   }
 
   if (!response.ok) {
-    throw new Error(`HTTP ${response.status} で取得に失敗しました。`);
+    throw createFetchError({
+      type: 'http',
+      message: `HTTP ${response.status} で取得に失敗しました。`,
+      suggestion: 'URL の公開状態や署名の期限を確認してください。'
+    });
   }
 
-  const arrayBuffer = await response.arrayBuffer();
+  let arrayBuffer;
+  try {
+    arrayBuffer = await response.arrayBuffer();
+  } catch (cause) {
+    throw createFetchError({
+      type: 'data',
+      message: 'レスポンスデータの読み取りに失敗しました。',
+      suggestion: '時間を置いて再試行してください。',
+      cause
+    });
+  }
+
+  if (!arrayBuffer || arrayBuffer.byteLength === 0) {
+    throw createFetchError({
+      type: 'data',
+      message: '取得したファイルが空のようです。',
+      suggestion: 'URL とアクセス権限を確認してください。'
+    });
+  }
+
   const headers = response.headers;
-  const contentType = headers.get('content-type') || 'application/octet-stream';
+  const contentType = (headers && headers.get && headers.get('content-type')) || 'application/octet-stream';
   const fileName = ensureSupportedFileName(extractRemoteFileName(headers, url), contentType);
 
   if (!isSupportedModelFileName(fileName)) {
-    throw new Error('GLB / GLTF / JSON 以外のファイルは読み込めません。');
+    throw createFetchError({
+      type: 'data',
+      message: 'GLB / GLTF / JSON 以外のファイルは読み込めません。',
+      suggestion: 'ファイル拡張子または Content-Type を確認してください。'
+    });
   }
 
   return createFileLike(arrayBuffer, fileName, contentType);
@@ -451,13 +592,12 @@ function createFileLike(arrayBuffer, name, mimeType) {
   });
 }
 
-function createCorsError(message, cause) {
+function createFetchError({ type, message, suggestion, cause }) {
   const error = new Error(message);
-  error.code = 'CORS';
-  if (cause) {
-    error.cause = cause;
-  }
+  error.type = type;
   error.friendlyMessage = message;
+  if (suggestion) error.suggestion = suggestion;
+  if (cause) error.cause = cause;
   return error;
 }
 
