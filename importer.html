@@ -106,10 +106,40 @@
         cursor: pointer;
         min-width: 120px;
       }
+      .inline-status {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        margin: 0;
+      }
+      .inline-status__icon {
+        width: 1.25rem;
+        text-align: center;
+      }
+      .inline-status[data-state="typing"] { color: #a5b4fc; }
       .inline-status[data-state="pending"] { color: #38bdf8; }
       .inline-status[data-state="ok"] { color: #4ade80; }
       .inline-status[data-state="warn"] { color: #facc15; }
       .inline-status[data-state="error"] { color: #f87171; }
+      .url-history {
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+      }
+      .url-history__chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.4rem;
+      }
+      .url-history__chips button {
+        border: 1px solid rgba(148, 163, 184, 0.35);
+        border-radius: 999px;
+        padding: 0.2rem 0.75rem;
+        background: rgba(15, 23, 42, 0.6);
+        color: inherit;
+        cursor: pointer;
+        font-size: 0.8rem;
+      }
       ul {
         list-style: none;
         margin: 0;
@@ -229,7 +259,14 @@
           <input id="remote-url-input" type="url" inputmode="url" placeholder="https://raw.githubusercontent.com/user/repo/main/model.glb" autocomplete="off">
           <button type="button" data-action="import-url">読み込む</button>
         </div>
-        <p class="note inline-status" data-url-status data-state="idle">GLB / GLTF / JSON ファイルの直接リンクを貼り付けてください。</p>
+        <p class="note inline-status" data-url-status data-state="idle">
+          <span class="inline-status__icon" data-url-status-icon aria-hidden="true">ℹ️</span>
+          <span data-url-status-text>GLB / GLTF / JSON ファイルの直接リンクを貼り付けてください。</span>
+        </p>
+        <div class="url-history" data-url-history hidden>
+          <span class="note">最近のURL</span>
+          <div class="url-history__chips" data-url-history-list></div>
+        </div>
       </section>
       <section class="media-caster">
         <h2>メディアキャスト β</h2>
