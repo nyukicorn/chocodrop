@@ -6,8 +6,17 @@ import {
   loadKTX2Loader
 } from './utils/three-deps.js';
 import { saveModelToOPFS, listStoredModels, isOPFSSupported } from '../../opfs_store.js';
+import { HtmlSandboxRunner, HtmlSandboxError } from './html-sandbox/HtmlSandboxRunner.js';
+import {
+  loadHtmlSandboxPolicy,
+  saveHtmlSandboxPolicy,
+  normalizeHtmlSandboxPolicy,
+  DEFAULT_HTML_SANDBOX_POLICY
+} from './html-sandbox/policy.js';
 
-const ACCEPT_EXTENSIONS = ['.gltf', '.glb', '.json'];
+const MODEL_EXTENSIONS = ['.gltf', '.glb', '.json'];
+const HTML_EXTENSIONS = ['.html', '.htm'];
+const ACCEPT_EXTENSIONS = [...MODEL_EXTENSIONS, ...HTML_EXTENSIONS];
 const MEDIA_MODEL_EXTENSIONS = ['.glb', '.gltf'];
 const MEDIA_CHUNK_SIZE = 256 * 1024; // 256KB
 const URL_HISTORY_STORAGE_KEY = 'chocodrop:urlHistory';
@@ -34,8 +43,21 @@ async function main() {
   const mediaDropZone = document.querySelector('[data-media-dropzone]');
   const fileList = document.querySelector('[data-file-list]');
   const mediaStatus = document.querySelector('[data-media-status]');
+  const htmlLogContainer = document.querySelector('[data-html-log]');
+  const htmlArtifactContainer = document.querySelector('[data-html-artifacts]');
+  const htmlPolicyContainer = document.querySelector('[data-html-policy]');
   const setMediaStatus = createMediaStatusController(mediaStatus);
   const overlayUI = createOverlayStatus(overlay);
+  const htmlSandbox = new HtmlSandboxRunner();
+  let htmlSandboxPolicy = loadHtmlSandboxPolicy();
+  const htmlLogController = createHtmlSandboxLogController(htmlLogContainer);
+  const htmlArtifactController = createHtmlSandboxArtifactController(htmlArtifactContainer);
+  setupHtmlSandboxPolicyUI(htmlPolicyContainer, {
+    policy: htmlSandboxPolicy,
+    onChange: updatedPolicy => {
+      htmlSandboxPolicy = saveHtmlSandboxPolicy(updatedPolicy);
+    }
+  });
   setOverlayStatus(overlayUI, '初期化中…', 'Quest からのアクセスも待機しています。');
 
   const opfsAvailable = isOPFSSupported();
@@ -75,31 +97,55 @@ async function main() {
     'ファイルを選択またはドロップしてください。VR/AR中は左スティック:平面移動, 右スティック:上下・回転・スケール。'
   );
 
+  const importModel = async targetFile => {
+    const result = await loadFileIntoScene(targetFile, { gltfLoader, sceneManager, THREE });
+    const persisted = await persistFile(targetFile, {
+      opfsAvailable,
+      onError: message => setOverlayStatus(overlayUI, '保存エラー', message, 'warn')
+    });
+    const sceneJSON = sceneManager.exportSceneJSON();
+    const syncResult = await broadcastScene(sceneJSON, sceneManager, client);
+    pendingSync.latest = syncResult.sent ? null : sceneJSON;
+    const detailMessage = buildImportDetailMessage({
+      client,
+      persisted,
+      syncResult
+    });
+    setOverlayStatus(overlayUI, detailMessage.title, detailMessage.detail, detailMessage.tone);
+    return result;
+  };
+
+  const handleHtmlDocument = async file => {
+    setOverlayStatus(overlayUI, 'HTML解析中', `${file.name} を分離サンドボックスで評価しています…`, 'info');
+    try {
+      const conversion = await htmlSandbox.convertFile(file, { policy: htmlSandboxPolicy });
+      htmlLogController.render(conversion.logs);
+      htmlArtifactController.render(conversion.artifacts);
+      setOverlayStatus(overlayUI, 'HTML解析完了', 'Scene JSON を生成し、インポートを実行します。', 'ok');
+      for (const generated of conversion.files) {
+        await importModel(generated);
+      }
+    } catch (error) {
+      const sandboxLogs = error instanceof HtmlSandboxError ? error.detail?.logs : null;
+      htmlLogController.render(sandboxLogs || [{ level: 'error', message: error.message }]);
+      htmlArtifactController.clear?.();
+      setOverlayStatus(overlayUI, 'HTML解析失敗', error?.message || 'サンドボックスエラー', 'error');
+      console.error('HTML sandbox import failed', error);
+    }
+  };
+
   const handleFiles = async files => {
     for (const file of files) {
+      if (isHtmlFileName(file.name)) {
+        await handleHtmlDocument(file);
+        continue;
+      }
       if (!validateFile(file)) {
-        alert('対応形式は GLTF/GLB/Three.js JSON のみです');
+        alert('対応形式は HTML / GLTF / GLB / Three.js JSON のみです');
         continue;
       }
       try {
-        const result = await loadFileIntoScene(file, { gltfLoader, sceneManager, THREE });
-        const persisted = await persistFile(file, {
-          opfsAvailable,
-          onError: message => setOverlayStatus(overlayUI, '保存エラー', message, 'warn')
-        });
-        const sceneJSON = sceneManager.exportSceneJSON();
-        const syncResult = await broadcastScene(sceneJSON, sceneManager, client);
-        if (!syncResult.sent) {
-          pendingSync.latest = sceneJSON;
-        } else {
-          pendingSync.latest = null;
-        }
-        const detailMessage = buildImportDetailMessage({
-          client,
-          persisted,
-          syncResult
-        });
-        setOverlayStatus(overlayUI, detailMessage.title, detailMessage.detail, detailMessage.tone);
+        await importModel(file);
       } catch (error) {
         console.error('Failed to import', error);
         setOverlayStatus(overlayUI, 'インポート失敗', error?.message || '不明なエラー', 'error');
@@ -195,6 +241,11 @@ function validateFile(file) {
 function isSupportedModelFileName(name = '') {
   const lower = String(name).toLowerCase();
   return ACCEPT_EXTENSIONS.some(ext => lower.endsWith(ext));
+}
+
+function isHtmlFileName(name = '') {
+  const lower = String(name).toLowerCase();
+  return HTML_EXTENSIONS.some(ext => lower.endsWith(ext));
 }
 
 async function loadFileIntoScene(file, { gltfLoader, sceneManager, THREE }) {
@@ -1085,6 +1136,157 @@ function bytesToBase64(bytes) {
     binary += String.fromCharCode(...sub);
   }
   return btoa(binary);
+}
+
+function createHtmlSandboxLogController(element) {
+  if (!element) {
+    return { render: () => {} };
+  }
+  element.innerHTML = '<p>HTML サンドボックスの実行ログはまだありません。</p>';
+  return {
+    render(entries = []) {
+      element.innerHTML = '';
+      if (!entries.length) {
+        element.innerHTML = '<p>HTML サンドボックスの実行ログはまだありません。</p>';
+        return;
+      }
+      entries.slice(-20).forEach(entry => {
+        const row = document.createElement('div');
+        row.className = `html-log html-log--${entry.level || 'info'}`;
+        const elapsed = entry.elapsedMs != null ? `[${entry.elapsedMs}ms] ` : '';
+        row.textContent = `${elapsed}${entry.message || ''}`;
+        element.appendChild(row);
+      });
+    }
+  };
+}
+
+function createHtmlSandboxArtifactController(element) {
+  if (!element) {
+    return { render: () => {}, clear: () => {} };
+  }
+  let objectUrl = null;
+  const reset = message => {
+    if (objectUrl) {
+      URL.revokeObjectURL(objectUrl);
+      objectUrl = null;
+    }
+    element.innerHTML = `<p>${message || 'HTML 変換済みの GLB ダウンロードはまだありません。'}</p>`;
+  };
+  reset();
+  return {
+    render(artifacts = {}) {
+      const file = artifacts?.glbFile;
+      if (!file) {
+        reset('GLB はまだ生成されていません。');
+        return;
+      }
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+      }
+      objectUrl = URL.createObjectURL(file);
+      const link = document.createElement('a');
+      link.href = objectUrl;
+      link.download = file.name;
+      link.textContent = `${file.name} をダウンロード (${formatBytes(file.size)})`;
+      element.innerHTML = '';
+      element.appendChild(link);
+    },
+    clear() {
+      reset();
+    }
+  };
+}
+
+function setupHtmlSandboxPolicyUI(container, { policy, onChange } = {}) {
+  if (!container) return;
+  const form = container.querySelector('[data-html-policy-form]');
+  const input = container.querySelector('[data-html-policy-input]');
+  const hostList = container.querySelector('[data-html-policy-hosts]');
+  const summary = container.querySelector('[data-html-policy-summary]');
+  let current = normalizeHtmlSandboxPolicy(policy || DEFAULT_HTML_SANDBOX_POLICY);
+
+  const renderHosts = () => {
+    if (!hostList) return;
+    hostList.innerHTML = '';
+    if (!current.hosts.length) {
+      hostList.innerHTML = '<p>許可ホストは未登録です。</p>';
+      return;
+    }
+    current.hosts.forEach(host => {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.dataset.role = 'policy-chip';
+      chip.dataset.host = host;
+      chip.textContent = host;
+      hostList.appendChild(chip);
+    });
+  };
+
+  const renderSummary = () => {
+    if (!summary) return;
+    summary.textContent = `許可ホスト ${current.hosts.length} 件 / 通信上限 ${current.maxNetworkRequests} 回 / タイムアウト ${current.maxExecutionMs}ms`;
+  };
+
+  const applyChange = next => {
+    current = normalizeHtmlSandboxPolicy(next);
+    renderHosts();
+    renderSummary();
+    if (typeof onChange === 'function') {
+      onChange(current);
+    }
+  };
+
+  hostList?.addEventListener('click', event => {
+    const chip = event.target.closest('[data-role="policy-chip"]');
+    if (!chip?.dataset?.host) return;
+    const filtered = current.hosts.filter(entry => entry !== chip.dataset.host);
+    applyChange({ ...current, hosts: filtered });
+  });
+
+  form?.addEventListener('submit', event => {
+    event.preventDefault();
+    if (!input) return;
+    const normalized = normalizeHostInput(input.value);
+    if (!normalized) {
+      input?.setCustomValidity?.('https://example.com のように入力してください');
+      input?.reportValidity?.();
+      input?.setCustomValidity?.('');
+      return;
+    }
+    if (current.hosts.includes(normalized)) {
+      input.value = '';
+      return;
+    }
+    applyChange({ ...current, hosts: [...current.hosts, normalized] });
+    input.value = '';
+  });
+
+  applyChange(current);
+}
+
+function normalizeHostInput(value) {
+  const trimmed = (value || '').trim();
+  if (!trimmed) return null;
+  if (['self', 'blob:', 'data:'].includes(trimmed)) {
+    return trimmed;
+  }
+  try {
+    const formatted = trimmed.includes('://') ? trimmed : `https://${trimmed}`;
+    return new URL(formatted).origin;
+  } catch (_) {
+    return null;
+  }
+}
+
+function formatBytes(size = 0) {
+  if (!Number.isFinite(size) || size <= 0) {
+    return '0 B';
+  }
+  const units = ['B', 'KB', 'MB', 'GB'];
+  const exponent = Math.min(Math.floor(Math.log(size) / Math.log(1024)), units.length - 1);
+  const value = size / 1024 ** exponent;
+  return `${value.toFixed(value >= 10 || exponent === 0 ? 0 : 1)} ${units[exponent]}`;
 }
 
 main().catch(error => {
