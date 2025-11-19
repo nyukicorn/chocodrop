@@ -169,6 +169,61 @@
       .media-status[data-state="error"] { color: #f87171; }
       .media-status[data-state="pending"] { color: #38bdf8; }
       .media-status[data-state="idle"] { color: #cbd5f5; }
+      .sandbox-panel {
+        padding: 1rem 0;
+        border-top: 1px solid rgba(148, 163, 184, 0.2);
+        display: flex;
+        flex-direction: column;
+        gap: 0.6rem;
+      }
+      .sandbox-policy__hosts {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.4rem;
+      }
+      .sandbox-policy__hosts button {
+        border-radius: 999px;
+        border: 1px solid rgba(148, 163, 184, 0.35);
+        background: rgba(15, 23, 42, 0.6);
+        color: inherit;
+        padding: 0.3rem 0.8rem;
+        cursor: pointer;
+        font-size: 0.8rem;
+      }
+      .sandbox-policy__form {
+        display: flex;
+        gap: 0.5rem;
+      }
+      .sandbox-policy__form input {
+        flex: 1;
+      }
+      .sandbox-policy__form button {
+        min-width: 120px;
+        border-radius: 0.75rem;
+        border: 1px solid rgba(148, 163, 184, 0.4);
+        background: rgba(15, 23, 42, 0.7);
+        color: inherit;
+        cursor: pointer;
+      }
+      .html-log {
+        border: 1px solid rgba(148, 163, 184, 0.3);
+        border-radius: 0.75rem;
+        padding: 0.65rem;
+        background: rgba(15, 23, 42, 0.5);
+        font-family: 'JetBrains Mono', 'IBM Plex Mono', monospace;
+        font-size: 0.8rem;
+        margin-bottom: 0.35rem;
+      }
+      .html-log--warn { color: #facc15; }
+      .html-log--error { color: #f87171; }
+      .html-log--info { color: #a5b4fc; }
+      .sandbox-artifacts a {
+        color: #38bdf8;
+        text-decoration: none;
+      }
+      .sandbox-artifacts a:hover {
+        text-decoration: underline;
+      }
       h1 {
         margin: 0;
         font-size: 1.4rem;
@@ -245,14 +300,32 @@
   <body>
     <aside>
       <h1>モデルインポーター</h1>
-      <p class="note">GLTF / GLB / Three.js JSON をアップロードして、シーンに即座に配置します。VR/AR では左スティックで平面移動、右スティックで上下・回転・スケールを操作できます。</p>
+      <p class="note">HTML (Three.js) / ZIP (HTML+アセット) / GLTF / GLB / Three.js JSON をアップロードして、シーンに即座に配置します。VR/AR では左スティックで平面移動、右スティックで上下・回転・スケールを操作できます。</p>
       <label>ファイル選択
-        <input id="file-input" type="file" accept=".gltf,.glb,.json" multiple>
+        <input id="file-input" type="file" accept=".html,.htm,.zip,.gltf,.glb,.json" multiple>
       </label>
       <div data-dropzone data-state="idle">
         <strong>ドラッグ＆ドロップ</strong>
-        <p class="note">サポート形式以外は拒否します。</p>
+        <p class="note">HTML(β) / ZIP(β) / GLTF / GLB / Three.js JSON 以外は拒否します。</p>
       </div>
+      <section class="sandbox-panel" data-html-policy>
+        <h2>HTMLサンドボックス β</h2>
+        <p class="note">アップロードされた HTML/JS は分離サンドボックス内で評価され、Three.js Scene JSON/GLB に変換されます。許可されたホスト以外への通信は遮断されます。</p>
+        <div class="sandbox-policy__hosts" data-html-policy-hosts></div>
+        <form class="sandbox-policy__form" data-html-policy-form>
+          <input type="text" data-html-policy-input placeholder="https://cdn.example.com" autocomplete="off">
+          <button type="submit">ホストを追加</button>
+        </form>
+        <p class="note" data-html-policy-summary>許可ホスト 0 件 / 通信上限 0 回 / タイムアウト 0ms</p>
+      </section>
+      <section class="sandbox-panel">
+        <h3>HTML変換ログ</h3>
+        <div class="sandbox-log" data-html-log></div>
+      </section>
+      <section class="sandbox-panel">
+        <h3>生成アセット</h3>
+        <div class="sandbox-artifacts" data-html-artifacts></div>
+      </section>
       <section class="url-import">
         <label for="remote-url-input">URL から読み込み</label>
         <div class="url-import__controls">
