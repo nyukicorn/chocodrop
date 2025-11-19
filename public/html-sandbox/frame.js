@@ -14,7 +14,9 @@ function sandboxNow() {
     exported: false,
     lastMutation: sandboxNow(),
     idleTimer: null,
-    watchdog: null
+    watchdog: null,
+    renderers: new Set(),
+    firstRenderReported: false
   };
 
   const post = (type, payload, transfer) => {
@@ -38,6 +40,7 @@ function sandboxNow() {
       state.watchdog = null;
     }
     clearTimeout(state.idleTimer);
+    disposeTrackedRenderers(state, log);
     post('error', {
       code,
       message: detail.message || 'HTML サンドボックスでエラーが発生しました',
@@ -66,7 +69,9 @@ function sandboxNow() {
 
   const exporter = new THREE.GLTFExporter();
   const trackedScenes = new Set();
+  const requestFirstRenderExport = createFirstRenderExporter(state);
   wrapThreeSceneTracking(THREE, trackedScenes, state, log);
+  wrapRendererHooks(THREE, trackedScenes, state, requestFirstRenderExport, log);
 
   window.ChocoDropSandbox = createSandboxApi({ THREE, exporter, trackedScenes, state, fail, log, networkGuard, post, start });
   window.dispatchEvent(new CustomEvent('chocodrop:sandbox-ready', { detail: { sandbox: window.ChocoDropSandbox } }));
@@ -455,6 +460,82 @@ function wrapThreeSceneTracking(THREE, trackedScenes, state, log) {
   log('info', 'Scene/Object3D フックを適用しました');
 }
 
+function wrapRendererHooks(THREE, trackedScenes, state, requestFirstRenderExport, log) {
+  const Renderer = THREE.WebGLRenderer;
+  if (!Renderer || !Renderer.prototype) {
+    log('warn', 'WebGLRenderer フックを適用できません (未定義)');
+    return;
+  }
+
+  const originalRender = Renderer.prototype.render;
+  if (typeof originalRender === 'function') {
+    Renderer.prototype.render = function patchedRender(scene, camera, ...rest) {
+      if (scene && typeof scene.traverse === 'function') {
+        trackedScenes.add(scene);
+      }
+      if (state.renderers && this && typeof this.dispose === 'function') {
+        state.renderers.add(this);
+      }
+      state.lastMutation = sandboxNow();
+      try {
+        requestFirstRenderExport(scene, camera);
+      } catch (_) {
+        /* noop */
+      }
+      return originalRender.call(this, scene, camera, ...rest);
+    };
+  }
+
+  const originalDispose = Renderer.prototype.dispose;
+  Renderer.prototype.dispose = function patchedDispose(...args) {
+    if (state.renderers) {
+      state.renderers.delete(this);
+    }
+    if (typeof originalDispose === 'function') {
+      return originalDispose.apply(this, args);
+    }
+    return undefined;
+  };
+
+  log('info', 'WebGLRenderer フックを適用しました');
+}
+
+function createFirstRenderExporter(state) {
+  const enqueue = typeof queueMicrotask === 'function' ? queueMicrotask : cb => Promise.resolve().then(cb);
+  return (scene, camera) => {
+    if (state.exported || state.firstRenderReported) return;
+    if (!scene || typeof scene.traverse !== 'function') return;
+    state.firstRenderReported = true;
+    enqueue(() => {
+      try {
+        if (!state.exported) {
+          window.ChocoDropSandbox?.exportScene(scene, {
+            reason: 'first-render',
+            cameraUuid: camera?.uuid || null
+          });
+        }
+      } catch (error) {
+        state.firstRenderReported = false;
+        console.warn('Initial render export failed, retry allowed.', error);
+      }
+    });
+  };
+}
+
+function disposeTrackedRenderers(state, log) {
+  if (!state.renderers || !state.renderers.size) {
+    return;
+  }
+  state.renderers.forEach(renderer => {
+    try {
+      renderer.dispose?.();
+    } catch (error) {
+      log('warn', `renderer.dispose() に失敗: ${error?.message || error}`);
+    }
+  });
+  state.renderers.clear();
+}
+
 function createSandboxApi({ THREE, exporter, trackedScenes, state, fail, log, networkGuard, post, start }) {
   const exportScene = (target, meta = {}) => {
     if (state.exported) return;
@@ -481,6 +562,7 @@ function createSandboxApi({ THREE, exporter, trackedScenes, state, fail, log, ne
           networkRequests: networkGuard.count
         }
       });
+      disposeTrackedRenderers(state, log);
       exportGlb(scene, exporter, log, post);
     } catch (error) {
       fail('export-failed', { message: error?.message || 'Scene JSON 変換に失敗しました' });
