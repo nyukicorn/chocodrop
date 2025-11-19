@@ -300,13 +300,13 @@
   <body>
     <aside>
       <h1>モデルインポーター</h1>
-      <p class="note">HTML (Three.js) / GLTF / GLB / Three.js JSON をアップロードして、シーンに即座に配置します。VR/AR では左スティックで平面移動、右スティックで上下・回転・スケールを操作できます。</p>
+      <p class="note">HTML (Three.js) / ZIP (HTML+アセット) / GLTF / GLB / Three.js JSON をアップロードして、シーンに即座に配置します。VR/AR では左スティックで平面移動、右スティックで上下・回転・スケールを操作できます。</p>
       <label>ファイル選択
-        <input id="file-input" type="file" accept=".html,.htm,.gltf,.glb,.json" multiple>
+        <input id="file-input" type="file" accept=".html,.htm,.zip,.gltf,.glb,.json" multiple>
       </label>
       <div data-dropzone data-state="idle">
         <strong>ドラッグ＆ドロップ</strong>
-        <p class="note">HTML(β) / GLTF / GLB / Three.js JSON 以外は拒否します。</p>
+        <p class="note">HTML(β) / ZIP(β) / GLTF / GLB / Three.js JSON 以外は拒否します。</p>
       </div>
       <section class="sandbox-panel" data-html-policy>
         <h2>HTMLサンドボックス β</h2>

@@ -37,11 +37,19 @@ export class HtmlSandboxRunner {
     });
   }
 
-  async convertHtml(htmlText, { fileName = 'inline.html', artifactBaseName = 'scene', policy } = {}) {
+  async convertVirtualProject({ htmlText, fileName = 'inline.html', policy, virtualProject }) {
+    if (!htmlText) {
+      throw new Error('HTML コンテンツが空です');
+    }
+    const artifactBaseName = fileName.split('/').pop() || 'scene';
+    return this.convertHtml(htmlText, { fileName, artifactBaseName, policy, virtualProject });
+  }
+
+  async convertHtml(htmlText, { fileName = 'inline.html', artifactBaseName = 'scene', policy, virtualProject } = {}) {
     const effectivePolicy = normalizeHtmlSandboxPolicy(policy || this.defaultPolicy);
     const sandboxHtml = this.buildSandboxDocument(htmlText, { policy: effectivePolicy, fileName });
     return new Promise((resolve, reject) => {
-      const iframe = this.createIframe();
+      const iframe = this.createIframe(virtualProject);
       const logs = [];
       const state = {
         sceneJson: null,
@@ -55,6 +63,13 @@ export class HtmlSandboxRunner {
         window.removeEventListener('message', handleMessage);
         if (iframe.parentNode) {
           iframe.parentNode.removeChild(iframe);
+        }
+        if (virtualProject?.dispose) {
+          try {
+            virtualProject.dispose();
+          } catch (_) {
+            /* noop */
+          }
         }
       };
 
@@ -139,7 +154,7 @@ export class HtmlSandboxRunner {
     });
   }
 
-  createIframe() {
+  createIframe(virtualProject) {
     const iframe = document.createElement('iframe');
     iframe.setAttribute('sandbox', 'allow-scripts');
     iframe.setAttribute('referrerpolicy', 'no-referrer');
@@ -149,6 +164,12 @@ export class HtmlSandboxRunner {
     iframe.style.height = '1px';
     iframe.style.opacity = '0';
     iframe.tabIndex = -1;
+    if (virtualProject) {
+      iframe.__chocodropVirtualProject = {
+        baseDir: virtualProject.baseDir || '',
+        files: Array.isArray(virtualProject.files) ? virtualProject.files : []
+      };
+    }
     document.body.appendChild(iframe);
     return iframe;
   }

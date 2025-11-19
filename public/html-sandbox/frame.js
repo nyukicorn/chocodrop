@@ -45,9 +45,15 @@ function sandboxNow() {
     });
   };
 
+  const virtualProject = setupVirtualProject();
+
   post('boot', { fileName: config.fileName || 'inline.html' });
   setupConsoleMirroring(log);
   setupErrorBridge(fail, log);
+
+  if (virtualProject) {
+    installVirtualFileSystem(virtualProject, log);
+  }
 
   const networkGuard = createNetworkGuard(config, fail, log);
   networkGuard.install();
@@ -217,6 +223,214 @@ function createNetworkGuard(config, fail, log) {
       return requestCount;
     }
   };
+}
+
+function setupVirtualProject() {
+  const frame = window.frameElement;
+  if (!frame) return null;
+  const payload = frame.__chocodropVirtualProject;
+  if (!payload || !Array.isArray(payload.files) || payload.files.length === 0) {
+    return null;
+  }
+  frame.__chocodropVirtualProject = null;
+  const files = new Map();
+  payload.files.forEach(entry => {
+    if (Array.isArray(entry) && typeof entry[0] === 'string' && entry[1]?.url) {
+      files.set(entry[0], entry[1]);
+    }
+  });
+  if (!files.size) {
+    return null;
+  }
+  return {
+    baseDir: (payload.baseDir || '').replace(/\\/g, '/'),
+    files
+  };
+}
+
+function installVirtualFileSystem(project, log) {
+  const resolver = createVirtualResolver(project);
+  if (!resolver) return;
+
+  const rewriteValue = value => resolver(value);
+
+  patchElementAttributeHook(rewriteValue);
+  [
+    [window.HTMLScriptElement, 'src'],
+    [window.HTMLLinkElement, 'href'],
+    [window.HTMLImageElement, 'src'],
+    [window.HTMLVideoElement, 'src'],
+    [window.HTMLAudioElement, 'src'],
+    [window.HTMLSourceElement, 'src'],
+    [window.HTMLTrackElement, 'src'],
+    [window.HTMLIFrameElement, 'src'],
+    [window.HTMLEmbedElement, 'src'],
+    [window.HTMLObjectElement, 'data']
+  ].forEach(entry => patchUrlProperty(entry[0], entry[1], rewriteValue));
+
+  patchFetchHooks(rewriteValue);
+  patchWorkerHooks(rewriteValue);
+  log('info', `ローカルZIP資産 ${project.files.size} 件をマウントしました`);
+}
+
+function createVirtualResolver(project) {
+  const map = project.files;
+  if (!map || !map.size) return null;
+  const baseDir = normaliseBaseDir(project.baseDir || '');
+  return value => {
+    const normalized = normalizeVirtualPath(value, baseDir);
+    if (!normalized) return null;
+    const entry = map.get(normalized);
+    return entry?.url || null;
+  };
+}
+
+function normaliseBaseDir(dir) {
+  if (!dir) return '';
+  const normalized = dir.replace(/\\/g, '/');
+  return normalized.endsWith('/') ? normalized : `${normalized}/`;
+}
+
+function normalizeVirtualPath(value, baseDir) {
+  if (value == null) return null;
+  const raw = typeof value === 'string' ? value : String(value);
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  if (/^[a-zA-Z]+:/.test(trimmed) || trimmed.startsWith('//') || trimmed.startsWith('#')) {
+    return null;
+  }
+  const withoutQuery = trimmed.split(/[?#]/)[0];
+  const relative = withoutQuery.startsWith('/')
+    ? withoutQuery.slice(1)
+    : `${baseDir || ''}${withoutQuery}`;
+  const collapsed = collapsePath(relative);
+  return collapsed;
+}
+
+function collapsePath(path) {
+  return path
+    .split('/')
+    .reduce((stack, segment) => {
+      if (!segment || segment === '.') return stack;
+      if (segment === '..') {
+        stack.pop();
+      } else {
+        stack.push(segment);
+      }
+      return stack;
+    }, [])
+    .join('/');
+}
+
+function patchElementAttributeHook(rewriteValue) {
+  const originalSetAttribute = Element.prototype.setAttribute;
+  Element.prototype.setAttribute = function (name, value) {
+    if (typeof name === 'string' && typeof value === 'string') {
+      if (isResourceAttribute(name)) {
+        const mapped = rewriteValue(value);
+        if (mapped) {
+          return originalSetAttribute.call(this, name, mapped);
+        }
+      }
+    }
+    return originalSetAttribute.call(this, name, value);
+  };
+}
+
+function isResourceAttribute(name) {
+  return ['src', 'href', 'data'].includes(name.toLowerCase());
+}
+
+function patchUrlProperty(ctor, property, rewriteValue) {
+  if (!ctor || !ctor.prototype) return;
+  const descriptor = Object.getOwnPropertyDescriptor(ctor.prototype, property);
+  if (!descriptor || typeof descriptor.set !== 'function') return;
+  Object.defineProperty(ctor.prototype, property, {
+    configurable: true,
+    enumerable: descriptor.enumerable,
+    get: descriptor.get
+      ? function () {
+          return descriptor.get.call(this);
+        }
+      : function () {
+          return this.getAttribute(property);
+        },
+    set(value) {
+      const mapped = typeof value === 'string' ? rewriteValue(value) : null;
+      return descriptor.set.call(this, mapped || value);
+    }
+  });
+}
+
+function patchFetchHooks(rewriteValue) {
+  const originalFetch = window.fetch;
+  window.fetch = function (input, init) {
+    const mapped = resolveFetchResource(input, rewriteValue, init);
+    if (mapped) {
+      return originalFetch(mapped.resource, mapped.init);
+    }
+    return originalFetch(input, init);
+  };
+
+  const originalOpen = XMLHttpRequest.prototype.open;
+  XMLHttpRequest.prototype.open = function (method, url, ...rest) {
+    const mapped = typeof url === 'string' ? rewriteValue(url) : null;
+    return originalOpen.call(this, method, mapped || url, ...rest);
+  };
+}
+
+function resolveFetchResource(resource, rewriteValue, init) {
+  if (resource instanceof Request) {
+    const mappedUrl = rewriteValue(resource.url);
+    if (!mappedUrl) return null;
+    const cloned = resource.clone();
+    const nextInit = buildRequestInit(cloned, init);
+    return { resource: mappedUrl, init: nextInit };
+  }
+  if (typeof resource === 'string' || resource instanceof URL) {
+    const mappedUrl = rewriteValue(String(resource));
+    if (!mappedUrl) return null;
+    return { resource: mappedUrl, init };
+  }
+  return null;
+}
+
+function buildRequestInit(request, override = {}) {
+  const init = { ...override };
+  if (!('method' in init)) init.method = request.method;
+  if (!('headers' in init)) init.headers = request.headers;
+  if (!('body' in init) && request.method !== 'GET' && request.method !== 'HEAD') {
+    init.body = request.body;
+  }
+  if (!('mode' in init)) init.mode = request.mode;
+  if (!('credentials' in init)) init.credentials = request.credentials;
+  if (!('cache' in init)) init.cache = request.cache;
+  if (!('redirect' in init)) init.redirect = request.redirect;
+  if (!('referrer' in init)) init.referrer = request.referrer;
+  if (!('referrerPolicy' in init)) init.referrerPolicy = request.referrerPolicy;
+  if (!('integrity' in init)) init.integrity = request.integrity;
+  if (!('keepalive' in init)) init.keepalive = request.keepalive;
+  if (!('signal' in init)) init.signal = request.signal;
+  return init;
+}
+
+function patchWorkerHooks(rewriteValue) {
+  if (typeof window.Worker === 'function') {
+    const OriginalWorker = window.Worker;
+    window.Worker = function (url, options) {
+      const mapped = typeof url === 'string' ? rewriteValue(url) : null;
+      return new OriginalWorker(mapped || url, options);
+    };
+    window.Worker.prototype = OriginalWorker.prototype;
+  }
+  if (typeof window.SharedWorker === 'function') {
+    const OriginalSharedWorker = window.SharedWorker;
+    window.SharedWorker = function (url, options) {
+      const mapped = typeof url === 'string' ? rewriteValue(url) : null;
+      return new OriginalSharedWorker(mapped || url, options);
+    };
+    window.SharedWorker.prototype = OriginalSharedWorker.prototype;
+  }
 }
 
 function wrapThreeSceneTracking(THREE, trackedScenes, state, log) {

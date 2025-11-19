@@ -13,10 +13,12 @@ import {
   normalizeHtmlSandboxPolicy,
   DEFAULT_HTML_SANDBOX_POLICY
 } from './html-sandbox/policy.js';
+import { isZipFileName, loadZipProject } from './html-sandbox/archive-loader.js';
 
 const MODEL_EXTENSIONS = ['.gltf', '.glb', '.json'];
 const HTML_EXTENSIONS = ['.html', '.htm'];
-const ACCEPT_EXTENSIONS = [...MODEL_EXTENSIONS, ...HTML_EXTENSIONS];
+const ARCHIVE_EXTENSIONS = ['.zip'];
+const ACCEPT_EXTENSIONS = [...MODEL_EXTENSIONS, ...HTML_EXTENSIONS, ...ARCHIVE_EXTENSIONS];
 const MEDIA_MODEL_EXTENSIONS = ['.glb', '.gltf'];
 const MEDIA_CHUNK_SIZE = 256 * 1024; // 256KB
 const URL_HISTORY_STORAGE_KEY = 'chocodrop:urlHistory';
@@ -115,10 +117,17 @@ async function main() {
     return result;
   };
 
-  const handleHtmlDocument = async file => {
+  const handleHtmlDocument = async (file, context = {}) => {
     setOverlayStatus(overlayUI, 'HTML解析中', `${file.name} を分離サンドボックスで評価しています…`, 'info');
     try {
-      const conversion = await htmlSandbox.convertFile(file, { policy: htmlSandboxPolicy });
+      const conversion = context.virtualProject
+        ? await htmlSandbox.convertVirtualProject({
+            htmlText: context.virtualProject.htmlText,
+            fileName: context.virtualProject.entryPath,
+            policy: htmlSandboxPolicy,
+            virtualProject: context.virtualProject.sandboxProject
+          })
+        : await htmlSandbox.convertFile(file, { policy: htmlSandboxPolicy });
       htmlLogController.render(conversion.logs);
       htmlArtifactController.render(conversion.artifacts);
       setOverlayStatus(overlayUI, 'HTML解析完了', 'Scene JSON を生成し、インポートを実行します。', 'ok');
@@ -134,14 +143,41 @@ async function main() {
     }
   };
 
+  const handleHtmlArchive = async file => {
+    setOverlayStatus(overlayUI, 'HTML解析中', `${file.name} を展開しています…`, 'info');
+    try {
+      const project = await loadZipProject(file);
+      await handleHtmlDocument(new File([project.htmlText], project.entryPath, { type: 'text/html' }), {
+        virtualProject: {
+          htmlText: project.htmlText,
+          entryPath: project.entryPath,
+          sandboxProject: {
+            baseDir: project.baseDir,
+            files: project.virtualFiles,
+            dispose: project.dispose
+          }
+        }
+      });
+    } catch (error) {
+      htmlLogController.render([{ level: 'error', message: error?.message || 'ZIP の解析に失敗しました' }]);
+      htmlArtifactController.clear?.();
+      setOverlayStatus(overlayUI, 'ZIP解析失敗', error?.message || 'ZIP 展開エラー', 'error');
+      console.error('HTML archive import failed', error);
+    }
+  };
+
   const handleFiles = async files => {
     for (const file of files) {
       if (isHtmlFileName(file.name)) {
         await handleHtmlDocument(file);
         continue;
       }
+      if (isZipFileName(file.name)) {
+        await handleHtmlArchive(file);
+        continue;
+      }
       if (!validateFile(file)) {
-        alert('対応形式は HTML / GLTF / GLB / Three.js JSON のみです');
+        alert('対応形式は HTML / ZIP / GLTF / GLB / Three.js JSON のみです');
         continue;
       }
       try {
