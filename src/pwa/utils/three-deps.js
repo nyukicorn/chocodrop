@@ -1,5 +1,13 @@
 export const THREE_VERSION = '0.158.0';
-export const THREE_CDN_BASE = `https://cdn.jsdelivr.net/npm/three@${THREE_VERSION}`;
+
+export function getThreeCdnBase(version = THREE_VERSION) {
+  const normalized = String(version || THREE_VERSION).trim();
+  const tag = normalized.startsWith('r') ? normalized.slice(1) : normalized;
+  const resolved = tag === 'latest' ? 'latest' : normalized.startsWith('0.') ? normalized : `0.${tag}.0`;
+  return `https://cdn.jsdelivr.net/npm/three@${resolved}`;
+}
+
+export const THREE_CDN_BASE = getThreeCdnBase();
 
 /**
  * Three.js と付属モジュールを遅延読み込みするユーティリティ。
@@ -43,7 +51,8 @@ export const THREE_CDN_RESOURCES = [
   `${THREE_CDN_BASE}/examples/jsm/loaders/RGBELoader.js`
 ];
 
-export function resolveThreeResource(path = '') {
+export function resolveThreeResource(path = '', version = THREE_VERSION) {
   const normalized = String(path).replace(/^\/+/, '');
-  return `${THREE_CDN_BASE}/${normalized}`;
+  const base = getThreeCdnBase(version);
+  return `${base}/${normalized}`;
 }

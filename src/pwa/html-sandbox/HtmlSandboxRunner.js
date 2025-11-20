@@ -1,5 +1,5 @@
 import { normalizeHtmlSandboxPolicy, DEFAULT_HTML_SANDBOX_POLICY } from './policy.js';
-import { resolveThreeResource } from '../utils/three-deps.js';
+import { resolveThreeResource, THREE_VERSION } from '../utils/three-deps.js';
 
 export class HtmlSandboxError extends Error {
   constructor(message, detail = {}) {
@@ -12,8 +12,6 @@ export class HtmlSandboxError extends Error {
 const CHANNEL = 'chocodrop-html-sandbox';
 const MAX_RESULT_WAIT_MS = 2000;
 const IFRAME_MESSAGE_TIMEOUT_MS = 10000;
-const THREE_SCRIPT = resolveThreeResource('build/three.min.js');
-const GLTF_EXPORTER_SCRIPT = resolveThreeResource('examples/js/exporters/GLTFExporter.js');
 
 export class HtmlSandboxRunner {
   constructor(options = {}) {
@@ -22,10 +20,17 @@ export class HtmlSandboxRunner {
       ...options
     };
     this.defaultPolicy = normalizeHtmlSandboxPolicy(options.defaultPolicy || DEFAULT_HTML_SANDBOX_POLICY);
+    this.threeVersion = options.threeVersion || THREE_VERSION;
   }
 
   setDefaultPolicy(policy) {
     this.defaultPolicy = normalizeHtmlSandboxPolicy(policy || this.defaultPolicy);
+  }
+
+  setThreeVersion(version) {
+    if (typeof version === 'string' && version.trim()) {
+      this.threeVersion = version.trim();
+    }
   }
 
   async convertFile(file, { policy } = {}) {
@@ -34,7 +39,8 @@ export class HtmlSandboxRunner {
     return this.convertHtml(text, {
       fileName: file.name,
       artifactBaseName,
-      policy
+      policy,
+      threeVersion: this.threeVersion
     });
   }
 
@@ -43,12 +49,16 @@ export class HtmlSandboxRunner {
       throw new Error('HTML コンテンツが空です');
     }
     const artifactBaseName = fileName.split('/').pop() || 'scene';
-    return this.convertHtml(htmlText, { fileName, artifactBaseName, policy, virtualProject });
+    return this.convertHtml(htmlText, { fileName, artifactBaseName, policy, virtualProject, threeVersion: this.threeVersion });
   }
 
-  async convertHtml(htmlText, { fileName = 'inline.html', artifactBaseName = 'scene', policy, virtualProject } = {}) {
+  async convertHtml(
+    htmlText,
+    { fileName = 'inline.html', artifactBaseName = 'scene', policy, virtualProject, threeVersion } = {}
+  ) {
     const effectivePolicy = normalizeHtmlSandboxPolicy(policy || this.defaultPolicy);
-    const sandboxHtml = this.buildSandboxDocument(htmlText, { policy: effectivePolicy, fileName });
+    const effectiveVersion = threeVersion || this.threeVersion || THREE_VERSION;
+    const sandboxHtml = this.buildSandboxDocument(htmlText, { policy: effectivePolicy, fileName, threeVersion: effectiveVersion });
     return new Promise((resolve, reject) => {
       const iframe = this.createIframe(virtualProject);
       let iframeUrl = null;
@@ -194,13 +204,17 @@ export class HtmlSandboxRunner {
     return iframe;
   }
 
-  buildSandboxDocument(htmlText, { policy, fileName }) {
+  buildSandboxDocument(htmlText, { policy, fileName, threeVersion }) {
+    const threeScript = resolveThreeResource('build/three.min.js', threeVersion);
+    const gltfExporterScript = resolveThreeResource('examples/js/exporters/GLTFExporter.js', threeVersion);
+    const bufferUtilsScript = resolveThreeResource('examples/js/utils/BufferGeometryUtils.js', threeVersion);
     const headInjection = [
       '<meta charset="utf-8">',
       this.buildCspMeta(policy),
-      this.buildConfigScript({ policy, fileName }),
-      `<script src="${THREE_SCRIPT}" crossorigin="anonymous"></script>`,
-      `<script src="${GLTF_EXPORTER_SCRIPT}" crossorigin="anonymous"></script>`,
+      this.buildConfigScript({ policy, fileName, threeVersion }),
+      `<script src="${threeScript}" crossorigin="anonymous"></script>`,
+      `<script src="${gltfExporterScript}" crossorigin="anonymous"></script>`,
+      `<script src="${bufferUtilsScript}" crossorigin="anonymous"></script>`,
       '<script src="/html-sandbox/frame.js"></script>'
     ].join('\n');
 
@@ -239,13 +253,14 @@ export class HtmlSandboxRunner {
     return `<meta http-equiv="Content-Security-Policy" content="${policyString}">`;
   }
 
-  buildConfigScript({ policy, fileName }) {
+  buildConfigScript({ policy, fileName, threeVersion }) {
     const config = {
       fileName,
       allowedOrigins: policy.hosts,
       maxExecutionMs: policy.maxExecutionMs,
       autoExportIdleMs: policy.autoExportIdleMs,
-      maxNetworkRequests: policy.maxNetworkRequests
+      maxNetworkRequests: policy.maxNetworkRequests,
+      threeVersion: threeVersion || this.threeVersion || THREE_VERSION
     };
     const serialized = JSON.stringify(config).replace(/<\//g, '<\\/');
     return `<script>window.__CHOCODROP_HTML_SANDBOX_CONFIG = ${serialized};</script>`;

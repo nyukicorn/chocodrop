@@ -1,5 +1,6 @@
-import { createApp, ref, reactive, computed, onBeforeUnmount } from 'vue';
+import { createApp, ref, reactive, computed, onBeforeUnmount, watch } from 'vue';
 import { HtmlSandboxRunner, HtmlSandboxError } from './HtmlSandboxRunner.js';
+import { THREE_VERSION } from '../utils/three-deps.js';
 
 const runner = new HtmlSandboxRunner();
 
@@ -29,6 +30,14 @@ createApp({
     const glbSize = ref(0);
     const thumbnailUrl = ref(null);
     const thumbnailSize = ref(null);
+    const threeVersionOptions = [
+      { label: 'r160', value: '0.160.0' },
+      { label: 'r158 (既定)', value: THREE_VERSION },
+      { label: 'r150', value: '0.150.1' },
+      { label: 'r140', value: '0.140.0' },
+      { label: 'latest', value: 'latest' }
+    ];
+    const selectedThreeVersion = ref(THREE_VERSION);
     const dropActive = ref(false);
     const status = reactive({ phase: 'idle', title: '待機中', detail: 'HTML を選択してください。', tone: 'muted' });
 
@@ -110,6 +119,7 @@ createApp({
       summary.value = null;
       updateStatus('running', 'サンドボックス実行中', `${file.name} を分離環境で評価しています…`, 'info');
       try {
+        runner.setThreeVersion(selectedThreeVersion.value);
         const result = await runner.convertFile(file);
         logs.value = result.logs || [];
         summary.value = result.summary || null;
@@ -180,12 +190,21 @@ createApp({
       window.removeEventListener('beforeunload', handleBeforeUnload);
     });
 
+    watch(
+      () => selectedThreeVersion.value,
+      value => {
+        runner.setThreeVersion(value);
+      }
+    );
+
     return {
       htmlText,
       logs,
       summary,
       glbUrl,
       glbSizeLabel,
+      threeVersionOptions,
+      selectedThreeVersion,
       thumbnailUrl,
       thumbnailSize,
       dropActive,

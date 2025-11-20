@@ -74,7 +74,7 @@
         border-color: #38bdf8;
         background: rgba(56, 189, 248, 0.15);
       }
-      input[type="file"], textarea {
+      input[type="file"], textarea, select {
         width: 100%;
         border-radius: 0.75rem;
         border: 1px solid rgba(148, 163, 184, 0.35);
@@ -203,6 +203,12 @@
             <small>または下の入力から選択</small>
           </label>
           <input type="file" accept=".html,.htm" @change="onFileChange" :disabled="busy">
+          <div>
+            <label for="three-version">Three.js Version</label>
+            <select id="three-version" v-model="selectedThreeVersion" :disabled="busy">
+              <option v-for="option in threeVersionOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
+            </select>
+          </div>
           <div>
             <label for="inline-html">HTML 文字列（Single File）</label>
             <textarea id="inline-html" v-model="htmlText" placeholder="<!DOCTYPE html>..." :disabled="busy"></textarea>
