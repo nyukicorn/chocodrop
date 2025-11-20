@@ -186,7 +186,7 @@ export class HtmlSandboxRunner {
 
   createIframe(virtualProject) {
     const iframe = document.createElement('iframe');
-    iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin');
+    iframe.setAttribute('sandbox', 'allow-scripts');
     iframe.setAttribute('referrerpolicy', 'no-referrer');
     iframe.style.position = 'absolute';
     iframe.style.left = '-9999px';
@@ -205,21 +205,21 @@ export class HtmlSandboxRunner {
   }
 
   buildSandboxDocument(htmlText, { policy, fileName, threeVersion }) {
-    const threeScript = resolveThreeResource('build/three.min.js', threeVersion);
-    const gltfExporterModule = resolveThreeResource('examples/jsm/exporters/GLTFExporter.js', threeVersion);
-    const bufferUtilsModule = resolveThreeResource('examples/jsm/utils/BufferGeometryUtils.js', threeVersion);
+    const threeModule = resolveThreeResource('build/three.module.js', threeVersion);
+    const examplesBase = resolveThreeResource('examples/jsm/', threeVersion);
+    const importMap = `{"imports":{"three":"${threeModule}","three/examples/jsm/":"${examplesBase}"}}`;
     const headInjection = [
       '<meta charset="utf-8">',
       this.buildCspMeta(policy),
       this.buildConfigScript({ policy, fileName, threeVersion }),
-      `<script src="${threeScript}" crossorigin="anonymous"></script>`,
+      `<script type="importmap">${importMap}</script>`,
       `<script type="module">
-        import { GLTFExporter } from '${gltfExporterModule}';
-        import * as BufferGeometryUtils from '${bufferUtilsModule}';
-        if (window.THREE) {
-          window.THREE.GLTFExporter = GLTFExporter;
-          window.THREE.BufferGeometryUtils = BufferGeometryUtils;
-        }
+        import * as THREE from 'three';
+        import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js';
+        import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+        window.THREE = THREE;
+        window.THREE.GLTFExporter = GLTFExporter;
+        window.THREE.BufferGeometryUtils = BufferGeometryUtils;
       </script>`,
       '<script src="/html-sandbox/frame.js"></script>'
     ].join('\n');
