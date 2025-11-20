@@ -11,6 +11,7 @@ export class HtmlSandboxError extends Error {
 
 const CHANNEL = 'chocodrop-html-sandbox';
 const MAX_RESULT_WAIT_MS = 2000;
+const IFRAME_MESSAGE_TIMEOUT_MS = 10000;
 const THREE_SCRIPT = resolveThreeResource('build/three.min.js');
 const GLTF_EXPORTER_SCRIPT = resolveThreeResource('examples/js/exporters/GLTFExporter.js');
 
@@ -50,6 +51,7 @@ export class HtmlSandboxRunner {
     const sandboxHtml = this.buildSandboxDocument(htmlText, { policy: effectivePolicy, fileName });
     return new Promise((resolve, reject) => {
       const iframe = this.createIframe(virtualProject);
+      let iframeUrl = null;
       const logs = [];
       const state = {
         sceneJson: null,
@@ -63,6 +65,10 @@ export class HtmlSandboxRunner {
         window.removeEventListener('message', handleMessage);
         if (iframe.parentNode) {
           iframe.parentNode.removeChild(iframe);
+        }
+        if (iframeUrl) {
+          URL.revokeObjectURL(iframeUrl);
+          iframeUrl = null;
         }
         if (virtualProject?.dispose) {
           try {
@@ -108,12 +114,13 @@ export class HtmlSandboxRunner {
         }));
       };
 
+      const hostTimeoutMs = Math.min(IFRAME_MESSAGE_TIMEOUT_MS, effectivePolicy.maxExecutionMs + MAX_RESULT_WAIT_MS);
       const hostTimeout = window.setTimeout(() => {
         finishError({
           code: 'host-timeout',
           message: 'サンドボックス応答が時間内に完了しませんでした'
         });
-      }, effectivePolicy.maxExecutionMs + MAX_RESULT_WAIT_MS);
+      }, hostTimeoutMs);
 
       const handleMessage = event => {
         if (event.source !== iframe.contentWindow) return;
@@ -150,13 +157,15 @@ export class HtmlSandboxRunner {
       };
 
       window.addEventListener('message', handleMessage);
-      iframe.srcdoc = sandboxHtml;
+      const blob = new Blob([sandboxHtml], { type: 'text/html' });
+      iframeUrl = URL.createObjectURL(blob);
+      iframe.src = iframeUrl;
     });
   }
 
   createIframe(virtualProject) {
     const iframe = document.createElement('iframe');
-    iframe.setAttribute('sandbox', 'allow-scripts');
+    iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin');
     iframe.setAttribute('referrerpolicy', 'no-referrer');
     iframe.style.position = 'absolute';
     iframe.style.left = '-9999px';
@@ -184,8 +193,8 @@ export class HtmlSandboxRunner {
       '<script src="/html-sandbox/frame.js"></script>'
     ].join('\n');
 
-    if (/<!doctype/i.test(htmlText) && /<head[^>]*>/i.test(htmlText)) {
-      return htmlText.replace(/<head([^>]*)>/i, match => `${match}\n${headInjection}`);
+    if (/<\/head>/i.test(htmlText)) {
+      return htmlText.replace(/<\/head>/i, `${headInjection}\n</head>`);
     }
 
     if (/<head[^>]*>/i.test(htmlText)) {
@@ -202,14 +211,13 @@ export class HtmlSandboxRunner {
   buildCspMeta(policy) {
     const hostTokens = policy.hosts.map(entry => (entry === 'self' ? "'self'" : entry));
     const scriptSrc = [`'unsafe-inline'`, ...hostTokens, 'blob:', 'data:'];
-    const connectSrc = [...hostTokens, 'blob:', 'data:'];
     const assetSrc = [...hostTokens, 'blob:', 'data:'];
     const policyString = [
       `default-src 'none'`,
       `script-src ${scriptSrc.join(' ')}`,
       `style-src 'unsafe-inline'`,
       `img-src ${assetSrc.join(' ')}`,
-      `connect-src ${connectSrc.join(' ')}`,
+      `connect-src 'none'`,
       `media-src ${assetSrc.join(' ')}`,
       `font-src 'none'`,
       `frame-ancestors 'none'`,
