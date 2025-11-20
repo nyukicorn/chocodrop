@@ -57,6 +57,7 @@ export class HtmlSandboxRunner {
         sceneJson: null,
         summary: null,
         glbBuffer: null,
+        thumbnail: null,
         settled: false
       };
 
@@ -93,6 +94,13 @@ export class HtmlSandboxRunner {
           artifacts.glbFile = new File([state.glbBuffer], `${artifactBaseName}.glb`, {
             type: 'model/gltf-binary'
           });
+        }
+        if (state.thumbnail?.dataUrl) {
+          artifacts.thumbnailDataUrl = state.thumbnail.dataUrl;
+          artifacts.thumbnailSize = {
+            width: state.thumbnail.width || null,
+            height: state.thumbnail.height || null
+          };
         }
         resolve({
           files,
@@ -150,6 +158,9 @@ export class HtmlSandboxRunner {
             if (data.payload?.buffer) {
               state.glbBuffer = data.payload.buffer;
             }
+            break;
+          case 'thumbnail':
+            state.thumbnail = data.payload || null;
             break;
           default:
             break;

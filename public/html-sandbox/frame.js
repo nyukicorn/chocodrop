@@ -16,7 +16,8 @@ function sandboxNow() {
     idleTimer: null,
     watchdog: null,
     renderers: new Set(),
-    firstRenderReported: false
+    firstRenderReported: false,
+    thumbnailSent: false
   };
 
   const post = (type, payload, transfer) => {
@@ -71,7 +72,7 @@ function sandboxNow() {
   const trackedScenes = new Set();
   const requestFirstRenderExport = createFirstRenderExporter(state);
   wrapThreeSceneTracking(THREE, trackedScenes, state, log);
-  wrapRendererHooks(THREE, trackedScenes, state, requestFirstRenderExport, log);
+  wrapRendererHooks(THREE, trackedScenes, state, requestFirstRenderExport, log, post);
 
   window.ChocoDropSandbox = createSandboxApi({ THREE, exporter, trackedScenes, state, fail, log, networkGuard, post, start });
   window.dispatchEvent(new CustomEvent('chocodrop:sandbox-ready', { detail: { sandbox: window.ChocoDropSandbox } }));
@@ -460,7 +461,7 @@ function wrapThreeSceneTracking(THREE, trackedScenes, state, log) {
   log('info', 'Scene/Object3D フックを適用しました');
 }
 
-function wrapRendererHooks(THREE, trackedScenes, state, requestFirstRenderExport, log) {
+function wrapRendererHooks(THREE, trackedScenes, state, requestFirstRenderExport, log, post) {
   const Renderer = THREE.WebGLRenderer;
   if (!Renderer || !Renderer.prototype) {
     log('warn', 'WebGLRenderer フックを適用できません (未定義)');
@@ -482,7 +483,13 @@ function wrapRendererHooks(THREE, trackedScenes, state, requestFirstRenderExport
       } catch (_) {
         /* noop */
       }
-      return originalRender.call(this, scene, camera, ...rest);
+      const output = originalRender.call(this, scene, camera, ...rest);
+      try {
+        captureThumbnail(this, state, post, log);
+      } catch (_) {
+        /* noop */
+      }
+      return output;
     };
   }
 
@@ -721,6 +728,31 @@ function materialSignature(material = {}) {
       return `${key}:${value ?? 'null'}`;
     })
     .join(';');
+}
+
+function captureThumbnail(renderer, state, post, log) {
+  if (state.thumbnailSent) return;
+  const canvas = renderer?.domElement;
+  if (!canvas || !canvas.width || !canvas.height) return;
+
+  const maxSize = 512;
+  const scale = Math.min(1, maxSize / Math.max(canvas.width, canvas.height));
+  const targetWidth = Math.max(1, Math.round(canvas.width * scale));
+  const targetHeight = Math.max(1, Math.round(canvas.height * scale));
+
+  try {
+    const offscreen = document.createElement('canvas');
+    offscreen.width = targetWidth;
+    offscreen.height = targetHeight;
+    const ctx = offscreen.getContext('2d');
+    if (!ctx) return;
+    ctx.drawImage(canvas, 0, 0, targetWidth, targetHeight);
+    const dataUrl = offscreen.toDataURL('image/png');
+    state.thumbnailSent = true;
+    post('thumbnail', { dataUrl, width: targetWidth, height: targetHeight });
+  } catch (error) {
+    log('warn', `サムネイル生成に失敗: ${error?.message || error}`);
+  }
 }
 
 function extractUrlFromArgs(input) {

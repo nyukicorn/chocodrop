@@ -27,6 +27,8 @@ createApp({
     const summary = ref(null);
     const glbUrl = ref(null);
     const glbSize = ref(0);
+    const thumbnailUrl = ref(null);
+    const thumbnailSize = ref(null);
     const dropActive = ref(false);
     const status = reactive({ phase: 'idle', title: '待機中', detail: 'HTML を選択してください。', tone: 'muted' });
 
@@ -46,35 +48,52 @@ createApp({
         glbUrl.value = null;
       }
       glbSize.value = 0;
+      thumbnailUrl.value = null;
+      thumbnailSize.value = null;
     };
 
-    const postGlbToParent = glbFile => {
-      if (!glbFile || !glbFile.arrayBuffer) return;
+    const postArtifactsToParent = (glbFile, thumbnailDataUrl) => {
       const targetWindow = window.parent || window;
       if (!targetWindow || typeof targetWindow.postMessage !== 'function') {
         return;
       }
-      glbFile
-        .arrayBuffer()
-        .then(buffer => {
-          try {
-            targetWindow.postMessage(
-              {
-                type: 'SECURE_SANDBOX_IMPORTER:glb',
-                name: glbFile.name,
-                byteLength: glbFile.size,
-                buffer
-              },
-              '*',
-              [buffer]
-            );
-          } catch (_) {
+      if (glbFile?.arrayBuffer) {
+        glbFile
+          .arrayBuffer()
+          .then(buffer => {
+            try {
+              targetWindow.postMessage(
+                {
+                  type: 'SECURE_SANDBOX_IMPORTER:glb',
+                  name: glbFile.name,
+                  byteLength: glbFile.size,
+                  buffer
+                },
+                '*',
+                [buffer]
+              );
+            } catch (_) {
+              /* noop */
+            }
+          })
+          .catch(() => {
             /* noop */
-          }
-        })
-        .catch(() => {
+          });
+      }
+
+      if (thumbnailDataUrl) {
+        try {
+          targetWindow.postMessage(
+            {
+              type: 'SECURE_SANDBOX_IMPORTER:thumbnail',
+              dataUrl: thumbnailDataUrl
+            },
+            '*'
+          );
+        } catch (_) {
           /* noop */
-        });
+        }
+      }
     };
 
     const handleConversion = async file => {
@@ -94,10 +113,18 @@ createApp({
         const result = await runner.convertFile(file);
         logs.value = result.logs || [];
         summary.value = result.summary || null;
-        if (result.artifacts?.glbFile) {
-          glbSize.value = result.artifacts.glbFile.size;
-          glbUrl.value = URL.createObjectURL(result.artifacts.glbFile);
-          postGlbToParent(result.artifacts.glbFile);
+        const glbFile = result.artifacts?.glbFile;
+        const thumbnailDataUrl = result.artifacts?.thumbnailDataUrl;
+        if (glbFile) {
+          glbSize.value = glbFile.size;
+          glbUrl.value = URL.createObjectURL(glbFile);
+        }
+        if (thumbnailDataUrl) {
+          thumbnailUrl.value = thumbnailDataUrl;
+          thumbnailSize.value = result.artifacts.thumbnailSize || null;
+        }
+        if (glbFile || thumbnailDataUrl) {
+          postArtifactsToParent(glbFile, thumbnailDataUrl);
         }
         updateStatus('completed', 'エクスポート成功', `${file.name} から GLB を抽出しました。`, 'ok');
       } catch (error) {
@@ -159,6 +186,8 @@ createApp({
       summary,
       glbUrl,
       glbSizeLabel,
+      thumbnailUrl,
+      thumbnailSize,
       dropActive,
       status,
       busy,

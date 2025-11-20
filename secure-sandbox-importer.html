@@ -159,6 +159,23 @@
         padding: 0.9rem 1.1rem;
         background: rgba(15, 118, 110, 0.2);
       }
+      .thumbnail {
+        border: 1px solid rgba(148, 163, 184, 0.25);
+        border-radius: 0.75rem;
+        padding: 0.75rem;
+        background: rgba(2, 6, 23, 0.65);
+        display: inline-flex;
+        flex-direction: column;
+        gap: 0.35rem;
+        max-width: 220px;
+      }
+      .thumbnail img {
+        width: 100%;
+        height: auto;
+        display: block;
+        border-radius: 0.5rem;
+        background: #0f172a;
+      }
       .artifact__meta { display: flex; flex-direction: column; gap: 0.2rem; }
       .artifact__title { margin: 0; font-weight: 600; }
       .artifact__size { margin: 0; font-size: 0.85rem; color: rgba(226, 232, 240, 0.75); }
@@ -210,6 +227,11 @@
             <div class="artifact__actions">
               <a :href="glbUrl" download="sandbox-scene.glb">GLB を保存</a>
             </div>
+          </div>
+          <div v-if="thumbnailUrl" class="thumbnail">
+            <strong>サムネイル</strong>
+            <img :src="thumbnailUrl" alt="GLB thumbnail preview" loading="lazy">
+            <small v-if="thumbnailSize">{{ thumbnailSize.width }} × {{ thumbnailSize.height }} px</small>
           </div>
           <div>
             <h3 class="panel__title">サンドボックスログ</h3>
