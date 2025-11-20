@@ -544,12 +544,13 @@ function createSandboxApi({ THREE, exporter, trackedScenes, state, fail, log, ne
       scene = pickScene(trackedScenes);
     }
     if (!scene) {
-      fail('scene-missing', { message: 'エクスポート対象の Scene が検出できませんでした。' });
+      fail('scene-missing', { message: 'エクスポート対象の Scene が検出できませんでした。scene.add が呼ばれているか確認してください。' });
       return;
     }
     try {
-      const sceneJson = scene.toJSON();
-      const objectCount = countObjects(scene);
+      const prepared = prepareScene(scene, THREE, log);
+      const sceneJson = prepared.toJSON();
+      const objectCount = countObjects(prepared);
       state.exported = true;
       clearTimeout(state.watchdog);
       clearTimeout(state.idleTimer);
@@ -563,7 +564,7 @@ function createSandboxApi({ THREE, exporter, trackedScenes, state, fail, log, ne
         }
       });
       disposeTrackedRenderers(state, log);
-      exportGlb(scene, exporter, log, post);
+      exportGlb(prepared, exporter, log, post);
     } catch (error) {
       fail('export-failed', { message: error?.message || 'Scene JSON 変換に失敗しました' });
     }
@@ -582,6 +583,7 @@ function createSandboxApi({ THREE, exporter, trackedScenes, state, fail, log, ne
 
 function exportGlb(scene, exporter, log, post) {
   try {
+    const animations = Array.isArray(scene.animations) ? scene.animations : [];
     exporter.parse(
       scene,
       result => {
@@ -592,7 +594,15 @@ function exportGlb(scene, exporter, log, post) {
         }
       },
       error => log('warn', `GLB エクスポートに失敗: ${error?.message || error}`),
-      { binary: true, onlyVisible: true }
+      {
+        binary: true,
+        onlyVisible: true,
+        forceIndices: true,
+        truncateDrawRange: true,
+        maxTextureSize: 2048,
+        animations,
+        includeCustomExtensions: true
+      }
     );
   } catch (error) {
     log('warn', `GLB エクスポートに失敗: ${error?.message || error}`);
@@ -624,6 +634,93 @@ function countObjects(root) {
     count += 1;
   });
   return count;
+}
+
+function prepareScene(scene, THREE, log) {
+  // クローンしてオリジナルを汚染しない
+  const cloned = scene.clone(true);
+  const removable = [];
+  cloned.traverse(obj => {
+    const scaleMagnitude = obj.scale ? Math.abs(obj.scale.x * obj.scale.y * obj.scale.z) : 1;
+    if (obj.visible === false || scaleMagnitude < 1e-6) {
+      removable.push(obj);
+    }
+  });
+  removable.forEach(node => node.parent?.remove(node));
+
+  dedupeResources(cloned, THREE, log);
+  return cloned;
+}
+
+function dedupeResources(root, THREE, log) {
+  if (!THREE || !root) return;
+  const geometryMap = new Map();
+  const materialMap = new Map();
+  root.traverse(obj => {
+    if (obj.isMesh || obj.isPoints || obj.isLine) {
+      if (obj.geometry && obj.geometry.isBufferGeometry) {
+        const signature = geometrySignature(obj.geometry);
+        const existing = geometryMap.get(signature);
+        if (existing) {
+          obj.geometry = existing;
+        } else {
+          geometryMap.set(signature, optimizeGeometry(obj.geometry, THREE, log));
+        }
+      }
+      const materials = Array.isArray(obj.material) ? obj.material : [obj.material].filter(Boolean);
+      if (materials.length) {
+        obj.material = materials.map(mat => {
+          const key = materialSignature(mat);
+          const found = materialMap.get(key);
+          if (found) return found;
+          materialMap.set(key, mat);
+          return mat;
+        });
+        if (obj.material.length === 1) {
+          obj.material = obj.material[0];
+        }
+      }
+    }
+  });
+}
+
+function geometrySignature(geometry) {
+  const attrs = geometry.attributes || {};
+  const keys = Object.keys(attrs)
+    .sort()
+    .map(name => {
+      const attr = attrs[name];
+      return `${name}:${attr?.itemSize || 0}:${attr?.count || 0}:${attr?.normalized ? 1 : 0}`;
+    })
+    .join('|');
+  const index = geometry.index ? `i:${geometry.index.count}` : 'i:0';
+  return `${geometry.type || geometry.constructor?.name || 'BufferGeometry'};${index};${keys}`;
+}
+
+function optimizeGeometry(geometry, THREE, log) {
+  if (THREE.BufferGeometryUtils && typeof THREE.BufferGeometryUtils.mergeVertices === 'function') {
+    try {
+      const merged = THREE.BufferGeometryUtils.mergeVertices(geometry, 1e-4);
+      merged.computeBoundingSphere?.();
+      merged.computeBoundingBox?.();
+      return merged;
+    } catch (error) {
+      log('warn', `ジオメトリの最適化に失敗: ${error?.message || error}`);
+    }
+  }
+  return geometry;
+}
+
+function materialSignature(material = {}) {
+  const props = ['type', 'color', 'roughness', 'metalness', 'opacity', 'transparent', 'map', 'normalMap'];
+  return props
+    .map(key => {
+      const value = material[key];
+      if (value && value.uuid) return `${key}:${value.uuid}`;
+      if (value && value.isColor) return `${key}:${value.getHexString?.() || ''}`;
+      return `${key}:${value ?? 'null'}`;
+    })
+    .join(';');
 }
 
 function extractUrlFromArgs(input) {
