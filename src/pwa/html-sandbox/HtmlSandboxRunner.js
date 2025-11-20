@@ -206,15 +206,21 @@ export class HtmlSandboxRunner {
 
   buildSandboxDocument(htmlText, { policy, fileName, threeVersion }) {
     const threeScript = resolveThreeResource('build/three.min.js', threeVersion);
-    const gltfExporterScript = resolveThreeResource('examples/js/exporters/GLTFExporter.js', threeVersion);
-    const bufferUtilsScript = resolveThreeResource('examples/js/utils/BufferGeometryUtils.js', threeVersion);
+    const gltfExporterModule = resolveThreeResource('examples/jsm/exporters/GLTFExporter.js', threeVersion);
+    const bufferUtilsModule = resolveThreeResource('examples/jsm/utils/BufferGeometryUtils.js', threeVersion);
     const headInjection = [
       '<meta charset="utf-8">',
       this.buildCspMeta(policy),
       this.buildConfigScript({ policy, fileName, threeVersion }),
       `<script src="${threeScript}" crossorigin="anonymous"></script>`,
-      `<script src="${gltfExporterScript}" crossorigin="anonymous"></script>`,
-      `<script src="${bufferUtilsScript}" crossorigin="anonymous"></script>`,
+      `<script type="module">
+        import { GLTFExporter } from '${gltfExporterModule}';
+        import * as BufferGeometryUtils from '${bufferUtilsModule}';
+        if (window.THREE) {
+          window.THREE.GLTFExporter = GLTFExporter;
+          window.THREE.BufferGeometryUtils = BufferGeometryUtils;
+        }
+      </script>`,
       '<script src="/html-sandbox/frame.js"></script>'
     ].join('\n');
 

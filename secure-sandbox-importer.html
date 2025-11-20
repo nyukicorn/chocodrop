@@ -246,6 +246,7 @@
               <p class="artifact__size">{{ glbSizeLabel }}</p>
             </div>
             <div class="artifact__actions">
+              <a :href="glbUrl && '/xr-viewer.html?src=' + encodeURIComponent(glbUrl)" target="_blank" rel="noreferrer">XRプレビュー</a>
               <a :href="glbUrl" download="sandbox-scene.glb">GLB を保存</a>
             </div>
           </div>
