@@ -25,6 +25,7 @@ createApp({
   setup() {
     const htmlText = ref('');
     const logs = ref([]);
+    const logLevelFilter = ref('all');
     const summary = ref(null);
     const glbUrl = ref(null);
     const glbSize = ref(0);
@@ -43,6 +44,10 @@ createApp({
 
     const busy = computed(() => status.phase === 'running');
     const glbSizeLabel = computed(() => (glbSize.value ? `サイズ: ${formatBytes(glbSize.value)}` : 'GLB 未取得'));
+    const filteredLogs = computed(() => {
+      if (logLevelFilter.value === 'all') return logs.value;
+      return logs.value.filter(entry => (entry.level || 'info') === logLevelFilter.value);
+    });
 
     const updateStatus = (phase, title, detail, tone = 'muted') => {
       status.phase = phase;
@@ -200,6 +205,8 @@ createApp({
     return {
       htmlText,
       logs,
+      logLevelFilter,
+      filteredLogs,
       summary,
       glbUrl,
       glbSizeLabel,

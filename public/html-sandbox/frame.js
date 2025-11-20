@@ -72,7 +72,8 @@ function sandboxNow() {
   const trackedScenes = new Set();
   const requestFirstRenderExport = createFirstRenderExporter(state);
   wrapThreeSceneTracking(THREE, trackedScenes, state, log);
-  wrapRendererHooks(THREE, trackedScenes, state, requestFirstRenderExport, log, post);
+  wrapRendererHooks(THREE, trackedScenes, state, requestFirstRenderExport, log, post, fail);
+  wrapTextureLoader(THREE, log);
 
   window.ChocoDropSandbox = createSandboxApi({ THREE, exporter, trackedScenes, state, fail, log, networkGuard, post, start });
   window.dispatchEvent(new CustomEvent('chocodrop:sandbox-ready', { detail: { sandbox: window.ChocoDropSandbox } }));
@@ -97,6 +98,12 @@ function sandboxNow() {
   state.watchdog = setTimeout(() => {
     window.ChocoDropSandbox.exportScene(null, { reason: 'timeout', maxExecutionMs });
   }, maxExecutionMs);
+
+  setTimeout(() => {
+    if (!state.exported && !trackedScenes.size) {
+      log('warn', 'Scene が検出されていません。render() が呼ばれているか、scene.add が行われているかを確認してください。');
+    }
+  }, Math.min(2000, Math.max(500, autoExportDelay)));
 
   log('info', 'HTML サンドボックスを初期化しました');
 })();
@@ -461,7 +468,7 @@ function wrapThreeSceneTracking(THREE, trackedScenes, state, log) {
   log('info', 'Scene/Object3D フックを適用しました');
 }
 
-function wrapRendererHooks(THREE, trackedScenes, state, requestFirstRenderExport, log, post) {
+function wrapRendererHooks(THREE, trackedScenes, state, requestFirstRenderExport, log, post, fail) {
   const Renderer = THREE.WebGLRenderer;
   if (!Renderer || !Renderer.prototype) {
     log('warn', 'WebGLRenderer フックを適用できません (未定義)');
@@ -477,6 +484,7 @@ function wrapRendererHooks(THREE, trackedScenes, state, requestFirstRenderExport
       if (state.renderers && this && typeof this.dispose === 'function') {
         state.renderers.add(this);
       }
+      maybeAttachContextLossListener(this, fail, log);
       state.lastMutation = sandboxNow();
       try {
         requestFirstRenderExport(scene, camera);
@@ -728,6 +736,46 @@ function materialSignature(material = {}) {
       return `${key}:${value ?? 'null'}`;
     })
     .join(';');
+}
+
+function maybeAttachContextLossListener(renderer, fail, log) {
+  if (!renderer || renderer.__chocodropContextGuard) return;
+  const canvas = renderer.domElement;
+  if (!canvas || typeof canvas.addEventListener !== 'function') return;
+  renderer.__chocodropContextGuard = true;
+  const handleLost = event => {
+    try {
+      event?.preventDefault?.();
+    } catch (_) {
+      /* noop */
+    }
+    log('error', 'WebGL コンテキストが失われました。テクスチャサイズやGPU負荷を見直してください。');
+    fail?.('webgl-context-lost', {
+      message: 'WebGL コンテキストが失われました。ブラウザをリロードするか、描画負荷を下げて再実行してください。'
+    });
+  };
+  const handleRestore = () => log('info', 'WebGL コンテキストが復旧しました');
+  canvas.addEventListener('webglcontextlost', handleLost, { passive: false });
+  canvas.addEventListener('webglcontextrestored', handleRestore, { passive: true });
+}
+
+function wrapTextureLoader(THREE, log) {
+  if (!THREE?.TextureLoader || !THREE.TextureLoader.prototype) return;
+  const originalLoad = THREE.TextureLoader.prototype.load;
+  THREE.TextureLoader.prototype.load = function patchedTextureLoad(url, onLoad, onError, ...rest) {
+    const handleError = error => {
+      const reason = error?.message || error || 'テクスチャの読み込みに失敗しました';
+      log('warn', `Texture 読み込み失敗: ${url || 'unknown'} (${reason}). CORS 設定やパスをご確認ください。`);
+      if (typeof onError === 'function') {
+        try {
+          onError(error);
+        } catch (_) {
+          /* noop */
+        }
+      }
+    };
+    return originalLoad.call(this, url, onLoad, handleError, ...rest);
+  };
 }
 
 function captureThumbnail(renderer, state, post, log) {

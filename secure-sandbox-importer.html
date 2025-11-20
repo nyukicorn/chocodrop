@@ -146,9 +146,24 @@
         padding: 0.75rem;
         background: rgba(2, 6, 23, 0.6);
       }
-      .logs__entry { margin: 0 0 0.35rem; }
-      .logs__entry[data-level="error"] { color: #f87171; }
-      .logs__entry[data-level="warn"] { color: #fbbf24; }
+      .logs__filters {
+        display: flex;
+        gap: 0.4rem;
+        margin-bottom: 0.5rem;
+      }
+      .logs__filters button {
+        flex: 1;
+        border-radius: 0.6rem;
+        border: 1px solid rgba(148, 163, 184, 0.35);
+        background: rgba(15, 23, 42, 0.6);
+        color: #e2e8f0;
+        padding: 0.35rem 0.5rem;
+        cursor: pointer;
+      }
+      .logs__filters button[data-active="true"] { border-color: #38bdf8; color: #38bdf8; }
+      .logs__entry { margin: 0 0 0.35rem; padding: 0.4rem 0.5rem; border-radius: 0.4rem; }
+      .logs__entry[data-level="error"] { color: #f87171; background: rgba(248, 113, 113, 0.08); }
+      .logs__entry[data-level="warn"] { color: #fbbf24; background: rgba(251, 191, 36, 0.08); }
       .artifact {
         display: flex;
         align-items: center;
@@ -241,9 +256,14 @@
           </div>
           <div>
             <h3 class="panel__title">サンドボックスログ</h3>
+            <div class="logs__filters">
+              <button type="button" :data-active="logLevelFilter === 'all'" @click="logLevelFilter = 'all'">すべて</button>
+              <button type="button" :data-active="logLevelFilter === 'warn'" @click="logLevelFilter = 'warn'">警告</button>
+              <button type="button" :data-active="logLevelFilter === 'error'" @click="logLevelFilter = 'error'">エラー</button>
+            </div>
             <div class="logs">
-              <p v-if="!logs.length" class="logs__entry">ログはまだありません。</p>
-              <p v-for="(entry, index) in logs" :key="index" class="logs__entry" :data-level="entry.level || 'info'">
+              <p v-if="!filteredLogs.length" class="logs__entry">ログはまだありません。</p>
+              <p v-for="(entry, index) in filteredLogs" :key="index" class="logs__entry" :data-level="entry.level || 'info'">
                 [{{ (entry.level || 'info').toUpperCase() }}] {{ entry.message }}
               </p>
             </div>
