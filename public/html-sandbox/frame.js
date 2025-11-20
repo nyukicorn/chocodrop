@@ -484,6 +484,11 @@ function wrapRendererHooks(THREE, trackedScenes, state, requestFirstRenderExport
       if (state.renderers && this && typeof this.dispose === 'function') {
         state.renderers.add(this);
       }
+      // fallback 用に renderer から scene を逆参照できるようメモ
+      if (scene && typeof scene === 'object') {
+        scene.__rendererHint = this;
+      }
+      this.__chocodropState = state;
       maybeAttachContextLossListener(this, fail, log);
       state.lastMutation = sandboxNow();
       try {
@@ -598,6 +603,8 @@ function createSandboxApi({ THREE, exporter, trackedScenes, state, fail, log, ne
 
 function exportGlb(scene, exporter, log, post) {
   try {
+    // 追加フォールバック: サムネイル未取得ならここで再試行
+    tryFallbackThumbnailCapture(scene, log, post);
     const animations = Array.isArray(scene.animations) ? scene.animations : [];
     exporter.parse(
       scene,
@@ -621,6 +628,17 @@ function exportGlb(scene, exporter, log, post) {
     );
   } catch (error) {
     log('warn', `GLB エクスポートに失敗: ${error?.message || error}`);
+  }
+}
+
+function tryFallbackThumbnailCapture(scene, log, post) {
+  if (!scene || !scene.__rendererHint || scene.__rendererHint.__chocodropThumbnailSent) return;
+  const renderer = scene.__rendererHint;
+  // 一度失敗していても安全に再試行するが、成功時のみフラグを立てる
+  try {
+    captureThumbnail(renderer, renderer.__chocodropState || {}, post, log);
+  } catch (error) {
+    log('warn', `サムネイル再取得に失敗: ${error?.message || error}`);
   }
 }
 
@@ -797,6 +815,7 @@ function captureThumbnail(renderer, state, post, log) {
     ctx.drawImage(canvas, 0, 0, targetWidth, targetHeight);
     const dataUrl = offscreen.toDataURL('image/png');
     state.thumbnailSent = true;
+    if (renderer) renderer.__chocodropThumbnailSent = true;
     post('thumbnail', { dataUrl, width: targetWidth, height: targetHeight });
   } catch (error) {
     log('warn', `サムネイル生成に失敗: ${error?.message || error}`);
