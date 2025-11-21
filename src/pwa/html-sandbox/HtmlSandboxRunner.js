@@ -205,18 +205,19 @@ export class HtmlSandboxRunner {
   }
 
   buildSandboxDocument(htmlText, { policy, fileName, threeVersion }) {
+    // 既存の importmap と衝突しないように専用プリフィックスでマッピングする
     const threeModule = resolveThreeResource('build/three.module.js', threeVersion);
     const examplesBase = resolveThreeResource('examples/jsm/', threeVersion);
-    const importMap = `{"imports":{"three":"${threeModule}","three/examples/jsm/":"${examplesBase}"}}`;
+    const importMap = `{"imports":{"chocodrop/three":"${threeModule}","chocodrop/examples/jsm/":"${examplesBase}"}}`;
     const headInjection = [
       '<meta charset="utf-8">',
       this.buildCspMeta(policy),
       this.buildConfigScript({ policy, fileName, threeVersion }),
       `<script type="importmap">${importMap}</script>`,
       `<script type="module">
-        import * as THREE_NS from 'three';
-        import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js';
-        import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+        import * as THREE_NS from 'chocodrop/three';
+        import { GLTFExporter } from 'chocodrop/examples/jsm/exporters/GLTFExporter.js';
+        import * as BufferGeometryUtils from 'chocodrop/examples/jsm/utils/BufferGeometryUtils.js';
         const THREE = { ...THREE_NS, GLTFExporter, BufferGeometryUtils };
         window.THREE = THREE;
         window.dispatchEvent(new Event('three-ready'));
