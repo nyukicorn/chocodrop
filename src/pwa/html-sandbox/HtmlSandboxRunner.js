@@ -214,12 +214,11 @@ export class HtmlSandboxRunner {
       this.buildConfigScript({ policy, fileName, threeVersion }),
       `<script type="importmap">${importMap}</script>`,
       `<script type="module">
-        import * as THREE from 'three';
+        import * as THREE_NS from 'three';
         import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js';
         import * as BufferGeometryUtils from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+        const THREE = { ...THREE_NS, GLTFExporter, BufferGeometryUtils };
         window.THREE = THREE;
-        window.THREE.GLTFExporter = GLTFExporter;
-        window.THREE.BufferGeometryUtils = BufferGeometryUtils;
         window.dispatchEvent(new Event('three-ready'));
       </script>`,
       `<script>window.__waitThree = new Promise(resolve => {
