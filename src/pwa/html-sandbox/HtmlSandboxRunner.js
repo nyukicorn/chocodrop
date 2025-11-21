@@ -208,7 +208,22 @@ export class HtmlSandboxRunner {
     // 既存の importmap と衝突しないように専用プリフィックスでマッピングする
     const threeModule = resolveThreeResource('build/three.module.js', threeVersion);
     const examplesBase = resolveThreeResource('examples/jsm/', threeVersion);
-    const importMap = `{"imports":{"chocodrop/three":"${threeModule}","chocodrop/examples/jsm/":"${examplesBase}"}}`;
+
+    const shimChocoDrop = encodeURI(
+      'data:text/javascript,' +
+        `export async function ensureChocoDrop(){return {}}; export default ensureChocoDrop;`
+    );
+
+    const importMapObj = {
+      imports: {
+        'chocodrop/three': threeModule,
+        'chocodrop/examples/jsm/': examplesBase,
+        '../../public/load-chocodrop.js': shimChocoDrop,
+        '../public/load-chocodrop.js': shimChocoDrop,
+        './load-chocodrop.js': shimChocoDrop
+      }
+    };
+    const importMap = JSON.stringify(importMapObj);
     const headInjection = [
       '<meta charset="utf-8">',
       this.buildCspMeta(policy),
