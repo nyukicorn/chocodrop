@@ -205,9 +205,8 @@ export class HtmlSandboxRunner {
   }
 
   buildSandboxDocument(htmlText, { policy, fileName, threeVersion }) {
-    // 既存の importmap と衝突しないように専用プリフィックスでマッピングする
-    const threeModule = resolveThreeResource('build/three.module.js', threeVersion);
-    const examplesBase = resolveThreeResource('examples/jsm/', threeVersion);
+    const fallbackThreeModule = resolveThreeResource('build/three.module.js', threeVersion);
+    const fallbackExamplesBase = resolveThreeResource('examples/jsm/', threeVersion);
 
     const shimChocoDrop = encodeURI(
       'data:text/javascript,' +
@@ -216,8 +215,6 @@ export class HtmlSandboxRunner {
 
     const importMapObj = {
       imports: {
-        'chocodrop/three': threeModule,
-        'chocodrop/examples/jsm/': examplesBase,
         '../../public/load-chocodrop.js': shimChocoDrop,
         '../public/load-chocodrop.js': shimChocoDrop,
         './load-chocodrop.js': shimChocoDrop
@@ -230,12 +227,27 @@ export class HtmlSandboxRunner {
       this.buildConfigScript({ policy, fileName, threeVersion }),
       `<script type="importmap">${importMap}</script>`,
       `<script type="module">
-        import * as THREE_NS from 'chocodrop/three';
-        import { GLTFExporter } from 'chocodrop/examples/jsm/exporters/GLTFExporter.js';
-        import * as BufferGeometryUtils from 'chocodrop/examples/jsm/utils/BufferGeometryUtils.js';
-        const THREE = { ...THREE_NS, GLTFExporter, BufferGeometryUtils };
-        window.THREE = THREE;
-        window.dispatchEvent(new Event('three-ready'));
+        async function ensureThree() {
+          try { return await import('three'); }
+          catch (_) { return await import('${fallbackThreeModule}'); }
+        }
+        async function ensureExporter() {
+          try { return await import('three/addons/exporters/GLTFExporter.js'); }
+          catch (_) { return await import('${fallbackExamplesBase}exporters/GLTFExporter.js'); }
+        }
+        async function ensureBufferUtils() {
+          try { return await import('three/addons/utils/BufferGeometryUtils.js'); }
+          catch (_) { return await import('${fallbackExamplesBase}utils/BufferGeometryUtils.js'); }
+        }
+        (async () => {
+          const THREE_NS = await ensureThree();
+          const { GLTFExporter } = await ensureExporter();
+          const buf = await ensureBufferUtils();
+          const BufferGeometryUtils = buf.BufferGeometryUtils || buf;
+          const THREE = { ...THREE_NS, GLTFExporter, BufferGeometryUtils };
+          window.THREE = THREE;
+          window.dispatchEvent(new Event('three-ready'));
+        })();
       </script>`,
       `<script>window.__waitThree = new Promise(resolve => {
         const tick = () => {
