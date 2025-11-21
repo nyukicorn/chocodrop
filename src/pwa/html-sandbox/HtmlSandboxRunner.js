@@ -220,7 +220,15 @@ export class HtmlSandboxRunner {
         window.THREE = THREE;
         window.THREE.GLTFExporter = GLTFExporter;
         window.THREE.BufferGeometryUtils = BufferGeometryUtils;
+        window.dispatchEvent(new Event('three-ready'));
       </script>`,
+      `<script>window.__waitThree = new Promise(resolve => {
+        const tick = () => {
+          if (window.THREE && window.THREE.GLTFExporter) return resolve();
+          setTimeout(tick, 10);
+        };
+        tick();
+      });</script>`,
       '<script src="/html-sandbox/frame.js"></script>'
     ].join('\n');
 

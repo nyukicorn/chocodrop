@@ -2,7 +2,7 @@ function sandboxNow() {
   return typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now();
 }
 
-(() => {
+function startChocoDropSandbox() {
   'use strict';
 
   const CHANNEL = 'chocodrop-html-sandbox';
@@ -106,7 +106,15 @@ function sandboxNow() {
   }, Math.min(2000, Math.max(500, autoExportDelay)));
 
   log('info', 'HTML サンドボックスを初期化しました');
-})();
+}
+
+if (window.__waitThree && typeof window.__waitThree.then === 'function') {
+  window.__waitThree.then(startChocoDropSandbox);
+} else if (window.THREE && window.THREE.GLTFExporter) {
+  startChocoDropSandbox();
+} else {
+  window.addEventListener('three-ready', () => startChocoDropSandbox(), { once: true });
+}
 
 function setupConsoleMirroring(log) {
   ['log', 'info', 'warn', 'error'].forEach(level => {
