@@ -71,7 +71,8 @@ function broadcast(message) {
 }
 
 const host = process.env.HOST || '0.0.0.0';
-server.listen(0, host, async () => {
+const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 0;
+server.listen(port, host, async () => {
   const { port } = server.address();
   const localUrl = `http://localhost:${port}`;
   console.log(`🚀 ChocoDrop PWA dev server running at ${localUrl}`);

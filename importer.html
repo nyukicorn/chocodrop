@@ -18,24 +18,35 @@
     </script>
     <style>
       :root { color-scheme: dark; font-family: 'Inter', system-ui, sans-serif; }
+      html, body { height: 100%; }
       body {
         margin: 0;
-        display: grid;
-        grid-template-columns: minmax(320px, 380px) 1fr;
-        min-height: 100vh;
+        padding-left: 360px;
         background: #020617;
         color: #e2e8f0;
+        overflow: hidden;
       }
       aside {
+        position: fixed;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        width: 360px;
         padding: 2rem;
         display: flex;
         flex-direction: column;
         gap: 1.5rem;
         border-right: 1px solid rgba(148, 163, 184, 0.2);
-        background: rgba(15, 23, 42, 0.6);
+        background: rgba(15, 23, 42, 0.7);
         backdrop-filter: blur(18px);
+        overflow-y: auto;
+        z-index: 2;
       }
-      main { position: relative; }
+      main {
+        position: relative;
+        height: 100vh;
+        width: calc(100% - 360px);
+      }
       canvas {
         width: 100%;
         height: 100%;
@@ -52,13 +63,82 @@
         border-color: #38bdf8;
         background: rgba(56, 189, 248, 0.12);
       }
-      input[type="file"] {
+      [data-media-dropzone] {
+        border: 2px dashed rgba(190, 100, 255, 0.45);
+        border-radius: 1rem;
+        padding: 1.5rem;
+        text-align: center;
+        transition: border-color 0.2s ease, background 0.2s ease;
+        background: rgba(76, 29, 149, 0.2);
+      }
+      [data-media-dropzone][data-state="over"] {
+        border-color: #f0abfc;
+        background: rgba(216, 180, 254, 0.2);
+      }
+      input[type="file"],
+      input[type="url"],
+      input[type="text"] {
         width: 100%;
         border: 1px solid rgba(148, 163, 184, 0.3);
         border-radius: 0.75rem;
         padding: 0.75rem;
         background: rgba(15, 23, 42, 0.7);
         color: inherit;
+      }
+      .url-import {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+      }
+      .url-import__controls {
+        display: flex;
+        gap: 0.5rem;
+      }
+      .url-import__controls input {
+        flex: 1;
+      }
+      .url-import__controls button {
+        border: 1px solid rgba(148, 163, 184, 0.4);
+        border-radius: 0.75rem;
+        padding: 0.75rem 1rem;
+        background: rgba(15, 23, 42, 0.7);
+        color: inherit;
+        cursor: pointer;
+        min-width: 120px;
+      }
+      .inline-status {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        margin: 0;
+      }
+      .inline-status__icon {
+        width: 1.25rem;
+        text-align: center;
+      }
+      .inline-status[data-state="typing"] { color: #a5b4fc; }
+      .inline-status[data-state="pending"] { color: #38bdf8; }
+      .inline-status[data-state="ok"] { color: #4ade80; }
+      .inline-status[data-state="warn"] { color: #facc15; }
+      .inline-status[data-state="error"] { color: #f87171; }
+      .url-history {
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+      }
+      .url-history__chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.4rem;
+      }
+      .url-history__chips button {
+        border: 1px solid rgba(148, 163, 184, 0.35);
+        border-radius: 999px;
+        padding: 0.2rem 0.75rem;
+        background: rgba(15, 23, 42, 0.6);
+        color: inherit;
+        cursor: pointer;
+        font-size: 0.8rem;
       }
       ul {
         list-style: none;
@@ -76,6 +156,74 @@
         background: rgba(30, 64, 175, 0.35);
         border: 1px solid rgba(96, 165, 250, 0.35);
       }
+      .media-caster {
+        padding: 1rem 0;
+        border-top: 1px solid rgba(148, 163, 184, 0.2);
+        border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+      }
+      .media-status[data-state="ok"] { color: #4ade80; }
+      .media-status[data-state="warn"] { color: #facc15; }
+      .media-status[data-state="error"] { color: #f87171; }
+      .media-status[data-state="pending"] { color: #38bdf8; }
+      .media-status[data-state="idle"] { color: #cbd5f5; }
+      .sandbox-panel {
+        padding: 1rem 0;
+        border-top: 1px solid rgba(148, 163, 184, 0.2);
+        display: flex;
+        flex-direction: column;
+        gap: 0.6rem;
+      }
+      .sandbox-policy__hosts {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.4rem;
+      }
+      .sandbox-policy__hosts button {
+        border-radius: 999px;
+        border: 1px solid rgba(148, 163, 184, 0.35);
+        background: rgba(15, 23, 42, 0.6);
+        color: inherit;
+        padding: 0.3rem 0.8rem;
+        cursor: pointer;
+        font-size: 0.8rem;
+      }
+      .sandbox-policy__form {
+        display: flex;
+        gap: 0.5rem;
+      }
+      .sandbox-policy__form input {
+        flex: 1;
+      }
+      .sandbox-policy__form button {
+        min-width: 120px;
+        border-radius: 0.75rem;
+        border: 1px solid rgba(148, 163, 184, 0.4);
+        background: rgba(15, 23, 42, 0.7);
+        color: inherit;
+        cursor: pointer;
+      }
+      .html-log {
+        border: 1px solid rgba(148, 163, 184, 0.3);
+        border-radius: 0.75rem;
+        padding: 0.65rem;
+        background: rgba(15, 23, 42, 0.5);
+        font-family: 'JetBrains Mono', 'IBM Plex Mono', monospace;
+        font-size: 0.8rem;
+        margin-bottom: 0.35rem;
+      }
+      .html-log--warn { color: #facc15; }
+      .html-log--error { color: #f87171; }
+      .html-log--info { color: #a5b4fc; }
+      .sandbox-artifacts a {
+        color: #38bdf8;
+        text-decoration: none;
+      }
+      .sandbox-artifacts a:hover {
+        text-decoration: underline;
+      }
       h1 {
         margin: 0;
         font-size: 1.4rem;
@@ -87,36 +235,159 @@
       }
       @media (max-width: 960px) {
         body {
-          grid-template-columns: 1fr;
+          padding-left: 0;
+          overflow: visible;
         }
         aside {
-          position: sticky;
-          top: 0;
-          z-index: 1;
-          background: rgba(15, 23, 42, 0.92);
+          position: relative;
+          width: 100%;
+          height: auto;
+          max-height: none;
         }
         main {
-          min-height: 60vh;
+          width: 100%;
+          height: 60vh;
         }
+      }
+      .media-controls {
+        padding: 1rem 0;
+        border-top: 1px solid rgba(148, 163, 184, 0.2);
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+      }
+      .media-controls .control-group {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+      }
+      .media-controls button {
+        flex: 1 1 30%;
+        min-width: 90px;
+        border: 1px solid rgba(148, 163, 184, 0.4);
+        border-radius: 0.5rem;
+        background: rgba(15, 23, 42, 0.5);
+        color: inherit;
+        padding: 0.4rem 0.6rem;
+        cursor: pointer;
+      }
+      .media-select {
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+      }
+      .media-select select {
+        width: 100%;
+        border-radius: 0.5rem;
+        border: 1px solid rgba(148, 163, 184, 0.4);
+        background: rgba(15, 23, 42, 0.5);
+        color: inherit;
+        padding: 0.45rem 0.5rem;
+      }
+      .media-controls button:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+      .media-controls input[type="range"] {
+        width: 100%;
+      }
+      .media-controls__label {
+        font-size: 0.85rem;
+        color: #94a3b8;
       }
     </style>
   </head>
   <body>
     <aside>
       <h1>モデルインポーター</h1>
-      <p class="note">GLTF / GLB / Three.js JSON をアップロードして、シーンに即座に配置します。VR/AR では左スティックで平面移動、右スティックで上下・回転・スケールを操作できます。</p>
+      <p class="note">HTML (Three.js) / ZIP (HTML+アセット) / GLTF / GLB / Three.js JSON をアップロードして、シーンに即座に配置します。VR/AR では左スティックで平面移動、右スティックで上下・回転・スケールを操作できます。</p>
       <label>ファイル選択
-        <input id="file-input" type="file" accept=".gltf,.glb,.json" multiple>
+        <input id="file-input" type="file" accept=".html,.htm,.zip,.gltf,.glb,.json" multiple>
       </label>
       <div data-dropzone data-state="idle">
         <strong>ドラッグ＆ドロップ</strong>
-        <p class="note">サポート形式以外は拒否します。</p>
+        <p class="note">HTML(β) / ZIP(β) / GLTF / GLB / Three.js JSON 以外は拒否します。</p>
       </div>
+      <section class="sandbox-panel" data-html-policy>
+        <h2>HTMLサンドボックス β</h2>
+        <p class="note">アップロードされた HTML/JS は分離サンドボックス内で評価され、Three.js Scene JSON/GLB に変換されます。許可されたホスト以外への通信は遮断されます。</p>
+        <div class="sandbox-policy__hosts" data-html-policy-hosts></div>
+        <form class="sandbox-policy__form" data-html-policy-form>
+          <input type="text" data-html-policy-input placeholder="https://cdn.example.com" autocomplete="off">
+          <button type="submit">ホストを追加</button>
+        </form>
+        <p class="note" data-html-policy-summary>許可ホスト 0 件 / 通信上限 0 回 / タイムアウト 0ms</p>
+      </section>
+      <section class="sandbox-panel">
+        <h3>HTML変換ログ</h3>
+        <div class="sandbox-log" data-html-log></div>
+      </section>
+      <section class="sandbox-panel">
+        <h3>生成アセット</h3>
+        <div class="sandbox-artifacts" data-html-artifacts></div>
+      </section>
+      <section class="url-import">
+        <label for="remote-url-input">URL から読み込み</label>
+        <div class="url-import__controls">
+          <input id="remote-url-input" type="url" inputmode="url" placeholder="https://raw.githubusercontent.com/user/repo/main/model.glb" autocomplete="off">
+          <button type="button" data-action="import-url">読み込む</button>
+        </div>
+        <p class="note inline-status" data-url-status data-state="idle">
+          <span class="inline-status__icon" data-url-status-icon aria-hidden="true">ℹ️</span>
+          <span data-url-status-text>GLB / GLTF / JSON ファイルの直接リンクを貼り付けてください。</span>
+        </p>
+        <div class="url-history" data-url-history hidden>
+          <span class="note">最近のURL</span>
+          <div class="url-history__chips" data-url-history-list></div>
+        </div>
+      </section>
+      <section class="media-caster">
+        <h2>メディアキャスト β</h2>
+        <p class="note">画像 / 動画 / GLB を Quest へ即時同期します。シーン全体とは独立して扱われます。</p>
+        <label>個別メディア
+          <input id="media-input" type="file" accept="image/*,video/*,.glb,.gltf" multiple>
+        </label>
+        <div data-media-dropzone data-state="idle">
+          <strong>画像・動画・GLB をドロップ</strong>
+          <p class="note">最大 150MB 程度を推奨。アップロード後ただちにQuestへ送信します。</p>
+        </div>
+        <p class="note media-status" data-media-status data-state="idle">待機中: Quest 接続時にライブ送信します。</p>
+      </section>
       <section>
         <h2>保存済みモデル</h2>
         <ul data-file-list>
           <li>OPFS を初期化しています…</li>
         </ul>
+      </section>
+      <section class="media-controls">
+        <h2>メディア調整</h2>
+        <label class="media-select">
+          <span>対象メディア</span>
+          <select data-media-select>
+            <option value="">最新のメディアを選択</option>
+          </select>
+        </label>
+        <div class="media-controls__label">選択中: <span data-transform-label>--</span></div>
+        <label>スケール
+          <input type="range" data-transform-scale min="0.2" max="4" step="0.05" value="1" disabled>
+        </label>
+        <label>音量
+          <input type="range" data-audio-volume min="0" max="1" step="0.05" value="1" disabled>
+        </label>
+        <div class="control-group" data-transform-buttons>
+          <button type="button" data-nudge="forward">前へ</button>
+          <button type="button" data-nudge="back">後ろへ</button>
+          <button type="button" data-nudge="left">左へ</button>
+          <button type="button" data-nudge="right">右へ</button>
+          <button type="button" data-nudge="up">上へ</button>
+          <button type="button" data-nudge="down">下へ</button>
+          <button type="button" data-nudge="near">近づける</button>
+          <button type="button" data-nudge="far">遠ざける</button>
+        </div>
+        <div class="control-group">
+          <button type="button" data-action="reset-transform" disabled>リセット</button>
+          <button type="button" data-action="toggle-audio" disabled>音声ON</button>
+        </div>
       </section>
     </aside>
     <main>

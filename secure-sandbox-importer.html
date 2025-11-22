@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#020617">
+    <title>ChocoDrop Secure Sandbox Importer</title>
+    <link rel="icon" href="/icons/icon-192.png">
+    <link rel="preconnect" href="https://cdn.jsdelivr.net">
+    <script async src="https://cdn.jsdelivr.net/npm/es-module-shims@1.10.0/dist/es-module-shims.min.js"></script>
+    <script type="importmap">
+      {
+        "imports": {
+          "vue": "https://cdn.jsdelivr.net/npm/vue@3.5.13/dist/vue.esm-browser.prod.js"
+        }
+      }
+    </script>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: 'Inter', 'Noto Sans JP', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        background: #020617;
+      }
+      [v-cloak] { display: none !important; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: radial-gradient(circle at top, rgba(56, 189, 248, 0.08), transparent 60%), #020617;
+        color: #e2e8f0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 2rem;
+      }
+      .app-shell {
+        width: min(1100px, 100%);
+        display: grid;
+        grid-template-columns: 360px 1fr;
+        gap: 1.5rem;
+        background: rgba(15, 23, 42, 0.85);
+        border: 1px solid rgba(148, 163, 184, 0.3);
+        border-radius: 1.25rem;
+        padding: 1.5rem;
+        box-shadow: 0 25px 70px rgba(2, 6, 23, 0.75);
+      }
+      @media (max-width: 960px) {
+        body { padding: 1rem; }
+        .app-shell { grid-template-columns: 1fr; }
+      }
+      .panel {
+        background: rgba(15, 23, 42, 0.8);
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        border-radius: 1rem;
+        padding: 1.25rem;
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+      }
+      .panel__title {
+        margin: 0;
+        font-size: 1.1rem;
+        letter-spacing: 0.04em;
+        color: #93c5fd;
+      }
+      .dropzone {
+        border: 2px dashed rgba(96, 165, 250, 0.6);
+        border-radius: 1rem;
+        padding: 1.5rem;
+        text-align: center;
+        transition: border-color 0.2s ease, background 0.2s ease;
+        background: rgba(30, 64, 175, 0.2);
+      }
+      .dropzone[data-active="true"] {
+        border-color: #38bdf8;
+        background: rgba(56, 189, 248, 0.15);
+      }
+      input[type="file"], textarea, select {
+        width: 100%;
+        border-radius: 0.75rem;
+        border: 1px solid rgba(148, 163, 184, 0.35);
+        background: rgba(2, 6, 23, 0.75);
+        color: inherit;
+        padding: 0.85rem;
+        font-size: 0.95rem;
+      }
+      textarea { min-height: 180px; resize: vertical; }
+      button {
+        border-radius: 0.75rem;
+        border: 1px solid rgba(56, 189, 248, 0.9);
+        background: linear-gradient(120deg, rgba(56, 189, 248, 0.9), rgba(56, 189, 248, 0.4));
+        color: #0f172a;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        padding: 0.85rem 1.5rem;
+        cursor: pointer;
+        transition: filter 0.2s ease;
+      }
+      button:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+      button:not(:disabled):hover { filter: brightness(1.1); }
+      .status {
+        padding: 1rem;
+        border-radius: 0.85rem;
+        border: 1px solid rgba(148, 163, 184, 0.3);
+        background: rgba(15, 23, 42, 0.8);
+      }
+      .status[data-tone="ok"] { border-color: rgba(74, 222, 128, 0.6); color: #4ade80; }
+      .status[data-tone="warn"] { border-color: rgba(250, 204, 21, 0.6); color: #facc15; }
+      .status[data-tone="error"] { border-color: rgba(248, 113, 113, 0.7); color: #f87171; }
+      .status__title {
+        margin: 0;
+        font-size: 1rem;
+      }
+      .status__detail {
+        margin: 0.35rem 0 0;
+        font-size: 0.9rem;
+        color: rgba(226, 232, 240, 0.85);
+      }
+      dl.summary {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 0.75rem;
+        margin: 0;
+      }
+      dl.summary dt {
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        color: rgba(148, 163, 184, 0.9);
+        letter-spacing: 0.08em;
+      }
+      dl.summary dd {
+        margin: 0;
+        font-size: 1.1rem;
+        color: #f8fafc;
+        font-weight: 600;
+      }
+      .logs {
+        max-height: 220px;
+        overflow-y: auto;
+        font-size: 0.85rem;
+        line-height: 1.5;
+        border-radius: 0.75rem;
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        padding: 0.75rem;
+        background: rgba(2, 6, 23, 0.6);
+      }
+      .logs__filters {
+        display: flex;
+        gap: 0.4rem;
+        margin-bottom: 0.5rem;
+      }
+      .logs__filters button {
+        flex: 1;
+        border-radius: 0.6rem;
+        border: 1px solid rgba(148, 163, 184, 0.35);
+        background: rgba(15, 23, 42, 0.6);
+        color: #e2e8f0;
+        padding: 0.35rem 0.5rem;
+        cursor: pointer;
+      }
+      .logs__filters button[data-active="true"] { border-color: #38bdf8; color: #38bdf8; }
+      .logs__entry { margin: 0 0 0.35rem; padding: 0.4rem 0.5rem; border-radius: 0.4rem; }
+      .logs__entry[data-level="error"] { color: #f87171; background: rgba(248, 113, 113, 0.08); }
+      .logs__entry[data-level="warn"] { color: #fbbf24; background: rgba(251, 191, 36, 0.08); }
+      .artifact {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        border: 1px solid rgba(45, 212, 191, 0.5);
+        border-radius: 0.85rem;
+        padding: 0.9rem 1.1rem;
+        background: rgba(15, 118, 110, 0.2);
+      }
+      .thumbnail {
+        border: 1px solid rgba(148, 163, 184, 0.25);
+        border-radius: 0.75rem;
+        padding: 0.75rem;
+        background: rgba(2, 6, 23, 0.65);
+        display: inline-flex;
+        flex-direction: column;
+        gap: 0.35rem;
+        max-width: 220px;
+      }
+      .thumbnail img {
+        width: 100%;
+        height: auto;
+        display: block;
+        border-radius: 0.5rem;
+        background: #0f172a;
+      }
+      .artifact__meta { display: flex; flex-direction: column; gap: 0.2rem; }
+      .artifact__title { margin: 0; font-weight: 600; }
+      .artifact__size { margin: 0; font-size: 0.85rem; color: rgba(226, 232, 240, 0.75); }
+      .artifact__actions a {
+        text-decoration: none;
+        border-radius: 999px;
+        padding: 0.5rem 1.4rem;
+        border: 1px solid rgba(45, 212, 191, 0.75);
+        color: #99f6e4;
+        font-weight: 600;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="secure-importer" v-cloak>
+      <div class="app-shell">
+        <section class="panel">
+          <h2 class="panel__title">HTML アップロード</h2>
+          <p class="status" :data-tone="status.tone">
+            <strong class="status__title">{{ status.title }}</strong>
+            <span class="status__detail">{{ status.detail }}</span>
+          </p>
+          <label class="dropzone" :data-active="dropActive" @dragover.prevent="onDragOver" @dragleave.prevent="onDragLeave" @drop.prevent="onDrop">
+            <strong>ファイルをドロップ</strong><br>
+            <small>または下の入力から選択</small>
+          </label>
+          <input type="file" accept=".html,.htm" @change="onFileChange" :disabled="busy">
+          <div>
+            <label for="three-version">Three.js Version</label>
+            <select id="three-version" v-model="selectedThreeVersion" :disabled="busy">
+              <option v-for="option in threeVersionOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
+            </select>
+          </div>
+          <div>
+            <label for="inline-html">HTML 文字列（Single File）</label>
+            <textarea id="inline-html" v-model="htmlText" placeholder="<!DOCTYPE html>..." :disabled="busy"></textarea>
+            <button type="button" @click="runInline" :disabled="!htmlText.trim() || busy">テキストをサンドボックスで実行</button>
+          </div>
+        </section>
+        <section class="panel">
+          <h2 class="panel__title">変換結果</h2>
+          <dl v-if="summary" class="summary">
+            <dt>Objects</dt>
+            <dd>{{ summary.objectCount ?? '—' }}</dd>
+            <dt>Duration</dt>
+            <dd>{{ summary.durationMs ? summary.durationMs + ' ms' : '—' }}</dd>
+            <dt>Reason</dt>
+            <dd>{{ summary.reason || 'unknown' }}</dd>
+          </dl>
+          <div v-if="glbUrl" class="artifact">
+            <div class="artifact__meta">
+              <p class="artifact__title">GLB エクスポート完了</p>
+              <p class="artifact__size">{{ glbSizeLabel }}</p>
+            </div>
+            <div class="artifact__actions">
+              <a :href="glbUrl && '/xr-viewer.html?src=' + encodeURIComponent(glbUrl)" target="_blank" rel="noreferrer">XRプレビュー</a>
+              <a :href="glbUrl" download="sandbox-scene.glb">GLB を保存</a>
+            </div>
+          </div>
+          <div v-if="thumbnailUrl" class="thumbnail">
+            <strong>サムネイル</strong>
+            <img :src="thumbnailUrl" alt="GLB thumbnail preview" loading="lazy">
+            <small v-if="thumbnailSize">{{ thumbnailSize.width }} × {{ thumbnailSize.height }} px</small>
+          </div>
+          <div>
+            <h3 class="panel__title">サンドボックスログ</h3>
+            <div class="logs__filters">
+              <button type="button" :data-active="logLevelFilter === 'all'" @click="logLevelFilter = 'all'">すべて</button>
+              <button type="button" :data-active="logLevelFilter === 'warn'" @click="logLevelFilter = 'warn'">警告</button>
+              <button type="button" :data-active="logLevelFilter === 'error'" @click="logLevelFilter = 'error'">エラー</button>
+            </div>
+            <div class="logs">
+              <p v-if="!filteredLogs.length" class="logs__entry">ログはまだありません。</p>
+              <p v-for="(entry, index) in filteredLogs" :key="index" class="logs__entry" :data-level="entry.level || 'info'">
+                [{{ (entry.level || 'info').toUpperCase() }}] {{ entry.message }}
+              </p>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+    <script type="module" src="/src/pwa/html-sandbox/secure-importer-app.js"></script>
+  </body>
+</html>

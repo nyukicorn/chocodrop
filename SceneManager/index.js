@@ -1,14 +1,22 @@
-import { loadThree, loadOrbitControls } from '../src/pwa/utils/three-deps.js';
+import { loadThree, loadOrbitControls, loadGLTFLoader, loadDRACOLoader } from '../src/pwa/utils/three-deps.js';
 import { XRBridgeLoader } from '../src/client/xr/XRBridgeLoader.js';
 
 const DEFAULT_BACKGROUND = '#0f172a';
 const TARGET_FPS = 72;
 const TARGET_DELTA = 1000 / TARGET_FPS;
 const DEADZONE = 0.15;
-const TRANSLATION_SPEED = 1.5;
-const VERTICAL_SPEED = 1.2;
+const TRANSLATION_SPEED = 1.6;
+const VERTICAL_SPEED = 1.25;
 const ROTATION_SPEED = Math.PI;
-const SCALE_SPEED = 0.8;
+const SCALE_SPEED = 0.85;
+const ASSET_BASE_SIZE = 3.5;
+const VIDEO_BASE_SIZE = 4.5;
+const DEFAULT_ASSET_DISTANCE_DESKTOP = 3.2;
+const DEFAULT_ASSET_DISTANCE_XR = 5.5;
+const XR_VERTICAL_BASE = 1.35;
+const DRACO_DECODER_CDN = 'https://cdn.jsdelivr.net/npm/three@0.158.0/examples/jsm/libs/draco/';
+const DEFAULT_ASSET_LIMIT = 24;
+const ASSET_WARNING_RATIO = 0.85;
 
 /**
  * XR/非XR両対応の軽量シーンマネージャ。
@@ -27,6 +35,7 @@ export class SceneManager {
       onAfterRender: null,
       xrBridge: {},
       xrAutoResume: true,
+      defaultVideoMuted: true,
       ...options
     };
 
@@ -52,6 +61,14 @@ export class SceneManager {
     this.xrSupport = { vr: null, ar: null };
     this.xrState = 'idle';
     this.xrError = null;
+    this.sceneRoot = null;
+    this.assetRoot = null;
+    this._textureLoader = null;
+    this._gltfLoaderPromise = null;
+    this._gltfLoader = null;
+    this.assetLimit = this.options.assetLimit ?? DEFAULT_ASSET_LIMIT;
+    this.assetHistory = [];
+    this._xrButtonState = {};
   }
 
   on(type, handler) {
@@ -99,6 +116,12 @@ export class SceneManager {
     this.dynamicRoot = new THREE.Group();
     this.dynamicRoot.name = 'SceneManagerDynamicRoot';
     this.scene.add(this.dynamicRoot);
+    this.sceneRoot = new THREE.Group();
+    this.sceneRoot.name = 'SceneContentRoot';
+    this.assetRoot = new THREE.Group();
+    this.assetRoot.name = 'SceneAssetRoot';
+    this.dynamicRoot.add(this.sceneRoot);
+    this.dynamicRoot.add(this.assetRoot);
 
     this.camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 1000);
     this.camera.position.set(0, 1.6, 3);
@@ -143,6 +166,9 @@ export class SceneManager {
 
   _handleResize = () => {
     if (!this.isReady) return;
+    if (this.renderer?.xr?.isPresenting) {
+      return;
+    }
     const width = this.canvas.clientWidth || window.innerWidth;
     const height = this.canvas.clientHeight || window.innerHeight;
     this.camera.aspect = width / height;
@@ -363,33 +389,126 @@ export class SceneManager {
   }
 
   add(object3d) {
-    this.dynamicRoot.add(object3d);
+    const targetRoot = this.sceneRoot || this.dynamicRoot;
+    targetRoot.add(object3d);
     this.emit('object:add', { object3d });
     this.setSelectedObject(object3d);
   }
 
   remove(object3d) {
-    this.dynamicRoot.remove(object3d);
+    if (!object3d) return;
+    const wasAsset = this._isAssetNode(object3d);
+    if (this.sceneRoot?.children?.includes(object3d) || object3d.parent === this.sceneRoot) {
+      this.sceneRoot.remove(object3d);
+    } else if (this.assetRoot?.children?.includes(object3d) || object3d.parent === this.assetRoot) {
+      this.assetRoot.remove(object3d);
+    } else {
+      this.dynamicRoot.remove(object3d);
+    }
+    if (wasAsset) {
+      this._dropFromHistory(object3d);
+    }
     this.emit('object:remove', { object3d });
     if (this.selectedObject === object3d) {
       this.setSelectedObject(null);
     }
+    if (wasAsset) {
+    this.emit('asset:removed', { object: object3d, id: object3d?.userData?.asset?.id });
+    this._emitAssetCount();
+  }
   }
 
-  clear() {
-    [...this.dynamicRoot.children].forEach(child => {
-      this.dynamicRoot.remove(child);
-      child.traverse?.(node => {
-        if (node.material) {
-          const materials = Array.isArray(node.material) ? node.material : [node.material];
-          materials.forEach(mat => mat.dispose?.());
-        }
-        node.geometry?.dispose?.();
-        node.dispose?.();
-      });
-    });
-    this.emit('scene:cleared');
+  clear(options = {}) {
+    const { preserveAssets = false } = options;
+    this._clearGroup(this.sceneRoot ?? this.dynamicRoot);
+    if (!preserveAssets) {
+      this._clearGroup(this.assetRoot);
+      this.assetHistory = [];
+    }
+    this.emit('scene:cleared', { preserveAssets });
     this.setSelectedObject(null);
+    this._emitAssetCount();
+  }
+
+  clearAssets() {
+    this._clearGroup(this.assetRoot);
+    this.assetHistory = [];
+    this.emit('assets:cleared', { reason: 'manual' });
+    this._emitAssetCount();
+  }
+
+  async spawnAssetFromPayload(payload = {}) {
+    if (!payload?.kind) {
+      console.warn('spawnAssetFromPayload: kind is required');
+      return null;
+    }
+    const position = this._resolveAssetPosition(payload.position);
+    if (payload.id) {
+      const existing = this._findAssetById(payload.id);
+      if (existing) {
+        return existing;
+      }
+    }
+    try {
+      switch (payload.kind) {
+        case 'image':
+          return await this._spawnImageAsset(payload, position);
+        case 'video':
+          return await this._spawnVideoAsset(payload, position);
+        case 'model':
+          return await this._spawnModelAsset(payload, position);
+        default:
+          console.warn('spawnAssetFromPayload: unsupported kind', payload.kind);
+          return null;
+      }
+    } catch (error) {
+      console.error('spawnAssetFromPayload failed', error);
+      this.emit('asset:error', { error, payload });
+      throw error;
+    }
+  }
+
+  listAssets() {
+    if (!this.assetRoot) return [];
+    return this.assetRoot.children
+      .filter(child => child.userData?.asset)
+      .map(child => ({
+        ...child.userData.asset,
+        object3d: child
+      }));
+  }
+
+  removeAssetById(assetId) {
+    const target = this._findAssetById(assetId);
+    if (!target) return false;
+    this.remove(target);
+    return true;
+  }
+
+  getAssetById(assetId) {
+    return this._findAssetById(assetId);
+  }
+
+  setAssetVolume(assetId, volume) {
+    const target = this._findAssetById(assetId);
+    return this._setObjectVolume(target, volume);
+  }
+
+  adjustAssetVolume(assetId, delta) {
+    const target = this._findAssetById(assetId);
+    if (!target) return false;
+    const current = target.userData?.asset?.audioVolume ?? target.userData?.asset?.videoElement?.volume ?? 1;
+    return this._setObjectVolume(target, current + delta);
+  }
+
+  toggleAssetAudio(assetId) {
+    const target = this._findAssetById(assetId);
+    if (!target) return false;
+    const video = target.userData?.asset?.videoElement;
+    if (!video) return false;
+    const muted = !video.muted;
+    this._setObjectMuted(target, muted);
+    return true;
   }
 
   async importJSON(json) {
@@ -397,17 +516,158 @@ export class SceneManager {
     const loader = new ObjectLoader();
     const object = loader.parse(json);
     if (object && object.name === 'SceneManagerDynamicRoot') {
-      this.clear();
-      object.children.forEach(child => this.dynamicRoot.add(child));
-      this.emit('import:json', { object: this.dynamicRoot });
-      if (this.dynamicRoot.children[0]) {
-        this.setSelectedObject(this.dynamicRoot.children[0]);
+      const sceneChild = object.children.find(child => child.name === 'SceneContentRoot') || null;
+      const assetChild = object.children.find(child => child.name === 'SceneAssetRoot') || null;
+
+      this._clearGroup(this.sceneRoot ?? this.dynamicRoot);
+      const sceneSources = sceneChild ? sceneChild.children : object.children.filter(child => child !== assetChild);
+      sceneSources.forEach(child => this.sceneRoot.add(child));
+
+      if (assetChild) {
+        this._clearGroup(this.assetRoot);
+        assetChild.children.forEach(child => this.assetRoot.add(child));
+        this.assetHistory = [...this.assetRoot.children];
+        this._emitAssetCount();
+      } else {
+        this.assetHistory = [];
+        this._emitAssetCount();
       }
-      return this.dynamicRoot;
+
+      this.emit('import:json', { object: this.sceneRoot });
+      if (this.sceneRoot.children[0]) {
+        this.setSelectedObject(this.sceneRoot.children[0]);
+      }
+      return this.sceneRoot;
     }
-    this.dynamicRoot.add(object);
+    (this.sceneRoot ?? this.dynamicRoot).add(object);
     this.emit('import:json', { object });
     this.setSelectedObject(object);
+    return object;
+  }
+
+  async _spawnImageAsset(payload, position) {
+    const loader = this._ensureTextureLoader();
+    const source = this._resolveAssetSource(payload, 'image');
+    const texture = await loader.loadAsync(source.url);
+    if (source.revokeAfterLoad) {
+      URL.revokeObjectURL(source.url);
+    }
+    texture.colorSpace = this.THREE.SRGBColorSpace;
+    const width = texture.image?.naturalWidth || texture.image?.width || 1;
+    const height = texture.image?.naturalHeight || texture.image?.height || 1;
+    const aspect = width && height ? width / height : 1;
+    const geometry = this._createPlaneGeometry(aspect, ASSET_BASE_SIZE);
+    const material = new this.THREE.MeshBasicMaterial({
+      map: texture,
+      transparent: true,
+      side: this.THREE.DoubleSide,
+      toneMapped: false
+    });
+    material.alphaTest = 0.01;
+    const plane = new this.THREE.Mesh(geometry, material);
+    plane.position.copy(position);
+    this._faceObjectToCamera(plane);
+    plane.renderOrder = 1000;
+    const metadata = this._buildAssetMetadata(payload, { texture });
+    if (payload.preserveObjectUrl === false && metadata.objectURL) {
+      URL.revokeObjectURL(metadata.objectURL);
+      metadata.objectURL = null;
+    }
+    plane.userData.asset = metadata;
+    const assetTarget = this.assetRoot || this.dynamicRoot;
+    assetTarget.add(plane);
+    this.setSelectedObject(plane);
+    this.emit('asset:added', { object: plane, payload });
+    this._registerAsset(plane);
+    return plane;
+  }
+
+  async _spawnVideoAsset(payload, position) {
+    const source = this._resolveAssetSource(payload, 'video');
+    const objectUrl = source.url;
+    const video = document.createElement('video');
+    video.src = objectUrl;
+    video.loop = true;
+    video.muted = true;
+    video.playsInline = true;
+    video.autoplay = true;
+    video.preload = 'auto';
+
+    await new Promise((resolve, reject) => {
+      const handleLoaded = () => resolve();
+      const handleError = event => reject(event?.error || new Error('video metadata load failed'));
+      video.addEventListener('loadedmetadata', handleLoaded, { once: true });
+      video.addEventListener('error', handleError, { once: true });
+      video.load();
+    });
+
+    try {
+      await video.play();
+    } catch (error) {
+      console.warn('Video autoplay prevented, will require user gesture', error);
+    }
+
+    const aspect = video.videoWidth && video.videoHeight ? video.videoWidth / video.videoHeight : 1;
+    const geometry = this._createPlaneGeometry(aspect, VIDEO_BASE_SIZE);
+    const videoTexture = new this.THREE.VideoTexture(video);
+    videoTexture.colorSpace = this.THREE.SRGBColorSpace;
+    videoTexture.minFilter = this.THREE.LinearFilter;
+    videoTexture.magFilter = this.THREE.LinearFilter;
+    videoTexture.generateMipmaps = false;
+    const material = new this.THREE.MeshBasicMaterial({
+      map: videoTexture,
+      transparent: true,
+      side: this.THREE.DoubleSide,
+      toneMapped: false
+    });
+    material.alphaTest = 0.01;
+    const plane = new this.THREE.Mesh(geometry, material);
+    plane.position.copy(position);
+    this._faceObjectToCamera(plane);
+    plane.renderOrder = 1001;
+    const metadata = this._buildAssetMetadata(payload, {
+      videoElement: video,
+      videoTexture,
+      objectURL: objectUrl,
+      pixelWidth: video.videoWidth,
+      pixelHeight: video.videoHeight,
+      muted: this.options.defaultVideoMuted !== false,
+      audioVolume: 1
+    });
+    video.muted = metadata.muted;
+    plane.userData.asset = metadata;
+    const assetTarget = this.assetRoot || this.dynamicRoot;
+    assetTarget.add(plane);
+    this.setSelectedObject(plane);
+    this.emit('asset:added', { object: plane, payload });
+    this._registerAsset(plane);
+    return plane;
+  }
+
+  async _spawnModelAsset(payload, position) {
+    const loader = await this._ensureGLTFLoader();
+    const arrayBuffer = await this._getArrayBufferFromPayload(payload);
+    const gltf = await loader.parseAsync(arrayBuffer, '');
+    const object = gltf.scene || new this.THREE.Group();
+    object.position.copy(position);
+    this._autoScaleObject(object, payload.desiredSize ?? 1.8);
+    object.traverse(node => {
+      if (node.isMesh) {
+        node.castShadow = true;
+        node.receiveShadow = true;
+      }
+    });
+    const metadata = this._buildAssetMetadata(payload, { format: 'gltf', animations: gltf.animations?.length });
+    if (payload.preserveObjectUrl === false && metadata.objectURL) {
+      URL.revokeObjectURL(metadata.objectURL);
+      metadata.objectURL = null;
+    }
+    object.userData.asset = metadata;
+    const assetTarget = this.assetRoot || this.dynamicRoot;
+    assetTarget.add(object);
+    this.setSelectedObject(object);
+    this.emit('asset:added', { object, payload });
+    this._registerAsset(object);
     return object;
   }
 
@@ -431,8 +691,38 @@ export class SceneManager {
     this.emit('selection:changed', { object });
   }
 
-  exportSceneJSON() {
-    return this.dynamicRoot.toJSON();
+  focusOnObject(object, options = {}) {
+    if (!object || !this.camera || !this.controls) return;
+    if (this.renderer?.xr?.isPresenting) return;
+    const { distance = 5, verticalOffset = 0 } = options;
+    const targetPosition = object.position.clone();
+    targetPosition.y += verticalOffset;
+    const direction = new this.THREE.Vector3();
+    direction.subVectors(this.camera.position, targetPosition);
+    if (direction.lengthSq() === 0) {
+      this.camera.getWorldDirection(direction);
+      direction.multiplyScalar(-1);
+    }
+    direction.normalize().multiplyScalar(distance);
+    const newPosition = targetPosition.clone().add(direction);
+    this.camera.position.copy(newPosition);
+    this.controls.target.copy(targetPosition);
+    this.controls.update?.();
+  }
+
+  exportSceneJSON(options = {}) {
+    const { includeAssets = false } = options;
+    if (!this.assetRoot || includeAssets) {
+      return this.dynamicRoot.toJSON();
+    }
+    this.dynamicRoot.remove(this.assetRoot);
+    let json = null;
+    try {
+      json = this.dynamicRoot.toJSON();
+    } finally {
+      this.dynamicRoot.add(this.assetRoot);
+    }
+    return json;
   }
 
   _setupXRControllers() {
@@ -444,57 +734,379 @@ export class SceneManager {
   }
 
   _updateXRManipulation(deltaMs) {
-    if (!this.xrSession || !this.selectedObject || !this.renderer?.xr) return;
-    if (!this._manipVectors.forward && this.THREE) {
+    if (!this.xrSession || !this.selectedObject || !this.renderer?.xr || !this.THREE) return;
+    if (!this._manipVectors.forward) {
       this._setupXRControllers();
     }
     const session = this.renderer.xr.getSession();
     if (!session) return;
     const delta = deltaMs / 1000;
-    const forward = this._manipVectors.forward;
-    const right = this._manipVectors.right;
-    const up = this.camera.up;
+    const inputSources = Array.from(session.inputSources || []).filter(source => source.gamepad);
+    if (!inputSources.length) return;
 
-    this.camera.getWorldDirection(forward);
-    forward.y = 0;
-    if (forward.lengthSq() === 0) return;
-    forward.normalize();
-    right.copy(forward).applyAxisAngle(up, Math.PI / 2);
+    let leftSource = inputSources.find(source => source.handedness === 'left');
+    let rightSource = inputSources.find(source => source.handedness === 'right');
+    if (!leftSource) {
+      leftSource = inputSources[0];
+    }
+    if (!rightSource) {
+      rightSource = inputSources[inputSources.length - 1];
+    }
 
-    const sources = Array.from(session.inputSources || []);
-    sources.forEach((source, index) => {
-      const { gamepad } = source;
-      if (!gamepad || !gamepad.axes?.length) return;
-      const [ax0 = 0, ax1 = 0, ax2 = 0, ax3 = 0] = gamepad.axes;
+    const up = this.camera.up.clone().normalize();
+    const planarForward = this._manipVectors.forward;
+    const planarRight = this._manipVectors.right;
+    this.camera.getWorldDirection(planarForward);
+    const depthForward = planarForward.clone().normalize();
+    planarForward.y = 0;
+    if (planarForward.lengthSq() === 0) {
+      planarForward.set(0, 0, -1);
+    }
+    planarForward.normalize();
+    planarRight.copy(planarForward).applyAxisAngle(up, Math.PI / 2).normalize();
 
-      if (index === 0) {
-        if (Math.abs(ax0) > DEADZONE) {
-          this.selectedObject.position.addScaledVector(right, ax0 * TRANSLATION_SPEED * delta);
+    const leftAxes = this._getThumbstickAxes(leftSource);
+    if (Math.abs(leftAxes.x) > DEADZONE) {
+      this.selectedObject.position.addScaledVector(planarRight, leftAxes.x * TRANSLATION_SPEED * delta);
+    }
+    if (Math.abs(leftAxes.y) > DEADZONE) {
+      this.selectedObject.position.addScaledVector(planarForward, -leftAxes.y * TRANSLATION_SPEED * delta);
+    }
+
+    const rightAxes = this._getThumbstickAxes(rightSource);
+    if (Math.abs(rightAxes.x) > DEADZONE) {
+      this.selectedObject.rotateOnAxis(up, rightAxes.x * ROTATION_SPEED * delta);
+    }
+
+    if (Math.abs(rightAxes.y) > DEADZONE) {
+      const buttons = (rightSource?.gamepad?.buttons ?? []);
+      const triggerPressed = buttons[0]?.pressed || buttons[0]?.value > 0.5;
+      const gripPressed = buttons[1]?.pressed || buttons[1]?.value > 0.5;
+      if (gripPressed) {
+        const scaleDelta = 1 - rightAxes.y * SCALE_SPEED * delta;
+        if (scaleDelta > 0) {
+          this.selectedObject.scale.multiplyScalar(scaleDelta);
+          const clamp = value => Math.min(Math.max(value, 0.05), 25);
+          this.selectedObject.scale.set(
+            clamp(this.selectedObject.scale.x),
+            clamp(this.selectedObject.scale.y),
+            clamp(this.selectedObject.scale.z)
+          );
         }
-        if (Math.abs(ax1) > DEADZONE) {
-          this.selectedObject.position.addScaledVector(forward, -ax1 * TRANSLATION_SPEED * delta);
-        }
-      } else if (index === 1) {
-        if (Math.abs(ax1) > DEADZONE) {
-          this.selectedObject.position.addScaledVector(up, ax1 * VERTICAL_SPEED * delta);
-        }
-        if (Math.abs(ax2) > DEADZONE) {
-          this.selectedObject.rotateOnAxis(up, ax2 * ROTATION_SPEED * delta);
-        }
-        if (Math.abs(ax3) > DEADZONE) {
-          const scaleDelta = 1 + ax3 * SCALE_SPEED * delta;
-          if (scaleDelta > 0) {
-            this.selectedObject.scale.multiplyScalar(scaleDelta);
-            const clamp = value => Math.min(Math.max(value, 0.05), 25);
-            this.selectedObject.scale.set(
-              clamp(this.selectedObject.scale.x),
-              clamp(this.selectedObject.scale.y),
-              clamp(this.selectedObject.scale.z)
-            );
-          }
-        }
+      } else if (triggerPressed) {
+        this.selectedObject.position.addScaledVector(up, -rightAxes.y * VERTICAL_SPEED * delta);
+      } else {
+        this.selectedObject.position.addScaledVector(depthForward, -rightAxes.y * TRANSLATION_SPEED * delta);
+      }
+    }
+
+    this._handleXRButtonControls(leftSource, rightSource);
+  }
+
+  _handleXRButtonControls(leftSource, rightSource) {
+    const target = this.selectedObject;
+    if (!target?.userData?.asset?.videoElement) return;
+    const leftButtons = leftSource?.gamepad?.buttons || [];
+    const rightButtons = rightSource?.gamepad?.buttons || [];
+    this._handleXRButtonEdge('rightA', rightButtons[4], () => this._adjustObjectVolume(target, -0.05));
+    this._handleXRButtonEdge('rightB', rightButtons[5], () => this._adjustObjectVolume(target, 0.05));
+    this._handleXRButtonEdge('leftX', leftButtons[4], () => this._setObjectMuted(target, !target?.userData?.asset?.muted));
+  }
+
+  _handleXRButtonEdge(key, button, onPress) {
+    const pressed = button ? (button.pressed || button.value > 0.5) : false;
+    if (pressed && !this._xrButtonState[key]) {
+      onPress?.();
+    }
+    this._xrButtonState[key] = pressed;
+  }
+
+  _adjustObjectVolume(object, delta) {
+    if (!object) return;
+    const current = object.userData?.asset?.audioVolume ?? object.userData?.asset?.videoElement?.volume ?? 1;
+    const next = Math.min(Math.max(current + delta, 0), 1);
+    this._setObjectVolume(object, next);
+  }
+
+  _getThumbstickAxes(source) {
+    if (!source?.gamepad?.axes?.length) {
+      return { x: 0, y: 0 };
+    }
+    const axes = source.gamepad.axes;
+    if (axes.length >= 4) {
+      return { x: axes[2], y: axes[3] };
+    }
+    return { x: axes[0], y: axes[1] };
+  }
+
+  _isAssetNode(object) {
+    return !!object?.userData?.asset;
+  }
+
+  _registerAsset(object) {
+    if (!this.assetRoot || !object) return;
+    if (!this.assetHistory.includes(object)) {
+      this.assetHistory.push(object);
+    }
+    this._emitAssetCount();
+    this._enforceAssetLimit();
+  }
+
+  _dropFromHistory(object) {
+    const idx = this.assetHistory.indexOf(object);
+    if (idx >= 0) {
+      this.assetHistory.splice(idx, 1);
+    }
+  }
+
+  _emitAssetCount() {
+    const count = this.assetRoot?.children?.length || 0;
+    this.emit('asset:count', { count, limit: this.assetLimit, warnThreshold: Math.floor(this.assetLimit * ASSET_WARNING_RATIO) });
+  }
+
+  _setObjectVolume(object, volume) {
+    if (!object?.userData?.asset?.videoElement) return false;
+    const value = Math.min(Math.max(volume, 0), 1);
+    object.userData.asset.videoElement.volume = value;
+    object.userData.asset.audioVolume = value;
+    this.emit('asset:audio-volume', { id: object.userData.asset.id, volume: value });
+    return true;
+  }
+
+  _setObjectMuted(object, muted) {
+    const video = object?.userData?.asset?.videoElement;
+    if (!video) return false;
+    video.muted = muted;
+    object.userData.asset.muted = muted;
+    if (!muted) {
+      video.play().catch(() => undefined);
+    }
+    this.emit('asset:audio', { id: object.userData.asset.id, muted });
+    return true;
+  }
+
+  _enforceAssetLimit() {
+    if (!this.assetRoot) return;
+    while (this.assetRoot.children.length > this.assetLimit && this.assetHistory.length) {
+      const oldest = this.assetHistory.shift();
+      if (oldest) {
+        this.remove(oldest);
+        this.emit('asset:auto-removed', { object: oldest, limit: this.assetLimit });
+      }
+    }
+  }
+
+  _clearGroup(group) {
+    if (!group) return;
+    [...group.children].forEach(child => {
+      group.remove(child);
+      const wasAsset = this._isAssetNode(child);
+      this._disposeObject(child);
+      if (wasAsset) {
+        this._dropFromHistory(child);
       }
     });
+  }
+
+  _disposeObject(object) {
+    if (!object) return;
+    object.traverse?.(node => {
+      if (node.material) {
+        const materials = Array.isArray(node.material) ? node.material : [node.material];
+        materials.forEach(mat => mat.dispose?.());
+      }
+      node.geometry?.dispose?.();
+      node.userData?.asset?.videoTexture?.dispose?.();
+      node.userData?.asset?.texture?.dispose?.();
+      if (node.userData?.asset?.objectURL) {
+        URL.revokeObjectURL(node.userData.asset.objectURL);
+      }
+      if (node.userData?.asset?.videoElement) {
+        node.userData.asset.videoElement.pause?.();
+        node.userData.asset.videoElement.src = '';
+      }
+    });
+  }
+
+  _buildAssetMetadata(payload, extra = {}, options = {}) {
+    const id = payload.id || `asset_${Date.now()}`;
+    const persistObjectUrl = options.persistObjectUrl ?? (payload.preserveObjectUrl ?? (payload.kind === 'video'));
+    const storedObjectUrl = persistObjectUrl ? (payload.objectUrl || extra.objectURL || null) : null;
+    return {
+      id,
+      kind: payload.kind,
+      fileName: payload.fileName,
+      mimeType: payload.mimeType,
+      size: payload.size,
+      source: payload.source || 'remote-upload',
+      createdAt: payload.createdAt || Date.now(),
+      objectURL: storedObjectUrl,
+      ...extra
+    };
+  }
+
+  _findAssetById(assetId) {
+    if (!assetId || !this.assetRoot) return null;
+    return this.assetRoot.children.find(child => child.userData?.asset?.id === assetId) || null;
+  }
+
+  _ensureTextureLoader() {
+    if (!this.THREE) {
+      throw new Error('TextureLoader requires THREE to be ready');
+    }
+    if (!this._textureLoader) {
+      this._textureLoader = new this.THREE.TextureLoader();
+    }
+    return this._textureLoader;
+  }
+
+  async _ensureGLTFLoader() {
+    if (this._gltfLoader) {
+      return this._gltfLoader;
+    }
+    if (!this._gltfLoaderPromise) {
+      this._gltfLoaderPromise = (async () => {
+        const GLTFLoader = await loadGLTFLoader();
+        const loader = new GLTFLoader();
+        try {
+          const DRACOLoader = await loadDRACOLoader();
+          const draco = new DRACOLoader();
+          draco.setDecoderPath(DRACO_DECODER_CDN);
+          loader.setDRACOLoader(draco);
+        } catch (error) {
+          console.warn('DRACO loader unavailable, continuing without compression support', error);
+        }
+        return loader;
+      })();
+    }
+    this._gltfLoader = await this._gltfLoaderPromise;
+    return this._gltfLoader;
+  }
+
+  _createPlaneGeometry(aspectRatio, baseSize) {
+    const width = aspectRatio >= 1 ? baseSize : baseSize * aspectRatio;
+    const height = aspectRatio >= 1 ? baseSize / aspectRatio : baseSize;
+    return new this.THREE.PlaneGeometry(width, height);
+  }
+
+  _resolveAssetSource(payload, kind) {
+    if (payload.dataUrl) {
+      return { url: payload.dataUrl, revokeAfterLoad: false };
+    }
+    if (payload.objectUrl) {
+      const revokeAfterLoad = payload.preserveObjectUrl === false && kind !== 'video';
+      return { url: payload.objectUrl, revokeAfterLoad };
+    }
+    if (payload.blob) {
+      const url = URL.createObjectURL(payload.blob);
+      const revokeAfterLoad = !(payload.preserveObjectUrl ?? (kind === 'video'));
+      return { url, revokeAfterLoad };
+    }
+    throw new Error('Asset payload missing data source');
+  }
+
+  async _getArrayBufferFromPayload(payload) {
+    if (payload.dataUrl) {
+      return this._dataUrlToArrayBuffer(payload.dataUrl);
+    }
+    if (payload.objectUrl) {
+      const response = await fetch(payload.objectUrl);
+      if (!response.ok) {
+        throw new Error('Failed to fetch object URL');
+      }
+      return response.arrayBuffer();
+    }
+    if (payload.blob) {
+      return payload.blob.arrayBuffer();
+    }
+    throw new Error('Model payload missing binary data');
+  }
+
+  _resolveAssetPosition(position) {
+    if (position && ['x', 'y', 'z'].every(key => typeof position[key] === 'number')) {
+      return new this.THREE.Vector3(position.x, position.y, position.z);
+    }
+
+    if (this.xrSession) {
+      const base = this._getXRSpawnOrigin();
+      const forward = new this.THREE.Vector3(0, 0, -1);
+      if (this.camera) {
+        this.camera.getWorldDirection(forward);
+        forward.y = 0;
+        if (forward.lengthSq() === 0) {
+          forward.set(0, 0, -1);
+        }
+      }
+      forward.normalize().multiplyScalar(DEFAULT_ASSET_DISTANCE_XR);
+      const spawn = base.addScaledVector(forward, -1);
+      spawn.y = XR_VERTICAL_BASE;
+      return spawn;
+    }
+
+    const fallback = new this.THREE.Vector3(0, 1.5, -DEFAULT_ASSET_DISTANCE_DESKTOP);
+    if (!this.camera) return fallback;
+    const result = this.camera.position.clone();
+    const forward = new this.THREE.Vector3();
+    this.camera.getWorldDirection(forward);
+    if (forward.lengthSq() === 0) {
+      forward.set(0, 0, -1);
+    }
+    forward.normalize().multiplyScalar(DEFAULT_ASSET_DISTANCE_DESKTOP);
+    result.add(forward);
+    return result;
+  }
+
+  _getXRSpawnOrigin() {
+    const anchorPos = this.xr?.anchor?.position;
+    if (anchorPos?.isVector3) {
+      return anchorPos.clone();
+    }
+    if (anchorPos) {
+      return new this.THREE.Vector3(anchorPos.x ?? 0, anchorPos.y ?? XR_VERTICAL_BASE, anchorPos.z ?? -DEFAULT_ASSET_DISTANCE_XR);
+    }
+    if (this.controls?.target) {
+      return this.controls.target.clone();
+    }
+    return new this.THREE.Vector3(0, XR_VERTICAL_BASE, -DEFAULT_ASSET_DISTANCE_XR);
+  }
+
+  _faceObjectToCamera(object) {
+    if (!this.camera || !object?.lookAt) return;
+    const target = this.camera.position.clone();
+    target.y = object.position.y;
+    object.lookAt(target);
+  }
+
+  _autoScaleObject(object, targetSize) {
+    if (!this.THREE || !object) return;
+    const box = new this.THREE.Box3().setFromObject(object);
+    const size = box.getSize(new this.THREE.Vector3());
+    const maxAxis = Math.max(size.x, size.y, size.z);
+    if (!isFinite(maxAxis) || maxAxis <= 0) return;
+    const desiredSize = typeof targetSize === 'number' ? targetSize : 1.5;
+    const scale = desiredSize / maxAxis;
+    if (scale > 0 && isFinite(scale)) {
+      object.scale.multiplyScalar(scale);
+    }
+  }
+
+  async _dataUrlToArrayBuffer(dataUrl) {
+    const blob = await this._dataUrlToBlob(dataUrl);
+    return blob.arrayBuffer();
+  }
+
+  async _dataUrlToObjectUrl(dataUrl, mimeType) {
+    const blob = await this._dataUrlToBlob(dataUrl);
+    const typedBlob = mimeType ? blob.slice(0, blob.size, mimeType) : blob;
+    return URL.createObjectURL(typedBlob);
+  }
+
+  async _dataUrlToBlob(dataUrl) {
+    const response = await fetch(dataUrl);
+    if (!response.ok) {
+      throw new Error('Failed to decode data URL');
+    }
+    return response.blob();
   }
 }
 
