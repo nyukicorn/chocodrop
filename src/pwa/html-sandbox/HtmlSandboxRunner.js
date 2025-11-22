@@ -10,8 +10,8 @@ export class HtmlSandboxError extends Error {
 }
 
 const CHANNEL = 'chocodrop-html-sandbox';
-const MAX_RESULT_WAIT_MS = 2000;
-const IFRAME_MESSAGE_TIMEOUT_MS = 10000;
+const MAX_RESULT_WAIT_MS = 8000;
+const IFRAME_MESSAGE_TIMEOUT_MS = 20000;
 
 export class HtmlSandboxRunner {
   constructor(options = {}) {

@@ -52,6 +52,7 @@ function startChocoDropSandbox() {
   const virtualProject = setupVirtualProject();
 
   post('boot', { fileName: config.fileName || 'inline.html' });
+  post('log', { level: 'info', message: 'three-ready 受信、サンドボックス初期化開始', elapsedMs: 0 });
   setupConsoleMirroring(log);
   setupErrorBridge(fail, log);
 
@@ -576,6 +577,7 @@ function createSandboxApi({ THREE, exporter, trackedScenes, state, fail, log, ne
       return;
     }
     try {
+      log('info', 'Scene export を開始します');
       const prepared = prepareScene(scene, THREE, log);
       const sceneJson = prepared.toJSON();
       const objectCount = countObjects(prepared);
@@ -591,6 +593,7 @@ function createSandboxApi({ THREE, exporter, trackedScenes, state, fail, log, ne
           networkRequests: networkGuard.count
         }
       });
+      post('log', { level: 'info', message: 'Scene JSON 送信完了、GLB エクスポート開始', elapsedMs: Math.round(sandboxNow() - start) });
       disposeTrackedRenderers(state, log);
       exportGlb(prepared, exporter, log, post);
     } catch (error) {
@@ -611,6 +614,7 @@ function createSandboxApi({ THREE, exporter, trackedScenes, state, fail, log, ne
 
 function exportGlb(scene, exporter, log, post) {
   try {
+    post('log', { level: 'info', message: 'GLB エクスポート中…', elapsedMs: Math.round(sandboxNow() - start) });
     // 追加フォールバック: サムネイル未取得ならここで再試行
     tryFallbackThumbnailCapture(scene, log, post);
     const animations = Array.isArray(scene.animations) ? scene.animations : [];
