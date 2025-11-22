@@ -68,7 +68,9 @@ export class HtmlSandboxRunner {
         summary: null,
         glbBuffer: null,
         thumbnail: null,
-        settled: false
+        settled: false,
+        glbWaitExpired: false,
+        glbWaitTimer: null
       };
 
       const cleanup = () => {
@@ -121,6 +123,14 @@ export class HtmlSandboxRunner {
         });
       };
 
+      const maybeFinish = () => {
+        if (state.settled) return;
+        if (!state.sceneJson) return;
+        if (state.glbBuffer || state.glbWaitExpired) {
+          finishSuccess();
+        }
+      };
+
       const finishError = detail => {
         if (state.settled) return;
         state.settled = true;
@@ -162,12 +172,22 @@ export class HtmlSandboxRunner {
           case 'result':
             state.sceneJson = data.payload?.sceneJson;
             state.summary = data.payload?.summary;
-            finishSuccess();
+            // GLB が後続で届く場合があるため少し待つ
+            if (state.glbWaitTimer) {
+              clearTimeout(state.glbWaitTimer);
+            }
+            state.glbWaitExpired = false;
+            state.glbWaitTimer = setTimeout(() => {
+              state.glbWaitExpired = true;
+              maybeFinish();
+            }, 1200);
+            maybeFinish();
             break;
           case 'glb':
             if (data.payload?.buffer) {
               state.glbBuffer = data.payload.buffer;
             }
+            maybeFinish();
             break;
           case 'thumbnail':
             state.thumbnail = data.payload || null;
@@ -186,7 +206,7 @@ export class HtmlSandboxRunner {
 
   createIframe(virtualProject) {
     const iframe = document.createElement('iframe');
-    iframe.setAttribute('sandbox', 'allow-scripts');
+    iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin');
     iframe.setAttribute('referrerpolicy', 'no-referrer');
     iframe.style.position = 'absolute';
     iframe.style.left = '-9999px';
@@ -221,8 +241,14 @@ export class HtmlSandboxRunner {
       }
     };
     const importMap = JSON.stringify(importMapObj);
+    const baseHref = (typeof window !== 'undefined' && window.location?.origin) ? `${window.location.origin}/` : '/';
+    const frameScriptUrl = (typeof window !== 'undefined' && window.location)
+      ? new URL('/public/html-sandbox/frame.js', window.location.href).href
+      : '/public/html-sandbox/frame.js';
+
     const headInjection = [
       '<meta charset="utf-8">',
+      `<base href="${baseHref}">`,
       this.buildCspMeta(policy),
       this.buildConfigScript({ policy, fileName, threeVersion }),
       `<script type="importmap">${importMap}</script>`,
@@ -239,28 +265,47 @@ export class HtmlSandboxRunner {
           try { return await import('three/addons/utils/BufferGeometryUtils.js'); }
           catch (e) { console.warn('BufferGeometryUtils import failed, fallback', e); return await import('${fallbackExamplesBase}utils/BufferGeometryUtils.js'); }
         }
+        async function ensureOrbitControls() {
+          try { return await import('three/addons/controls/OrbitControls.js'); }
+          catch (e) { console.warn('OrbitControls import failed, fallback', e); return await import('${fallbackExamplesBase}controls/OrbitControls.js'); }
+        }
+        const postBootstrapError = (code, error) => {
+          try {
+            const message = error?.message || String(error || 'unknown error');
+            const detail = { code, message };
+            parent?.postMessage({ source: '${CHANNEL}', type: 'error', payload: detail }, '*');
+          } catch (_) {
+            /* noop */
+          }
+        };
         (async () => {
           try {
             const THREE_NS = await ensureThree();
             const { GLTFExporter } = await ensureExporter();
             const buf = await ensureBufferUtils();
+            const { OrbitControls } = await ensureOrbitControls();
             const BufferGeometryUtils = buf.BufferGeometryUtils || buf;
-            const THREE = { ...THREE_NS, GLTFExporter, BufferGeometryUtils };
+            const THREE = { ...THREE_NS, GLTFExporter, BufferGeometryUtils, OrbitControls };
             window.THREE = THREE;
             window.dispatchEvent(new Event('three-ready'));
           } catch (error) {
             console.error('THREE bootstrap failed', error);
+            postBootstrapError('three-bootstrap-failed', error);
           }
         })();
       </script>`,
-      `<script>window.__waitThree = new Promise(resolve => {
+      `<script>window.__waitThree = new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => reject(new Error('three bootstrap timeout')), 7000);
         const tick = () => {
-          if (window.THREE && window.THREE.GLTFExporter) return resolve();
+          if (window.THREE && window.THREE.GLTFExporter) {
+            clearTimeout(timeout);
+            return resolve();
+          }
           setTimeout(tick, 10);
         };
         tick();
       });</script>`,
-      '<script src="/html-sandbox/frame.js"></script>'
+      `<script src="${frameScriptUrl}"></script>`
     ].join('\n');
 
     if (/<\/head>/i.test(htmlText)) {
@@ -282,14 +327,16 @@ export class HtmlSandboxRunner {
     const hostTokens = policy.hosts.map(entry => (entry === 'self' ? "'self'" : entry));
     const scriptSrc = [`'unsafe-inline'`, ...hostTokens, 'blob:', 'data:'];
     const assetSrc = [...hostTokens, 'blob:', 'data:'];
+    const fontSrc = [...hostTokens, 'data:', 'https://fonts.googleapis.com', 'https://fonts.gstatic.com'];
+    const styleSrc = [`'unsafe-inline'`, ...hostTokens, 'https://fonts.googleapis.com'];
     const policyString = [
       `default-src 'none'`,
       `script-src ${scriptSrc.join(' ')}`,
-      `style-src 'unsafe-inline'`,
+      `style-src ${styleSrc.join(' ')}`,
       `img-src ${assetSrc.join(' ')}`,
       `connect-src 'none'`,
       `media-src ${assetSrc.join(' ')}`,
-      `font-src 'none'`,
+      `font-src ${fontSrc.join(' ')}`,
       `frame-ancestors 'none'`,
       `worker-src 'self' blob:`,
       `base-uri 'none'`,

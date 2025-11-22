@@ -32,6 +32,7 @@ createApp({
     const thumbnailUrl = ref(null);
     const thumbnailSize = ref(null);
     const threeVersionOptions = [
+      { label: 'r170 (lofi-room 推奨)', value: '0.170.0' },
       { label: 'r160', value: '0.160.0' },
       { label: 'r158 (既定)', value: THREE_VERSION },
       { label: 'r150', value: '0.150.1' },

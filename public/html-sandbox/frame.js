@@ -110,7 +110,15 @@ function startChocoDropSandbox() {
 }
 
 if (window.__waitThree && typeof window.__waitThree.then === 'function') {
-  window.__waitThree.then(startChocoDropSandbox);
+  window.__waitThree.then(startChocoDropSandbox).catch(error => {
+    const message = error?.message || 'THREE の初期化に失敗しました';
+    const payload = { code: 'three-bootstrap-failed', message };
+    try {
+      parent.postMessage({ source: CHANNEL, type: 'error', payload }, '*');
+    } catch (_) {
+      /* noop */
+    }
+  });
 } else if (window.THREE && window.THREE.GLTFExporter) {
   startChocoDropSandbox();
 } else {
@@ -595,7 +603,7 @@ function createSandboxApi({ THREE, exporter, trackedScenes, state, fail, log, ne
       });
       post('log', { level: 'info', message: 'Scene JSON 送信完了、GLB エクスポート開始', elapsedMs: Math.round(sandboxNow() - start) });
       disposeTrackedRenderers(state, log);
-      exportGlb(prepared, exporter, log, post);
+      exportGlb(prepared, exporter, log, post, start);
     } catch (error) {
       fail('export-failed', { message: error?.message || 'Scene JSON 変換に失敗しました' });
     }
@@ -612,9 +620,10 @@ function createSandboxApi({ THREE, exporter, trackedScenes, state, fail, log, ne
   };
 }
 
-function exportGlb(scene, exporter, log, post) {
+function exportGlb(scene, exporter, log, post, startTime) {
   try {
-    post('log', { level: 'info', message: 'GLB エクスポート中…', elapsedMs: Math.round(sandboxNow() - start) });
+    const origin = Number.isFinite(startTime) ? startTime : sandboxNow();
+    post('log', { level: 'info', message: 'GLB エクスポート中…', elapsedMs: Math.round(sandboxNow() - origin) });
     // 追加フォールバック: サムネイル未取得ならここで再試行
     tryFallbackThumbnailCapture(scene, log, post);
     const animations = Array.isArray(scene.animations) ? scene.animations : [];

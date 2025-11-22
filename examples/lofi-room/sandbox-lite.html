@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChocoDrop Lo-fi Room Sandbox Lite</title>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+        }
+      }
+    </script>
+    <style>
+      :root { color-scheme: dark; }
+      body {
+        margin: 0;
+        background: radial-gradient(circle at 20% 20%, #1f2937, #0f172a 60%);
+        color: #e5e7eb;
+        font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+        overflow: hidden;
+      }
+      #info {
+        position: absolute;
+        top: 12px;
+        left: 12px;
+        padding: 10px 12px;
+        background: rgba(31, 41, 55, 0.8);
+        border: 1px solid rgba(148, 163, 184, 0.4);
+        border-radius: 10px;
+        font-size: 13px;
+      }
+      canvas { display: block; }
+    </style>
+  </head>
+  <body>
+    <div id="info">Sandbox Lite / three@0.170.0 / 外部リソースなし</div>
+    <script type="module">
+      import * as THREE from 'three';
+      import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+      console.log('THREE loaded:', !!THREE?.Scene);
+
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x0b1220);
+
+      const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
+      camera.position.set(3.5, 2.4, 4.2);
+
+      const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+      renderer.setPixelRatio(window.devicePixelRatio);
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.outputColorSpace = THREE.SRGBColorSpace;
+      document.body.appendChild(renderer.domElement);
+
+      const controls = new OrbitControls(camera, renderer.domElement);
+      controls.target.set(0, 1, 0);
+      controls.update();
+
+      // 簡易ルーム
+      const room = new THREE.Group();
+      const floorMat = new THREE.MeshStandardMaterial({ color: 0x1f2937, roughness: 0.8 });
+      const wallMat = new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 0.9 });
+      const floor = new THREE.Mesh(new THREE.PlaneGeometry(8, 8), floorMat);
+      floor.rotation.x = -Math.PI / 2;
+      floor.position.y = 0;
+      room.add(floor);
+      const back = new THREE.Mesh(new THREE.PlaneGeometry(8, 4), wallMat);
+      back.position.set(0, 2, -4);
+      room.add(back);
+      const side = new THREE.Mesh(new THREE.PlaneGeometry(8, 4), wallMat);
+      side.rotation.y = Math.PI / 2;
+      side.position.set(-4, 2, 0);
+      room.add(side);
+      scene.add(room);
+
+      // 机 + スピーカー風オブジェクト
+      const table = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.12, 1.2), new THREE.MeshStandardMaterial({ color: 0x334155 }));
+      table.position.set(0, 0.6, -1.2);
+      scene.add(table);
+
+      const speakerGeo = new THREE.BoxGeometry(0.25, 0.6, 0.25);
+      const speakerMat = new THREE.MeshStandardMaterial({ color: 0x8b5cf6, emissive: 0x4c1d95, emissiveIntensity: 0.4 });
+      const spkL = new THREE.Mesh(speakerGeo, speakerMat.clone());
+      spkL.position.set(-0.8, 0.9, -1.1);
+      const spkR = spkL.clone();
+      spkR.position.x = 0.8;
+      scene.add(spkL, spkR);
+
+      // ランプ
+      const lamp = new THREE.PointLight(0x60a5fa, 1.4, 10);
+      lamp.position.set(1.5, 2.6, 1.5);
+      scene.add(lamp);
+      scene.add(new THREE.AmbientLight(0xffffff, 0.28));
+
+      // アニメーションするオーブ
+      const orbMat = new THREE.MeshStandardMaterial({ color: 0x22d3ee, emissive: 0x0ea5e9, emissiveIntensity: 0.8, roughness: 0.4 });
+      const orb = new THREE.Mesh(new THREE.SphereGeometry(0.35, 32, 32), orbMat);
+      orb.position.set(0, 1.4, 0.6);
+      scene.add(orb);
+
+      const clock = new THREE.Clock();
+      function animate() {
+        requestAnimationFrame(animate);
+        const t = clock.getElapsedTime();
+        orb.position.y = 1.4 + Math.sin(t * 1.5) * 0.1;
+        orb.rotation.y += 0.01;
+        controls.update();
+        renderer.render(scene, camera);
+      }
+      animate();
+
+      window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+
+      // sandbox Runner が Scene を拾いやすいように、グローバルに参照を残す
+      window.scene = scene;
+    </script>
+  </body>
+</html>
