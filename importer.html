@@ -21,7 +21,7 @@
       html, body { height: 100%; }
       body {
         margin: 0;
-        padding-left: 360px;
+        padding-left: 400px;
         background: #020617;
         color: #e2e8f0;
         overflow: hidden;
@@ -31,21 +31,142 @@
         top: 0;
         left: 0;
         bottom: 0;
-        width: 360px;
-        padding: 2rem;
+        width: 400px;
+        padding: 0;
         display: flex;
         flex-direction: column;
-        gap: 1.5rem;
-        border-right: 1px solid rgba(148, 163, 184, 0.2);
-        background: rgba(15, 23, 42, 0.7);
-        backdrop-filter: blur(18px);
+        border-right: 1px solid rgba(148, 163, 184, 0.3);
+        background: linear-gradient(180deg,
+          rgba(15, 23, 42, 0.95) 0%,
+          rgba(30, 41, 59, 0.9) 100%);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
         overflow-y: auto;
         z-index: 2;
+        box-shadow: 2px 0 24px rgba(0, 0, 0, 0.3);
+      }
+
+      /* サイドバーヘッダー */
+      .sidebar-header {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        padding: 1.75rem 2rem;
+        background: linear-gradient(135deg,
+          rgba(15, 23, 42, 0.98) 0%,
+          rgba(30, 41, 59, 0.95) 100%);
+        backdrop-filter: blur(20px);
+        border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
+      }
+
+      .sidebar-header h1 {
+        margin: 0 0 0.5rem;
+        font-size: 1.5rem;
+        background: linear-gradient(135deg, #93c5fd 0%, #7dd3fc 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+
+      .sidebar-header .note {
+        margin: 0;
+        font-size: 0.9rem;
+      }
+
+      /* セクションタイトル */
+      .section-title {
+        font-size: 1rem;
+        font-weight: 600;
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: #e2e8f0;
+      }
+
+      /* プライマリセクション（常に表示） */
+      .primary-section {
+        padding: 1.5rem 2rem;
+        border-bottom: 1px solid rgba(148, 163, 184, 0.15);
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+        background: linear-gradient(135deg,
+          rgba(56, 189, 248, 0.03) 0%,
+          rgba(59, 130, 246, 0.02) 100%);
+      }
+
+      .primary-section:hover {
+        background: linear-gradient(135deg,
+          rgba(56, 189, 248, 0.06) 0%,
+          rgba(59, 130, 246, 0.04) 100%);
+      }
+
+      /* 折りたたみセクション */
+      .collapsible-section {
+        border-bottom: 1px solid rgba(148, 163, 184, 0.15);
+        padding: 0;
+      }
+
+      .collapsible-section summary {
+        padding: 1.25rem 2rem;
+        cursor: pointer;
+        list-style: none;
+        user-select: none;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        transition: all 0.3s ease;
+        background: rgba(15, 23, 42, 0.3);
+      }
+
+      .collapsible-section summary::-webkit-details-marker {
+        display: none;
+      }
+
+      .collapsible-section summary:hover {
+        background: rgba(56, 189, 248, 0.08);
+      }
+
+      .collapsible-section[open] summary {
+        background: rgba(56, 189, 248, 0.1);
+        border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+      }
+
+      .section-content {
+        padding: 1.5rem 2rem;
+        animation: slide-down 0.3s ease;
+      }
+
+      @keyframes slide-down {
+        from {
+          opacity: 0;
+          transform: translateY(-8px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      /* ファイルラベル */
+      .file-label {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        font-size: 0.95rem;
+        font-weight: 500;
+      }
+
+      .file-label span {
+        color: #cbd5e1;
       }
       main {
         position: relative;
         height: 100vh;
-        width: calc(100% - 360px);
+        width: calc(100% - 400px);
       }
       canvas {
         width: 100%;
@@ -176,11 +297,6 @@
         border-color: rgba(56, 189, 248, 0.8);
         box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2);
       }
-      .url-import {
-        display: flex;
-        flex-direction: column;
-        gap: 0.5rem;
-      }
       .url-import__controls {
         display: flex;
         gap: 0.5rem;
@@ -274,25 +390,15 @@
         background: rgba(30, 64, 175, 0.35);
         border: 1px solid rgba(96, 165, 250, 0.35);
       }
-      .media-caster {
-        padding: 1rem 0;
-        border-top: 1px solid rgba(148, 163, 184, 0.2);
-        border-bottom: 1px solid rgba(148, 163, 184, 0.2);
-        display: flex;
-        flex-direction: column;
-        gap: 0.75rem;
-      }
       .media-status[data-state="ok"] { color: #4ade80; }
       .media-status[data-state="warn"] { color: #facc15; }
       .media-status[data-state="error"] { color: #f87171; }
       .media-status[data-state="pending"] { color: #38bdf8; }
       .media-status[data-state="idle"] { color: #cbd5f5; }
-      .sandbox-panel {
-        padding: 1rem 0;
-        border-top: 1px solid rgba(148, 163, 184, 0.2);
+      .sandbox-panel .section-content {
         display: flex;
         flex-direction: column;
-        gap: 0.6rem;
+        gap: 0.75rem;
       }
       .sandbox-policy__hosts {
         display: flex;
@@ -357,35 +463,49 @@
       .sandbox-policy__form button:active {
         transform: translateY(0);
       }
-      .html-log {
+      .sandbox-log {
         border: 1px solid rgba(148, 163, 184, 0.3);
         border-radius: 0.75rem;
-        padding: 0.65rem;
+        padding: 0.75rem;
         background: rgba(15, 23, 42, 0.5);
         font-family: 'JetBrains Mono', 'IBM Plex Mono', monospace;
         font-size: 0.8rem;
+        max-height: 200px;
+        overflow-y: auto;
+      }
+
+      .html-log {
+        padding: 0.5rem;
         margin-bottom: 0.35rem;
       }
       .html-log--warn { color: #facc15; }
       .html-log--error { color: #f87171; }
       .html-log--info { color: #a5b4fc; }
+      .sandbox-artifacts {
+        border: 1px solid rgba(148, 163, 184, 0.3);
+        border-radius: 0.75rem;
+        padding: 0.75rem;
+        background: rgba(15, 23, 42, 0.5);
+        font-size: 0.85rem;
+        min-height: 60px;
+      }
+
       .sandbox-artifacts a {
         color: #38bdf8;
         text-decoration: none;
+        font-weight: 500;
       }
+
       .sandbox-artifacts a:hover {
         text-decoration: underline;
-      }
-      h1 {
-        margin: 0;
-        font-size: 1.4rem;
+        color: #7dd3fc;
       }
       .note {
         font-size: 0.85rem;
         color: #cbd5f5;
         line-height: 1.6;
       }
-      @media (max-width: 960px) {
+      @media (max-width: 1024px) {
         body {
           padding-left: 0;
           overflow: visible;
@@ -395,15 +515,17 @@
           width: 100%;
           height: auto;
           max-height: none;
+          box-shadow: 0 2px 24px rgba(0, 0, 0, 0.3);
+        }
+        .sidebar-header {
+          position: relative;
         }
         main {
           width: 100%;
           height: 60vh;
         }
       }
-      .media-controls {
-        padding: 1rem 0;
-        border-top: 1px solid rgba(148, 163, 184, 0.2);
+      .media-controls .section-content {
         display: flex;
         flex-direction: column;
         gap: 0.75rem;
@@ -485,96 +607,143 @@
   </head>
   <body>
     <aside>
-      <h1>モデルインポーター</h1>
-      <p class="note">HTML (Three.js) / ZIP (HTML+アセット) / GLTF / GLB / Three.js JSON をアップロードして、シーンに即座に配置します。VR/AR では左スティックで平面移動、右スティックで上下・回転・スケールを操作できます。</p>
-      <label>ファイル選択
-        <input id="file-input" type="file" accept=".html,.htm,.zip,.gltf,.glb,.json" multiple>
-      </label>
-      <div data-dropzone data-state="idle">
-        <strong>ドラッグ＆ドロップ</strong>
-        <p class="note">HTML(β) / ZIP(β) / GLTF / GLB / Three.js JSON 以外は拒否します。</p>
+      <div class="sidebar-header">
+        <h1>モデルインポーター</h1>
+        <p class="note">3Dモデルを簡単にインポート。複数のフォーマットに対応しています。</p>
       </div>
-      <section class="sandbox-panel" data-html-policy>
-        <h2>HTMLサンドボックス β</h2>
-        <p class="note">アップロードされた HTML/JS は分離サンドボックス内で評価され、Three.js Scene JSON/GLB に変換されます。許可されたホスト以外への通信は遮断されます。</p>
-        <div class="sandbox-policy__hosts" data-html-policy-hosts></div>
-        <form class="sandbox-policy__form" data-html-policy-form>
-          <input type="text" data-html-policy-input placeholder="https://cdn.example.com" autocomplete="off">
-          <button type="submit">ホストを追加</button>
-        </form>
-        <p class="note" data-html-policy-summary>許可ホスト 0 件 / 通信上限 0 回 / タイムアウト 0ms</p>
+
+      <!-- メイン機能: ファイル読み込み -->
+      <section class="primary-section">
+        <h2 class="section-title">📥 ファイル読み込み</h2>
+        <label class="file-label">
+          <span>ファイルを選択</span>
+          <input id="file-input" type="file" accept=".html,.htm,.zip,.gltf,.glb,.json" multiple>
+        </label>
+        <div data-dropzone data-state="idle">
+          <strong>ドラッグ＆ドロップ</strong>
+          <p class="note">GLTF / GLB / JSON / HTML / ZIP</p>
+        </div>
       </section>
-      <section class="sandbox-panel">
-        <h3>HTML変換ログ</h3>
-        <div class="sandbox-log" data-html-log></div>
-      </section>
-      <section class="sandbox-panel">
-        <h3>生成アセット</h3>
-        <div class="sandbox-artifacts" data-html-artifacts></div>
-      </section>
-      <section class="url-import">
-        <label for="remote-url-input">URL から読み込み</label>
+
+      <!-- メイン機能: URL読み込み -->
+      <section class="primary-section url-import">
+        <h2 class="section-title">🔗 URLから読み込み</h2>
         <div class="url-import__controls">
-          <input id="remote-url-input" type="url" inputmode="url" placeholder="https://raw.githubusercontent.com/user/repo/main/model.glb" autocomplete="off">
+          <input id="remote-url-input" type="url" inputmode="url" placeholder="https://example.com/model.glb" autocomplete="off">
           <button type="button" data-action="import-url">読み込む</button>
         </div>
         <p class="note inline-status" data-url-status data-state="idle">
           <span class="inline-status__icon" data-url-status-icon aria-hidden="true">ℹ️</span>
-          <span data-url-status-text>GLB / GLTF / JSON ファイルの直接リンクを貼り付けてください。</span>
+          <span data-url-status-text>GLB / GLTF / JSON の直接リンク</span>
         </p>
         <div class="url-history" data-url-history hidden>
           <span class="note">最近のURL</span>
           <div class="url-history__chips" data-url-history-list></div>
         </div>
       </section>
-      <section class="media-caster">
-        <h2>メディアキャスト β</h2>
-        <p class="note">画像 / 動画 / GLB を Quest へ即時同期します。シーン全体とは独立して扱われます。</p>
-        <label>個別メディア
+
+      <!-- 折りたたみ: HTMLサンドボックス設定 -->
+      <details class="collapsible-section sandbox-panel" data-html-policy>
+        <summary>
+          <h2 class="section-title">⚙️ HTMLサンドボックス設定</h2>
+          <span class="collapse-icon">▼</span>
+        </summary>
+        <div class="section-content">
+          <p class="note">HTML/JSを安全に変換。許可されたホストのみ通信可能。</p>
+          <div class="sandbox-policy__hosts" data-html-policy-hosts></div>
+          <form class="sandbox-policy__form" data-html-policy-form>
+            <input type="text" data-html-policy-input placeholder="https://cdn.example.com" autocomplete="off">
+            <button type="submit">ホストを追加</button>
+          </form>
+          <p class="note" data-html-policy-summary>許可ホスト 0 件 / 通信上限 0 回 / タイムアウト 0ms</p>
+        </div>
+      </details>
+
+      <!-- 折りたたみ: HTML変換ログ -->
+      <details class="collapsible-section sandbox-panel">
+        <summary>
+          <h3 class="section-title">📋 HTML変換ログ</h3>
+          <span class="collapse-icon">▼</span>
+        </summary>
+        <div class="section-content">
+          <div class="sandbox-log" data-html-log></div>
+        </div>
+      </details>
+
+      <!-- 折りたたみ: 生成アセット -->
+      <details class="collapsible-section sandbox-panel">
+        <summary>
+          <h3 class="section-title">📦 生成アセット</h3>
+          <span class="collapse-icon">▼</span>
+        </summary>
+        <div class="section-content">
+          <div class="sandbox-artifacts" data-html-artifacts></div>
+        </div>
+      </details>
+      <!-- メディアキャスト -->
+      <section class="primary-section media-caster">
+        <h2 class="section-title">🎬 メディアキャスト</h2>
+        <p class="note">画像・動画をQuestへ即時同期</p>
+        <label class="file-label">
+          <span>メディアを選択</span>
           <input id="media-input" type="file" accept="image/*,video/*,.glb,.gltf" multiple>
         </label>
         <div data-media-dropzone data-state="idle">
-          <strong>画像・動画・GLB をドロップ</strong>
-          <p class="note">最大 150MB 程度を推奨。アップロード後ただちにQuestへ送信します。</p>
+          <strong>画像・動画をドロップ</strong>
+          <p class="note">最大 150MB 推奨</p>
         </div>
-        <p class="note media-status" data-media-status data-state="idle">待機中: Quest 接続時にライブ送信します。</p>
+        <p class="note media-status" data-media-status data-state="idle">待機中: Quest接続時に送信</p>
       </section>
-      <section>
-        <h2>保存済みモデル</h2>
-        <ul data-file-list>
-          <li>OPFS を初期化しています…</li>
-        </ul>
-      </section>
-      <section class="media-controls">
-        <h2>メディア調整</h2>
-        <label class="media-select">
-          <span>対象メディア</span>
-          <select data-media-select>
-            <option value="">最新のメディアを選択</option>
-          </select>
-        </label>
-        <div class="media-controls__label">選択中: <span data-transform-label>--</span></div>
-        <label>スケール
-          <input type="range" data-transform-scale min="0.2" max="4" step="0.05" value="1" disabled>
-        </label>
-        <label>音量
-          <input type="range" data-audio-volume min="0" max="1" step="0.05" value="1" disabled>
-        </label>
-        <div class="control-group" data-transform-buttons>
-          <button type="button" data-nudge="forward">前へ</button>
-          <button type="button" data-nudge="back">後ろへ</button>
-          <button type="button" data-nudge="left">左へ</button>
-          <button type="button" data-nudge="right">右へ</button>
-          <button type="button" data-nudge="up">上へ</button>
-          <button type="button" data-nudge="down">下へ</button>
-          <button type="button" data-nudge="near">近づける</button>
-          <button type="button" data-nudge="far">遠ざける</button>
+
+      <!-- 折りたたみ: 保存済みモデル -->
+      <details class="collapsible-section" open>
+        <summary>
+          <h2 class="section-title">💾 保存済みモデル</h2>
+          <span class="collapse-icon">▼</span>
+        </summary>
+        <div class="section-content">
+          <ul data-file-list>
+            <li>OPFS を初期化しています…</li>
+          </ul>
         </div>
-        <div class="control-group">
-          <button type="button" data-action="reset-transform" disabled>リセット</button>
-          <button type="button" data-action="toggle-audio" disabled>音声ON</button>
+      </details>
+
+      <!-- 折りたたみ: メディア調整 -->
+      <details class="collapsible-section media-controls">
+        <summary>
+          <h2 class="section-title">🎚️ メディア調整</h2>
+          <span class="collapse-icon">▼</span>
+        </summary>
+        <div class="section-content">
+          <label class="media-select">
+            <span>対象メディア</span>
+            <select data-media-select>
+              <option value="">最新のメディアを選択</option>
+            </select>
+          </label>
+          <div class="media-controls__label">選択中: <span data-transform-label>--</span></div>
+          <label>スケール
+            <input type="range" data-transform-scale min="0.2" max="4" step="0.05" value="1" disabled>
+          </label>
+          <label>音量
+            <input type="range" data-audio-volume min="0" max="1" step="0.05" value="1" disabled>
+          </label>
+          <div class="control-group" data-transform-buttons>
+            <button type="button" data-nudge="forward">前へ</button>
+            <button type="button" data-nudge="back">後ろへ</button>
+            <button type="button" data-nudge="left">左へ</button>
+            <button type="button" data-nudge="right">右へ</button>
+            <button type="button" data-nudge="up">上へ</button>
+            <button type="button" data-nudge="down">下へ</button>
+            <button type="button" data-nudge="near">近づける</button>
+            <button type="button" data-nudge="far">遠ざける</button>
+          </div>
+          <div class="control-group">
+            <button type="button" data-action="reset-transform" disabled>リセット</button>
+            <button type="button" data-action="toggle-audio" disabled>音声ON</button>
+          </div>
         </div>
-      </section>
+      </details>
     </aside>
     <main>
       <canvas id="importer-canvas"></canvas>
