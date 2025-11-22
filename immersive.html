@@ -309,6 +309,41 @@
           transform: translateY(0);
         }
       }
+
+      /* Remote Dockの折りたたみ */
+      .collapsible-dock summary {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        font-weight: 600;
+        cursor: pointer;
+        list-style: none;
+        user-select: none;
+      }
+
+      .collapsible-dock summary::-webkit-details-marker {
+        display: none;
+      }
+
+      .dock-controls {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+      }
+
+      .collapsible-dock[open] summary {
+        margin-bottom: 0.75rem;
+        padding-bottom: 0.75rem;
+        border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+      }
+
+      .collapsible-dock .remote-stage {
+        animation: slide-down 0.3s ease;
+      }
+
+      .collapsible-dock summary:hover {
+        opacity: 0.9;
+      }
     </style>
   </head>
   <body>
@@ -382,13 +417,16 @@
         </div>
       </form>
     </div>
-    <section class="remote-dock">
-      <header>
+    <details class="remote-dock collapsible-dock" open>
+      <summary>
         <span>Remote Scene Preview</span>
-        <span data-remote-pulse data-state="direct">Standby</span>
-      </header>
+        <div class="dock-controls">
+          <span data-remote-pulse data-state="direct">Standby</span>
+          <span class="collapse-icon">▼</span>
+        </div>
+      </summary>
       <div class="remote-stage" data-remote-container data-state="idle"></div>
-    </section>
+    </details>
     <noscript>この体験には JavaScript が必要です。</noscript>
     <script type="module" src="/src/pwa/immersive.js"></script>
   </body>
