@@ -253,6 +253,62 @@
         border-radius: 1rem;
         box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
       }
+
+      /* 折りたたみ可能なパネル */
+      .collapsible-panel {
+        border-radius: 1rem !important;
+      }
+
+      .collapsible-panel summary {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        cursor: pointer;
+        list-style: none;
+        user-select: none;
+        padding: 0;
+      }
+
+      .collapsible-panel summary::-webkit-details-marker {
+        display: none;
+      }
+
+      .collapse-icon {
+        font-size: 0.75rem;
+        transition: transform 0.3s ease;
+        color: rgba(148, 163, 184, 0.8);
+      }
+
+      .collapsible-panel[open] .collapse-icon {
+        transform: rotate(180deg);
+      }
+
+      .collapsible-panel summary:hover .collapse-icon {
+        color: rgba(56, 189, 248, 0.9);
+      }
+
+      .collapsible-panel[open] summary {
+        margin-bottom: 0.5rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+      }
+
+      .collapsible-panel ul,
+      .collapsible-panel p {
+        animation: slide-down 0.3s ease;
+      }
+
+      @keyframes slide-down {
+        from {
+          opacity: 0;
+          transform: translateY(-8px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
     </style>
   </head>
   <body>
@@ -283,8 +339,11 @@
           <button type="button" data-action="clear-assets">全メディア削除</button>
         </div>
       </div>
-      <div class="panel control-hint">
-        <span class="pill">XR操作</span>
+      <details class="panel control-hint collapsible-panel">
+        <summary>
+          <span class="pill">XR操作</span>
+          <span class="collapse-icon">▼</span>
+        </summary>
         <ul>
           <li>左スティック: 平面移動</li>
           <li>右スティック左右: 水平回転</li>
@@ -294,11 +353,14 @@
           <li>A/B: 音量↓ / 音量↑</li>
           <li>X: 音声ON/OFF切替</li>
         </ul>
-      </div>
-      <div class="panel control-hint">
-        <span class="pill">音声ヒント</span>
+      </details>
+      <details class="panel control-hint collapsible-panel">
+        <summary>
+          <span class="pill">音声ヒント</span>
+          <span class="collapse-icon">▼</span>
+        </summary>
         <p>XRでは動画音声は自動で再生されます。A/Bで音量調整、Xでミュート切替ができます。</p>
-      </div>
+      </details>
       <form class="panel remote-panel" data-remote-form novalidate>
         <div class="remote-headline">
           <span class="pill">Remote</span>
