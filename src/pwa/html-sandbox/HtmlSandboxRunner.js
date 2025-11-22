@@ -229,24 +229,28 @@ export class HtmlSandboxRunner {
       `<script type="module">
         async function ensureThree() {
           try { return await import('three'); }
-          catch (_) { return await import('${fallbackThreeModule}'); }
+          catch (e) { console.warn('three import failed, fallback', e); return await import('${fallbackThreeModule}'); }
         }
         async function ensureExporter() {
           try { return await import('three/addons/exporters/GLTFExporter.js'); }
-          catch (_) { return await import('${fallbackExamplesBase}exporters/GLTFExporter.js'); }
+          catch (e) { console.warn('GLTFExporter import failed, fallback', e); return await import('${fallbackExamplesBase}exporters/GLTFExporter.js'); }
         }
         async function ensureBufferUtils() {
           try { return await import('three/addons/utils/BufferGeometryUtils.js'); }
-          catch (_) { return await import('${fallbackExamplesBase}utils/BufferGeometryUtils.js'); }
+          catch (e) { console.warn('BufferGeometryUtils import failed, fallback', e); return await import('${fallbackExamplesBase}utils/BufferGeometryUtils.js'); }
         }
         (async () => {
-          const THREE_NS = await ensureThree();
-          const { GLTFExporter } = await ensureExporter();
-          const buf = await ensureBufferUtils();
-          const BufferGeometryUtils = buf.BufferGeometryUtils || buf;
-          const THREE = { ...THREE_NS, GLTFExporter, BufferGeometryUtils };
-          window.THREE = THREE;
-          window.dispatchEvent(new Event('three-ready'));
+          try {
+            const THREE_NS = await ensureThree();
+            const { GLTFExporter } = await ensureExporter();
+            const buf = await ensureBufferUtils();
+            const BufferGeometryUtils = buf.BufferGeometryUtils || buf;
+            const THREE = { ...THREE_NS, GLTFExporter, BufferGeometryUtils };
+            window.THREE = THREE;
+            window.dispatchEvent(new Event('three-ready'));
+          } catch (error) {
+            console.error('THREE bootstrap failed', error);
+          }
         })();
       </script>`,
       `<script>window.__waitThree = new Promise(resolve => {

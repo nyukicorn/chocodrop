@@ -572,7 +572,7 @@ function createSandboxApi({ THREE, exporter, trackedScenes, state, fail, log, ne
       scene = pickScene(trackedScenes);
     }
     if (!scene) {
-      fail('scene-missing', { message: 'エクスポート対象の Scene が検出できませんでした。scene.add が呼ばれているか確認してください。' });
+      fail('scene-missing', { message: 'エクスポート対象の Scene が検出できませんでした。scene.add/render が呼ばれているか確認してください。' });
       return;
     }
     try {
