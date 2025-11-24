@@ -163,6 +163,57 @@
       .file-label span {
         color: #cbd5e1;
       }
+
+      /* タブナビゲーション */
+      .tab-nav {
+        display: flex;
+        gap: 0;
+        border-bottom: 2px solid rgba(148, 163, 184, 0.2);
+        background: rgba(15, 23, 42, 0.5);
+      }
+
+      .tab-button {
+        flex: 1;
+        padding: 1rem 1.5rem;
+        border: none;
+        background: transparent;
+        color: #94a3b8;
+        font-size: 0.95rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        border-bottom: 3px solid transparent;
+        position: relative;
+      }
+
+      .tab-icon {
+        font-size: 1.25rem;
+      }
+
+      .tab-button:hover {
+        background: rgba(56, 189, 248, 0.08);
+        color: #cbd5e1;
+      }
+
+      .tab-button.active {
+        color: #7dd3fc;
+        background: rgba(56, 189, 248, 0.1);
+        border-bottom-color: #38bdf8;
+      }
+
+      /* タブコンテンツ */
+      .tab-content {
+        display: none;
+      }
+
+      .tab-content.active {
+        display: block;
+      }
+
       main {
         position: relative;
         height: 100vh;
@@ -609,10 +660,24 @@
     <aside>
       <div class="sidebar-header">
         <h1>モデルインポーター</h1>
-        <p class="note">3Dモデルを簡単にインポート。複数のフォーマットに対応しています。</p>
+        <p class="note">3Dモデルとメディアを簡単にインポート</p>
       </div>
 
-      <!-- メイン機能: ファイル読み込み -->
+      <!-- タブナビゲーション -->
+      <div class="tab-nav">
+        <button class="tab-button active" data-tab="model">
+          <span class="tab-icon">🧊</span>
+          <span>3Dモデル</span>
+        </button>
+        <button class="tab-button" data-tab="media">
+          <span class="tab-icon">🎬</span>
+          <span>メディア</span>
+        </button>
+      </div>
+
+      <!-- タブコンテンツ: 3Dモデル -->
+      <div class="tab-content active" data-tab-content="model">
+        <!-- メイン機能: ファイル読み込み -->
       <section class="primary-section">
         <h2 class="section-title">📥 ファイル読み込み</h2>
         <label class="file-label">
@@ -680,20 +745,6 @@
           <div class="sandbox-artifacts" data-html-artifacts></div>
         </div>
       </details>
-      <!-- メディアキャスト -->
-      <section class="primary-section media-caster">
-        <h2 class="section-title">🎬 メディアキャスト</h2>
-        <p class="note">画像・動画をQuestへ即時同期</p>
-        <label class="file-label">
-          <span>メディアを選択</span>
-          <input id="media-input" type="file" accept="image/*,video/*,.glb,.gltf" multiple>
-        </label>
-        <div data-media-dropzone data-state="idle">
-          <strong>画像・動画をドロップ</strong>
-          <p class="note">最大 150MB 推奨</p>
-        </div>
-        <p class="note media-status" data-media-status data-state="idle">待機中: Quest接続時に送信</p>
-      </section>
 
       <!-- 折りたたみ: 保存済みモデル -->
       <details class="collapsible-section" open>
@@ -707,9 +758,27 @@
           </ul>
         </div>
       </details>
+      </div>
+
+      <!-- タブコンテンツ: メディア -->
+      <div class="tab-content" data-tab-content="media">
+        <!-- メディアキャスト -->
+        <section class="primary-section media-caster">
+        <h2 class="section-title">🎬 メディアキャスト</h2>
+        <p class="note">画像・動画をQuestへ即時同期</p>
+        <label class="file-label">
+          <span>メディアを選択</span>
+          <input id="media-input" type="file" accept="image/*,video/*,.glb,.gltf" multiple>
+        </label>
+        <div data-media-dropzone data-state="idle">
+          <strong>画像・動画をドロップ</strong>
+          <p class="note">最大 150MB 推奨</p>
+        </div>
+        <p class="note media-status" data-media-status data-state="idle">待機中: Quest接続時に送信</p>
+      </section>
 
       <!-- 折りたたみ: メディア調整 -->
-      <details class="collapsible-section media-controls">
+      <details class="collapsible-section media-controls" open>
         <summary>
           <h2 class="section-title">🎚️ メディア調整</h2>
           <span class="collapse-icon">▼</span>
@@ -744,12 +813,37 @@
           </div>
         </div>
       </details>
+      </div>
     </aside>
     <main>
       <canvas id="importer-canvas"></canvas>
       <div data-overlay></div>
     </main>
     <noscript>このページは JavaScript が有効である必要があります。</noscript>
+    <script>
+      // タブ切り替え機能
+      document.addEventListener('DOMContentLoaded', () => {
+        const tabButtons = document.querySelectorAll('.tab-button');
+        const tabContents = document.querySelectorAll('.tab-content');
+
+        tabButtons.forEach(button => {
+          button.addEventListener('click', () => {
+            const targetTab = button.dataset.tab;
+
+            // すべてのタブボタンとコンテンツから active を削除
+            tabButtons.forEach(btn => btn.classList.remove('active'));
+            tabContents.forEach(content => content.classList.remove('active'));
+
+            // クリックされたタブと対応するコンテンツに active を追加
+            button.classList.add('active');
+            const targetContent = document.querySelector(`[data-tab-content="${targetTab}"]`);
+            if (targetContent) {
+              targetContent.classList.add('active');
+            }
+          });
+        });
+      });
+    </script>
     <script type="module" src="/src/pwa/importer.js"></script>
   </body>
 </html>
