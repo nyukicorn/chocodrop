@@ -1036,14 +1036,32 @@ function detectMediaKind(file) {
 
 async function processMediaFile(file, kind, context) {
   const objectUrl = URL.createObjectURL(file);
+
+  // カメラの正面に配置するための位置を計算
+  const THREE = context.sceneManager.THREE;
+  const camera = context.sceneManager.camera;
+  const cameraPosition = camera.position.clone();
+  const cameraDirection = new THREE.Vector3(0, 0, -1);
+  cameraDirection.applyQuaternion(camera.quaternion);
+
+  // カメラの正面、距離4の位置に配置
+  const targetPosition = cameraPosition.clone().add(cameraDirection.multiplyScalar(4));
+
   const localPayload = buildAssetPayload(file, kind, {
     objectUrl,
-    preserveObjectUrl: kind === 'video'
+    preserveObjectUrl: kind === 'video',
+    position: { x: targetPosition.x, y: targetPosition.y, z: targetPosition.z }
   });
   const spawned = await context.sceneManager.spawnAssetFromPayload(localPayload);
   if (kind === 'video') {
     enableVideoAudio(spawned);
   }
+
+  // spawnした後、明示的に中央に配置
+  if (spawned && spawned.position) {
+    spawned.position.set(targetPosition.x, targetPosition.y, targetPosition.z);
+  }
+
   context.sceneManager.focusOnObject?.(spawned, { distance: 6 });
   context.transformUI?.update(spawned);
   const remotePayload = {
