@@ -34,7 +34,7 @@
     "test:watch": "vitest"
   },
   "devDependencies": {
-    "supertest": "^6.3.3",
+    "supertest": "^7.1.4",
     "vitest": "^1.0.0"
   }
 }
