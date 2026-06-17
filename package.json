@@ -63,7 +63,7 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.17.5",
     "cors": "^2.8.5",
-    "express": "^4.19.0",
+    "express": "^5.1.0",
     "ws": "^8.18.3"
   },
   "devDependencies": {
