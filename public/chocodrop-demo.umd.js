@@ -711,6 +711,694 @@
     module.exports = { TRANSLATION_DICTIONARY, createObjectKeywords, translateKeyword, matchKeywordWithFilename };
   }
 
+  const LEVELS = ['debug', 'info', 'warn', 'error'];
+  const PREFIX = '[ChocoDrop]';
+
+  function createPrinter(level, context) {
+    const fn = console[level] || console.log;
+    return (...args) => fn(`${PREFIX}${context ? `:${context}` : ''}`, ...args);
+  }
+
+  function createLogger(context = '') {
+    const ctxLabel = context ? `:${context}` : '';
+    const logger = {};
+    LEVELS.forEach(level => {
+      logger[level] = createPrinter(level, ctxLabel);
+    });
+    logger.child = childContext => createLogger(context ? `${context}/${childContext}` : childContext);
+    return logger;
+  }
+
+  const logger = createLogger('core');
+
+  const log = logger.child('xrbridge');
+
+  const XR_MODES = {
+    vr: 'immersive-vr',
+    ar: 'immersive-ar'
+  };
+
+  const DEFAULT_FEATURES = {
+    vr: {
+      required: ['local-floor'],
+      optional: ['bounded-floor', 'hand-tracking', 'layers']
+    },
+    ar: {
+      required: ['local-floor', 'hit-test'],
+      optional: ['dom-overlay', 'hand-tracking', 'layers']
+    }
+  };
+
+  const getXRSystem = () => (typeof globalThis !== 'undefined' && globalThis.navigator ? globalThis.navigator.xr : null);
+
+  const createBridgeEvent = (type, detail) => {
+    if (typeof CustomEvent === 'function') {
+      return new CustomEvent(type, { detail });
+    }
+    if (typeof Event === 'function') {
+      const event = new Event(type);
+      event.detail = detail;
+      return event;
+    }
+    return { type, detail };
+  };
+
+  /**
+   * WebXR セッションの開始/終了とレンダーループの橋渡しを担当するローダー。
+   * ユーザーコードの requestAnimationFrame を捕捉し、XR セッション時のみ setAnimationLoop に切り替える。
+   */
+  class XRBridgeLoader extends EventTarget {
+    constructor(options = {}) {
+      super();
+      this.renderer = options.renderer ?? null;
+      this.sceneManager = options.sceneManager ?? null;
+      this.autoResume = options.autoResume !== false;
+      this.domOverlayRoot = options.domOverlayRoot ?? null;
+      this.captureRAF = options.captureRAF !== false;
+      this._restoreRAF = null;
+      this._capturedLoop = null;
+      this._originalSetLoop = null;
+      this._currentSession = null;
+      this._xrActive = false;
+      this._lastRequestedMode = null;
+      this._autoResumeAllowed = false;
+      this._sessionGrantedHandler = null;
+      this._rafHandles = new Map();
+      this._rafId = 1;
+      this._originalRAF = null;
+      this._originalCancelRAF = null;
+      this._rendererSetLoopRestore = null;
+      this._rawSetAnimationLoop = null;
+      this._installed = false;
+    }
+
+    install() {
+      if (this._installed) {
+        return;
+      }
+      if (!this.renderer) {
+        throw new Error('XRBridgeLoader: renderer が指定されていません');
+      }
+      if (!('xr' in this.renderer)) {
+        throw new Error('XRBridgeLoader: 指定された renderer は WebXR に対応していません');
+      }
+      this.renderer.xr.enabled = true;
+      this._rawSetAnimationLoop = this.renderer.setAnimationLoop;
+      this._originalSetLoop = this.renderer.setAnimationLoop?.bind(this.renderer) ?? null;
+      this._captureRendererLoop();
+      this._patchRendererSetAnimationLoop();
+      if (this.captureRAF) {
+        this._installRAFInterceptor();
+      }
+      this._installSessionGrantedListener();
+      this._installed = true;
+      this.dispatchEvent(createBridgeEvent('installed'));
+    }
+
+    async isSessionSupported(mode = 'vr') {
+      const xr = getXRSystem();
+      if (!xr?.isSessionSupported) return false;
+      const sessionMode = XR_MODES[mode] ?? XR_MODES.vr;
+      try {
+        return await xr.isSessionSupported(sessionMode);
+      } catch (error) {
+        this.dispatchEvent(createBridgeEvent('supportcheck:error', { error, mode: sessionMode }));
+        return false;
+      }
+    }
+
+    async enter(mode = 'vr', options = {}) {
+      if (!this._installed) {
+        this.install();
+      }
+      const xr = getXRSystem();
+      if (!xr) {
+        throw new Error('WebXR がサポートされていません');
+      }
+      const sessionMode = XR_MODES[mode] ?? XR_MODES.vr;
+      const supported = await this.isSessionSupported(mode);
+      if (!supported) {
+        throw new Error(`${sessionMode} セッションはサポートされていません`);
+      }
+
+      let sessionInit = this._buildSessionInit(mode, options);
+      this._lastRequestedMode = mode;
+      this.dispatchEvent(createBridgeEvent('session:request', { mode: sessionMode, init: sessionInit }));
+
+      const attemptSession = async init => xr.requestSession(sessionMode, init);
+
+      try {
+        let session;
+        try {
+          session = await attemptSession(sessionInit);
+        } catch (error) {
+          if (this._shouldRetryWithoutDomOverlay(error, sessionInit)) {
+            const fallbackInit = this._stripDomOverlayFeature(sessionInit);
+            sessionInit = fallbackInit;
+            session = await attemptSession(fallbackInit);
+          } else {
+            throw error;
+          }
+        }
+        await this._activateSession(session, mode, options);
+        this._autoResumeAllowed = true;
+        return session;
+      } catch (error) {
+        this.dispatchEvent(createBridgeEvent('session:error', { error, mode: sessionMode }));
+        throw error;
+      }
+    }
+
+    async exit() {
+      if (!this._currentSession) return;
+      try {
+        await this._currentSession.end();
+      } finally {
+        this._teardownSession();
+      }
+    }
+
+    dispose() {
+      this.exit().catch(() => undefined);
+      if (this._restoreRAF) {
+        this._restoreRAF();
+        this._restoreRAF = null;
+      }
+      this._installed = false;
+      const xr = getXRSystem();
+      if (this._sessionGrantedHandler && xr?.removeEventListener) {
+        xr.removeEventListener('sessiongranted', this._sessionGrantedHandler);
+        this._sessionGrantedHandler = null;
+      }
+      if (this._rendererSetLoopRestore) {
+        this._rendererSetLoopRestore();
+        this._rendererSetLoopRestore = null;
+      }
+    }
+
+    setAutoResume(value) {
+      this.autoResume = Boolean(value);
+    }
+
+    _shouldRetryWithoutDomOverlay(error, init) {
+      if (!error || error.name !== 'NotSupportedError') {
+        return false;
+      }
+      if (!init?.requiredFeatures) {
+        return false;
+      }
+      return init.requiredFeatures.includes('dom-overlay');
+    }
+
+    _stripDomOverlayFeature(init = {}) {
+      const clone = {
+        requiredFeatures: Array.isArray(init.requiredFeatures)
+          ? init.requiredFeatures.filter(feature => feature !== 'dom-overlay')
+          : [],
+        optionalFeatures: Array.isArray(init.optionalFeatures)
+          ? init.optionalFeatures.filter(feature => feature !== 'dom-overlay')
+          : []
+      };
+      const stripped = { ...init, ...clone };
+      if (stripped.domOverlay) {
+        delete stripped.domOverlay;
+      }
+      return stripped;
+    }
+
+    _buildSessionInit(mode, options) {
+      const presets = DEFAULT_FEATURES[mode] ?? DEFAULT_FEATURES.vr;
+      const required = new Set(presets.required);
+      const optional = new Set(presets.optional);
+
+      const domOverlayRoot = options.domOverlayRoot || this.domOverlayRoot || (typeof document !== 'undefined' ? document.body : null);
+      if (domOverlayRoot) {
+        required.add('dom-overlay');
+      }
+
+      if (Array.isArray(options.requiredFeatures)) {
+        options.requiredFeatures.forEach(feature => required.add(feature));
+      }
+      if (Array.isArray(options.optionalFeatures)) {
+        options.optionalFeatures.forEach(feature => optional.add(feature));
+      }
+
+      const init = {
+        requiredFeatures: Array.from(required),
+        optionalFeatures: Array.from(optional)
+      };
+
+      if (domOverlayRoot) {
+        init.domOverlay = { root: domOverlayRoot };
+      }
+
+      if (mode === 'ar' && options.hitTestSource) {
+        init.hitTestSource = options.hitTestSource;
+      }
+
+      return init;
+    }
+
+    _captureRendererLoop() {
+      if (this._capturedLoop || !this.renderer?.getAnimationLoop) {
+        return;
+      }
+      const existingLoop = this.renderer.getAnimationLoop();
+      if (typeof existingLoop === 'function') {
+        this._setCapturedLoop(existingLoop);
+      }
+    }
+
+    _patchRendererSetAnimationLoop() {
+      if (!this.renderer || typeof this._rawSetAnimationLoop !== 'function' || this._rendererSetLoopRestore) {
+        return;
+      }
+      const original = this._rawSetAnimationLoop;
+      const bridge = this;
+      this.renderer.setAnimationLoop = function patchedSetAnimationLoop(loop) {
+        if (!bridge._xrActive && typeof loop === 'function') {
+          bridge._setCapturedLoop(loop);
+        }
+        return original.call(this, loop);
+      };
+      this._rendererSetLoopRestore = () => {
+        this.renderer.setAnimationLoop = original;
+      };
+    }
+
+    _setCapturedLoop(loop) {
+      if (typeof loop !== 'function') return;
+      this._capturedLoop = loop;
+      log.debug('Captured main render loop');
+      this.dispatchEvent(createBridgeEvent('loop:captured', { callback: loop }));
+    }
+
+    async _activateSession(session, mode, options) {
+      this._currentSession = session;
+      this._xrActive = true;
+      this.dispatchEvent(createBridgeEvent('session:start', { session, mode }));
+
+      session.addEventListener('end', () => this._teardownSession(), { once: true });
+
+      if (this.renderer.xr.setSession) {
+        await this.renderer.xr.setSession(session);
+      }
+
+      const renderLoop = this._capturedLoop ?? options.fallbackLoop;
+      if (renderLoop) {
+        this._installRenderLoop(renderLoop);
+      }
+    }
+
+    _teardownSession() {
+      if (!this._xrActive) return;
+      this._xrActive = false;
+      this._currentSession = null;
+      if (this._originalSetLoop) {
+        this.renderer.setAnimationLoop(null);
+      }
+      this.dispatchEvent(createBridgeEvent('session:end'));
+    }
+
+    _installRenderLoop(loop) {
+      if (!this._originalSetLoop) return;
+      this._originalSetLoop((time, frame) => {
+        try {
+          if (loop.length >= 2) {
+            loop(time, frame ?? null);
+          } else {
+            loop(time);
+          }
+        } catch (error) {
+          log.error('XR render loop error', error);
+          this.dispatchEvent(createBridgeEvent('loop:error', { error }));
+        }
+      });
+    }
+
+    _installRAFInterceptor() {
+      if (this._restoreRAF || typeof window === 'undefined' || typeof window.requestAnimationFrame !== 'function') {
+        return;
+      }
+      const originalRAF = window.requestAnimationFrame.bind(window);
+      const originalCancel = typeof window.cancelAnimationFrame === 'function'
+        ? window.cancelAnimationFrame.bind(window)
+        : null;
+      const rafHandles = this._rafHandles;
+      const getHandle = () => this._rafId++;
+      const bridge = this;
+
+      window.requestAnimationFrame = function xrBridgeWrapped(callback) {
+        if (typeof callback !== 'function') {
+          return originalRAF(callback);
+        }
+
+        if (!bridge._capturedLoop) {
+          bridge._setCapturedLoop(callback);
+        }
+
+        if (bridge._xrActive && callback === bridge._capturedLoop) {
+          const handle = getHandle();
+          rafHandles.set(handle, callback);
+          return handle;
+        }
+
+        return originalRAF(time => {
+          callback(time);
+        });
+      };
+
+      window.cancelAnimationFrame = function xrBridgeCancel(handle) {
+        if (rafHandles.delete(handle)) {
+          return;
+        }
+        return originalCancel?.(handle);
+      };
+
+      this._restoreRAF = () => {
+        window.requestAnimationFrame = originalRAF;
+        if (originalCancel) {
+          window.cancelAnimationFrame = originalCancel;
+        }
+        rafHandles.clear();
+      };
+    }
+
+    _installSessionGrantedListener() {
+      const xr = getXRSystem();
+      if (!xr?.addEventListener) return;
+      this._sessionGrantedHandler = async () => {
+        if (!this.autoResume || !this._autoResumeAllowed || this._xrActive || !this._lastRequestedMode) {
+          return;
+        }
+        try {
+          await this.enter(this._lastRequestedMode);
+        } catch (error) {
+          this.dispatchEvent(createBridgeEvent('session:error', { error, mode: this._lastRequestedMode }));
+        }
+      };
+      xr.addEventListener('sessiongranted', this._sessionGrantedHandler);
+    }
+  }
+
+  const THREE$1 = globalThis.THREE || THREEModule__namespace;
+
+  class XRInteractionManager {
+    constructor(options = {}) {
+      this.renderer = options.renderer ?? null;
+      this.scene = options.scene ?? null;
+      this.sceneManager = options.sceneManager ?? null;
+      this.log = options.log ?? console;
+
+      this.session = null;
+      this.mode = null;
+      this.hitTestSource = null;
+      this.referenceSpace = null;
+      this.viewerSpace = null;
+      this.controllerBindings = [];
+      this.reticle = null;
+      this.frameHandle = null;
+      this.lastHitPose = null;
+
+      this.tempMatrix = new THREE$1.Matrix4();
+      this.tempDirection = new THREE$1.Vector3();
+      this.tempOrigin = new THREE$1.Vector3();
+      this.raycaster = new THREE$1.Raycaster();
+    }
+
+    async attachSession(session, { mode } = {}) {
+      if (!session) return;
+      this.detachSession();
+      this.session = session;
+      this.mode = mode ?? null;
+      this._bindControllers();
+
+      if (this.mode === 'immersive-ar') {
+        await this._setupHitTest(session);
+        this._ensureReticle();
+        this.sceneManager?.setXRAnchorSupport(Boolean(this.hitTestSource));
+      } else {
+        this.sceneManager?.setXRAnchorSupport(false);
+      }
+
+      this._startFrameLoop();
+    }
+
+    detachSession() {
+      this._stopFrameLoop();
+      this._unbindControllers();
+      this._releaseHitTest();
+      this._removeReticle();
+      this.session = null;
+      this.mode = null;
+      this.lastHitPose = null;
+    }
+
+    _bindControllers() {
+      if (!this.renderer?.xr) return;
+      this._unbindControllers();
+      const bindSource = source => {
+        if (!source) return;
+        const handlers = new Map();
+        const map = {
+          selectstart: event => this._handleSelectStart(event),
+          selectend: event => this._handleSelectEnd(event),
+          squeezestart: event => this._handleSqueeze(event),
+          squeezeend: event => this._handleSqueezeEnd(event)
+        };
+        Object.entries(map).forEach(([type, handler]) => {
+          const wrapped = handler.bind(this);
+          source.addEventListener(type, wrapped);
+          handlers.set(type, wrapped);
+        });
+        this.controllerBindings.push({ source, handlers });
+      };
+
+      for (let i = 0; i < 2; i += 1) {
+        bindSource(this.renderer.xr.getController?.(i));
+        bindSource(this.renderer.xr.getHand?.(i));
+      }
+    }
+
+    _unbindControllers() {
+      this.controllerBindings.forEach(binding => {
+        binding.handlers.forEach((handler, type) => {
+          binding.source.removeEventListener(type, handler);
+        });
+      });
+      this.controllerBindings = [];
+    }
+
+    async _setupHitTest(session) {
+      if (!session?.requestHitTestSource || !session?.requestReferenceSpace) {
+        this.sceneManager?.setXRAnchorSupport(false);
+        return;
+      }
+      try {
+        this.referenceSpace = this.renderer?.xr?.getReferenceSpace?.() ?? await session.requestReferenceSpace('local-floor');
+        this.viewerSpace = await session.requestReferenceSpace('viewer');
+        this.hitTestSource = await session.requestHitTestSource({ space: this.viewerSpace });
+        this.sceneManager?.setXRAnchorSupport(true);
+      } catch (error) {
+        this.log?.warn?.('XR hit-test setup failed', error);
+        this.sceneManager?.setXRAnchorSupport(false);
+        this.hitTestSource = null;
+      }
+    }
+
+    _releaseHitTest() {
+      if (this.hitTestSource?.cancel) {
+        this.hitTestSource.cancel();
+      }
+      this.hitTestSource = null;
+      this.referenceSpace = null;
+      this.viewerSpace = null;
+    }
+
+    _startFrameLoop() {
+      if (!this.session) return;
+      const loop = (time, frame) => {
+        this._updateFrame(frame);
+        if (this.session) {
+          this.frameHandle = this.session.requestAnimationFrame(loop);
+        }
+      };
+      this.frameHandle = this.session.requestAnimationFrame(loop);
+    }
+
+    _stopFrameLoop() {
+      if (this.session && this.frameHandle != null && typeof this.session.cancelAnimationFrame === 'function') {
+        this.session.cancelAnimationFrame(this.frameHandle);
+      }
+      this.frameHandle = null;
+    }
+
+    _updateFrame(frame) {
+      if (this.mode !== 'immersive-ar' || !frame || !this.hitTestSource || !this.referenceSpace) {
+        return;
+      }
+      const hits = frame.getHitTestResults(this.hitTestSource);
+      if (hits && hits.length > 0) {
+        const pose = hits[0].getPose(this.referenceSpace);
+        if (pose) {
+          this._updateReticleFromPose(pose);
+          this.lastHitPose = {
+            position: new THREE$1.Vector3(pose.transform.position.x, pose.transform.position.y, pose.transform.position.z),
+            orientation: new THREE$1.Quaternion(
+              pose.transform.orientation.x,
+              pose.transform.orientation.y,
+              pose.transform.orientation.z,
+              pose.transform.orientation.w
+            )
+          };
+        }
+      } else if (this.reticle) {
+        this.reticle.visible = false;
+      }
+    }
+
+    _updateReticleFromPose(pose) {
+      if (!this.reticle) return;
+      this.reticle.visible = true;
+      this.reticle.position.set(pose.transform.position.x, pose.transform.position.y, pose.transform.position.z);
+      this.reticle.quaternion.set(
+        pose.transform.orientation.x,
+        pose.transform.orientation.y,
+        pose.transform.orientation.z,
+        pose.transform.orientation.w
+      );
+    }
+
+    _ensureReticle() {
+      if (this.reticle || !this.scene) return;
+      const ringGeom = new THREE$1.RingGeometry(0.12, 0.18, 48);
+      ringGeom.rotateX(-Math.PI / 2);
+      const ringMaterial = new THREE$1.MeshBasicMaterial({
+        color: 0x38bdf8,
+        transparent: true,
+        opacity: 0.8,
+        side: THREE$1.DoubleSide
+      });
+      const ring = new THREE$1.Mesh(ringGeom, ringMaterial);
+
+      const dotGeom = new THREE$1.CircleGeometry(0.02, 24);
+      dotGeom.rotateX(-Math.PI / 2);
+      const dotMaterial = new THREE$1.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9 });
+      const dot = new THREE$1.Mesh(dotGeom, dotMaterial);
+      dot.position.y = 0.001;
+
+      const group = new THREE$1.Group();
+      group.add(ring);
+      group.add(dot);
+      group.visible = false;
+
+      this.scene.add(group);
+      this.reticle = group;
+    }
+
+    _removeReticle() {
+      if (this.reticle && this.scene) {
+        this.scene.remove(this.reticle);
+      }
+      this.reticle = null;
+    }
+
+    _handleSelectStart(event) {
+      if (this.mode === 'immersive-ar') {
+        this._handleARSelect(event);
+        return;
+      }
+      const object = this._pickSpawnedObject(event?.target);
+      if (object) {
+        this.sceneManager?.selectObject(object);
+      }
+    }
+
+    _handleSelectEnd() {}
+
+    _handleARSelect(event) {
+      if (!this.sceneManager) return;
+      const frame = event?.frame;
+      let pose = null;
+      if (frame && this.hitTestSource && this.referenceSpace) {
+        const hits = frame.getHitTestResults(this.hitTestSource);
+        if (hits?.length) {
+          pose = hits[0].getPose(this.referenceSpace);
+        }
+      }
+      if (!pose && this.lastHitPose) {
+        pose = {
+          transform: {
+            position: this.lastHitPose.position,
+            orientation: this.lastHitPose.orientation
+          }
+        };
+      }
+      if (!pose) {
+        return;
+      }
+
+      const anchorPosition = new THREE$1.Vector3(
+        pose.transform.position.x,
+        pose.transform.position.y,
+        pose.transform.position.z
+      );
+      const anchorOrientation = pose.transform.orientation.isQuaternion
+        ? pose.transform.orientation.clone()
+        : new THREE$1.Quaternion(
+            pose.transform.orientation.x,
+            pose.transform.orientation.y,
+            pose.transform.orientation.z,
+            pose.transform.orientation.w
+          );
+
+      this.sceneManager.setXRPlacementAnchor({
+        position: anchorPosition,
+        orientation: anchorOrientation
+      });
+    }
+
+    _handleSqueeze(event) {
+      if (!this.sceneManager?.selectedObject) return;
+      const object = this.sceneManager.selectedObject;
+      const handedness = event?.inputSource?.handedness ?? 'unknown';
+      const scaleDelta = handedness === 'left' ? 0.9 : 1.1;
+      const nextScale = THREE$1.MathUtils.clamp(object.scale.x * scaleDelta, 0.2, 5);
+      object.scale.setScalar(nextScale);
+      if (typeof this.sceneManager.showScaleToast === 'function') {
+        this.sceneManager.showScaleToast(nextScale);
+      }
+      this.sceneManager.markObjectModified(object, {
+        trigger: 'xr-squeeze',
+        handedness
+      });
+    }
+
+    _handleSqueezeEnd() {}
+
+    _pickSpawnedObject(source) {
+      if (!source || !this.sceneManager) return null;
+      this.tempMatrix.identity().extractRotation(source.matrixWorld);
+      this.tempDirection.set(0, 0, -1).applyMatrix4(this.tempMatrix).normalize();
+      this.tempOrigin.setFromMatrixPosition(source.matrixWorld);
+      this.raycaster.set(this.tempOrigin, this.tempDirection);
+
+      const candidates = Array.from(this.sceneManager.spawnedObjects.values());
+      const intersects = this.raycaster.intersectObjects(candidates, true);
+      if (!intersects.length) return null;
+
+      let target = intersects[0].object;
+      while (target) {
+        const objectId = target.userData?.id;
+        if (objectId && this.sceneManager.spawnedObjects.has(objectId)) {
+          return target;
+        }
+        target = target.parent;
+      }
+      return null;
+    }
+  }
+
   // UMDビルド対応: グローバルのTHREEを優先し、なければES moduleのimportを使用
   const THREE = globalThis.THREE || THREEModule__namespace;
 
@@ -757,7 +1445,26 @@
       this.audioControlUpdateListener = null;
       this.scaleButtonUpdateInterval = null; // スケールボタン位置更新用インターバル
       this.animationMixers = new Set();
+      this.sceneJournal = [];
+      this.maxSceneJournalEntries = options.maxSceneJournalEntries || 200;
+      this.sceneChangeListeners = new Set();
+      this.sceneStateVersion = 0;
+      this.objectSnapshotCache = new Map();
+      this.isRestoring = false;
       this.gltfLoader = null;
+
+      this.xr = {
+        bridge: null,
+        status: 'idle',
+        mode: null,
+        supported: { vr: null, ar: null },
+        autoResume: options.xrAutoResume !== false,
+        events: new EventTarget(),
+        error: null,
+        anchor: null,
+        anchorSupported: false,
+        interaction: null
+      };
 
       // Animation管理（UI要素用）
       this.clock = new THREE.Clock();
@@ -779,6 +1486,9 @@
         dracoDecoderPath: options.dracoDecoderPath || null,
         ...options.config
       };
+
+      // XR interaction depends on the state and configuration initialized above.
+      if (this.renderer) this._ensureXRInteractionManager();
       
       // クリックイベントの設定
       this.setupClickEvents();
@@ -788,6 +1498,22 @@
       // デバッグやコンソール操作を容易にするためグローバル参照を保持
       if (typeof globalThis !== 'undefined') {
         globalThis.sceneManager = this;
+      }
+
+      if (this.renderer && options.enableXRBridge !== false) {
+        const initialize = () => {
+          try {
+            this.initializeXRBridge(options.xrBridgeOptions || {});
+          } catch (error) {
+            console.warn('⚠️ XRBridge initialization failed', error);
+            this._updateXRState('error', { error });
+          }
+        };
+        if (typeof queueMicrotask === 'function') {
+          queueMicrotask(initialize);
+        } else {
+          Promise.resolve().then(initialize);
+        }
       }
     }
     /**
@@ -1286,6 +2012,7 @@
       const endDragging = () => {
         if (isDragging && dragObject) {
           console.log(`✅ Finished dragging: ${dragObject.name} to (${dragObject.position.x.toFixed(1)}, ${dragObject.position.y.toFixed(1)}, ${dragObject.position.z.toFixed(1)})`);
+          this.markObjectModified(dragObject, { trigger: 'drag' });
 
           isDragging = false;
           dragObject = null;
@@ -1329,7 +2056,8 @@
         const moveStep = event.shiftKey ? 0.1 : 0.5; // Shift: 0.1単位, 通常: 0.5単位
         let rotated = false;
         let moved = false;
-        
+        let scaled = false;
+
         switch (event.key) {
           case 'ArrowLeft':
             object.rotation.y -= rotationStep;
@@ -1381,6 +2109,7 @@
               // console.log(`📐 Resized ${object.userData.type || 'object'}: ${object.name} to ${(newScale * 100).toFixed(0)}% (+${increment})`);
               this.showScaleToast(newScale);
               event.preventDefault();
+              scaled = true;
             }
             break;
           case '-':
@@ -1395,6 +2124,7 @@
               // console.log(`📐 Resized ${object.userData.type || 'object'}: ${object.name} to ${(newScale * 100).toFixed(0)}% (-${increment})`);
               this.showScaleToast(newScale);
               event.preventDefault();
+              scaled = true;
             }
             break;
           case 'i':
@@ -1458,6 +2188,15 @@
           };
           const moveAmount = event.shiftKey ? '0.1' : '0.5';
           console.log(`🎮 Moved ${object.userData.type}: ${object.name} to (${position.x}, ${position.y}, ${position.z}) [step: ${moveAmount}]`);
+        }
+
+        if (rotated || moved || scaled) {
+          this.markObjectModified(object, {
+            trigger: 'keyboard-transform',
+            rotated,
+            moved,
+            scaled
+          });
         }
       });
 
@@ -2881,10 +3620,21 @@
         }
 
         // 位置決め
-        const finalPosition = this.camera
-          ? this.calculateCameraRelativePosition(position)
-          : position;
-        modelRoot.position.set(finalPosition.x, finalPosition.y, finalPosition.z);
+        const finalPosition = this.resolveSpawnPosition(position);
+        modelRoot.position.copy(finalPosition);
+
+        if (position?.orientation) {
+          if (position.orientation.isQuaternion) {
+            modelRoot.quaternion.copy(position.orientation);
+          } else {
+            modelRoot.quaternion.set(
+              position.orientation.x ?? 0,
+              position.orientation.y ?? 0,
+              position.orientation.z ?? 0,
+              position.orientation.w ?? 1
+            );
+          }
+        }
 
         if (rotation) {
           modelRoot.rotation.set(rotation.x || 0, rotation.y || 0, rotation.z || 0);
@@ -2918,7 +3668,10 @@
         };
 
         this.experimentGroup.add(modelRoot);
-        this.spawnedObjects.set(objectId, modelRoot);
+        this.registerSpawnedObject(objectId, modelRoot, {
+          reason: 'imported_3d_model',
+          fileName: fileName || null
+        });
 
         if (this.config.showLocationIndicator) {
           this.createLocationIndicator(position);
@@ -3465,6 +4218,27 @@
      * 位置情報解析（カメラ相対位置）
      */
     parsePosition(command) {
+      if (this.xr.mode === 'immersive-ar' && this.xr.anchor?.position) {
+        const orientation = this.xr.anchor.orientation
+          ? (typeof this.xr.anchor.orientation.clone === 'function'
+              ? this.xr.anchor.orientation.clone()
+              : new THREE.Quaternion(
+                  this.xr.anchor.orientation.x ?? 0,
+                  this.xr.anchor.orientation.y ?? 0,
+                  this.xr.anchor.orientation.z ?? 0,
+                  this.xr.anchor.orientation.w ?? 1
+                ))
+          : null;
+        const anchorPosition = this.xr.anchor.position;
+        console.log(`📍 Using XR anchor position: (${anchorPosition.x.toFixed(2)}, ${anchorPosition.y.toFixed(2)}, ${anchorPosition.z.toFixed(2)})`);
+        return {
+          x: anchorPosition.x,
+          y: anchorPosition.y,
+          z: anchorPosition.z,
+          absolute: true,
+          orientation
+        };
+      }
       
       // 基本方向の解析（カメラ相対座標系）
       let x = 0, y = 5, z = -10; // デフォルト値（カメラから前方へ負方向）
@@ -3637,6 +4411,7 @@
         
         const loader = new THREE.TextureLoader();
         let texture;
+        let assetUrl = null;
         if (imageResult && imageResult.success && (imageResult.imageUrl || imageResult.localPath)) {
           // 成功: 生成された画像をテクスチャとして使用
           let imageUrl = imageResult.imageUrl;
@@ -3646,7 +4421,8 @@
             const filename = imageResult.localPath.split('/').pop();
             imageUrl = `${this.client.serverUrl}/generated/${filename}`;
           }
-          
+          assetUrl = imageUrl || null;
+
           console.log(`✅ Image generated successfully: ${imageUrl}`);
           texture = await loader.loadAsync(imageUrl);
 
@@ -3695,13 +4471,12 @@
         material.needsUpdate = true;
 
         // カメラ相対位置で配置（カメラの向きも考慮）
-        if (this.camera) {
-          const finalPosition = this.calculateCameraRelativePosition(parsed.position);
-          plane.position.copy(finalPosition);
+        const finalPosition = this.resolveSpawnPosition(parsed.position);
+        plane.position.copy(finalPosition);
+
+        const oriented = this.applyOrientationFromPosition(plane, parsed.position);
+        if (!oriented && this.camera) {
           this.alignPlaneToCamera(plane);
-        } else {
-          // フォールバック: 絶対座標
-          plane.position.set(parsed.position.x, parsed.position.y, parsed.position.z);
         }
         
         // スケールは幅計算に含めているので、ここでは1.0に固定
@@ -3710,6 +4485,8 @@
         // 識別用の名前とメタデータ
         const objectId = `generated_${++this.objectCounter}`;
         plane.name = objectId;
+        const assetFileName = assetUrl ? assetUrl.split('/').pop() : null;
+
         plane.userData = {
           id: objectId,
           prompt: parsed.prompt,
@@ -3717,12 +4494,21 @@
           type: 'generated_image',
           source: 'generated_image',
           modelName: imageResult?.modelName || this.selectedImageService || null,
+          imageUrl: assetUrl,
+          fileUrl: assetUrl,
+          fileName: assetFileName,
+          pixelWidth: imageWidth,
+          pixelHeight: imageHeight,
           keywords: this.buildObjectKeywordHints({ prompt: parsed.prompt, baseType: 'image' }),
           originalOpacity: 1.0  // 元の透明度を保存
         };
         
         this.experimentGroup.add(plane);
-        this.spawnedObjects.set(objectId, plane);
+        this.registerSpawnedObject(objectId, plane, {
+          reason: 'generated_image',
+          prompt: parsed.prompt,
+          assetUrl
+        });
 
         console.log(`✅ Created object: ${objectId} at (${parsed.position.x}, ${parsed.position.y}, ${parsed.position.z})`);
 
@@ -3771,6 +4557,8 @@
         
         let videoTexture;
         let video = null; // video変数をスコープ外で定義
+        let assetUrl = null;
+        let assetFileName = null;
         const videoSuccess = videoResult.success && videoResult.videoUrl;
         
         if (videoSuccess) {
@@ -3788,6 +4576,8 @@
           // 動画テクスチャを作成
           videoTexture = new THREE.VideoTexture(video);
           videoTexture.colorSpace = THREE.SRGBColorSpace;
+          assetUrl = videoResult.videoUrl;
+          assetFileName = assetUrl ? assetUrl.split('/').pop() : null;
           
           // 動画の自動再生を開始
           video.addEventListener('loadeddata', () => {
@@ -3834,12 +4624,12 @@
         material.depthWrite = true; // 深度書き込みも有効に
         
         // カメラ相対位置で配置
-        if (this.camera) {
-          const finalPosition = this.calculateCameraRelativePosition(parsed.position);
-          plane.position.copy(finalPosition);
+        const finalPosition = this.resolveSpawnPosition(parsed.position);
+        plane.position.copy(finalPosition);
+
+        const oriented = this.applyOrientationFromPosition(plane, parsed.position);
+        if (!oriented && this.camera) {
           this.alignPlaneToCamera(plane);
-        } else {
-          plane.position.set(parsed.position.x, parsed.position.y, parsed.position.z);
         }
 
         // スケールは幅計算に含めているので、ここでは1.0に固定
@@ -3855,6 +4645,8 @@
           type: 'generated_video',
           source: 'generated_video',
           videoUrl: videoResult.videoUrl,
+          fileUrl: assetUrl,
+          fileName: assetFileName,
           modelName: videoResult.modelName || this.selectedVideoService || null,
           width: requestedWidth,
           height: requestedHeight,
@@ -3867,7 +4659,11 @@
         this.createAudioControl(plane);
         
         this.experimentGroup.add(plane);
-        this.spawnedObjects.set(objectId, plane);
+        this.registerSpawnedObject(objectId, plane, {
+          reason: 'generated_video',
+          prompt: parsed.prompt,
+          assetUrl
+        });
         
         console.log(`✅ Created video object: ${objectId} at (${parsed.position.x}, ${parsed.position.y}, ${parsed.position.z})`);
         
@@ -3908,12 +4704,12 @@
         const plane = new THREE.Mesh(geometry, material);
         
         // カメラ相対位置で配置
-        if (this.camera) {
-          const finalPosition = this.calculateCameraRelativePosition(parsed.position);
-          plane.position.copy(finalPosition);
+        const fallbackPosition = this.resolveSpawnPosition(parsed.position);
+        plane.position.copy(fallbackPosition);
+
+        const fallbackOriented = this.applyOrientationFromPosition(plane, parsed.position);
+        if (!fallbackOriented && this.camera) {
           this.alignPlaneToCamera(plane);
-        } else {
-          plane.position.set(parsed.position.x, parsed.position.y, parsed.position.z);
         }
 
         plane.scale.setScalar(1.0);
@@ -3938,13 +4734,19 @@
         };
 
         // シーンに追加
-        this.scene.add(plane);
+        this.experimentGroup.add(plane);
+        this.registerSpawnedObject(objectId, plane, {
+          reason: 'generated_video_fallback',
+          prompt: parsed.prompt,
+          error: error.message
+        });
         console.log('📍 Fallback video plane added to scene');
 
         return {
           success: false,
           error: error.message,
           object: plane,
+          objectId,
           prompt: parsed.prompt
         };
       }
@@ -3999,12 +4801,12 @@
         material.depthWrite = true;
         
         // カメラ相対位置で配置
-        if (this.camera) {
-          const finalPosition = this.calculateCameraRelativePosition(position);
-          plane.position.copy(finalPosition);
+        const finalPosition = this.resolveSpawnPosition(position);
+        plane.position.copy(finalPosition);
+
+        const oriented = this.applyOrientationFromPosition(plane, position);
+        if (!oriented && this.camera) {
           this.alignPlaneToCamera(plane);
-        } else {
-          plane.position.set(position.x, position.y, position.z);
         }
         
         plane.scale.setScalar(1.0);
@@ -4021,14 +4823,21 @@
           createdAt: Date.now(),
           type: 'generated_image',
           prompt: prompt, // ファイル名をpromptとして設定
-          fileName: fileName, // 元のファイル名も保存
+          fileName: fileName,
+          fileUrl,
+          pixelWidth: imageWidth,
+          pixelHeight: imageHeight,
           importOrder: this.objectCounter, // インポート順序を記録
           keywords: this.buildObjectKeywordHints({ prompt, fileName, baseType: 'image' }),
           originalOpacity: 1.0  // 元の透明度を保存
         };
         
         this.experimentGroup.add(plane);
-        this.spawnedObjects.set(objectId, plane);
+        this.registerSpawnedObject(objectId, plane, {
+          reason: 'imported_image',
+          fileName,
+          assetUrl: fileUrl
+        });
 
         console.log(`✅ Created imported image: ${objectId} at (${position.x}, ${position.y}, ${position.z})`);
 
@@ -4126,17 +4935,15 @@
         plane.renderOrder = 1001;
         
         // カメラ相対位置で配置
-        if (this.camera) {
-          const finalPosition = this.calculateCameraRelativePosition(position);
-          plane.position.copy(finalPosition);
+        const finalPosition = this.resolveSpawnPosition(position);
+        plane.position.copy(finalPosition);
+
+        const oriented = this.applyOrientationFromPosition(plane, position);
+        if (!oriented && this.camera) {
           this.alignPlaneToCamera(plane);
-        } else {
-          plane.position.set(position.x, position.y, position.z);
         }
         
         plane.scale.setScalar(1.0);
-        plane.userData.videoTexture = videoTexture;
-        
         // ファイル名からpromptを作成（拡張子を除去）
         const prompt = fileName ? fileName.replace(/\.[^/.]+$/, '') : 'imported_video';
 
@@ -4149,19 +4956,27 @@
           createdAt: Date.now(),
           type: 'generated_video',
           videoElement: video,
-          objectUrl: fileUrl,
+          videoUrl: fileUrl,
+          fileUrl,
           prompt: prompt, // ファイル名をpromptとして設定
-          fileName: fileName, // 元のファイル名も保存
+          fileName: fileName,
+          pixelWidth: video.videoWidth,
+          pixelHeight: video.videoHeight,
           importOrder: this.objectCounter, // インポート順序を記録
           keywords: this.buildObjectKeywordHints({ prompt, fileName, baseType: 'video' }),
           originalOpacity: 1.0  // 元の透明度を保存
         };
+        plane.userData.videoTexture = videoTexture;
 
         // 音声制御UIを作成
         this.createAudioControl(plane);
 
         this.experimentGroup.add(plane);
-        this.spawnedObjects.set(objectId, plane);
+        this.registerSpawnedObject(objectId, plane, {
+          reason: 'imported_video',
+          fileName,
+          assetUrl: fileUrl
+        });
         
         console.log(`✅ Created imported video: ${objectId} at (${position.x}, ${position.y}, ${position.z})`);
         
@@ -4848,6 +5663,816 @@
     }
 
     /**
+     * シーン変更リスナーを登録
+     * @param {(event: object) => void} listener
+     * @returns {() => void}
+     */
+    onSceneChange(listener) {
+      if (typeof listener !== 'function') {
+        return () => {};
+      }
+      this.sceneChangeListeners.add(listener);
+      return () => {
+        this.sceneChangeListeners.delete(listener);
+      };
+    }
+
+    /**
+     * シーン変更イベント通知
+     * @param {string} type
+     * @param {object} detail
+     * @returns {{type: string, version: number, timestamp: number, detail: object}}
+     */
+    emitSceneChange(type, detail = {}) {
+      this.sceneStateVersion += 1;
+      const event = {
+        type,
+        version: this.sceneStateVersion,
+        timestamp: Date.now(),
+        detail
+      };
+
+      this.sceneChangeListeners.forEach((listener) => {
+        try {
+          listener(event);
+        } catch (error) {
+          console.warn('⚠️ Scene change listener failed:', error);
+        }
+      });
+
+      return event;
+    }
+
+    /**
+     * 永続化向けに値をサニタイズ
+     * @param {*} value
+     * @param {number} depth
+     * @returns {*|undefined}
+     */
+    sanitizePersistableValue(value, depth = 0) {
+      if (depth > 4) {
+        return undefined;
+      }
+
+      if (value === null || value === undefined) {
+        return value;
+      }
+
+      const type = typeof value;
+      if (type === 'string' || type === 'number' || type === 'boolean') {
+        return Number.isNaN(value) ? undefined : value;
+      }
+
+      if (value instanceof Date) {
+        return value.toISOString();
+      }
+
+      if (Array.isArray(value)) {
+        const sanitizedArray = value
+          .map((item) => this.sanitizePersistableValue(item, depth + 1))
+          .filter((item) => item !== undefined);
+        return sanitizedArray.length > 0 ? sanitizedArray : undefined;
+      }
+
+      if (value && (value.isVector3 || value instanceof THREE.Vector3)) {
+        return { x: value.x, y: value.y, z: value.z };
+      }
+
+      if (value && (value.isEuler || value instanceof THREE.Euler)) {
+        return { x: value.x, y: value.y, z: value.z, order: value.order };
+      }
+
+      if (value && (value.isQuaternion || value instanceof THREE.Quaternion)) {
+        return { x: value.x, y: value.y, z: value.z, w: value.w };
+      }
+
+      if (value && (value.isColor || value instanceof THREE.Color)) {
+        return typeof value.getHexString === 'function' ? `#${value.getHexString()}` : undefined;
+      }
+
+      if (typeof Element !== 'undefined' && value instanceof Element) {
+        return undefined;
+      }
+
+      if (type === 'function') {
+        return undefined;
+      }
+
+      const proto = Object.getPrototypeOf(value);
+      if (!proto || proto === Object.prototype) {
+        const result = {};
+        Object.entries(value).forEach(([key, val]) => {
+          const sanitized = this.sanitizePersistableValue(val, depth + 1);
+          if (sanitized !== undefined) {
+            result[key] = sanitized;
+          }
+        });
+        return Object.keys(result).length > 0 ? result : undefined;
+      }
+
+      return undefined;
+    }
+
+    /**
+     * Object3Dのスナップショット生成
+     * @param {THREE.Object3D} object
+     * @returns {object|null}
+     */
+    captureObjectSnapshot(object) {
+      if (!object) {
+        return null;
+      }
+
+      const userData = object.userData || {};
+      const objectId = userData.id || object.name || object.uuid || null;
+
+      const position = object.position
+        ? { x: object.position.x, y: object.position.y, z: object.position.z }
+        : null;
+      const rotation = object.rotation
+        ? { x: object.rotation.x, y: object.rotation.y, z: object.rotation.z }
+        : null;
+      const scale = object.scale
+        ? { x: object.scale.x, y: object.scale.y, z: object.scale.z }
+        : null;
+
+      const worldPosition = new THREE.Vector3();
+      object.getWorldPosition(worldPosition);
+      const worldQuaternion = new THREE.Quaternion();
+      object.getWorldQuaternion(worldQuaternion);
+
+      const boundingBox = new THREE.Box3();
+      let bounds = null;
+      try {
+        boundingBox.setFromObject(object);
+        const size = new THREE.Vector3();
+        const center = new THREE.Vector3();
+        boundingBox.getSize(size);
+        boundingBox.getCenter(center);
+        bounds = {
+          size: { x: size.x, y: size.y, z: size.z },
+          center: { x: center.x, y: center.y, z: center.z }
+        };
+      } catch (error) {
+        bounds = null;
+      }
+
+      const metadata = this.sanitizePersistableValue(userData);
+
+      const snapshot = {
+        id: objectId,
+        name: object.name || null,
+        type: userData.type || object.type || 'object3d',
+        source: userData.source || null,
+        createdAt: userData.createdAt || null,
+        prompt: userData.prompt || null,
+        model: userData.modelName || null,
+        keywords: Array.isArray(userData.keywords) ? [...userData.keywords] : undefined,
+        transform: {
+          position,
+          rotation,
+          scale,
+          worldPosition: { x: worldPosition.x, y: worldPosition.y, z: worldPosition.z },
+          worldQuaternion: { x: worldQuaternion.x, y: worldQuaternion.y, z: worldQuaternion.z, w: worldQuaternion.w }
+        },
+        bounds: bounds || undefined,
+        metadata: metadata || undefined
+      };
+
+      if (userData.fileUrl || userData.videoUrl || userData.imageUrl) {
+        snapshot.asset = {
+          url: userData.fileUrl || userData.videoUrl || userData.imageUrl || null,
+          fileName: userData.fileName || null,
+          mimeType: userData.mimeType || null
+        };
+      }
+
+      if (!snapshot.keywords) {
+        delete snapshot.keywords;
+      }
+      if (!snapshot.prompt) {
+        delete snapshot.prompt;
+      }
+      if (!snapshot.model) {
+        delete snapshot.model;
+      }
+      if (!snapshot.bounds) {
+        delete snapshot.bounds;
+      }
+      if (!snapshot.metadata) {
+        delete snapshot.metadata;
+      }
+      if (!snapshot.asset) {
+        delete snapshot.asset;
+      }
+
+      return snapshot;
+    }
+
+    /**
+     * スナップショットをキャッシュし変化判定
+     * @param {THREE.Object3D} object
+     * @returns {{snapshot: object|null, changed: boolean, previous: object|null}}
+     */
+    storeSnapshot(object) {
+      const snapshot = this.captureObjectSnapshot(object);
+      if (!snapshot || !snapshot.id) {
+        return { snapshot, changed: true, previous: null };
+      }
+
+      const cached = this.objectSnapshotCache.get(snapshot.id);
+      const previous = cached ? cached.snapshot : null;
+
+      const position = snapshot.transform?.position || { x: 0, y: 0, z: 0 };
+      const rotation = snapshot.transform?.rotation || { x: 0, y: 0, z: 0 };
+      const scale = snapshot.transform?.scale || { x: 1, y: 1, z: 1 };
+
+      const key = [
+        position.x?.toFixed?.(3) ?? position.x,
+        position.y?.toFixed?.(3) ?? position.y,
+        position.z?.toFixed?.(3) ?? position.z,
+        rotation.x?.toFixed?.(3) ?? rotation.x,
+        rotation.y?.toFixed?.(3) ?? rotation.y,
+        rotation.z?.toFixed?.(3) ?? rotation.z,
+        scale.x?.toFixed?.(3) ?? scale.x,
+        scale.y?.toFixed?.(3) ?? scale.y,
+        scale.z?.toFixed?.(3) ?? scale.z
+      ].join('|');
+
+      const changed = !cached || cached.key !== key;
+      this.objectSnapshotCache.set(snapshot.id, {
+        key,
+        snapshot,
+        timestamp: Date.now()
+      });
+
+      return { snapshot, changed, previous };
+    }
+
+    /**
+     * シーンイベントを記録
+     * @param {'created'|'modified'|'removed'|'cleared'} eventType
+     * @param {THREE.Object3D|null} object
+     * @param {object} extra
+     * @returns {object}
+     */
+    recordSceneEvent(eventType, object, extra = {}) {
+      if (this.isRestoring) {
+        return {
+          id: `${eventType}_restoring_${Date.now()}`,
+          eventType,
+          timestamp: Date.now(),
+          objectId: object?.userData?.id || extra?.objectId || null,
+          snapshot: null,
+          restoring: true
+        };
+      }
+
+      const { snapshotOverride = null, objectId: explicitObjectId = null, context = undefined, changes = undefined, notes = undefined } = extra;
+
+      const timestamp = Date.now();
+      const snapshot = snapshotOverride || (object ? this.captureObjectSnapshot(object) : null);
+      const objectId = explicitObjectId || snapshot?.id || object?.userData?.id || object?.name || null;
+
+      const entry = {
+        id: `${eventType}_${timestamp}_${Math.floor(Math.random() * 1000)}`,
+        eventType,
+        timestamp,
+        objectId,
+        snapshot: snapshot || null
+      };
+
+      if (context !== undefined) {
+        entry.context = context;
+      }
+
+      if (changes !== undefined) {
+        entry.changes = changes;
+      }
+
+      if (notes !== undefined) {
+        entry.notes = notes;
+      }
+
+      this.sceneJournal.push(entry);
+      if (this.sceneJournal.length > this.maxSceneJournalEntries) {
+        this.sceneJournal.splice(0, this.sceneJournal.length - this.maxSceneJournalEntries);
+      }
+
+      if (eventType === 'removed' && objectId) {
+        this.objectSnapshotCache.delete(objectId);
+      }
+
+      const event = this.emitSceneChange('object-event', {
+        eventType,
+        entry
+      });
+
+      entry.version = event.version;
+      return entry;
+    }
+
+    /**
+     * 現在のシーン状態を取得
+     * @param {{includeJournal?: boolean}} options
+     * @returns {object}
+     */
+    getSceneState(options = {}) {
+      const { includeJournal = true } = options;
+      const objects = Array.from(this.spawnedObjects.values())
+        .map((object) => this.captureObjectSnapshot(object))
+        .filter((snapshot) => snapshot && snapshot.id);
+
+      const cameraSnapshot = this.camera ? {
+        position: { x: this.camera.position.x, y: this.camera.position.y, z: this.camera.position.z },
+        rotation: {
+          x: this.camera.rotation.x,
+          y: this.camera.rotation.y,
+          z: this.camera.rotation.z
+        },
+        quaternion: this.camera.quaternion ? {
+          x: this.camera.quaternion.x,
+          y: this.camera.quaternion.y,
+          z: this.camera.quaternion.z,
+          w: this.camera.quaternion.w
+        } : undefined,
+        fov: this.camera.fov,
+        near: this.camera.near,
+        far: this.camera.far
+      } : null;
+
+      const state = {
+        version: this.sceneStateVersion,
+        exportedAt: new Date().toISOString(),
+        objectCount: objects.length,
+        objects,
+        camera: cameraSnapshot || undefined,
+        journal: includeJournal ? [...this.sceneJournal] : undefined
+      };
+
+      if (!state.camera) {
+        delete state.camera;
+      }
+      if (!includeJournal) {
+        delete state.journal;
+      }
+
+      return state;
+    }
+
+    /**
+     * シーン状態をJSONとしてエクスポート
+     * @param {{includeJournal?: boolean, download?: boolean, fileName?: string}} options
+     * @returns {object}
+     */
+    exportSceneState(options = {}) {
+      const { includeJournal = true, download = true, fileName } = options;
+      const state = this.getSceneState({ includeJournal });
+
+      if (download !== false && typeof document !== 'undefined') {
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        const defaultName = `chocodrop-scene-${timestamp}.json`;
+        this.downloadJson(state, fileName || defaultName);
+      }
+
+      return state;
+    }
+
+    /**
+     * JSONダウンロードを実行
+     * @param {object} data
+     * @param {string} fileName
+     */
+    downloadJson(data, fileName) {
+      try {
+        if (typeof document === 'undefined' || typeof window === 'undefined' || typeof Blob === 'undefined') {
+          console.warn('⚠️ JSON download is not supported in this environment');
+          return;
+        }
+        const json = JSON.stringify(data, null, 2);
+        const blob = new Blob([json], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      } catch (error) {
+        console.warn('⚠️ Failed to download JSON:', error);
+      }
+    }
+
+    /**
+     * オブジェクト変更をジャーナルへ記録
+     * @param {string|THREE.Object3D} target
+     * @param {object} context
+     */
+    markObjectModified(target, context = {}) {
+      if (this.isRestoring) {
+        return;
+      }
+
+      const object = typeof target === 'string' ? this.spawnedObjects.get(target) : target;
+      if (!object) {
+        return;
+      }
+
+      const snapshotResult = this.storeSnapshot(object);
+      if (!snapshotResult.changed) {
+        return;
+      }
+
+      this.recordSceneEvent('modified', object, {
+        context,
+        snapshotOverride: snapshotResult.snapshot,
+        changes: {
+          transform: snapshotResult.snapshot.transform
+        }
+      });
+    }
+
+    /**
+     * 生成オブジェクトを登録
+     * @param {string} objectId
+     * @param {THREE.Object3D} object
+     * @param {object} context
+     */
+    registerSpawnedObject(objectId, object, context = {}) {
+      if (!object) {
+        return;
+      }
+
+      const resolvedId = objectId || object.userData?.id || object.name;
+      if (!resolvedId) {
+        throw new Error('Object ID is required to register a spawned object');
+      }
+
+      if (!object.userData) {
+        object.userData = {};
+      }
+      if (!object.userData.id) {
+        object.userData.id = resolvedId;
+      }
+
+      if (!object.name) {
+        object.name = resolvedId;
+      }
+
+      this.spawnedObjects.set(resolvedId, object);
+      const snapshotResult = this.storeSnapshot(object);
+      this.recordSceneEvent('created', object, {
+        objectId: resolvedId,
+        context,
+        snapshotOverride: snapshotResult.snapshot
+      });
+    }
+
+    /**
+     * シーンジャーナルをクリア
+     */
+    clearSceneJournal() {
+      this.sceneJournal = [];
+      this.objectSnapshotCache.clear();
+      this.emitSceneChange('journal-cleared', {});
+    }
+
+    /**
+     * スナップショットデータからシーンを復元
+     * @param {object} state - 保存されたシーンデータ
+     * @param {object} options
+     * @param {boolean} [options.clearExisting=true] - 既存オブジェクトを消すか
+     * @param {boolean} [options.applyCamera=true] - カメラを復元するか
+     * @returns {Promise<{loaded: number, failed: number}>}
+     */
+    async loadSceneState(state, options = {}) {
+      if (!state || typeof state !== 'object') {
+        throw new Error('無効なシーンデータです。JSONを確認してください。');
+      }
+
+      const { clearExisting = true, applyCamera = true } = options;
+      const objects = Array.isArray(state.objects) ? state.objects : [];
+
+      let loadedCount = 0;
+      let failedCount = 0;
+      let maxIdSeed = this.objectCounter;
+
+      this.isRestoring = true;
+
+      try {
+        if (clearExisting) {
+          this.clearAll();
+          this.clearSceneJournal();
+        }
+
+        for (const snapshot of objects) {
+          try {
+            const object = await this.restoreObjectFromSnapshot(snapshot);
+            if (object) {
+              loadedCount += 1;
+              const numericId = this.extractNumericId(snapshot?.id);
+              if (numericId !== null) {
+                maxIdSeed = Math.max(maxIdSeed, numericId);
+              }
+            }
+          } catch (error) {
+            failedCount += 1;
+            console.warn(`⚠️ Failed to restore object ${snapshot?.id || '(unknown)'}`, error);
+          }
+        }
+
+        if (applyCamera && this.camera && state.camera) {
+          this.applyCameraSnapshot(state.camera);
+        }
+
+        if (Array.isArray(state.journal)) {
+          this.sceneJournal = [...state.journal];
+        }
+
+        if (typeof state.version === 'number') {
+          this.sceneStateVersion = state.version;
+        } else {
+          this.sceneStateVersion += 1;
+        }
+
+        this.objectCounter = Math.max(this.objectCounter, maxIdSeed);
+
+        // キャッシュを最新化
+        this.objectSnapshotCache.clear();
+        this.spawnedObjects.forEach((object) => {
+          this.storeSnapshot(object);
+        });
+      } finally {
+        this.isRestoring = false;
+      }
+
+      this.emitSceneChange('scene-restored', {
+        loaded: loadedCount,
+        failed: failedCount,
+        version: this.sceneStateVersion
+      });
+
+      return { loaded: loadedCount, failed: failedCount };
+    }
+
+    extractNumericId(id) {
+      if (typeof id !== 'string') {
+        return null;
+      }
+      const match = id.match(/_(\d+)$/);
+      return match ? parseInt(match[1], 10) : null;
+    }
+
+    applyCameraSnapshot(snapshot) {
+      if (!snapshot || !this.camera) return;
+
+      if (snapshot.position && typeof snapshot.position === 'object') {
+        this.camera.position.set(
+          snapshot.position.x ?? this.camera.position.x,
+          snapshot.position.y ?? this.camera.position.y,
+          snapshot.position.z ?? this.camera.position.z
+        );
+      }
+
+      if (snapshot.quaternion && typeof snapshot.quaternion === 'object' && this.camera.quaternion) {
+        this.camera.quaternion.set(
+          snapshot.quaternion.x ?? this.camera.quaternion.x,
+          snapshot.quaternion.y ?? this.camera.quaternion.y,
+          snapshot.quaternion.z ?? this.camera.quaternion.z,
+          snapshot.quaternion.w ?? this.camera.quaternion.w
+        );
+      } else if (snapshot.rotation && typeof snapshot.rotation === 'object') {
+        this.camera.rotation.set(
+          snapshot.rotation.x ?? this.camera.rotation.x,
+          snapshot.rotation.y ?? this.camera.rotation.y,
+          snapshot.rotation.z ?? this.camera.rotation.z
+        );
+      }
+
+      if (typeof snapshot.fov === 'number' && this.camera.fov !== undefined) {
+        this.camera.fov = snapshot.fov;
+      }
+      if (typeof snapshot.near === 'number' && this.camera.near !== undefined) {
+        this.camera.near = snapshot.near;
+      }
+      if (typeof snapshot.far === 'number' && this.camera.far !== undefined) {
+        this.camera.far = snapshot.far;
+      }
+
+      if (typeof this.camera.updateProjectionMatrix === 'function') {
+        this.camera.updateProjectionMatrix();
+      }
+    }
+
+    async restoreObjectFromSnapshot(snapshot) {
+      if (!snapshot || typeof snapshot !== 'object') {
+        throw new Error('不正なオブジェクトスナップショットです');
+      }
+
+      const type = snapshot.type || snapshot.metadata?.type || 'object3d';
+      let object = null;
+
+      if (type === 'generated_image' || snapshot.source === 'generated_image' || snapshot.source === 'imported_file_image') {
+        object = await this.restoreImageObject(snapshot);
+      } else if (type === 'generated_video' || snapshot.source === 'generated_video' || snapshot.source === 'imported_file_video') {
+        object = await this.restoreVideoObject(snapshot);
+      } else if (type === 'generated_3d_model' || snapshot.source === 'imported_file') {
+        object = await this.restoreModelObject(snapshot);
+      } else {
+        console.warn(`⚠️ Unsupported object type for restoration: ${type}`);
+        return null;
+      }
+
+      if (!object) {
+        throw new Error(`オブジェクト ${snapshot.id || '(unknown)'} の復元に失敗しました`);
+      }
+
+      this.applyTransformFromSnapshot(object, snapshot.transform);
+      this.finalizeRestoredObject(snapshot, object);
+      return object;
+    }
+
+    async restoreImageObject(snapshot) {
+      const assetUrl = snapshot.asset?.url || snapshot.metadata?.fileUrl || snapshot.metadata?.imageUrl;
+      if (!assetUrl) {
+        throw new Error('画像のURL情報が不足しています');
+      }
+
+      const loader = new THREE.TextureLoader();
+      const texture = await loader.loadAsync(assetUrl);
+      texture.colorSpace = THREE.SRGBColorSpace;
+
+      const width = snapshot.bounds?.size?.x || 6;
+      const height = snapshot.bounds?.size?.y || 6;
+
+      const geometry = new THREE.PlaneGeometry(width, height);
+      const material = new THREE.MeshBasicMaterial({
+        map: texture,
+        transparent: true,
+        opacity: snapshot.metadata?.originalOpacity ?? 1.0,
+        side: THREE.DoubleSide,
+        toneMapped: false
+      });
+
+      const plane = new THREE.Mesh(geometry, material);
+      plane.renderOrder = 1000;
+      return plane;
+    }
+
+    async restoreVideoObject(snapshot) {
+      const assetUrl = snapshot.asset?.url || snapshot.metadata?.videoUrl || snapshot.metadata?.fileUrl;
+      if (!assetUrl) {
+        throw new Error('動画のURL情報が不足しています');
+      }
+
+      const video = document.createElement('video');
+      video.src = assetUrl;
+      video.crossOrigin = 'anonymous';
+      video.loop = true;
+      video.muted = true;
+      video.playsInline = true;
+
+      try {
+        await video.play();
+        video.pause();
+      } catch (error) {
+        console.warn('⚠️ Video autoplay failed during restoration (will require user interaction):', error);
+      }
+
+      const texture = new THREE.VideoTexture(video);
+      texture.colorSpace = THREE.SRGBColorSpace;
+
+      const width = snapshot.bounds?.size?.x || 6;
+      const height = snapshot.bounds?.size?.y || 6;
+
+      const geometry = new THREE.PlaneGeometry(width, height);
+      const material = new THREE.MeshBasicMaterial({
+        map: texture,
+        transparent: false,
+        side: THREE.DoubleSide,
+        toneMapped: false
+      });
+
+      const plane = new THREE.Mesh(geometry, material);
+      plane.userData.videoElement = video;
+      return plane;
+    }
+
+    async restoreModelObject(snapshot) {
+      const assetUrl = snapshot.asset?.url || snapshot.metadata?.fileUrl;
+      if (!assetUrl) {
+        throw new Error('3DモデルのURL情報が不足しています');
+      }
+
+      const loader = await this.ensureGLTFLoader();
+      const gltf = await loader.loadAsync(assetUrl);
+      const modelRoot = gltf.scene || (gltf.scenes && gltf.scenes[0]);
+      if (!modelRoot) {
+        throw new Error('GLBファイルにシーンデータが含まれていません');
+      }
+
+      modelRoot.traverse(node => {
+        if (node.isMesh) {
+          node.castShadow = true;
+          node.receiveShadow = true;
+          if (node.material && node.material.metalness !== undefined) {
+            node.material.metalness = 0;
+            node.material.needsUpdate = true;
+          }
+        }
+      });
+
+      if (gltf.animations && gltf.animations.length > 0) {
+        const mixer = new THREE.AnimationMixer(modelRoot);
+        gltf.animations.forEach(clip => {
+          const action = mixer.clipAction(clip);
+          action.play();
+        });
+        this.animationMixers.add(mixer);
+        modelRoot.userData = {
+          ...(modelRoot.userData || {}),
+          animationMixer: mixer,
+          animationClips: gltf.animations
+        };
+        this.startAnimationLoop();
+      }
+
+      return modelRoot;
+    }
+
+    applyTransformFromSnapshot(object, transform) {
+      if (!transform || !object) return;
+
+      if (transform.position) {
+        object.position.set(
+          transform.position.x ?? object.position.x,
+          transform.position.y ?? object.position.y,
+          transform.position.z ?? object.position.z
+        );
+      }
+
+      if (transform.rotation) {
+        object.rotation.set(
+          transform.rotation.x ?? object.rotation.x,
+          transform.rotation.y ?? object.rotation.y,
+          transform.rotation.z ?? object.rotation.z
+        );
+      }
+
+      if (transform.scale) {
+        object.scale.set(
+          transform.scale.x ?? object.scale.x,
+          transform.scale.y ?? object.scale.y,
+          transform.scale.z ?? object.scale.z
+        );
+      }
+    }
+
+    finalizeRestoredObject(snapshot, object) {
+      const metadata = snapshot.metadata && typeof snapshot.metadata === 'object' ? { ...snapshot.metadata } : {};
+      const asset = snapshot.asset && typeof snapshot.asset === 'object' ? { ...snapshot.asset } : null;
+
+      object.name = snapshot.name || snapshot.id || object.name;
+      object.userData = {
+        ...metadata,
+        id: snapshot.id || metadata.id || object.name,
+        type: snapshot.type || metadata.type,
+        source: snapshot.source || metadata.source,
+        createdAt: snapshot.createdAt || metadata.createdAt || Date.now(),
+        restored: true
+      };
+
+      if (asset?.url) {
+        if (!object.userData.fileUrl) object.userData.fileUrl = asset.url;
+        if (!object.userData.videoUrl && snapshot.type === 'generated_video') {
+          object.userData.videoUrl = asset.url;
+        }
+        if (!object.userData.imageUrl && snapshot.type === 'generated_image') {
+          object.userData.imageUrl = asset.url;
+        }
+        if (asset.fileName && !object.userData.fileName) {
+          object.userData.fileName = asset.fileName;
+        }
+        if (asset.mimeType && !object.userData.mimeType) {
+          object.userData.mimeType = asset.mimeType;
+        }
+      }
+
+      if (!object.userData.originalScale) {
+        object.userData.originalScale = object.scale.clone ? object.scale.clone() : object.userData.originalScale;
+      }
+
+      this.experimentGroup.add(object);
+      const objectId = object.userData.id;
+      if (objectId) {
+        this.spawnedObjects.set(objectId, object);
+      }
+
+      this.storeSnapshot(object);
+    }
+
+    /**
      * 生成されたオブジェクト一覧取得
      */
     getSpawnedObjects() {
@@ -4865,6 +6490,7 @@
     removeObject(objectId) {
       const object = this.spawnedObjects.get(objectId);
       if (object) {
+        const removalSnapshot = this.captureObjectSnapshot(object);
         if (object.userData?.videoElement) {
           const videoElement = object.userData.videoElement;
           try {
@@ -4903,6 +6529,12 @@
         if (object.userData?.animationMixer) {
           this.animationMixers.delete(object.userData.animationMixer);
         }
+
+        this.recordSceneEvent('removed', object, {
+          objectId,
+          snapshotOverride: removalSnapshot,
+          context: { trigger: 'removeObject' }
+        });
 
         this.experimentGroup.remove(object);
         this.spawnedObjects.delete(objectId);
@@ -4947,6 +6579,11 @@
     clearAll() {
       const objectIds = Array.from(this.spawnedObjects.keys());
       objectIds.forEach(id => this.removeObject(id));
+      if (objectIds.length > 0) {
+        this.recordSceneEvent('cleared', null, {
+          context: { removedIds: objectIds }
+        });
+      }
       console.log('🧹 Cleared all experimental objects');
     }
 
@@ -4971,17 +6608,16 @@
       
       const indicator = new THREE.Mesh(geometry, material);
       
-      // カメラ相対位置でインジケーターも配置
-      if (this.camera) {
-        const indicatorPos = this.calculateCameraRelativePosition({
+      const indicatorPos = this.resolveSpawnPosition(
+        {
           x: relativePosition.x,
-          y: relativePosition.y + 2, // オブジェクトの少し上に表示
-          z: relativePosition.z
-        });
-        indicator.position.copy(indicatorPos);
-      } else {
-        indicator.position.set(relativePosition.x, relativePosition.y + 2, relativePosition.z);
-      }
+          y: relativePosition.y,
+          z: relativePosition.z,
+          absolute: relativePosition?.absolute
+        },
+        { offsetY: 2 }
+      );
+      indicator.position.copy(indicatorPos);
       
       console.log(`🟢 インジケーター表示: (${indicator.position.x.toFixed(1)}, ${indicator.position.y.toFixed(1)}, ${indicator.position.z.toFixed(1)})`);
       
@@ -5100,6 +6736,110 @@
         console.error('❌ Camera relative position calculation failed:', error);
         return new THREE.Vector3(relativePosition.x, relativePosition.y, relativePosition.z);
       }
+    }
+
+    resolveSpawnPosition(position = { x: 0, y: 0, z: -10 }, options = {}) {
+      const offsetY = options.offsetY ?? 0;
+      const base = {
+        x: position?.x ?? 0,
+        y: position?.y ?? 0,
+        z: position?.z ?? -10,
+        absolute: position?.absolute === true
+      };
+
+      if (!this.camera) {
+        return new THREE.Vector3(base.x, base.y + offsetY, base.z);
+      }
+
+      if (base.absolute) {
+        return new THREE.Vector3(base.x, base.y + offsetY, base.z);
+      }
+
+      return this.calculateCameraRelativePosition({
+        x: base.x,
+        y: base.y + offsetY,
+        z: base.z
+      });
+    }
+
+    setXRPlacementAnchor(anchor) {
+      if (!anchor || !anchor.position) {
+        this.clearXRPlacementAnchor();
+        return;
+      }
+
+      const toVector = input => {
+        if (!input) return new THREE.Vector3();
+        if (input.isVector3) {
+          return input.clone();
+        }
+        return new THREE.Vector3(input.x ?? 0, input.y ?? 0, input.z ?? 0);
+      };
+
+      const toQuaternion = input => {
+        if (!input) return null;
+        if (input.isQuaternion) {
+          return input.clone();
+        }
+        return new THREE.Quaternion(input.x ?? 0, input.y ?? 0, input.z ?? 0, input.w ?? 1);
+      };
+
+      const normalized = {
+        position: toVector(anchor.position),
+        orientation: toQuaternion(anchor.orientation),
+        timestamp: typeof performance !== 'undefined' ? performance.now() : Date.now()
+      };
+
+      this.xr.anchor = normalized;
+      this._dispatchXREvent('anchor', {
+        active: true,
+        supported: this.xr.anchorSupported,
+        position: {
+          x: normalized.position.x,
+          y: normalized.position.y,
+          z: normalized.position.z
+        }
+      });
+    }
+
+    clearXRPlacementAnchor() {
+      if (!this.xr.anchor) {
+        return;
+      }
+      this.xr.anchor = null;
+      this._dispatchXREvent('anchor', {
+        active: false,
+        supported: this.xr.anchorSupported
+      });
+    }
+
+    setXRAnchorSupport(supported) {
+      if (this.xr.anchorSupported === supported) {
+        return;
+      }
+      this.xr.anchorSupported = supported;
+      this._dispatchXREvent('anchor', {
+        supported,
+        active: Boolean(this.xr.anchor)
+      });
+    }
+
+    applyOrientationFromPosition(object, position) {
+      if (!object || !position?.orientation) {
+        return false;
+      }
+      const orientation = position.orientation;
+      if (orientation.isQuaternion) {
+        object.quaternion.copy(orientation);
+      } else {
+        object.quaternion.set(
+          orientation.x ?? 0,
+          orientation.y ?? 0,
+          orientation.z ?? 0,
+          orientation.w ?? 1
+        );
+      }
+      return true;
     }
 
     /**
@@ -5882,6 +7622,10 @@
             object.scale.setScalar(newScale);
             // console.log(`📐 Scale set to ${value}% via direct input`);
             this.showScaleToast(newScale);
+            this.markObjectModified(object, {
+              trigger: 'scale-input',
+              value: newScale
+            });
           } else {
             console.warn(`⚠️ Invalid scale value: ${input.value}% (range: 20-500%)`);
             // 無効な値の場合は元に戻す
@@ -6068,6 +7812,10 @@
         const newScale = Math.max(0.2, currentScale * 0.9);
         object.scale.setScalar(newScale);
         this.showScaleToast(newScale);
+        this.markObjectModified(object, {
+          trigger: 'scale-button',
+          direction: 'decrease'
+        });
 
         // 拡大縮小中フラグを立てる（位置固定）
         object.userData.isScaling = true;
@@ -6089,6 +7837,10 @@
         const newScale = Math.min(5.0, currentScale * 1.1);
         object.scale.setScalar(newScale);
         this.showScaleToast(newScale);
+        this.markObjectModified(object, {
+          trigger: 'scale-button',
+          direction: 'increase'
+        });
 
         // 拡大縮小中フラグを立てる（位置固定）
         object.userData.isScaling = true;
@@ -6214,10 +7966,175 @@
     /**
      * クリーンアップ
      */
+    initializeXRBridge(options = {}) {
+      if (this.xr.bridge) {
+        return this.xr.bridge;
+      }
+      if (!this.renderer) {
+        console.warn('XRBridge を初期化するには renderer が必要です');
+        return null;
+      }
+      const hasNavigatorXR = typeof navigator !== 'undefined' && navigator.xr;
+      if (!hasNavigatorXR) {
+        this.xr.supported = { vr: false, ar: false };
+        this._updateXRState('unsupported');
+        return null;
+      }
+
+      this._ensureXRInteractionManager();
+
+      const domOverlayRoot = options.domOverlayRoot || options.domOverlay || null;
+      const bridge = new XRBridgeLoader({
+        renderer: this.renderer,
+        sceneManager: this,
+        domOverlayRoot,
+        autoResume: this.xr.autoResume
+      });
+
+      const handleSupport = async mode => {
+        try {
+          const supported = await bridge.isSessionSupported(mode);
+          this.xr.supported[mode] = supported;
+          this._dispatchXREvent('support', { mode, supported });
+        } catch (error) {
+          this._dispatchXREvent('support:error', { mode, error });
+        }
+      };
+
+      bridge.addEventListener('installed', () => {
+        this._updateXRState('ready');
+      });
+      bridge.addEventListener('session:start', event => {
+        this.xr.mode = event.detail?.mode || null;
+        this._updateXRState('active', { mode: this.xr.mode });
+        this.clearXRPlacementAnchor();
+        const interaction = this._ensureXRInteractionManager();
+        if (interaction && event.detail?.session) {
+          Promise.resolve(interaction.attachSession(event.detail.session, { mode: this.xr.mode })).catch(error => {
+            console.warn('XRInteraction attach failed', error);
+          });
+        }
+      });
+      bridge.addEventListener('session:end', () => {
+        this.xr.mode = null;
+        if (this.xr.interaction) {
+          this.xr.interaction.detachSession();
+        }
+        this.clearXRPlacementAnchor();
+        this._updateXRState('idle');
+      });
+      bridge.addEventListener('session:error', event => {
+        if (this.xr.interaction) {
+          this.xr.interaction.detachSession();
+        }
+        this.xr.error = event.detail?.error || null;
+        this._updateXRState('error', { mode: event.detail?.mode, error: this.xr.error });
+      });
+      bridge.addEventListener('loop:error', event => {
+        this.xr.error = event.detail?.error || null;
+        this._updateXRState('error', { error: this.xr.error });
+      });
+
+      try {
+        bridge.install();
+        this.xr.bridge = bridge;
+        handleSupport('vr');
+        handleSupport('ar');
+      } catch (error) {
+        this.xr.error = error;
+        this._updateXRState('error', { error });
+        console.warn('XRBridge install failed', error);
+        return null;
+      }
+
+      return bridge;
+    }
+
+    onXR(type, handler) {
+      if (!handler) return () => {};
+      const eventType = this._normalizeXREventType(type);
+      this.xr.events.addEventListener(eventType, handler);
+      return () => this.xr.events.removeEventListener(eventType, handler);
+    }
+
+    setXRAutoResume(enabled) {
+      this.xr.autoResume = Boolean(enabled);
+      if (this.xr.bridge) {
+        this.xr.bridge.setAutoResume(this.xr.autoResume);
+      }
+      this._dispatchXREvent('autoResume', { enabled: this.xr.autoResume });
+    }
+
+    async enterXR(mode = 'vr', options = {}) {
+      const bridge = this.xr.bridge || this.initializeXRBridge(options);
+      if (!bridge) {
+        throw new Error('XRBridge が利用できません');
+      }
+      this._updateXRState('requesting', { mode });
+      try {
+        const session = await bridge.enter(mode, options);
+        return session;
+      } catch (error) {
+        this.xr.error = error;
+        this._updateXRState('error', { mode, error });
+        throw error;
+      }
+    }
+
+    async exitXR() {
+      if (!this.xr.bridge) return;
+      await this.xr.bridge.exit();
+      this._updateXRState('idle');
+    }
+
+    async isSessionSupported(mode = 'vr') {
+      if (!this.xr.bridge) {
+        if (typeof navigator === 'undefined' || !navigator.xr?.isSessionSupported) {
+          return false;
+        }
+        return navigator.xr.isSessionSupported(mode === 'ar' ? 'immersive-ar' : 'immersive-vr').catch(() => false);
+      }
+      return this.xr.bridge.isSessionSupported(mode);
+    }
+
+    _updateXRState(state, detail = {}) {
+      this.xr.status = state;
+      if (state !== 'error') {
+        this.xr.error = null;
+      }
+      this._dispatchXREvent('state', { state, ...detail });
+    }
+
+    _ensureXRInteractionManager() {
+      if (this.xr.interaction || !this.renderer) {
+        return this.xr.interaction;
+      }
+      this.xr.interaction = new XRInteractionManager({
+        renderer: this.renderer,
+        scene: this.scene,
+        sceneManager: this
+      });
+      return this.xr.interaction;
+    }
+
+    _dispatchXREvent(type, detail) {
+      this.xr.events.dispatchEvent(new CustomEvent(this._normalizeXREventType(type), { detail }));
+    }
+
+    _normalizeXREventType(type) {
+      if (type.startsWith('xr:')) {
+        return type;
+      }
+      return `xr:${type}`;
+    }
+
     dispose() {
       this.clearAll();
       if (this.experimentGroup.parent) {
         this.experimentGroup.parent.remove(this.experimentGroup);
+      }
+      if (this.xr.interaction) {
+        this.xr.interaction.detachSession();
       }
     }
   }
@@ -6743,7 +8660,10 @@
       display: flex;
       flex-direction: column;
       gap: 20px;
-      overflow: hidden;
+      box-sizing: border-box;
+      max-height: calc(100dvh - 56px);
+      overflow-y: auto;
+      overscroll-behavior: contain;
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     `;
 
@@ -7107,8 +9027,8 @@
       });
       this.skipButton.addEventListener('click', () => this.skipStep());
 
-      controlsContainer.appendChild(this.closeButton);
       controlsContainer.appendChild(this.skipButton);
+      controlsContainer.appendChild(this.closeButton);
 
       this.panel.appendChild(controlsContainer);
       this.panel.appendChild(header);
@@ -8472,6 +10392,16 @@
       this.commandHistory = [];
       this.currentHistoryIndex = -1;
       this.maxHistorySize = 50; // 最大コマンド保存数
+
+      this.sceneChangeUnsubscribe = null;
+      this.sceneSaveState = {
+        lastVersion: 0,
+        lastSavedVersion: 0,
+        lastSavedAt: null,
+        dirty: false,
+        isSaving: false
+      };
+      this.sceneLoadInput = null;
       
       this.initUI();
       this.bindEvents();
@@ -8485,6 +10415,8 @@
       this.createServiceModal();
       this.createFloatingChocolateIcon();
       this.initializeGuidedOnboarding();
+      this.initializeScenePersistence();
+      this.initializeSceneLoadInput();
 
       // DOM読み込み完了後にスタイルを確実に適用
       document.addEventListener('DOMContentLoaded', () => {
@@ -8911,27 +10843,89 @@
       gap: 8px;
       justify-content: space-between;
       align-items: center;
+      flex-wrap: wrap;
     `;
 
-      // 左側: Clear All ボタン（承認済みのLayout Bデザイン）
+      // 左側: アクションアイコン列
       const leftSection = document.createElement('div');
-      leftSection.style.cssText = 'display: flex; gap: 8px; align-items: center;';
+      leftSection.style.cssText = 'display: flex; gap: 10px; align-items: center;';
 
-      const clearBtn = document.createElement('button');
-      clearBtn.innerHTML = '<span style="filter: hue-rotate(240deg) saturate(0.7) brightness(0.9);">🧹</span> Clear All';
-      clearBtn.style.cssText = this.getActionButtonStyles('secondary');
-      clearBtn.addEventListener('click', () => this.clearAllWithConfirmation());
+      const createIconButton = (symbol, title, onClick, emphasis = false, options = {}) => {
+        const wrapper = document.createElement('div');
+        wrapper.style.cssText = `
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 40px;
+        height: 40px;
+        flex: 0 0 40px;
+      `;
 
-      // 履歴ボタン（将来実装用スペース確保）- 海外UI標準対応：同一幅
-      const historyBtn = document.createElement('button');
-      historyBtn.innerHTML = '<span style="filter: hue-rotate(240deg) saturate(0.7) brightness(0.9);">📚</span> History';
-      historyBtn.style.cssText = this.getActionButtonStyles('secondary');
-      historyBtn.style.opacity = '0.5';
-      historyBtn.disabled = true;
-      historyBtn.title = '履歴機能（開発中）';
+        const btn = document.createElement('button');
+        btn.innerHTML = `<span style="filter: hue-rotate(${emphasis ? 240 : 210}deg) saturate(0.8) brightness(1.0);">${symbol}</span>`;
+        btn.style.cssText = this.getActionButtonStyles('icon');
+        btn.title = title;
+        btn.setAttribute('aria-label', title);
+        if (typeof onClick === 'function') {
+          btn.addEventListener('click', onClick);
+        }
+        if (options.disabled) {
+          btn.disabled = true;
+          btn.style.opacity = '0.5';
+        }
 
-      leftSection.appendChild(clearBtn);
-      leftSection.appendChild(historyBtn);
+        const tooltip = document.createElement('div');
+        tooltip.textContent = title;
+        tooltip.style.cssText = `
+        position: absolute;
+        bottom: -34px;
+        left: 50%;
+        transform: translateX(-50%);
+        padding: 6px 10px;
+        border-radius: 8px;
+        background: rgba(30, 41, 59, 0.9);
+        color: #f8fafc;
+        font-size: 11px;
+        white-space: nowrap;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.15s ease, transform 0.15s ease;
+        box-shadow: 0 4px 12px rgba(15, 23, 42, 0.25);
+        z-index: 10;
+      `;
+
+        const showTooltip = () => {
+          tooltip.style.opacity = '1';
+          tooltip.style.transform = 'translateX(-50%) translateY(-2px)';
+        };
+
+        const hideTooltip = () => {
+          tooltip.style.opacity = '0';
+          tooltip.style.transform = 'translateX(-50%) translateY(0)';
+        };
+
+        btn.addEventListener('mouseenter', showTooltip);
+        btn.addEventListener('focus', showTooltip);
+        btn.addEventListener('mouseleave', hideTooltip);
+        btn.addEventListener('blur', hideTooltip);
+
+        wrapper.appendChild(btn);
+        wrapper.appendChild(tooltip);
+
+        return { wrapper, button: btn };
+      };
+
+      const { wrapper: saveWrap, button: saveBtn } = createIconButton('💾', 'シーンを保存する', () => this.handleSaveButtonClick(), true);
+      const { wrapper: loadWrap, button: loadBtn } = createIconButton('📂', 'シーンを読み込む', () => this.handleLoadButtonClick());
+      const { wrapper: clearWrap, button: clearBtn } = createIconButton('🧹', 'シーンをクリアする', () => this.clearAllWithConfirmation());
+
+      const { wrapper: historyWrap, button: historyBtn } = createIconButton('📚', '履歴機能（開発中）', () => {}, false, { disabled: true });
+
+      leftSection.appendChild(saveWrap);
+      leftSection.appendChild(loadWrap);
+      leftSection.appendChild(clearWrap);
+      leftSection.appendChild(historyWrap);
 
       // 右側: テーマトグルと設定（ヘッダーから移動）
       const rightSection = document.createElement('div');
@@ -8986,12 +10980,214 @@
       container.appendChild(rightSection);
 
       // 参照を保持
+      this.saveButton = saveBtn;
+      this.loadButton = loadBtn;
       this.clearBtn = clearBtn;
       this.historyBtn = historyBtn;
       this.themeToggle = themeToggle;
       this.settingsButton = settingsButton;
 
+      this.updateSaveButtonState();
+
       return container;
+    }
+
+    initializeScenePersistence() {
+      if (this.sceneChangeUnsubscribe) {
+        try {
+          this.sceneChangeUnsubscribe();
+        } catch (error) {
+          console.warn('⚠️ Demo UI: failed to unsubscribe scene listener:', error);
+        }
+        this.sceneChangeUnsubscribe = null;
+      }
+
+      if (!this.sceneManager || typeof this.sceneManager.onSceneChange !== 'function') {
+        this.sceneSaveState.dirty = false;
+        this.updateSaveButtonState();
+        return;
+      }
+
+      this.sceneChangeUnsubscribe = this.sceneManager.onSceneChange((event) => {
+        this.handleSceneChange(event);
+      });
+
+      if (typeof this.sceneManager.getSceneState === 'function') {
+        try {
+          const snapshot = this.sceneManager.getSceneState({ includeJournal: false });
+          if (snapshot && typeof snapshot.version === 'number') {
+            this.sceneSaveState.lastVersion = snapshot.version;
+            if (snapshot.version > this.sceneSaveState.lastSavedVersion) {
+              this.sceneSaveState.dirty = true;
+            }
+          }
+        } catch (error) {
+          console.warn('⚠️ Demo UI: failed to fetch initial scene snapshot:', error);
+        }
+      }
+
+      this.updateSaveButtonState();
+    }
+
+    initializeSceneLoadInput() {
+      if (this.sceneLoadInput || typeof document === 'undefined') {
+        return;
+      }
+
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'application/json';
+      input.style.display = 'none';
+      input.addEventListener('change', async (event) => {
+        const file = event.target?.files?.[0];
+        try {
+          await this.handleSceneFileSelected(file);
+        } finally {
+          if (event.target) {
+            event.target.value = '';
+          }
+        }
+      });
+
+      document.body.appendChild(input);
+      this.sceneLoadInput = input;
+    }
+
+    handleSceneChange(event) {
+      if (!event || typeof event.version !== 'number') {
+        return;
+      }
+      this.sceneSaveState.lastVersion = event.version;
+      if (event.version > this.sceneSaveState.lastSavedVersion) {
+        this.sceneSaveState.dirty = true;
+      }
+      this.updateSaveButtonState();
+    }
+
+    updateSaveButtonState() {
+      if (!this.saveButton) {
+        return;
+      }
+
+      const { dirty, isSaving, lastSavedAt, lastVersion, lastSavedVersion } = this.sceneSaveState;
+      const sceneReady = this.sceneManager && typeof this.sceneManager.exportSceneState === 'function';
+      const hasChanges = dirty || (lastVersion > lastSavedVersion);
+      const disabled = !sceneReady || isSaving || !hasChanges;
+
+      this.saveButton.disabled = disabled;
+      this.saveButton.style.opacity = disabled ? '0.6' : '1';
+
+      if (isSaving) {
+        this.saveButton.innerHTML = '<span style="filter: hue-rotate(220deg) saturate(0.6) brightness(1.0);">⏳</span>';
+        this.saveButton.title = '保存中…';
+      } else if (!hasChanges && lastSavedAt) {
+        this.saveButton.innerHTML = '<span style="filter: hue-rotate(120deg) saturate(0.9) brightness(1.1);">✅</span>';
+        try {
+          const formatted = new Date(lastSavedAt).toLocaleString();
+          this.saveButton.title = `最終保存: ${formatted}`;
+        } catch {
+          this.saveButton.title = 'シーン状態をJSONとして保存';
+        }
+      } else {
+        this.saveButton.innerHTML = '<span style="filter: hue-rotate(240deg) saturate(0.8) brightness(1.0);">💾</span>';
+        this.saveButton.title = 'シーンを保存する';
+      }
+    }
+
+    async saveSceneState() {
+      if (!this.sceneManager || typeof this.sceneManager.exportSceneState !== 'function') {
+        this.addOutput('⚠️ シーンマネージャーが接続されていません。', 'warning');
+        return;
+      }
+
+      if (this.sceneSaveState.isSaving) {
+        return;
+      }
+
+      this.sceneSaveState.isSaving = true;
+      this.updateSaveButtonState();
+
+      try {
+        const state = this.sceneManager.exportSceneState({ includeJournal: true });
+        if (state && typeof state.version === 'number') {
+          this.sceneSaveState.lastSavedVersion = state.version;
+          this.sceneSaveState.lastVersion = state.version;
+        }
+        this.sceneSaveState.lastSavedAt = state?.exportedAt || new Date().toISOString();
+        this.sceneSaveState.dirty = false;
+
+        const objectCount = state?.objectCount ?? 0;
+        this.addOutput(`💾 シーンを保存しました（オブジェクト数: ${objectCount}）`, 'success');
+      } catch (error) {
+        console.error('Demo scene save failed:', error);
+        this.addOutput(`❌ シーン保存に失敗しました: ${error.message}`, 'error');
+        this.sceneSaveState.dirty = true;
+      } finally {
+        this.sceneSaveState.isSaving = false;
+        this.updateSaveButtonState();
+      }
+    }
+
+    handleSaveButtonClick() {
+      this.saveSceneState();
+    }
+
+    handleLoadButtonClick() {
+      if (!this.sceneManager) {
+        this.addOutput('⚠️ シーンが初期化されていません。', 'warning');
+        return;
+      }
+
+      this.initializeSceneLoadInput();
+      if (this.sceneLoadInput) {
+        this.sceneLoadInput.click();
+      }
+    }
+
+    async handleSceneFileSelected(file) {
+      if (!file) {
+        return;
+      }
+
+      if (!this.sceneManager || typeof this.sceneManager.loadSceneState !== 'function') {
+        this.addOutput('⚠️ シーン読み込み機能が有効になっていません。', 'warning');
+        return;
+      }
+
+      try {
+        const text = await file.text();
+        let data;
+        try {
+          data = JSON.parse(text);
+        } catch (error) {
+          throw new Error('シーンファイルを解析できませんでした。JSON 形式か確認してください。');
+        }
+
+        const result = await this.sceneManager.loadSceneState(data, { clearExisting: true, applyCamera: true });
+        const objectCount = data?.objectCount ?? data?.objects?.length ?? result?.loaded ?? 0;
+
+        if (typeof data?.version === 'number') {
+          this.sceneSaveState.lastVersion = data.version;
+          this.sceneSaveState.lastSavedVersion = data.version;
+        } else {
+          this.sceneSaveState.lastVersion += 1;
+          this.sceneSaveState.lastSavedVersion = this.sceneSaveState.lastVersion;
+        }
+        this.sceneSaveState.lastSavedAt = data?.exportedAt || new Date().toISOString();
+        this.sceneSaveState.dirty = false;
+        this.updateSaveButtonState();
+
+        this.addOutput(`📥 シーンを読み込みました（オブジェクト数: ${objectCount}）`, 'success');
+        if (result?.failed) {
+          this.addOutput(`⚠️ 復元に失敗したオブジェクト: ${result.failed}`, result.failed > 0 ? 'warning' : 'info');
+        }
+
+        this.scrollToBottom();
+      } catch (error) {
+        console.error('Demo scene load failed:', error);
+        this.addOutput(`❌ シーン読み込みエラー: ${error.message}`, 'error');
+        this.showCompactToast('シーン読み込みに失敗しました');
+      }
     }
 
     createServiceSelectorSection() {
@@ -9935,6 +12131,34 @@
       backdrop-filter: blur(8px);
       -webkit-backdrop-filter: blur(8px);
     `;
+
+      if (variant === 'primary') {
+        const background = this.isWabiSabiMode
+          ? 'linear-gradient(135deg, rgba(139, 195, 74, 0.95), rgba(104, 159, 56, 0.9))'
+          : (this.isDarkMode
+            ? 'linear-gradient(135deg, rgba(99, 102, 241, 0.9), rgba(236, 72, 153, 0.9))'
+            : 'linear-gradient(135deg, rgba(79, 70, 229, 0.92), rgba(196, 181, 253, 0.9))');
+        const border = this.isWabiSabiMode
+          ? 'rgba(85, 139, 47, 0.7)'
+          : (this.isDarkMode ? 'rgba(129, 140, 248, 0.55)' : 'rgba(99, 102, 241, 0.45)');
+        return baseStyles + `
+        width: 96px;
+        height: 36px;
+        padding: 8px 14px;
+        font-size: 12px;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        background: ${background};
+        border: 1px solid ${border};
+        color: #ffffff;
+        box-shadow: 0 8px 18px rgba(37, 99, 235, 0.25);
+        text-align: center;
+        white-space: nowrap;
+      `;
+      }
 
       if (variant === 'secondary') {
         // Clear All, History ボタン用 - 美しい配置と統一感
@@ -12886,6 +15110,7 @@
     setSceneManager(sceneManager) {
       this.sceneManager = sceneManager;
       this.applyServiceSelectionToSceneManager();
+      this.initializeScenePersistence();
     }
 
     /**
@@ -12937,6 +15162,27 @@
         this.onboardingLauncherButton.style.border = this.isDarkMode
           ? '1px solid rgba(255, 255, 255, 0.28)'
           : '1px solid rgba(15, 23, 42, 0.18)';
+      }
+
+      if (this.saveButton) {
+        this.saveButton.style.cssText = this.getActionButtonStyles('icon');
+        this.updateSaveButtonState();
+      }
+      if (this.loadButton) {
+        this.loadButton.style.cssText = this.getActionButtonStyles('icon');
+      }
+      if (this.clearBtn) {
+        this.clearBtn.style.cssText = this.getActionButtonStyles('icon');
+      }
+      if (this.historyBtn) {
+        this.historyBtn.style.cssText = this.getActionButtonStyles('icon');
+        this.historyBtn.style.opacity = '0.5';
+      }
+      if (this.themeToggle) {
+        this.themeToggle.style.cssText = this.getActionButtonStyles('icon');
+      }
+      if (this.settingsButton) {
+        this.settingsButton.style.cssText = this.getActionButtonStyles('icon');
       }
     }
 
@@ -13055,6 +15301,10 @@
       }
 
       // アクションボタンのテーマ再適用
+      if (this.saveButton) {
+        this.saveButton.style.cssText = this.getActionButtonStyles('primary');
+        this.updateSaveButtonState();
+      }
       if (this.clearBtn) {
         this.clearBtn.style.cssText = this.getActionButtonStyles('secondary');
       }
@@ -14010,6 +16260,15 @@
     }
 
     dispose() {
+      if (this.sceneChangeUnsubscribe) {
+        try {
+          this.sceneChangeUnsubscribe();
+        } catch (error) {
+          console.warn('⚠️ Demo UI: failed to dispose scene listener:', error);
+        }
+        this.sceneChangeUnsubscribe = null;
+      }
+
       // ファイル選択関連のクリーンアップ
       if (this.fileInput && this.fileInput.parentNode) {
         this.fileInput.parentNode.removeChild(this.fileInput);
@@ -14017,6 +16276,11 @@
       if (this.selectedFile && this.selectedFile.url) {
         URL.revokeObjectURL(this.selectedFile.url);
       }
+
+      if (this.sceneLoadInput && this.sceneLoadInput.parentNode) {
+        this.sceneLoadInput.parentNode.removeChild(this.sceneLoadInput);
+      }
+      this.sceneLoadInput = null;
 
       // フローティングチョコアイコンのクリーンアップ
       if (this.floatingChocolateIcon && this.floatingChocolateIcon.parentNode) {
@@ -14176,6 +16440,22 @@
   const IMAGE_SERVICE_STORAGE_KEY = 'chocodrop-service-image';
   const VIDEO_SERVICE_STORAGE_KEY = 'chocodrop-service-video';
   const KEYWORD_HIGHLIGHT_COLOR = '#ff6ad5';
+  const XR_KEYFRAME_STYLE_ID = 'chocodrop-xr-keyframes';
+
+  function injectXRKeyframes() {
+    if (typeof document === 'undefined') return;
+    if (document.getElementById(XR_KEYFRAME_STYLE_ID)) return;
+    const style = document.createElement('style');
+    style.id = XR_KEYFRAME_STYLE_ID;
+    style.textContent = `
+    @keyframes xrPulse {
+      0% { transform: scale(0.6); opacity: 0.45; }
+      60% { transform: scale(1); opacity: 0; }
+      100% { transform: scale(1); opacity: 0; }
+    }
+  `;
+    document.head.appendChild(style);
+  }
 
   /**
    * Command UI - Web interface for ChocoDrop System
@@ -14237,6 +16517,16 @@
       this.feedbackAutoClearTimer = null;
       this.currentFeedback = null;
 
+      this.xrState = 'idle';
+      this.xrSupport = { vr: null, ar: null };
+      this.xrAutoResume = this.sceneManager?.xr?.autoResume ?? true;
+      this.xrMode = null;
+      this.xrEventUnsubscribe = [];
+      this.xrUI = null;
+      this.xrAnchor = { active: false, supported: null, position: null };
+      this.xrAnchorStatusEl = null;
+      this.xrAnchorActionButton = null;
+
       this.onboardingCoach = null;
       this.onboardingLauncherButton = null;
       this.handleExternalOnboardingRequest = null;
@@ -14288,9 +16578,20 @@
       this.commandHistory = [];
       this.currentHistoryIndex = -1;
       this.maxHistorySize = 50; // 最大コマンド保存数
+
+      this.sceneChangeUnsubscribe = null;
+      this.sceneSaveState = {
+        lastVersion: 0,
+        lastSavedVersion: 0,
+        lastSavedAt: null,
+        dirty: false,
+        isSaving: false
+      };
+      this.sceneLoadInput = null;
       
       this.initUI();
       this.bindEvents();
+      this.bindXREvents();
 
       if (!this.client && this.sceneManager && this.sceneManager.client) {
         this.client = this.sceneManager.client;
@@ -14301,6 +16602,8 @@
       this.createServiceModal();
       this.createFloatingChocolateIcon();
       this.initializeGuidedOnboarding();
+      this.initializeScenePersistence();
+      this.initializeSceneLoadInput();
 
       // DOM読み込み完了後にスタイルを確実に適用
       document.addEventListener('DOMContentLoaded', () => {
@@ -14314,6 +16617,536 @@
         this.openServiceModal(true);
       }
     }
+
+    createXRControlPanel() {
+      if (!this.sceneManager?.enterXR) {
+        return null;
+      }
+
+      const panel = document.createElement('div');
+      panel.className = 'xr-control-panel';
+      panel.style.cssText = `
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding: 16px;
+      margin: 12px 0;
+      border-radius: 18px;
+      background: ${this.isDarkMode ? 'linear-gradient(135deg, rgba(30, 41, 59, 0.85), rgba(15, 23, 42, 0.65))' : 'linear-gradient(135deg, rgba(248, 250, 252, 0.92), rgba(221, 242, 255, 0.88))'};
+      border: 1px solid ${this.isDarkMode ? 'rgba(148, 163, 184, 0.35)' : 'rgba(96, 165, 250, 0.25)'};
+      box-shadow: 0 20px 50px rgba(15, 23, 42, 0.25);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      transition: transform 0.4s cubic-bezier(0.16, 0.84, 0.44, 1), box-shadow 0.4s ease;
+      position: relative;
+      overflow: hidden;
+    `;
+
+      const ambientGlow = document.createElement('div');
+      ambientGlow.style.cssText = `
+      position: absolute;
+      inset: -40%;
+      background: radial-gradient(circle at 20% 20%, rgba(99, 102, 241, 0.18), transparent 55%),
+                  radial-gradient(circle at 80% 0, rgba(14, 165, 233, 0.15), transparent 60%);
+      pointer-events: none;
+      opacity: ${this.isDarkMode ? 1 : 0.7};
+      filter: blur(40px);
+      z-index: 0;
+    `;
+      panel.appendChild(ambientGlow);
+
+      const header = document.createElement('div');
+      header.style.cssText = `
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      z-index: 1;
+    `;
+
+      const statusDot = document.createElement('span');
+      statusDot.style.cssText = `
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #64748b;
+      box-shadow: 0 0 12px rgba(94, 234, 212, 0.35);
+      position: relative;
+    `;
+
+      const pulse = document.createElement('span');
+      pulse.style.cssText = `
+      content: '';
+      position: absolute;
+      inset: -8px;
+      border-radius: 50%;
+      background: currentColor;
+      opacity: 0.25;
+      animation: xrPulse 2.4s infinite;
+    `;
+      statusDot.appendChild(pulse);
+
+      const statusText = document.createElement('span');
+      statusText.style.cssText = `
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+      color: ${this.isDarkMode ? '#e2e8f0' : '#1e293b'};
+    `;
+      statusText.textContent = 'XR待機中';
+
+      header.appendChild(statusDot);
+      header.appendChild(statusText);
+
+      const buttonRow = document.createElement('div');
+      buttonRow.style.cssText = `
+      display: flex;
+      gap: 8px;
+      z-index: 1;
+      flex-wrap: wrap;
+    `;
+
+      const createXRButton = (label, mode, accent) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.textContent = label;
+        button.dataset.mode = mode;
+        button.style.cssText = `
+        flex: 1;
+        min-width: 96px;
+        padding: 10px 14px;
+        border-radius: 999px;
+        border: none;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        cursor: pointer;
+        color: white;
+        background: linear-gradient(135deg, ${accent[0]}, ${accent[1]});
+        box-shadow: 0 12px 30px rgba(59, 130, 246, 0.25);
+        transition: transform 0.2s ease, box-shadow 0.3s ease, filter 0.2s ease;
+      `;
+        button.addEventListener('mouseenter', () => {
+          button.style.transform = 'translateY(-2px)';
+          button.style.boxShadow = '0 18px 45px rgba(59, 130, 246, 0.3)';
+        });
+        button.addEventListener('mouseleave', () => {
+          button.style.transform = 'translateY(0)';
+          button.style.boxShadow = '0 12px 30px rgba(59, 130, 246, 0.25)';
+        });
+        button.addEventListener('click', () => this.handleEnterXR(mode));
+        return button;
+      };
+
+      const vrButton = createXRButton('VRモード', 'vr', ['#38bdf8', '#6366f1']);
+      const arButton = createXRButton('ARモード', 'ar', ['#f59e0b', '#ef4444']);
+
+      const exitButton = document.createElement('button');
+      exitButton.type = 'button';
+      exitButton.textContent = 'XR終了';
+      exitButton.style.cssText = `
+      padding: 9px 14px;
+      border-radius: 999px;
+      background: transparent;
+      border: 1px solid ${this.isDarkMode ? 'rgba(148, 163, 184, 0.4)' : 'rgba(15, 118, 110, 0.35)'};
+      color: ${this.isDarkMode ? '#bae6fd' : '#0f172a'};
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s ease, color 0.2s ease;
+      display: none;
+    `;
+      exitButton.addEventListener('mouseenter', () => {
+        exitButton.style.background = this.isDarkMode ? 'rgba(148, 163, 184, 0.25)' : 'rgba(14, 165, 233, 0.12)';
+      });
+      exitButton.addEventListener('mouseleave', () => {
+        exitButton.style.background = 'transparent';
+      });
+      exitButton.addEventListener('click', async () => {
+        if (!this.sceneManager?.exitXR) return;
+        exitButton.disabled = true;
+        try {
+          await this.sceneManager.exitXR();
+        } finally {
+          exitButton.disabled = false;
+        }
+      });
+
+      buttonRow.appendChild(vrButton);
+      buttonRow.appendChild(arButton);
+      buttonRow.appendChild(exitButton);
+
+      const toggleRow = document.createElement('label');
+      toggleRow.style.cssText = `
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: 12px;
+      color: ${this.isDarkMode ? 'rgba(226, 232, 240, 0.85)' : 'rgba(15, 23, 42, 0.75)'};
+      z-index: 1;
+    `;
+      toggleRow.textContent = 'sessiongranted 自動復帰';
+
+      const toggleWrapper = document.createElement('div');
+      toggleWrapper.style.cssText = `
+      position: relative;
+      width: 42px;
+      height: 24px;
+      border-radius: 999px;
+      background: ${this.isDarkMode ? 'rgba(148, 163, 184, 0.35)' : 'rgba(148, 163, 184, 0.32)'};
+      transition: background 0.2s ease;
+      cursor: pointer;
+    `;
+
+      const toggleThumb = document.createElement('div');
+      toggleThumb.style.cssText = `
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: ${this.isDarkMode ? '#0ea5e9' : '#2563eb'};
+      transform: ${this.xrAutoResume ? 'translateX(18px)' : 'translateX(0)'};
+      transition: transform 0.2s ease, box-shadow 0.3s ease;
+      box-shadow: 0 6px 14px rgba(14, 165, 233, 0.35);
+    `;
+
+      const toggleInput = document.createElement('input');
+      toggleInput.type = 'checkbox';
+      toggleInput.checked = this.xrAutoResume;
+      toggleInput.style.cssText = `
+      opacity: 0;
+      width: 0;
+      height: 0;
+      position: absolute;
+    `;
+
+      const updateToggleVisual = enabled => {
+        toggleWrapper.style.background = enabled
+          ? (this.isDarkMode ? 'rgba(59, 130, 246, 0.45)' : 'rgba(37, 99, 235, 0.35)')
+          : (this.isDarkMode ? 'rgba(148, 163, 184, 0.35)' : 'rgba(148, 163, 184, 0.32)');
+        toggleThumb.style.transform = enabled ? 'translateX(18px)' : 'translateX(0)';
+      };
+      updateToggleVisual(this.xrAutoResume);
+
+      toggleWrapper.addEventListener('click', () => {
+        toggleInput.checked = !toggleInput.checked;
+        this.updateXRAutoResume(toggleInput.checked);
+        updateToggleVisual(toggleInput.checked);
+        if (this.sceneManager?.setXRAutoResume) {
+          this.sceneManager.setXRAutoResume(toggleInput.checked);
+        }
+      });
+
+      toggleWrapper.appendChild(toggleThumb);
+      toggleWrapper.appendChild(toggleInput);
+      toggleRow.appendChild(toggleWrapper);
+
+      panel.appendChild(header);
+      panel.appendChild(buttonRow);
+      panel.appendChild(toggleRow);
+
+      const anchorRow = document.createElement('div');
+      anchorRow.style.cssText = `
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 14px;
+      border-radius: 16px;
+      background: ${this.isDarkMode
+        ? 'linear-gradient(135deg, rgba(14,23,42,0.85), rgba(30,41,59,0.65))'
+        : 'linear-gradient(135deg, rgba(248,250,252,0.92), rgba(226,244,255,0.88))'};
+      border: 1px solid ${this.isDarkMode ? 'rgba(56,189,248,0.25)' : 'rgba(14,165,233,0.3)'};
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.1);
+      gap: 12px;
+      z-index: 1;
+    `;
+
+      const anchorInfo = document.createElement('div');
+      anchorInfo.style.cssText = `
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    `;
+
+      const anchorDot = document.createElement('span');
+      anchorDot.style.cssText = `
+      width: 14px;
+      height: 14px;
+      border-radius: 999px;
+      background: radial-gradient(circle at 30% 30%, #38bdf8, #0ea5e9);
+      box-shadow: 0 0 12px rgba(56, 189, 248, 0.7);
+      opacity: 0.8;
+    `;
+
+      const anchorStatus = document.createElement('div');
+      anchorStatus.style.cssText = `
+      display: flex;
+      flex-direction: column;
+      font-size: 12px;
+      color: ${this.isDarkMode ? '#e2e8f0' : '#0f172a'};
+      line-height: 1.4;
+    `;
+      const anchorStatusPrimary = document.createElement('strong');
+      anchorStatusPrimary.style.cssText = 'font-size: 13px; font-weight: 600;';
+      anchorStatusPrimary.textContent = 'サーフェス未固定';
+      const anchorStatusMeta = document.createElement('span');
+      anchorStatusMeta.style.cssText = 'opacity: 0.75;';
+      anchorStatusMeta.textContent = 'トリガーでアンカーをセット';
+      anchorStatus.appendChild(anchorStatusPrimary);
+      anchorStatus.appendChild(anchorStatusMeta);
+
+      anchorInfo.appendChild(anchorDot);
+      anchorInfo.appendChild(anchorStatus);
+
+      const anchorButton = document.createElement('button');
+      anchorButton.type = 'button';
+      anchorButton.textContent = 'リセット';
+      anchorButton.disabled = true;
+      anchorButton.style.cssText = `
+      padding: 6px 12px;
+      border-radius: 999px;
+      border: 1px solid ${this.isDarkMode ? 'rgba(56,189,248,0.4)' : 'rgba(14,116,144,0.4)'};
+      background: transparent;
+      color: ${this.isDarkMode ? '#bae6fd' : '#0e7490'};
+      font-size: 12px;
+      font-weight: 600;
+      cursor: not-allowed;
+      transition: all 0.2s ease;
+    `;
+      anchorButton.addEventListener('click', () => {
+        if (!anchorButton.disabled) {
+          this.sceneManager?.clearXRPlacementAnchor?.();
+        }
+      });
+
+      anchorRow.appendChild(anchorInfo);
+      anchorRow.appendChild(anchorButton);
+
+      panel.appendChild(anchorRow);
+
+      this.xrAnchorStatusEl = { primary: anchorStatusPrimary, meta: anchorStatusMeta, dot: anchorDot };
+      this.xrAnchorActionButton = anchorButton;
+
+      this.xrUI = {
+        panel,
+        statusText,
+        statusDot,
+        vrButton,
+        arButton,
+        exitButton,
+        toggleInput,
+        toggleThumb,
+        toggleWrapper
+      };
+
+      this.updateXRSupport({ mode: 'vr', supported: this.xrSupport.vr });
+      this.updateXRSupport({ mode: 'ar', supported: this.xrSupport.ar });
+      this.updateXRState({ state: this.xrState, mode: this.xrMode });
+      if (this.sceneManager?.xr) {
+        this.updateXRAnchorState({
+          supported: this.sceneManager.xr.anchorSupported,
+          active: Boolean(this.sceneManager.xr.anchor),
+          position: this.sceneManager.xr.anchor?.position || null
+        });
+      } else {
+        this.updateXRAnchorState({});
+      }
+
+      injectXRKeyframes();
+
+      panel.addEventListener('mouseenter', () => {
+        panel.style.transform = 'translateY(-1px)';
+        panel.style.boxShadow = '0 26px 55px rgba(15, 23, 42, 0.32)';
+      });
+      panel.addEventListener('mouseleave', () => {
+        panel.style.transform = 'translateY(0)';
+        panel.style.boxShadow = '0 20px 50px rgba(15, 23, 42, 0.25)';
+      });
+
+      return panel;
+    }
+
+    updateXRState(detail = {}) {
+      const state = detail.state || this.xrState || 'idle';
+      this.xrState = state;
+      if (detail.mode) {
+        this.xrMode = detail.mode;
+      }
+      if (!this.xrUI) return;
+
+      const { statusText, statusDot, panel, exitButton } = this.xrUI;
+      const mode = this.xrMode;
+      const labelMap = {
+        idle: 'XR待機中',
+        ready: 'XR準備完了',
+        requesting: 'XR初期化中…',
+        active: mode === 'immersive-ar' || mode === 'ar' ? 'ARセッション中' : 'VRセッション中',
+        error: 'XRエラー',
+        unsupported: 'WebXR未対応'
+      };
+      statusText.textContent = labelMap[state] || 'XR待機中';
+
+      const colorMap = {
+        idle: '#64748b',
+        ready: '#34d399',
+        requesting: '#fbbf24',
+        active: '#22d3ee',
+        error: '#f87171',
+        unsupported: '#94a3b8'
+      };
+      const dotColor = colorMap[state] || '#64748b';
+      statusDot.style.background = dotColor;
+      statusDot.style.boxShadow = `0 0 14px ${dotColor}40`;
+      panel.dataset.xrState = state;
+
+      exitButton.style.display = state === 'active' ? 'inline-flex' : 'none';
+      exitButton.disabled = state !== 'active';
+
+      this.updateXRButtons();
+    }
+
+    updateXRSupport(detail = {}) {
+      const mode = detail.mode === 'immersive-ar' ? 'ar' : detail.mode;
+      if (!mode) return;
+      if (typeof detail.supported === 'boolean') {
+        this.xrSupport[mode] = detail.supported;
+      }
+      if (!this.xrUI) return;
+
+      const button = mode === 'ar' ? this.xrUI.arButton : this.xrUI.vrButton;
+      if (!button) return;
+
+      if (this.xrSupport[mode] === false) {
+        button.disabled = true;
+        button.style.opacity = '0.35';
+        button.title = mode === 'ar' ? 'このデバイスは AR セッションをサポートしていません' : 'このデバイスは VR セッションをサポートしていません';
+      } else {
+        button.style.opacity = '1';
+        button.title = mode === 'ar' ? 'ARセッションを開始' : 'VRセッションを開始';
+      }
+
+      this.updateXRButtons();
+    }
+
+    updateXRAutoResume(enabled) {
+      this.xrAutoResume = Boolean(enabled);
+      if (!this.xrUI) return;
+      const { toggleInput, toggleThumb, toggleWrapper } = this.xrUI;
+      if (toggleInput) {
+        toggleInput.checked = this.xrAutoResume;
+      }
+      if (toggleWrapper) {
+        toggleWrapper.style.background = this.xrAutoResume
+          ? (this.isDarkMode ? 'rgba(59, 130, 246, 0.45)' : 'rgba(37, 99, 235, 0.35)')
+          : (this.isDarkMode ? 'rgba(148, 163, 184, 0.35)' : 'rgba(148, 163, 184, 0.32)');
+      }
+      if (toggleThumb) {
+        toggleThumb.style.transform = this.xrAutoResume ? 'translateX(18px)' : 'translateX(0)';
+      }
+    }
+
+    updateXRAnchorState(detail = {}) {
+      this.xrAnchor = {
+        active: detail.active ?? this.xrAnchor.active,
+        supported: detail.supported ?? this.xrAnchor.supported,
+        position: detail.position ?? this.xrAnchor.position
+      };
+      if (!this.xrAnchorStatusEl || !this.xrAnchorActionButton) {
+        return;
+      }
+
+      const { primary, meta, dot } = this.xrAnchorStatusEl;
+      const supported = this.xrAnchor.supported;
+      const active = this.xrAnchor.active;
+
+      if (supported === false) {
+        primary.textContent = 'ヒットテスト未対応';
+        meta.textContent = '対応ブラウザでのみ利用可能';
+        dot.style.background = 'radial-gradient(circle at 30% 30%, #f87171, #ef4444)';
+        dot.style.boxShadow = '0 0 10px rgba(248, 113, 113, 0.7)';
+        this.xrAnchorActionButton.disabled = true;
+        this.xrAnchorActionButton.textContent = '非対応';
+        this.xrAnchorActionButton.style.cursor = 'not-allowed';
+        return;
+      }
+
+      if (active) {
+        primary.textContent = 'アンカー固定済み';
+        if (this.xrAnchor.position) {
+          const { x, y, z } = this.xrAnchor.position;
+          meta.textContent = `(${x.toFixed(2)}, ${y.toFixed(2)}, ${z.toFixed(2)})`;
+        } else {
+          meta.textContent = '最新のヒットテスト座標';
+        }
+        dot.style.background = 'radial-gradient(circle at 30% 30%, #22d3ee, #0ea5e9)';
+        dot.style.boxShadow = '0 0 14px rgba(14, 165, 233, 0.75)';
+        this.xrAnchorActionButton.disabled = false;
+        this.xrAnchorActionButton.textContent = 'アンカー解除';
+        this.xrAnchorActionButton.style.cursor = 'pointer';
+      } else {
+        primary.textContent = 'サーフェス未固定';
+        meta.textContent = 'トリガーでアンカーをセット';
+        dot.style.background = 'radial-gradient(circle at 30% 30%, #fcd34d, #f59e0b)';
+        dot.style.boxShadow = '0 0 12px rgba(245, 158, 11, 0.6)';
+        this.xrAnchorActionButton.disabled = true;
+        this.xrAnchorActionButton.textContent = '待機中';
+        this.xrAnchorActionButton.style.cursor = 'not-allowed';
+      }
+    }
+
+    updateXRButtons() {
+      if (!this.xrUI) return;
+      const { vrButton, arButton } = this.xrUI;
+      const busy = this.xrState === 'requesting';
+      const active = this.xrState === 'active';
+
+      if (vrButton) {
+        const unsupported = this.xrSupport.vr === false;
+        vrButton.disabled = busy || active || unsupported;
+        vrButton.style.filter = unsupported ? 'grayscale(0.6)' : 'none';
+      }
+
+      if (arButton) {
+        const unsupported = this.xrSupport.ar === false;
+        arButton.disabled = busy || active || unsupported;
+        arButton.style.filter = unsupported ? 'grayscale(0.7)' : 'none';
+      }
+    }
+
+    async handleEnterXR(mode = 'vr') {
+      if (!this.sceneManager?.enterXR || !this.xrUI) return;
+
+      if (mode === 'ar' && this.xrSupport.ar === false) {
+        this.showInputFeedback('このデバイスでは AR がサポートされていません。', 'error');
+        return;
+      }
+      if (mode === 'vr' && this.xrSupport.vr === false) {
+        this.showInputFeedback('このデバイスでは VR がサポートされていません。', 'error');
+        return;
+      }
+
+      const button = mode === 'ar' ? this.xrUI.arButton : this.xrUI.vrButton;
+      if (button) {
+        button.disabled = true;
+        button.style.filter = 'brightness(0.85)';
+      }
+      this.updateXRState({ state: 'requesting', mode: mode === 'ar' ? 'immersive-ar' : 'immersive-vr' });
+
+      try {
+        await this.sceneManager.enterXR(mode);
+      } catch (error) {
+        const message = error?.message || 'XRセッションの初期化に失敗しました';
+        this.showInputFeedback(message, 'error');
+        this.updateXRState({ state: 'idle' });
+      } finally {
+        if (button) {
+          button.disabled = this.xrState === 'requesting' || this.xrState === 'active';
+          button.style.filter = this.xrSupport[mode] === false ? 'grayscale(0.7)' : 'none';
+        }
+        this.updateXRButtons();
+      }
+    }
+
 
     logDebug(...args) {
       if (!this.config.enableDebugLogging) {
@@ -14492,6 +17325,8 @@
       // ミニマルアクションボタン
       const actionContainer = this.createMinimalActions();
 
+      const xrControls = this.createXRControlPanel();
+
       // ×クローズボタンをフォーム右上に追加
       const closeButton = document.createElement('div');
       closeButton.innerHTML = '×';
@@ -14568,6 +17403,9 @@
 
       this.container.appendChild(this.onboardingLauncherButton);
       this.container.appendChild(modeSelector);
+      if (xrControls) {
+        this.container.appendChild(xrControls);
+      }
       this.container.appendChild(this.inputWrapper);
       this.container.appendChild(actionContainer);
 
@@ -14683,27 +17521,89 @@
       gap: 8px;
       justify-content: space-between;
       align-items: center;
+      flex-wrap: wrap;
     `;
 
-      // 左側: Clear All ボタン（承認済みのLayout Bデザイン）
+      // 左側: アクションアイコン列
       const leftSection = document.createElement('div');
-      leftSection.style.cssText = 'display: flex; gap: 8px; align-items: center;';
+      leftSection.style.cssText = 'display: flex; gap: 10px; align-items: center;';
 
-      const clearBtn = document.createElement('button');
-      clearBtn.innerHTML = '<span style="filter: hue-rotate(240deg) saturate(0.7) brightness(0.9);">🧹</span> Clear All';
-      clearBtn.style.cssText = this.getActionButtonStyles('secondary');
-      clearBtn.addEventListener('click', () => this.clearAllWithConfirmation());
+      const createIconButton = (symbol, title, onClick, emphasis = false, options = {}) => {
+        const wrapper = document.createElement('div');
+        wrapper.style.cssText = `
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 40px;
+        height: 40px;
+        flex: 0 0 40px;
+      `;
 
-      // 履歴ボタン（将来実装用スペース確保）- 海外UI標準対応：同一幅
-      const historyBtn = document.createElement('button');
-      historyBtn.innerHTML = '<span style="filter: hue-rotate(240deg) saturate(0.7) brightness(0.9);">📚</span> History';
-      historyBtn.style.cssText = this.getActionButtonStyles('secondary');
-      historyBtn.style.opacity = '0.5';
-      historyBtn.disabled = true;
-      historyBtn.title = '履歴機能（開発中）';
+        const btn = document.createElement('button');
+        btn.innerHTML = `<span style="filter: hue-rotate(${emphasis ? 240 : 210}deg) saturate(0.8) brightness(1.0);">${symbol}</span>`;
+        btn.style.cssText = this.getActionButtonStyles('icon');
+        btn.title = title;
+        btn.setAttribute('aria-label', title);
+        if (typeof onClick === 'function') {
+          btn.addEventListener('click', onClick);
+        }
+        if (options.disabled) {
+          btn.disabled = true;
+          btn.style.opacity = '0.5';
+        }
 
-      leftSection.appendChild(clearBtn);
-      leftSection.appendChild(historyBtn);
+        const tooltip = document.createElement('div');
+        tooltip.textContent = title;
+        tooltip.style.cssText = `
+        position: absolute;
+        bottom: -34px;
+        left: 50%;
+        transform: translateX(-50%);
+        padding: 6px 10px;
+        border-radius: 8px;
+        background: rgba(30, 41, 59, 0.9);
+        color: #f8fafc;
+        font-size: 11px;
+        white-space: nowrap;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.15s ease, transform 0.15s ease;
+        box-shadow: 0 4px 12px rgba(15, 23, 42, 0.25);
+        z-index: 10;
+      `;
+
+        const showTooltip = () => {
+          tooltip.style.opacity = '1';
+          tooltip.style.transform = 'translateX(-50%) translateY(-2px)';
+        };
+
+        const hideTooltip = () => {
+          tooltip.style.opacity = '0';
+          tooltip.style.transform = 'translateX(-50%) translateY(0)';
+        };
+
+        btn.addEventListener('mouseenter', showTooltip);
+        btn.addEventListener('focus', showTooltip);
+        btn.addEventListener('mouseleave', hideTooltip);
+        btn.addEventListener('blur', hideTooltip);
+
+        wrapper.appendChild(btn);
+        wrapper.appendChild(tooltip);
+
+        return { wrapper, button: btn };
+      };
+
+      const { wrapper: saveWrap, button: saveBtn } = createIconButton('💾', 'シーンを保存する', () => this.handleSaveButtonClick(), true);
+      const { wrapper: loadWrap, button: loadBtn } = createIconButton('📂', 'シーンを読み込む', () => this.handleLoadButtonClick());
+      const { wrapper: clearWrap, button: clearBtn } = createIconButton('🧹', 'シーンをクリアする', () => this.clearAllWithConfirmation());
+
+      const { wrapper: historyWrap, button: historyBtn } = createIconButton('📚', '履歴機能（開発中）', () => {}, false, { disabled: true });
+
+      leftSection.appendChild(saveWrap);
+      leftSection.appendChild(loadWrap);
+      leftSection.appendChild(clearWrap);
+      leftSection.appendChild(historyWrap);
 
       // 右側: テーマトグルと設定（ヘッダーから移動）
       const rightSection = document.createElement('div');
@@ -14758,12 +17658,214 @@
       container.appendChild(rightSection);
 
       // 参照を保持
+      this.saveButton = saveBtn;
+      this.loadButton = loadBtn;
       this.clearBtn = clearBtn;
       this.historyBtn = historyBtn;
       this.themeToggle = themeToggle;
       this.settingsButton = settingsButton;
 
+      this.updateSaveButtonState();
+
       return container;
+    }
+
+    initializeScenePersistence() {
+      if (this.sceneChangeUnsubscribe) {
+        try {
+          this.sceneChangeUnsubscribe();
+        } catch (error) {
+          console.warn('⚠️ Failed to unsubscribe scene change listener:', error);
+        }
+        this.sceneChangeUnsubscribe = null;
+      }
+
+      if (!this.sceneManager || typeof this.sceneManager.onSceneChange !== 'function') {
+        this.sceneSaveState.dirty = false;
+        this.updateSaveButtonState();
+        return;
+      }
+
+      this.sceneChangeUnsubscribe = this.sceneManager.onSceneChange((event) => {
+        this.handleSceneChange(event);
+      });
+
+      if (typeof this.sceneManager.getSceneState === 'function') {
+        try {
+          const snapshot = this.sceneManager.getSceneState({ includeJournal: false });
+          if (snapshot && typeof snapshot.version === 'number') {
+            this.sceneSaveState.lastVersion = snapshot.version;
+            if (snapshot.version > this.sceneSaveState.lastSavedVersion) {
+              this.sceneSaveState.dirty = true;
+            }
+          }
+        } catch (error) {
+          console.warn('⚠️ Failed to obtain initial scene snapshot:', error);
+        }
+      }
+
+      this.updateSaveButtonState();
+    }
+
+    initializeSceneLoadInput() {
+      if (this.sceneLoadInput || typeof document === 'undefined') {
+        return;
+      }
+
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'application/json';
+      input.style.display = 'none';
+      input.addEventListener('change', async (event) => {
+        const file = event.target?.files?.[0];
+        try {
+          await this.handleSceneFileSelected(file);
+        } finally {
+          if (event.target) {
+            event.target.value = '';
+          }
+        }
+      });
+
+      document.body.appendChild(input);
+      this.sceneLoadInput = input;
+    }
+
+    handleSceneChange(event) {
+      if (!event || typeof event.version !== 'number') {
+        return;
+      }
+      this.sceneSaveState.lastVersion = event.version;
+      if (event.version > this.sceneSaveState.lastSavedVersion) {
+        this.sceneSaveState.dirty = true;
+      }
+      this.updateSaveButtonState();
+    }
+
+    updateSaveButtonState() {
+      if (!this.saveButton) {
+        return;
+      }
+
+      const { dirty, isSaving, lastSavedAt, lastVersion, lastSavedVersion } = this.sceneSaveState;
+      const sceneReady = this.sceneManager && typeof this.sceneManager.exportSceneState === 'function';
+      const hasChanges = dirty || (lastVersion > lastSavedVersion);
+      const disabled = !sceneReady || isSaving || !hasChanges;
+
+      this.saveButton.disabled = disabled;
+      this.saveButton.style.opacity = disabled ? '0.6' : '1';
+
+      if (isSaving) {
+        this.saveButton.innerHTML = '<span style="filter: hue-rotate(220deg) saturate(0.6) brightness(1.0);">⏳</span>';
+        this.saveButton.title = '保存中…';
+      } else if (!hasChanges && lastSavedAt) {
+        this.saveButton.innerHTML = '<span style="filter: hue-rotate(120deg) saturate(0.9) brightness(1.1);">✅</span>';
+        try {
+          const formatted = new Date(lastSavedAt).toLocaleString();
+          this.saveButton.title = `最終保存: ${formatted}`;
+        } catch {
+          this.saveButton.title = 'シーン状態をJSONとして保存';
+        }
+      } else {
+        this.saveButton.innerHTML = '<span style="filter: hue-rotate(240deg) saturate(0.8) brightness(1.0);">💾</span>';
+        this.saveButton.title = 'シーンを保存する';
+      }
+    }
+
+    async saveSceneState() {
+      if (!this.sceneManager || typeof this.sceneManager.exportSceneState !== 'function') {
+        this.addOutput('⚠️ シーンマネージャーが接続されていません。', 'warning');
+        return;
+      }
+
+      if (this.sceneSaveState.isSaving) {
+        return;
+      }
+
+      this.sceneSaveState.isSaving = true;
+      this.updateSaveButtonState();
+
+      try {
+        const state = this.sceneManager.exportSceneState({ includeJournal: true });
+        if (state && typeof state.version === 'number') {
+          this.sceneSaveState.lastSavedVersion = state.version;
+          this.sceneSaveState.lastVersion = state.version;
+        }
+        this.sceneSaveState.lastSavedAt = state?.exportedAt || new Date().toISOString();
+        this.sceneSaveState.dirty = false;
+
+        const objectCount = state?.objectCount ?? 0;
+        this.addOutput(`💾 シーンを保存しました（オブジェクト数: ${objectCount}）`, 'success');
+      } catch (error) {
+        console.error('Scene save failed:', error);
+        this.addOutput(`❌ シーン保存に失敗しました: ${error.message}`, 'error');
+        this.sceneSaveState.dirty = true;
+      } finally {
+        this.sceneSaveState.isSaving = false;
+        this.updateSaveButtonState();
+      }
+    }
+
+    handleSaveButtonClick() {
+      this.saveSceneState();
+    }
+
+    handleLoadButtonClick() {
+      if (!this.sceneManager) {
+        this.addOutput('⚠️ シーンが初期化されていません。', 'warning');
+        return;
+      }
+
+      this.initializeSceneLoadInput();
+      if (this.sceneLoadInput) {
+        this.sceneLoadInput.click();
+      }
+    }
+
+    async handleSceneFileSelected(file) {
+      if (!file) {
+        return;
+      }
+
+      if (!this.sceneManager || typeof this.sceneManager.loadSceneState !== 'function') {
+        this.addOutput('⚠️ この環境ではシーン読み込みに対応していません。', 'warning');
+        return;
+      }
+
+      try {
+        const text = await file.text();
+        let data;
+        try {
+          data = JSON.parse(text);
+        } catch (error) {
+          throw new Error('シーンファイルの解析に失敗しました。JSON形式を確認してください。');
+        }
+
+        const result = await this.sceneManager.loadSceneState(data, { clearExisting: true, applyCamera: true });
+        const objectCount = data?.objectCount ?? data?.objects?.length ?? result?.loaded ?? 0;
+
+        if (typeof data?.version === 'number') {
+          this.sceneSaveState.lastVersion = data.version;
+          this.sceneSaveState.lastSavedVersion = data.version;
+        } else {
+          this.sceneSaveState.lastVersion += 1;
+          this.sceneSaveState.lastSavedVersion = this.sceneSaveState.lastVersion;
+        }
+        this.sceneSaveState.lastSavedAt = data?.exportedAt || new Date().toISOString();
+        this.sceneSaveState.dirty = false;
+        this.updateSaveButtonState();
+
+        this.addOutput(`📥 シーンを読み込みました（オブジェクト数: ${objectCount}）`, 'success');
+        if (result?.failed) {
+          this.addOutput(`⚠️ 復元に失敗したオブジェクト: ${result.failed}`, result.failed > 0 ? 'warning' : 'info');
+        }
+
+        this.scrollToBottom();
+      } catch (error) {
+        console.error('Scene load failed:', error);
+        this.showInputFeedback(error.message, 'error');
+        this.addOutput(`❌ シーン読み込みエラー: ${error.message}`, 'error');
+      }
     }
 
     createServiceSelectorSection() {
@@ -15742,7 +18844,33 @@
       -webkit-backdrop-filter: blur(8px);
     `;
 
-      if (variant === 'secondary') {
+      if (variant === 'primary') {
+        const background = this.isWabiSabiMode
+          ? 'linear-gradient(135deg, rgba(139, 195, 74, 0.95), rgba(104, 159, 56, 0.9))'
+          : (this.isDarkMode
+            ? 'linear-gradient(135deg, rgba(99, 102, 241, 0.9), rgba(236, 72, 153, 0.9))'
+            : 'linear-gradient(135deg, rgba(79, 70, 229, 0.92), rgba(196, 181, 253, 0.9))');
+        const border = this.isWabiSabiMode
+          ? 'rgba(85, 139, 47, 0.7)'
+          : (this.isDarkMode ? 'rgba(129, 140, 248, 0.55)' : 'rgba(99, 102, 241, 0.45)');
+        return baseStyles + `
+        width: 96px;
+        height: 36px;
+        padding: 8px 14px;
+        font-size: 12px;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        background: ${background};
+        border: 1px solid ${border};
+        color: #ffffff;
+        box-shadow: 0 8px 18px rgba(37, 99, 235, 0.25);
+        text-align: center;
+        white-space: nowrap;
+      `;
+      } else if (variant === 'secondary') {
         // Clear All, History ボタン用 - 美しい配置と統一感
         return baseStyles + `
         width: 90px;
@@ -16730,6 +19858,43 @@
     /**
      * イベントバインディング
      */
+    bindXREvents() {
+      if (!this.sceneManager?.onXR) {
+        return;
+      }
+      if (this.xrEventUnsubscribe.length > 0) {
+        this.xrEventUnsubscribe.forEach(unsub => {
+          try {
+            unsub?.();
+          } catch (error) {
+            console.warn('⚠️ Failed to unsubscribe XR listener:', error);
+          }
+        });
+        this.xrEventUnsubscribe = [];
+      }
+
+      this.xrEventUnsubscribe.push(
+        this.sceneManager.onXR('state', event => {
+          this.updateXRState(event?.detail || {});
+        })
+      );
+      this.xrEventUnsubscribe.push(
+        this.sceneManager.onXR('support', event => {
+          this.updateXRSupport(event?.detail || {});
+        })
+      );
+      this.xrEventUnsubscribe.push(
+        this.sceneManager.onXR('autoResume', event => {
+          this.updateXRAutoResume(event?.detail?.enabled ?? this.xrAutoResume);
+        })
+      );
+      this.xrEventUnsubscribe.push(
+        this.sceneManager.onXR('anchor', event => {
+          this.updateXRAnchorState(event?.detail || {});
+        })
+      );
+    }
+
     bindEvents() {
       // キーボードショートカット
       document.addEventListener('keydown', (e) => {
@@ -19270,6 +22435,7 @@
     setSceneManager(sceneManager) {
       this.sceneManager = sceneManager;
       this.applyServiceSelectionToSceneManager();
+      this.initializeScenePersistence();
     }
 
     /**
@@ -19323,6 +22489,27 @@
       // サービスモーダルの背景とスタイルを更新
       if (this.serviceModal) {
         this.updateServiceModalStyles();
+      }
+
+      if (this.saveButton) {
+        this.saveButton.style.cssText = this.getActionButtonStyles('icon');
+        this.updateSaveButtonState();
+      }
+      if (this.loadButton) {
+        this.loadButton.style.cssText = this.getActionButtonStyles('icon');
+      }
+      if (this.clearBtn) {
+        this.clearBtn.style.cssText = this.getActionButtonStyles('icon');
+      }
+      if (this.historyBtn) {
+        this.historyBtn.style.cssText = this.getActionButtonStyles('icon');
+        this.historyBtn.style.opacity = '0.5';
+      }
+      if (this.themeToggle) {
+        this.themeToggle.style.cssText = this.getActionButtonStyles('icon');
+      }
+      if (this.settingsButton) {
+        this.settingsButton.style.cssText = this.getActionButtonStyles('icon');
       }
 
       // サービスセレクターテーマ更新
@@ -19471,6 +22658,10 @@
       }
 
       // アクションボタンのテーマ再適用
+      if (this.saveButton) {
+        this.saveButton.style.cssText = this.getActionButtonStyles('primary');
+        this.updateSaveButtonState();
+      }
       if (this.clearBtn) {
         this.clearBtn.style.cssText = this.getActionButtonStyles('secondary');
       }
@@ -20451,6 +23642,15 @@
     }
 
     dispose() {
+      if (this.sceneChangeUnsubscribe) {
+        try {
+          this.sceneChangeUnsubscribe();
+        } catch (error) {
+          console.warn('⚠️ Failed to dispose scene change listener:', error);
+        }
+        this.sceneChangeUnsubscribe = null;
+      }
+
       // キーワードハイライトのクリーンアップ
       this.clearKeywordHighlighting();
 
@@ -20462,9 +23662,25 @@
         URL.revokeObjectURL(this.selectedFile.url);
       }
 
+      if (this.sceneLoadInput && this.sceneLoadInput.parentNode) {
+        this.sceneLoadInput.parentNode.removeChild(this.sceneLoadInput);
+      }
+      this.sceneLoadInput = null;
+
       // フローティングチョコアイコンのクリーンアップ
       if (this.floatingChocolateIcon && this.floatingChocolateIcon.parentNode) {
         this.floatingChocolateIcon.parentNode.removeChild(this.floatingChocolateIcon);
+      }
+
+      if (this.xrEventUnsubscribe.length > 0) {
+        this.xrEventUnsubscribe.forEach(unsub => {
+          try {
+            unsub?.();
+          } catch (error) {
+            console.warn('⚠️ Failed to dispose XR listener:', error);
+          }
+        });
+        this.xrEventUnsubscribe = [];
       }
 
       if (this.container && this.container.parentElement) {

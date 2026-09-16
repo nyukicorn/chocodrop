@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>はじめ方・ツール連携 | ChocoDrop</title>
+  <style>
+    :root { color-scheme: dark; font-family: system-ui, sans-serif; background: #211810; color: #fff8e7; }
+    body { max-width: 880px; margin: auto; padding: 28px 20px 60px; line-height: 1.85; }
+    a { color: #e3bffe; text-underline-offset: 4px; }
+    h1 { font-size: clamp(28px, 5vw, 44px); line-height: 1.35; }
+    h2 { font-size: 23px; line-height: 1.4; }
+    section { background: #30241d; border: 1px solid #69503a; border-radius: 20px; padding: 24px; margin-top: 28px; }
+    pre { overflow-x: auto; padding: 18px; background: #17120f; border-radius: 12px; line-height: 1.6; }
+    code { font-family: ui-monospace, monospace; }
+    .button { display: inline-block; background: #ead7b8; color: #302010; border-radius: 999px; padding: 10px 22px; font-weight: bold; text-decoration: none; }
+    .muted { color: #d3c1b0; }
+    li { margin: 8px 0; }
+    @media (max-width: 480px) { section { padding: 18px; } }
+  </style>
+</head>
+<body>
+  <nav><a href="index.html">🍫 ChocoDrop</a> / はじめ方</nav>
+  <h1>いつもの素材を、<br>ブラウザの3Dシーンへ。</h1>
+  <p>写真、動画、3Dモデル。自分で作ったものも、普段使っているAI・MCP・CLIで作ったものも、ファイルとして使えます。</p>
+  <a class="button" href="examples/basic/">まずはデモを開く →</a>
+
+  <section aria-labelledby="browser">
+    <h2 id="browser">1. ブラウザだけで試す</h2>
+    <ol>
+      <li>Basicデモを開き、「準備完了」と表示されるまで待ちます。</li>
+      <li>「サンプルを配置」で試すか、右下の🍫を開き「Import」で画像・動画・GLBを選びます。</li>
+      <li>選んだ素材は自動で配置されます。ドラッグで視点を動かして確認できます。</li>
+    </ol>
+    <p>カムイコード、アカウント、APIキー、ローカルサーバーは不要です。手動で選んだファイルはブラウザ内で読み込みます。Three.jsの読み込みにはインターネット接続、描画にはWebGLが必要です。</p>
+    <p class="muted">画像はPNG/JPEG、動画はMP4、3Dは素材が1ファイルに収まるGLBから始めるとスムーズです。動画の再生可否はブラウザの対応コーデックによります。配置内容は再読み込みでリセットされます。</p>
+  </section>
+
+  <section aria-labelledby="local">
+    <h2 id="local">2. 自分のPCで動かす</h2>
+    <p>Node.js 22 LTSとnpmを用意し、ターミナルで実行します。既に取得済みなら、そのプロジェクトで続けてください。</p>
+    <pre><code>git clone https://github.com/nyukicorn/chocodrop.git
+cd chocodrop
+npm ci
+npm run build
+npm run local -- --assets-dir /absolute/path/to/your/assets</code></pre>
+    <p>表示されたURLをブラウザで開きます。URLのポートは自動で選ばれます。終了するときはターミナルでCtrl+Cを押してください。</p>
+    <p><code>--assets-dir</code>には、ツールから配置してよい素材だけを入れたフォルダを指定します。カムイコードや1Passwordの設定は不要です。</p>
+  </section>
+
+  <section aria-labelledby="mcp">
+    <h2 id="mcp">3. CursorなどのMCPクライアントから配置する</h2>
+    <p>上の取得・インストール・ビルドまで済ませ、Cursorの<code>.cursor/mcp.json</code>の<code>mcpServers</code>に以下のエントリを追加します。既存の設定は残してください。パスはご自分の環境の絶対パスに置き換えます。</p>
+    <pre><code>{
+  "mcpServers": {
+    "chocodrop": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "/absolute/path/to/chocodrop/scripts/chocodrop-mcp.mjs",
+        "--assets-dir", "/absolute/path/to/your/assets"
+      ]
+    }
+  }
+}</code></pre>
+    <ol>
+      <li>CursorでChocoDropの<code>get_status</code>を呼び、返された<code>browserUrl</code>を開きます。</li>
+      <li>デモに「ツール連携中」と表示されたら準備完了です。</li>
+      <li>「ChocoDropのimport_assetで、素材フォルダ内のsample.pngを配置して」と依頼します。</li>
+    </ol>
+    <p>呼び出し例：<code>import_asset({"path":"/absolute/path/to/your/assets/sample.png"})</code>。ブラウザで配置が完了してから成功を返します。</p>
+    <p class="muted">CursorがMCPプロセスを起動するため、<code>npm run local</code>の同時起動は不要です。MCPからはPNG/JPEG/WebP/MP4/WebM/GLBに対応し、1ファイル32MiBまでです。接続するデモは1タブにしてください。クラウド上のAIから利用者のPCへ直接接続する機能はありません。</p>
+    <p>他のstdio MCP対応ツールでも同じ起動コマンドを登録できます。<a href="https://docs.cursor.com/context/model-context-protocol">Cursor公式のMCP設定ガイド</a></p>
+  </section>
+
+  <section aria-labelledby="limits">
+    <h2 id="limits">できることと、今後の範囲</h2>
+    <p>GitHub Pagesでは手動のファイル配置、ローカル起動ではMCPによるファイル配置を使います。ChocoDropの内部から生成サービスを呼ぶ旧連携とは別の入口です。新しい入口は生成サービスを呼び出しません。</p>
+    <p>Quest実機、全ギャラリー、既存の生成サービスごとの動作確認は別途必要です。まずBasicデモで素材を置くところからお試しください。</p>
+    <a href="examples/basic/">Basicデモに戻る →</a>
+  </section>
+</body>
+</html>
