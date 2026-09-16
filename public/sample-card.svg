@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="480" viewBox="0 0 640 480">
+  <rect width="640" height="480" rx="36" fill="#fff5df"/>
+  <rect x="24" y="24" width="592" height="432" rx="24" fill="none" stroke="#b18a5c" stroke-width="2"/>
+  <g fill="#674331" stroke="#9d7250" stroke-width="4">
+    <rect x="254" y="84" width="58" height="58" rx="9"/>
+    <rect x="326" y="84" width="58" height="58" rx="9"/>
+    <rect x="254" y="156" width="58" height="58" rx="9"/>
+    <rect x="326" y="156" width="58" height="58" rx="9"/>
+  </g>
+  <text x="320" y="296" text-anchor="middle" font-family="sans-serif" font-size="48" font-weight="bold" fill="#493322">ChocoDrop</text>
+  <text x="320" y="346" text-anchor="middle" font-family="sans-serif" font-size="22" fill="#765f49">Your first drop.</text>
+  <circle cx="268" cy="395" r="7" fill="#ae7cbd"/>
+  <circle cx="320" cy="395" r="7" fill="#e1aa57"/>
+  <circle cx="372" cy="395" r="7" fill="#92b5a0"/>
+</svg>

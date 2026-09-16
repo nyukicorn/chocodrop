@@ -29,6 +29,12 @@ jobs:
       - name: Build packages
         run: npm run build --if-present
 
+      - name: Run local MCP and scene startup tests
+        run: npm test
+
+      - name: Verify Pages artifact
+        run: node scripts/build-pages.mjs
+
       - name: Run tests (daemon)
         run: |
           cd packages/daemon

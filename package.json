@@ -37,7 +37,11 @@
     "test:e2e:legacy": "node tests/e2e/run-playwright.mjs",
     "setup:mcp": "node scripts/setup-mcp-config.mjs",
     "example:basic": "python -m http.server 8000 --directory examples",
-    "example:server": "node src/server/server.js --port 3011"
+    "example:server": "node src/server/server.js --port 3011",
+    "local": "node scripts/chocodrop-local.mjs",
+    "mcp": "node scripts/chocodrop-mcp.mjs",
+    "build:pages": "npm run build && node scripts/build-pages.mjs",
+    "check": "bash scripts/check.sh"
   },
   "keywords": [
     "mcp",

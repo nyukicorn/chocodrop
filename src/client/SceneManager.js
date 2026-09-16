@@ -24,7 +24,6 @@ export class SceneManager {
     // Tone Mapping + Exposure設定（2025年標準：暗いシーンでも3Dモデルが見える）
     if (this.renderer) {
       this.setupToneMapping();
-      this._ensureXRInteractionManager();
     }
     // ChocoDrop Client（共通クライアント注入を優先）
     // 外部フォルダから共有する場合は options.client でクライアントを再利用
@@ -91,6 +90,9 @@ export class SceneManager {
       dracoDecoderPath: options.dracoDecoderPath || null,
       ...options.config
     };
+
+    // XR interaction depends on the state and configuration initialized above.
+    if (this.renderer) this._ensureXRInteractionManager();
     
     // クリックイベントの設定
     this.setupClickEvents();

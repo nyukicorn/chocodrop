@@ -11,7 +11,7 @@
     <meta property="og:description" content="ブラウザでThree.jsシーンを拡張。デモで体験、ブックマークレットで試用、プロジェクトに本格導入。">
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://nyukicorn.github.io/chocodrop/">
-    <meta property="og:image" content="https://nyukicorn.github.io/chocodrop/ogp.jpg">
+    <meta property="og:image" content="https://nyukicorn.github.io/chocodrop/public/sample-card.svg">
     <meta name="twitter:card" content="summary_large_image">
 
     <style>
@@ -880,7 +880,7 @@
             <p class="lead is-plum">Drop a little, bloom a lot.</p>
             <p class="hero-subtitle">
                 インストール不要・30秒で体験<br>
-                <span style="font-size: 0.85em; opacity: 0.75;">※ AI生成機能はローカル環境でのKAMUI Code設定が必要です</span>
+                <span style="font-size: 0.85em; opacity: 0.75;">手元の画像・動画・3Dモデルを配置。アカウントや生成サービスの設定は不要です</span>
             </p>
 
             <div class="hero-buttons">
@@ -888,7 +888,7 @@
                     🎮 今すぐ試す
                 </a>
                 <button class="btn-secondary melting-hover" onclick="scrollToVideo()">
-                    ▶️ 30秒でわかる
+                    📖 はじめ方を見る
                 </button>
             </div>
         </div>
@@ -1031,9 +1031,9 @@
                 </div>
 
                 <div class="bento-box" id="video-section">
-                    <h2 class="bento-title">30秒でわかる</h2>
+                    <h2 class="bento-title">手元の素材で、はじめよう</h2>
                     <div class="demo-embed">
-                        <span>動画プレースホルダー</span>
+                        <div style="padding: 24px; line-height: 1.9;"><ol><li>デモを開く</li><li>「Import」で画像・動画・GLBを選ぶ</li><li>自動でシーンに配置される</li></ol><a href="getting-started.html">ローカル起動・Cursor連携の手順 →</a><p>生成した素材も、普段のツールから保存して使えます。</p></div>
                     </div>
                 </div>
             </div>
@@ -1064,11 +1064,11 @@
 
                 <div class="bento-box highlight-cursor">
                     <span class="feature-icon">✨</span>
-                    <h3 class="bento-title">開発環境ならAI生成も可能に</h3>
+                    <h3 class="bento-title">いつもの制作ツールとつなぐ</h3>
                     <p class="bento-description">
-                        ローカル環境でKAMUI Code設定すれば<br>
-                        テキストから3Dオブジェクトを生成。<br>
-                        <span style="opacity: 0.7; font-size: 0.9em;">※要ローカルセットアップ</span>
+                        お好きなAI・MCP・CLIで作った素材を配置。<br>
+                        Cursorなどから呼べるローカルMCPも。<br>
+                        <a href="getting-started.html">接続方法を見る →</a>
                     </p>
                 </div>
             </div>
@@ -1140,13 +1140,13 @@
                 <div class="bento-box" style="background: linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(139, 108, 71, 0.08)); border: 2px solid rgba(139, 92, 246, 0.3); text-align: center; padding: 48px 40px;">
                     <h3 class="bento-title" style="font-size: 2rem; margin-bottom: 16px;">🍫 ブックマークレットで試す</h3>
                     <p class="bento-description" style="margin-bottom: 24px; font-size: 1.1rem; color: var(--choco-cream); opacity: 0.9;">
-                        インストール不要！Three.jsのサンプルサイトで<strong>今すぐ</strong>試せます。
+                        ローカルdaemonを起動して、Three.jsのサンプルサイトで<strong>今すぐ</strong>試せます。
                     </p>
                     <a href="examples/bookmarklet-v2.html" class="btn-primary melting-hover" style="font-size: 1.2rem; padding: 18px 40px; display: inline-block;">
                         📖 ブックマークレット登録ページへ
                     </a>
                     <p style="margin-top: 16px; font-size: 0.95rem; opacity: 0.7; color: var(--choco-cream);">
-                        ⚠️ <strong>制限:</strong> UIの表示と操作のみ可能です。AI生成機能を使うには、ローカル環境でのKAMUI Code設定が必要です。
+                        ⚠️ <strong>制限:</strong> 対象サイトの構成によって利用できない場合があります。まずは上のBasicデモでファイル配置をお試しください。
                     </p>
                 </div>
             </div>
@@ -1164,7 +1164,7 @@
                         <a href="https://github.com/nyukicorn/chocodrop" class="btn-secondary melting-hover" style="font-size: 14px; padding: 12px 20px;">
                             📚 README
                         </a>
-                        <a href="https://github.com/nyukicorn/chocodrop/wiki" class="btn-secondary melting-hover" style="font-size: 14px; padding: 12px 20px;">
+                        <a href="getting-started.html" class="btn-secondary melting-hover" style="font-size: 14px; padding: 12px 20px;">
                             📖 Docs
                         </a>
                         <a href="https://www.npmjs.com/package/chocodrop" class="btn-secondary melting-hover" style="font-size: 14px; padding: 12px 20px;">
@@ -1183,7 +1183,7 @@
                 <a href="https://github.com/nyukicorn/chocodrop">GitHub</a>
                 <a href="https://github.com/nyukicorn/chocodrop/blob/main/LICENSE">MIT License</a>
                 <a href="https://github.com/nyukicorn/chocodrop/blob/main/README.md">README</a>
-                <a href="https://github.com/nyukicorn/chocodrop/wiki">Docs</a>
+                <a href="getting-started.html">Docs</a>
             </div>
             <p>© 2025 ChocoDrop. Made with 🍫 and ✨</p>
         </div>
