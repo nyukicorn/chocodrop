@@ -18,24 +18,39 @@ npm run local -- --assets-dir /absolute/path/to/your/assets
 
 この入口は既存の `npm start` / `npm run dev` / daemon と独立しており、`config.json`・カムイ設定・1Password・生成サービスを利用しません。npm配布版への公開は別工程です。
 
-## Cursor / stdio MCP対応ツール
+## Codex / Claude Code
 
-Cursorの `.cursor/mcp.json` の `mcpServers` に以下を追加します。既存エントリを残し、絶対パスを自分の環境に置き換えてください。
+両方とも同じstdio MCPサーバーを登録できます。上のインストール・ビルドを先に済ませてください。
 
-```json
-{
-  "mcpServers": {
-    "chocodrop": {
-      "type": "stdio",
-      "command": "node",
-      "args": [
-        "/absolute/path/to/chocodrop/scripts/chocodrop-mcp.mjs",
-        "--assets-dir", "/absolute/path/to/your/assets"
-      ]
-    }
-  }
-}
+### Codex
+
+```bash
+codex mcp add chocodrop -- node /absolute/path/to/chocodrop/scripts/chocodrop-mcp.mjs --assets-dir /absolute/path/to/your/assets
+codex mcp get chocodrop
 ```
+
+Codexのユーザー設定へ追加します。既に開いている会話にツールが現れない場合は、アプリを再起動して新しい会話で確認してください。
+
+### Claude Code
+
+ChocoDropを使いたいプロジェクトのディレクトリで実行します。
+
+```bash
+claude mcp add --transport stdio --scope local chocodrop -- node /absolute/path/to/chocodrop/scripts/chocodrop-mcp.mjs --assets-dir /absolute/path/to/your/assets
+claude mcp get chocodrop
+```
+
+この登録は現在のプロジェクトだけに適用され、リポジトリには共有されません。Claude Codeを起動し、`/mcp` で接続を確認します。
+
+### 共通の使い方
+
+1. 「ChocoDropのget_statusを呼んで」と依頼する。
+2. 返されたbrowserUrlをブラウザで開く。
+3. 「ChocoDropで素材フォルダのsample.pngを配置して」と依頼する。
+
+ツールごとにサーバーとシーンが別になるため、そのツールのget_statusが返すURLを使います。サーバーの別起動は不要です。
+
+公式資料: [Codex MCP](https://developers.openai.com/codex/mcp)、[Claude Code MCP](https://code.claude.com/docs/en/mcp)。
 
 `node`がGUIアプリから見つからない場合はNode実行ファイルの絶対パスを使います。stdio MCPではstdoutが通信専用なので、登録時は `npm run mcp` ではなく上の `node` コマンドを指定します。
 
@@ -52,9 +67,7 @@ Cursorの `.cursor/mcp.json` の `mcpServers` に以下を追加します。既�
 
 位置はカメラ基準で、xが右、yが上、zが前方への距離です。ブラウザ内にオブジェクトが登録されてから成功と `objectId` を返します。送信しただけでは成功になりません。
 
-Cursorがローカルサーバーも起動するので `npm run local` の同時起動は不要です。両方を起動した場合は別のシーンとなるため、必ずMCPの `get_status` が返したURLを開きます。他のstdio対応MCPクライアントからも同じコマンドで利用できます。
-
-[Cursor公式のMCP設定](https://docs.cursor.com/context/model-context-protocol)
+Codex・Claude Codeがローカルサーバーを起動するので、`npm run local` の同時起動は不要です。必ず利用中のツールの `get_status` が返したURLを開きます。
 
 ## 制限
 

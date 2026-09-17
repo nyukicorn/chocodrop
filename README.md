@@ -21,7 +21,7 @@ A browser-based tool that enables instant 3D object creation and scene manipulat
 
 - **ブラウザだけで使う**: [Basicデモ](https://nyukicorn.github.io/chocodrop/examples/basic/)で「サンプルを配置」、または「Import」から素材を選ぶと自動配置。
 - **普段のAI・CLIで作った素材を使う**: ファイルに保存して同じ操作で取り込みます。
-- **Cursorなどから直接配置する**: 新しいローカルstdio MCPの `get_status` / `import_asset` を使います。[接続手順](docs/LOCAL_TOOLS.md)。
+- **Codex・Claude Codeから直接配置する**: 新しいローカルstdio MCPの `get_status` / `import_asset` を使います。[接続手順](docs/LOCAL_TOOLS.md)。
 
 ```bash
 # Node.js 22 LTS推奨。既存の生成サービス用設定は不要

@@ -49,28 +49,27 @@ npm run local -- --assets-dir /absolute/path/to/your/assets</code></pre>
   </section>
 
   <section aria-labelledby="mcp">
-    <h2 id="mcp">3. CursorなどのMCPクライアントから配置する</h2>
-    <p>上の取得・インストール・ビルドまで済ませ、Cursorの<code>.cursor/mcp.json</code>の<code>mcpServers</code>に以下のエントリを追加します。既存の設定は残してください。パスはご自分の環境の絶対パスに置き換えます。</p>
-    <pre><code>{
-  "mcpServers": {
-    "chocodrop": {
-      "type": "stdio",
-      "command": "node",
-      "args": [
-        "/absolute/path/to/chocodrop/scripts/chocodrop-mcp.mjs",
-        "--assets-dir", "/absolute/path/to/your/assets"
-      ]
-    }
-  }
-}</code></pre>
+    <h2 id="mcp">3. Codex・Claude Codeから配置する</h2>
+    <p>上の取得・インストール・ビルドまで済ませ、使うツールにChocoDropを登録します。パスはご自分の環境の絶対パスに置き換えてください。空白を含むパスは引用符で囲みます。</p>
+    <h3>Codex</h3>
+    <pre><code>codex mcp add chocodrop -- node /absolute/path/to/chocodrop/scripts/chocodrop-mcp.mjs --assets-dir /absolute/path/to/your/assets
+codex mcp get chocodrop</code></pre>
+    <p>ユーザー設定に追加されます。既に開いている会話にツールが現れない場合は、アプリを再起動し、新しい会話で確認してください。</p>
+    <h3>Claude Code</h3>
+    <p>ChocoDropを使いたいプロジェクトのディレクトリで実行します。</p>
+    <pre><code>claude mcp add --transport stdio --scope local chocodrop -- node /absolute/path/to/chocodrop/scripts/chocodrop-mcp.mjs --assets-dir /absolute/path/to/your/assets
+claude mcp get chocodrop</code></pre>
+    <p>そのプロジェクトだけの個人設定として追加されます。Claude Codeを起動し、<code>/mcp</code>で接続を確認します。</p>
+    <p><code>node</code>が見つからない場合はNode実行ファイルの絶対パスを指定してください。</p>
+    <h3>登録後の使い方</h3>
     <ol>
-      <li>CursorでChocoDropの<code>get_status</code>を呼び、返された<code>browserUrl</code>を開きます。</li>
+      <li>CodexまたはClaude CodeでChocoDropの<code>get_status</code>を呼び、返された<code>browserUrl</code>を開きます。</li>
       <li>デモに「ツール連携中」と表示されたら準備完了です。</li>
       <li>「ChocoDropのimport_assetで、素材フォルダ内のsample.pngを配置して」と依頼します。</li>
     </ol>
     <p>呼び出し例：<code>import_asset({"path":"/absolute/path/to/your/assets/sample.png"})</code>。ブラウザで配置が完了してから成功を返します。</p>
-    <p class="muted">CursorがMCPプロセスを起動するため、<code>npm run local</code>の同時起動は不要です。MCPからはPNG/JPEG/WebP/MP4/WebM/GLBに対応し、1ファイル32MiBまでです。接続するデモは1タブにしてください。クラウド上のAIから利用者のPCへ直接接続する機能はありません。</p>
-    <p>他のstdio MCP対応ツールでも同じ起動コマンドを登録できます。<a href="https://docs.cursor.com/context/model-context-protocol">Cursor公式のMCP設定ガイド</a></p>
+    <p class="muted">Codex・Claude CodeがMCPプロセスを起動するため、<code>npm run local</code>の同時起動は不要です。MCPからはPNG/JPEG/WebP/MP4/WebM/GLBに対応し、1ファイル32MiBまでです。接続するデモは1タブにしてください。クラウド上のAIから利用者のPCへ直接接続する機能はありません。</p>
+    <p>公式資料：<a href="https://developers.openai.com/codex/mcp">CodexのMCP設定</a> · <a href="https://code.claude.com/docs/en/mcp">Claude CodeのMCP設定</a></p>
   </section>
 
   <section aria-labelledby="limits">
