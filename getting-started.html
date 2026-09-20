@@ -32,7 +32,7 @@
       <li>「サンプルを配置」で試すか、右下の🍫を開き「Import」で画像・動画・GLBを選びます。</li>
       <li>選んだ素材は自動で配置されます。ドラッグで視点を動かして確認できます。</li>
     </ol>
-    <p>カムイコード、アカウント、APIキー、ローカルサーバーは不要です。手動で選んだファイルはブラウザ内で読み込みます。Three.jsの読み込みにはインターネット接続、描画にはWebGLが必要です。</p>
+    <p>アカウント、APIキー、ローカルサーバーは不要です。手動で選んだファイルはブラウザ内で読み込みます。Three.jsの読み込みにはインターネット接続、描画にはWebGLが必要です。</p>
     <p class="muted">画像はPNG/JPEG、動画はMP4、3Dは素材が1ファイルに収まるGLBから始めるとスムーズです。動画の再生可否はブラウザの対応コーデックによります。配置内容は再読み込みでリセットされます。</p>
   </section>
 
@@ -45,11 +45,19 @@ npm ci
 npm run build
 npm run local -- --assets-dir /absolute/path/to/your/assets</code></pre>
     <p>表示されたURLをブラウザで開きます。URLのポートは自動で選ばれます。終了するときはターミナルでCtrl+Cを押してください。</p>
-    <p><code>--assets-dir</code>には、ツールから配置してよい素材だけを入れたフォルダを指定します。カムイコードや1Passwordの設定は不要です。</p>
+    <p><code>--assets-dir</code>には、ツールから配置してよい素材だけを入れたフォルダを指定します。生成サービスや外部の認証情報は不要です。</p>
+  </section>
+
+  <section aria-labelledby="bookmarklet">
+    <h2 id="bookmarklet">3. ブックマークから既存ページで使う</h2>
+    <p>GitHubをcloneせずに試す場合は、ローカルdaemonを起動し、ブックマークレットを登録します。</p>
+    <pre><code>npx --yes @chocodrop/daemon@alpha</code></pre>
+    <p><a href="examples/bookmarklet-v2.html">ブックマークレット登録ページ</a>からボタンをブックマークバーへドラッグし、対応するThree.jsページで押します。</p>
+    <p class="muted">素材配置まで利用できるのは、ページの<code>scene</code>・<code>camera</code>・<code>renderer</code>を参照でき、ローカルスクリプトの読込が許可されている場合です。任意の3Dサイトで必ず動く機能ではありません。</p>
   </section>
 
   <section aria-labelledby="mcp">
-    <h2 id="mcp">3. Codex・Claude Codeから配置する</h2>
+    <h2 id="mcp">4. Codex・Claude Code・Gemini CLIから配置する</h2>
     <p>上の取得・インストール・ビルドまで済ませ、使うツールにChocoDropを登録します。パスはご自分の環境の絶対パスに置き換えてください。空白を含むパスは引用符で囲みます。</p>
     <h3>Codex</h3>
     <pre><code>codex mcp add chocodrop -- node /absolute/path/to/chocodrop/scripts/chocodrop-mcp.mjs --assets-dir /absolute/path/to/your/assets
@@ -60,16 +68,20 @@ codex mcp get chocodrop</code></pre>
     <pre><code>claude mcp add --transport stdio --scope local chocodrop -- node /absolute/path/to/chocodrop/scripts/chocodrop-mcp.mjs --assets-dir /absolute/path/to/your/assets
 claude mcp get chocodrop</code></pre>
     <p>そのプロジェクトだけの個人設定として追加されます。Claude Codeを起動し、<code>/mcp</code>で接続を確認します。</p>
+    <h3>Gemini CLI</h3>
+    <pre><code>gemini mcp add --scope user chocodrop node /absolute/path/to/chocodrop/scripts/chocodrop-mcp.mjs -- --assets-dir /absolute/path/to/your/assets
+gemini mcp list</code></pre>
+    <p>Gemini CLIのユーザー設定へ追加します。stdio MCPの状態は<code>gemini mcp list</code>で確認できます。現在のフォルダが信頼されていない場合は接続確認が行われません。</p>
     <p><code>node</code>が見つからない場合はNode実行ファイルの絶対パスを指定してください。</p>
     <h3>登録後の使い方</h3>
     <ol>
-      <li>CodexまたはClaude CodeでChocoDropの<code>get_status</code>を呼び、返された<code>browserUrl</code>を開きます。</li>
+      <li>Codex・Claude Code・Gemini CLIでChocoDropの<code>get_status</code>を呼び、返された<code>browserUrl</code>を開きます。</li>
       <li>デモに「ツール連携中」と表示されたら準備完了です。</li>
       <li>「ChocoDropのimport_assetで、素材フォルダ内のsample.pngを配置して」と依頼します。</li>
     </ol>
     <p>呼び出し例：<code>import_asset({"path":"/absolute/path/to/your/assets/sample.png"})</code>。ブラウザで配置が完了してから成功を返します。</p>
-    <p class="muted">Codex・Claude CodeがMCPプロセスを起動するため、<code>npm run local</code>の同時起動は不要です。MCPからはPNG/JPEG/WebP/MP4/WebM/GLBに対応し、1ファイル32MiBまでです。接続するデモは1タブにしてください。クラウド上のAIから利用者のPCへ直接接続する機能はありません。</p>
-    <p>公式資料：<a href="https://developers.openai.com/codex/mcp">CodexのMCP設定</a> · <a href="https://code.claude.com/docs/en/mcp">Claude CodeのMCP設定</a></p>
+    <p class="muted">各ツールがMCPプロセスを起動するため、<code>npm run local</code>の同時起動は不要です。MCPからはPNG/JPEG/WebP/MP4/WebM/GLBに対応し、1ファイル32MiBまでです。接続するデモは1タブにしてください。クラウド上のAIから利用者のPCへ直接接続する機能はありません。</p>
+    <p>公式資料：<a href="https://developers.openai.com/codex/mcp">CodexのMCP設定</a> · <a href="https://code.claude.com/docs/en/mcp">Claude CodeのMCP設定</a> · <a href="https://github.com/google-gemini/gemini-cli/blob/main/docs/tools/mcp-server.md">Gemini CLIのMCP設定</a></p>
   </section>
 
   <section aria-labelledby="limits">

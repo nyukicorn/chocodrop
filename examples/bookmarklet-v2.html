@@ -1,153 +1,141 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ChocoDrop Bookmarklet v2（修正版）</title>
-    <style>
-        body {
-            font-family: system-ui, -apple-system, sans-serif;
-            max-width: 800px;
-            margin: 40px auto;
-            padding: 20px;
-            background: #0a0a0a;
-            color: #fff;
-        }
-        h1 {
-            color: #ff6ad5;
-        }
-        .info {
-            background: rgba(255, 106, 213, 0.1);
-            border: 2px solid #ff6ad5;
-            padding: 15px;
-            border-radius: 8px;
-            margin: 20px 0;
-        }
-        .bookmarklet {
-            background: rgba(255, 255, 255, 0.1);
-            border: 2px dashed #ff6ad5;
-            padding: 20px;
-            border-radius: 12px;
-            margin: 20px 0;
-        }
-        .bookmarklet-link {
-            display: inline-block;
-            background: #ff6ad5;
-            color: #000;
-            padding: 12px 24px;
-            border-radius: 8px;
-            text-decoration: none;
-            font-weight: 600;
-            margin: 10px 0;
-        }
-        .bookmarklet-link:hover {
-            background: #ff4dc4;
-        }
-        code {
-            background: rgba(255, 255, 255, 0.1);
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-family: monospace;
-        }
-        pre {
-            background: rgba(255, 255, 255, 0.05);
-            padding: 15px;
-            border-radius: 8px;
-            overflow-x: auto;
-            font-size: 11px;
-            line-height: 1.4;
-        }
-        .step {
-            background: rgba(255, 255, 255, 0.05);
-            padding: 15px;
-            margin: 10px 0;
-            border-left: 4px solid #ff6ad5;
-            border-radius: 4px;
-        }
-    </style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="ChocoDropをThree.jsページで使うためのブックマークレット登録ページです。">
+  <title>ブックマークレット | ChocoDrop</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #1c1924;
+      --surface: #25212e;
+      --soft: #2d2638;
+      --ink: #f7eff5;
+      --muted: #beb2c8;
+      --accent: #d2b0f2;
+      --button: #cda8ef;
+      --button-ink: #281935;
+      --border: #ffffff20;
+      font-family: 'Hiragino Kaku Gothic ProN', 'Yu Gothic', Meiryo, system-ui, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--ink); line-height: 1.85; }
+    a { color: inherit; text-underline-offset: 4px; }
+    .wrap { width: min(880px, calc(100% - 40px)); margin: 0 auto; }
+    header { display: flex; align-items: center; justify-content: space-between; min-height: 90px; }
+    .brand { text-decoration: none; font-size: 21px; font-weight: 700; }
+    .brand span { color: var(--accent); font-size: 29px; vertical-align: -2px; }
+    header>a:last-child { color: var(--muted); font-size: 12px; }
+    main { padding: 48px 0 80px; }
+    .eyebrow { color: var(--accent); font-size: 10px; font-weight: 700; letter-spacing: .22em; }
+    h1 { max-width: 700px; margin: 12px 0 18px; font-size: clamp(32px, 6vw, 52px); line-height: 1.45; }
+    .lead { max-width: 680px; color: var(--muted); }
+    .install { margin: 38px 0; padding: 30px; border: 1px solid var(--border); border-radius: 22px; background: linear-gradient(135deg, var(--surface), var(--soft)); }
+    .install h2 { margin-top: 0; }
+    .bookmarklet-link, button {
+      display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+      border: 0; border-radius: 999px; padding: 13px 22px;
+      background: var(--button); color: var(--button-ink); font: inherit; font-weight: 700;
+      text-decoration: none; cursor: grab;
+    }
+    button { cursor: pointer; }
+    .secondary { margin-left: 8px; border: 1px solid var(--border); background: transparent; color: var(--ink); }
+    .status { min-height: 30px; margin: 14px 0 0; color: var(--muted); font-size: 13px; }
+    .status[data-state=ok] { color: #aee4bd; }
+    .status[data-state=error] { color: #efb2bd; }
+    .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin: 42px 0; }
+    .step, .note { padding: 23px; border: 1px solid var(--border); border-radius: 18px; background: var(--surface); }
+    .step b { display: block; color: var(--accent); font-size: 24px; font-family: Georgia, serif; }
+    .step h2 { margin: 5px 0; font-size: 17px; }
+    .step p, .note p, li { color: var(--muted); font-size: 13px; }
+    pre { overflow-x: auto; padding: 16px; border: 1px solid var(--border); border-radius: 12px; background: #17141e; color: var(--ink); }
+    .note h2 { margin-top: 0; font-size: 20px; }
+    .note li { margin: 7px 0; }
+    footer { padding: 28px 0; border-top: 1px solid var(--border); color: var(--muted); font-size: 11px; }
+    @media (max-width: 680px) {
+      main { padding-top: 25px; }
+      .steps { grid-template-columns: 1fr; }
+      .install { padding: 22px; }
+      .bookmarklet-link, button { width: 100%; }
+      .secondary { margin: 10px 0 0; }
+    }
+  </style>
 </head>
 <body>
-    <h1>🍫 ChocoDrop Bookmarklet v2（修正版）</h1>
+  <header class="wrap">
+    <a class="brand" href="../"><span aria-hidden="true">✿</span> ChocoDrop</a>
+    <a href="../getting-started.html">はじめ方へ →</a>
+  </header>
+  <main class="wrap">
+    <span class="eyebrow">BOOKMARKLET</span>
+    <h1>いつものThree.jsページに、<br>ChocoDropをひとつ。</h1>
+    <p class="lead">GitHubをcloneせず、ブックマークからChocoDrop UIを読み込みます。利用中はローカルdaemonの起動が必要です。</p>
 
-    <div class="info">
-        <strong>✨ 修正点:</strong> デーモンが停止していても、トーストUIが正常に表示されるようになりました！
+    <section class="install" aria-labelledby="install-title">
+      <h2 id="install-title">ブックマークバーへ登録</h2>
+      <p>下のボタンをブックマークバーへドラッグしてください。スマートフォンでは、リンクをコピーしてブックマークのURLへ貼り付けます。</p>
+      <a id="bookmarklet-link" class="bookmarklet-link" href="#">🍫 ChocoDropを登録</a>
+      <button id="copy-bookmarklet" class="secondary" type="button">リンクをコピー</button>
+      <p id="copy-status" class="status" role="status"></p>
+    </section>
+
+    <div class="steps">
+      <section class="step"><b>01</b><h2>daemonを起動</h2><p>ターミナルで次のコマンドを実行します。</p></section>
+      <section class="step"><b>02</b><h2>Three.jsページを開く</h2><p>自分のページなど、対応するシーンを開きます。</p></section>
+      <section class="step"><b>03</b><h2>ブックマークを押す</h2><p>シーンが見つかるとChocoDrop UIが接続されます。</p></section>
     </div>
 
-    <div class="bookmarklet">
-        <h2>📌 使い方</h2>
+    <h2>daemonの起動</h2>
+    <pre><code>npx --yes @chocodrop/daemon@alpha</code></pre>
+    <button id="check-daemon" type="button">接続を確認する</button>
+    <p id="daemon-status" class="status" role="status">未確認</p>
 
-        <div class="step">
-            <strong>Step 1:</strong> このリンクをブックマークバーにドラッグ＆ドロップ
-            <div style="margin-top: 10px;">
-                <a href="javascript:(async()=>{const b = 'http://127.0.0.1:43110';let toastDismissed = false;async function check(){try{const r = await fetch(b + '/v1/health');return r.ok;}catch{return false;}}async function showToast(){if(toastDismissed)return;if(document.getElementById('__cd_toast__'))return;const t = document.createElement('div');t.id = '__cd_toast__';Object.assign(t.style,{position:'fixed',right:'16px',bottom:'16px',zIndex:'2147483647',width:'min(380px,calc(100vw - 32px))',fontFamily:'ui-sans-serif,system-ui,-apple-system,sans-serif'});t.innerHTML = ` <div style=&quot;background:#18181c;color:#fff;padding:14px 16px;border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.35)&quot;> <div style=&quot;font-weight:700;display:flex;gap:8px;align-items:center&quot;> <span id=&quot;cd-title&quot;>🍫 ChocoDrop が起動していません</span> <span id=&quot;cd-dot&quot; style=&quot;margin-left:auto;width:8px;height:8px;border-radius:50%;background:#f43&quot;></span> <button id=&quot;cd-dismiss&quot; type=&quot;button&quot; style=&quot;border:0;background:transparent;color:rgba(255,255,255,0.75);cursor:pointer;font-size:16px;line-height:1;padding:2px;&quot;>×</button> </div> <div style=&quot;font-size:12px;opacity:.85;margin-top:6px&quot;>ローカル(127.0.0.1)のみで動作・外部送信なし。起動すると自動で接続します。</div> <div style=&quot;display:grid;gap:8px;margin-top:12px&quot;> <button id=&quot;cd-guide&quot; style=&quot;padding:10px 12px;border:0;border-radius:10px;cursor:pointer;background:#fff;color:#111;font-weight:600;&quot;>起動ガイドを開く</button> <button id=&quot;cd-retry&quot; style=&quot;padding:10px 12px;border:1px solid #444;border-radius:10px;cursor:pointer;background:transparent;color:#fff;&quot;>再試行</button> </div> </div>`;document.body.appendChild(t);const d = t.querySelector('#cd-dot');const title = t.querySelector('#cd-title');const closeButton = t.querySelector('#cd-dismiss');const g = document.createElement('dialog');g.style.border = '0';g.style.borderRadius = '14px';g.style.padding = '0';g.style.maxWidth = '560px';g.style.width = 'calc(100vw - 40px)';g.innerHTML = ` <div style=&quot;background:#161618;color:#fff;padding:16px;border-radius:14px&quot;> <div style=&quot;font-weight:700;margin-bottom:8px&quot;>起動ガイド</div> <pre id=&quot;cd-code&quot; style=&quot;background:#0e0e10;color:#eaeaea;padding:12px;border-radius:10px;overflow:auto;margin:0;font-size:13px&quot;>npx --yes @chocodrop/daemon@alpha</pre> <div style=&quot;display:flex;gap:8px;justify-content:flex-end;margin-top:12px&quot;> <button id=&quot;cd-copy&quot; style=&quot;padding:8px 10px;border-radius:8px;border:0;cursor:pointer;background:#444;color:#fff&quot;>コピー</button> <button id=&quot;cd-done&quot; style=&quot;padding:8px 10px;border-radius:8px;border:0;cursor:pointer;background:#fff;color:#111&quot;>OK</button> </div> </div>`;document.body.appendChild(g);t.querySelector('#cd-guide').onclick =()=> g.showModal();g.querySelector('#cd-done').onclick =()=> g.close();g.querySelector('#cd-copy').onclick = async()=>{try{await navigator.clipboard.writeText('npx --yes @chocodrop/daemon@alpha');const btn = g.querySelector('#cd-copy');btn.textContent = 'コピー完了！';setTimeout(()=>{btn.textContent = 'コピー';},1000);}catch(e){console.error('Clipboard error:',e);}};t.querySelector('#cd-retry').onclick = poll;let dismissed = false;function teardown(autoConnected = false){if(dismissed)return;dismissed = true;if(!autoConnected){toastDismissed = true;}if(g.open){g.close();}g.remove();if(t.parentElement){t.parentElement.removeChild(t);}}closeButton.onclick =()=>{teardown(false);};async function poll(){if(dismissed)return;const ok = await check();d.style.background = ok ? '#0f6':'#f43';if(ok){if(title){title.textContent = '🍫 接続できました';}setTimeout(()=>{teardown(true);loadSDK();},700);}else{setTimeout(()=>{if(!dismissed){poll();}},2500);}}poll();}function findThreeObjects(w){let scene,camera,renderer;for(const key in w){const val = w[key];if(val?.isScene)scene = val;if(val?.isCamera)camera = val;if(val?.isWebGLRenderer)renderer = val;}return{scene,camera,renderer};}async function attachChoco(targetWindow){await targetWindow.chocodrop.ready();const three = findThreeObjects(targetWindow);const opts = three.scene ?{camera:three.camera,renderer:three.renderer}:{};await targetWindow.chocodrop.attach(three.scene || null,opts);}function loadSDK(){const iframe = document.querySelector('iframe');const targetWindow = iframe?.contentWindow || window;const targetDoc = iframe?.contentDocument || document;const existing = targetDoc.getElementById('__chocodrop_sdk');if(existing && targetWindow.chocodrop){attachChoco(targetWindow).catch(e => console.warn('ChocoDrop:',e));return;}const s = targetDoc.createElement('script');s.id = '__chocodrop_sdk';s.src = b + '/sdk.js';s.onload =()=>{attachChoco(targetWindow).catch(e => console.warn('ChocoDrop:',e));};s.onerror =()=> console.error('❌ SDK load failed');targetDoc.head.appendChild(s);}const isRunning = await check();if(isRunning){loadSDK()}else{showToast()}})();" class="bookmarklet-link">
-                    🍫 ChocoDrop v2
-                </a>
-            </div>
-        </div>
+    <section class="note">
+      <h2>利用できるページ</h2>
+      <ul>
+        <li>Three.jsの<code>scene</code>・<code>camera</code>・<code>renderer</code>がページから参照できること。</li>
+        <li>Content Security Policyがローカルdaemonからのスクリプト読込を許可すること。</li>
+        <li>モジュール内部に閉じたシーン、第三者iframe、Three.js以外のエンジンでは素材を配置できない場合があります。</li>
+      </ul>
+      <p>対応条件とトラブルシューティングは<a href="../docs/BOOKMARKLET.md">ブックマークレットガイド</a>で確認できます。</p>
+    </section>
+  </main>
+  <footer class="wrap">ローカルdaemonは127.0.0.1だけで待ち受けます。終了時はターミナルでCtrl+Cを押してください。</footer>
+  <script type="module">
+    import { createBookmarklet } from '../public/bookmarklet.js';
 
-        <div class="step">
-            <strong>Step 2:</strong> Three.js ページでブックマークをクリック
-            <ul>
-                <li>デーモン起動中 → 即座に ChocoDrop UI が表示</li>
-                <li>デーモン停止中 → トーストUIが表示され、起動を案内</li>
-            </ul>
-        </div>
-    </div>
+    const runtimeUrl = new URL('../runtime/ui.global.js', location.href).href;
+    const bookmarklet = createBookmarklet(undefined, runtimeUrl);
+    const link = document.querySelector('#bookmarklet-link');
+    const copyStatus = document.querySelector('#copy-status');
+    const daemonStatus = document.querySelector('#daemon-status');
+    link.href = bookmarklet;
 
-    <h2>📝 動作フロー</h2>
-    <pre><code>ブックマークレットクリック
-    ↓
-デーモン起動確認
-    ↓
-┌─────────────────┬─────────────────┐
-│ 起動している     │ 停止している     │
-├─────────────────┼─────────────────┤
-│ SDK読み込み      │ トーストUI表示   │
-│ ↓               │ ↓               │
-│ UI表示          │ 起動案内         │
-│                 │ ↓               │
-│                 │ 自動ポーリング   │
-│                 │ ↓               │
-│                 │ 接続成功         │
-│                 │ ↓               │
-│                 │ SDK読み込み      │
-└─────────────────┴─────────────────┘</code></pre>
+    document.querySelector('#copy-bookmarklet').addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(bookmarklet);
+        copyStatus.textContent = 'コピーしました。ブックマークのURLへ貼り付けてください。';
+        copyStatus.dataset.state = 'ok';
+      } catch {
+        copyStatus.textContent = 'コピーできませんでした。ボタンをブックマークバーへドラッグしてください。';
+        copyStatus.dataset.state = 'error';
+      }
+    });
 
-    <h2>🔧 技術詳細</h2>
-    <ul>
-        <li>トーストUIコードをブックマークレット内に埋め込み</li>
-        <li>デーモンの状態を先にチェック</li>
-        <li>停止時でもトーストUIが表示可能</li>
-        <li>接続成功後に自動的にSDKを読み込み</li>
-    </ul>
-
-    <h2>📋 コード（手動実行用）</h2>
-    <p>手動で使う場合は、このコードをコンソールに貼り付けてください：</p>
-    <pre><code>// 読みやすい整形版（実際には1行に圧縮されています）
-(async () => {
-  const b = 'http://127.0.0.1:43110';
-
-  async function check() {
-    try {
-      const r = await fetch(b + '/v1/health');
-      return r.ok;
-    } catch {
-      return false;
-    }
-  }
-
-  const isRunning = await check();
-
-  if (isRunning) {
-    // SDKを直接読み込み
-    loadSDK();
-  } else {
-    // トーストUIを表示
-    showToast();
-  }
-
-  function loadSDK() { /* SDK読み込みロジック */ }
-  function showToast() { /* トーストUI表示ロジック */ }
-})();</code></pre>
+    document.querySelector('#check-daemon').addEventListener('click', async () => {
+      daemonStatus.textContent = '確認しています…';
+      daemonStatus.dataset.state = '';
+      try {
+        const response = await fetch('http://127.0.0.1:43110/v1/health', { cache: 'no-store' });
+        if (!response.ok) throw new Error(String(response.status));
+        daemonStatus.textContent = '接続できました。対象ページでブックマークを押せます。';
+        daemonStatus.dataset.state = 'ok';
+      } catch {
+        daemonStatus.textContent = '接続できません。上のコマンドでdaemonを起動してください。';
+        daemonStatus.dataset.state = 'error';
+      }
+    });
+  </script>
 </body>
 </html>

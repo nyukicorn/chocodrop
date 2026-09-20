@@ -46,16 +46,16 @@ ChocoDrop not loaded
    ```bash
    # ブラウザで以下にアクセス
    http://127.0.0.1:43110/v1/health
-   # → {"status":"ok"} が表示されれば正常
+   # → {"ok":true} が表示されれば正常
    ```
 
 2. **ブラウザコンソールでエラー確認**
    - F12 でコンソールを開く
-   - CORS エラーが出ている場合は allowlist 設定が必要（下記参照）
+   - Content Security Policyのエラーが出ているページではブックマークレットを利用できません
 
-3. **Toast UI が表示される場合**
-   - Toast UI の指示に従って daemon を起動
-   - 自動的に再接続されます
+3. **起動案内が表示される場合**
+   - 案内に従ってdaemonを起動
+   - 起動後にブックマークをもう一度押します
 
 #### ❌ Toast UI が表示されない
 ```
@@ -116,75 +116,7 @@ Origin not allowed
 
 ---
 
-### 1. KAMUI Code / MCP 関連（2%の人向け）
-
-#### ❌ MCP接続エラー
-```
-Error: MCP connection failed
-Error: MCP config file not found
-```
-
-**原因と解決方法**:
-
-1. **設定ファイルが見つからない**
-   ```bash
-   # 設定ファイルの存在確認
-   ls -la ~/.claude/KAMUI\ CODE.json
-   ls -la ~/.claude/mcp-kamui-code.json
-
-   # 自動設定スクリプト実行
-   npm run setup:mcp
-   ```
-
-2. **設定パスが正しくない**
-   ```bash
-   # 現在の設定確認
-   cat config.json | grep configPath
-
-   # 手動設定
-   cp config.example.json config.json
-   # config.json を編集して正しいパスを設定
-   ```
-
-3. **KAMUI Code設定ファイルの権限問題**
-   ```bash
-   # ファイル権限確認
-   ls -la ~/.claude/KAMUI\ CODE.json
-
-   # 権限修正（必要に応じて）
-   chmod 644 ~/.claude/KAMUI\ CODE.json
-   ```
-
-#### ❌ AI生成が動作しない
-```
-Generation failed
-No models available
-```
-
-**解決方法**:
-
-1. **KAMUI Codeクレジット確認**
-   - [KAMUI Code管理画面](https://kamui-code.dev/) でクレジット残高を確認
-   - API制限に達していないか確認
-
-2. **サービス一覧取得テスト**
-   ```bash
-   # サーバー起動
-   npm run dev
-
-   # 別ターミナルでAPI確認
-   curl http://localhost:3011/api/services
-   ```
-
-3. **設定ファイル構文確認**
-   ```bash
-   # JSON構文チェック
-   python -m json.tool ~/.claude/KAMUI\ CODE.json
-   # または
-   node -e "console.log(JSON.parse(require('fs').readFileSync(process.env.HOME + '/.claude/KAMUI CODE.json')))"
-   ```
-
-### 2. サーバー関連
+### 1. サーバー関連
 
 #### ❌ ポート使用中エラー
 ```
@@ -251,7 +183,7 @@ TypeError: fetch is not defined
    }
    ```
 
-### 3. フロントエンド関連
+### 2. フロントエンド関連
 
 #### ❌ @キーが反応しない
 ```
@@ -315,7 +247,7 @@ Three.js version mismatch
    const chocoDrop = createChocoDrop(scene, { camera, renderer });
    ```
 
-### 4. ネットワーク関連
+### 3. ネットワーク関連
 
 #### ❌ CORS エラー
 ```
@@ -375,58 +307,7 @@ NetworkError
    });
    ```
 
-### 5. 生成関連
-
-#### ❌ 画像生成に時間がかかる
-```
-Generation timeout
-Request timeout
-```
-
-**解決方法**:
-
-1. **モデル選択の最適化**
-   ```javascript
-   // 高速モデル使用
-   await chocoDrop.client.generateImage('prompt', {
-     service: 't2i-kamui-qwen-image' // 1-2秒
-   });
-
-   // 高品質だが時間がかかる
-   await chocoDrop.client.generateImage('prompt', {
-     service: 't2i-kamui-flux-schnell' // 15-20秒
-   });
-   ```
-
-2. **プロンプト最適化**
-   ```javascript
-   // ❌ 複雑すぎるプロンプト
-   "extremely detailed ultra high resolution photorealistic masterpiece..."
-
-   // ✅ シンプルで効果的
-   "beautiful dragon in fantasy forest"
-   ```
-
-#### ❌ 動画生成の最小ファイルサイズエラー
-```
-file size is too small, minimum 1MB required
-```
-
-**解決方法**:
-
-1. **プロンプト拡張**
-   ```javascript
-   // 自動リトライで解決されるが、手動でも可能
-   await chocoDrop.client.generateVideo(
-     'flowing water with complex movements, detailed background, dynamic camera work',
-     {
-       duration: 5, // 長めの時間
-       resolution: '720p' // 高解像度
-     }
-   );
-   ```
-
-### 6. パフォーマンス問題
+### 4. パフォーマンス問題
 
 #### ❌ メモリリーク
 ```
@@ -454,7 +335,7 @@ Performance degradation
    });
    ```
 
-### 7. React Three Fiber 固有の問題
+### 5. React Three Fiber 固有の問題
 
 #### ❌ useThree フック関連エラー
 ```

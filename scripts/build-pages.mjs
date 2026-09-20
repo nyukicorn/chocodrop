@@ -56,8 +56,10 @@ for (const entry of ['index.html', 'app.js', 'style.css', 'scene.html', 'scene-c
     await cp(source, target);
   }
 }
+await mkdir(path.join(output, 'runtime'), { recursive: true });
+await cp(path.join(root, 'dist/ui.global.js'), path.join(output, 'runtime/ui.global.js'));
 await writeFile(path.join(output, '.nojekyll'), '');
-for (const required of ['index.html', 'app.js', 'style.css', 'scene.html', 'assets/toy-dark.png', 'worlds/music-garden/index.html', 'getting-started.html', 'examples/basic/index.html', 'public/load-chocodrop.js', 'public/chocodrop-demo.umd.min.js', 'src/client/local-bridge.js']) {
+for (const required of ['index.html', 'app.js', 'style.css', 'scene.html', 'assets/toy-dark.png', 'assets/chocodrop-preview.mp4', 'worlds/music-garden/index.html', 'getting-started.html', 'examples/basic/index.html', 'examples/bookmarklet-v2.html', 'public/bookmarklet.js', 'runtime/ui.global.js', 'public/load-chocodrop.js', 'public/chocodrop-demo.umd.min.js', 'src/client/local-bridge.js']) {
   await stat(path.join(output, required));
 }
 console.log(`Pages: ${copied} static files → dist/pages (no server, configuration, or generated media)`);
