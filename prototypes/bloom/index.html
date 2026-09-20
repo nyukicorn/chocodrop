@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="ja" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="写真・動画・3DモデルをThree.jsの世界に置いて楽しめるChocoDrop。動く遊園地や花園をブラウザで体験できます。">
+  <meta property="og:title" content="ChocoDrop — ちょこっとDrop。世界が咲く。">
+  <meta property="og:description" content="好きな素材を置く。あなただけの世界が、花ひらく。">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="https://nyukicorn.github.io/chocodrop/assets/toy-dark.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <title>ChocoDrop — ちょこっとDrop。世界が咲く。</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='26' font-size='27'%3E✿%3C/text%3E%3C/svg%3E">
+  <script>try { document.documentElement.dataset.theme = localStorage.getItem('chocodrop-preview-theme') === 'light' ? 'light' : 'dark'; } catch {}</script>
+  <link rel="stylesheet" href="style.css?v=import7">
+  <script type="module" src="app.js?v=20260919-import7"></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">本文へ</a>
+  <header class="header wrap">
+    <a class="brand" href="#home" aria-label="ChocoDrop ホーム"><span class="brand-flower" aria-hidden="true">✿</span> ChocoDrop</a>
+    <nav aria-label="メインナビゲーション"><a href="#worlds">世界を選ぶ</a><a href="#guide">使い方</a><a href="#connect">ツール連携</a></nav>
+    <button id="theme-toggle" class="theme-toggle" aria-label="ライトに切り替える"><span aria-hidden="true">☾</span><span class="theme-label">Dark</span></button>
+  </header>
+  <main id="main" class="wrap" tabindex="-1"></main>
+  <footer class="wrap footer"><a href="#home" class="brand"><span class="brand-flower" aria-hidden="true">✿</span> ChocoDrop</a><span>小さなひとつから、あなたの世界へ。</span><div><a href="#about">開発・対応状況</a><a href="https://github.com/nyukicorn/chocodrop" target="_blank" rel="noopener">GitHub ↗</a></div></footer>
+  <dialog id="demo-dialog" aria-labelledby="demo-title"><div class="dialog-head"><div><span class="eyebrow">LIVE DEMO</span><h2 id="demo-title">はじまりの世界</h2></div><a href="https://nyukicorn.github.io/chocodrop/examples/basic/" target="_blank" rel="noopener">大きく開く ↗</a><button id="close-demo" aria-label="デモを閉じる">×</button></div><p class="demo-hint">世界を開き、右下の🍫から素材を配置できます。</p><div id="demo-frame"></div><p class="demo-fallback">WebGLが利用できるブラウザとインターネット接続が必要です。</p></dialog>
+  <div id="notice" role="status" class="notice"></div>
+  <noscript><p class="wrap">ChocoDropの表示にはJavaScriptが必要です。<a href="https://nyukicorn.github.io/chocodrop/examples/basic/">デモを開く</a></p></noscript>
+</body>
+</html>

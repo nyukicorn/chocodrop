@@ -6,6 +6,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const output = path.join(root, 'dist/pages');
 const marker = path.join(output, '.chocodrop-pages');
 const roots = ['index.html', 'getting-started.html', 'examples', 'public', 'vendor', 'src/client', 'src/common', 'src/shared'];
+const siteRoot = 'prototypes/bloom';
 const excluded = new Set(['node_modules', 'generated', 'imported-scenes', 'output', 'dist']);
 const extensions = new Set(['.html', '.js', '.css', '.png', '.jpg', '.jpeg', '.webp', '.svg', '.gif', '.ico', '.glb', '.gltf', '.bin', '.mp4', '.webm', '.mp3', '.ogg', '.wav', '.webmanifest']);
 
@@ -42,8 +43,21 @@ for (const entry of roots) {
   try { await copyEntry(entry); }
   catch (error) { if (error.code !== 'ENOENT' || entry !== 'src/shared') throw error; }
 }
+// The reviewed browser-site candidate is the Pages entrypoint. Keep examples and
+// SDK assets from the regular roots, then overlay only production-facing site files.
+for (const entry of ['index.html', 'app.js', 'style.css', 'scene.html', 'scene-controls.js', 'assets', 'worlds/music-garden']) {
+  const source = path.join(root, siteRoot, entry);
+  const target = path.join(output, entry);
+  const info = await stat(source);
+  if (info.isDirectory()) {
+    await cp(source, target, { recursive: true });
+  } else {
+    await mkdir(path.dirname(target), { recursive: true });
+    await cp(source, target);
+  }
+}
 await writeFile(path.join(output, '.nojekyll'), '');
-for (const required of ['index.html', 'getting-started.html', 'examples/basic/index.html', 'public/load-chocodrop.js', 'public/chocodrop-demo.umd.min.js', 'src/client/local-bridge.js']) {
+for (const required of ['index.html', 'app.js', 'style.css', 'scene.html', 'assets/toy-dark.png', 'worlds/music-garden/index.html', 'getting-started.html', 'examples/basic/index.html', 'public/load-chocodrop.js', 'public/chocodrop-demo.umd.min.js', 'src/client/local-bridge.js']) {
   await stat(path.join(output, required));
 }
 console.log(`Pages: ${copied} static files → dist/pages (no server, configuration, or generated media)`);

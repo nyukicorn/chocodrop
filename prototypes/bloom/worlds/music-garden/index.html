@@ -1,0 +1,2209 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🌸 音楽の花園 - ChocoDrop Demo</title>
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+        }
+    }
+    </script>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Yu Gothic', 'Hiragino Sans', sans-serif;
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #16213e 100%);
+        }
+
+        #info {
+            position: fixed;
+            top: 16px;
+            left: 16px;
+            color: rgba(255, 255, 255, 0.95);
+            background: rgba(255, 255, 255, 0.12);
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            padding: 14px 18px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 400;
+            z-index: 2000;
+            max-width: 280px;
+            line-height: 1.5;
+            box-shadow: 0 4px 16px rgba(139, 92, 246, 0.15),
+                        inset 0 1px 2px rgba(255, 255, 255, 0.3);
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+            transition: opacity 0.3s ease, transform 0.3s ease;
+        }
+
+        #info.hidden {
+            opacity: 0;
+            transform: translateY(-10px);
+            pointer-events: none;
+        }
+
+        .close-btn {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            font-size: 16px;
+            color: rgba(255, 255, 255, 0.9);
+            cursor: pointer;
+            width: 22px;
+            height: 22px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: all 0.2s ease;
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+
+        .close-btn:hover {
+            background-color: rgba(255, 255, 255, 0.25);
+            border-color: rgba(255, 255, 255, 0.4);
+            transform: scale(1.1);
+        }
+
+        #hint-toggle {
+            position: fixed;
+            top: 16px;
+            left: 16px;
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(15px) saturate(180%);
+            -webkit-backdrop-filter: blur(15px) saturate(180%);
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            color: rgba(255, 255, 255, 0.95);
+            padding: 6px 10px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            z-index: 99;
+            display: none;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 8px rgba(139, 92, 246, 0.15),
+                        inset 0 1px 1px rgba(255, 255, 255, 0.3);
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+            animation: hint-sparkle 2.5s ease-in-out infinite;
+        }
+
+        #hint-toggle:hover {
+            background: rgba(255, 255, 255, 0.25);
+            border-color: rgba(255, 255, 255, 0.4);
+            transform: translateY(-1px) scale(1.05);
+            animation: hint-sparkle-fast 1s ease-in-out infinite;
+        }
+
+        @keyframes hint-sparkle {
+            0%, 100% {
+                filter: brightness(1) drop-shadow(0 0 3px rgba(139, 92, 246, 0.3));
+                transform: scale(1) rotate(0deg);
+            }
+            25% {
+                filter: brightness(1.1) drop-shadow(0 0 6px rgba(139, 92, 246, 0.5));
+                transform: scale(1.02) rotate(2deg);
+            }
+            50% {
+                filter: brightness(1.2) drop-shadow(0 0 8px rgba(139, 92, 246, 0.7));
+                transform: scale(1.05) rotate(0deg);
+            }
+            75% {
+                filter: brightness(1.1) drop-shadow(0 0 6px rgba(139, 92, 246, 0.5));
+                transform: scale(1.02) rotate(-2deg);
+            }
+        }
+
+        @keyframes hint-sparkle-fast {
+            0%, 100% {
+                filter: brightness(1.1) drop-shadow(0 0 5px rgba(139, 92, 246, 0.6));
+                transform: scale(1.05) rotate(0deg);
+            }
+            50% {
+                filter: brightness(1.3) drop-shadow(0 0 10px rgba(139, 92, 246, 0.8));
+                transform: scale(1.1) rotate(5deg);
+            }
+        }
+
+        .close-btn {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: none;
+            border: none;
+            font-size: 16px;
+            color: #cbd5e0;
+            cursor: pointer;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: background-color 0.2s ease;
+        }
+
+        .close-btn:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+
+        #hint-toggle {
+            position: fixed;
+            top: 16px;
+            left: 16px;
+            background: rgba(30, 40, 60, 0.9);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #f7fafc;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            cursor: pointer;
+            z-index: 99;
+            display: none;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        #hint-toggle:hover {
+            background: rgba(30, 40, 60, 1);
+            transform: translateY(-1px);
+        }
+
+        .navigation {
+            position: fixed;
+            top: 16px;
+            right: 16px;
+            z-index: 100;
+            display: flex;
+            gap: 8px;
+        }
+
+        .nav-link {
+            background: rgba(30, 40, 60, 0.9);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #f7fafc;
+            text-decoration: none;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        .nav-link:hover {
+            background: rgba(30, 40, 60, 1);
+            transform: translateY(-1px);
+        }
+
+        .title {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            background: linear-gradient(45deg, #ff6b9d, #c44569, #6c7b95);
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-align: center;
+        }
+
+        .description {
+            font-size: 14px;
+            line-height: 1.6;
+            margin-bottom: 15px;
+            opacity: 0.9;
+        }
+
+        .controls {
+            text-align: center;
+        }
+
+        .control-item {
+            margin: 8px 0;
+            font-size: 13px;
+            opacity: 0.8;
+        }
+
+        .emoji {
+            display: inline-block;
+            margin-right: 8px;
+        }
+
+        .highlight {
+            color: #ff6b9d;
+            font-weight: bold;
+        }
+
+        .navigation {
+            position: fixed;
+            top: 16px;
+            right: 20px;
+            z-index: 100;
+            display: flex;
+            gap: 8px;
+        }
+
+        .nav-link {
+            background: rgba(30, 40, 60, 0.9);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(139, 92, 246, 0.3);
+            color: #f7fafc;
+            text-decoration: none;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        .nav-link:hover {
+            background: rgba(139, 92, 246, 0.2);
+            transform: translateY(-1px);
+        }
+
+        .demo-links {
+            position: fixed;
+            bottom: 20px;
+            right: 100px;
+            z-index: 100;
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .demo-link {
+            padding: 8px 14px;
+            background: rgba(255, 255, 255, 0.15);
+            color: rgba(255, 255, 255, 0.95);
+            text-decoration: none;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            font-size: 11px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(15px) saturate(180%);
+            -webkit-backdrop-filter: blur(15px) saturate(180%);
+            box-shadow: 0 2px 8px rgba(139, 92, 246, 0.15),
+                        inset 0 1px 1px rgba(255, 255, 255, 0.3);
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+        }
+
+        .demo-link:hover {
+            background: rgba(255, 255, 255, 0.25);
+            border-color: rgba(255, 255, 255, 0.4);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(139, 92, 246, 0.25),
+                        inset 0 1px 2px rgba(255, 255, 255, 0.4);
+        }
+
+        #audio-status {
+            position: fixed;
+            top: 70px;
+            right: 20px;
+            z-index: 100;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .audio-active {
+            color: #4CAF50 !important;
+        }
+
+        .audio-inactive {
+            color: #ff6b9d !important;
+        }
+
+        .music-icon {
+            display: inline-block;
+            animation: music-pulse 2.5s ease-in-out infinite;
+            cursor: pointer;
+            color: #ff6b9d;
+            text-shadow: 0 0 10px currentColor;
+        }
+
+        .music-icon:hover {
+            transform: scale(1.3);
+            animation: music-dance 0.8s ease-in-out infinite;
+        }
+
+        @keyframes music-pulse {
+            0%, 100% {
+                transform: scale(1);
+                filter: brightness(1);
+            }
+            50% {
+                transform: scale(1.1);
+                filter: brightness(1.3);
+            }
+        }
+
+        @keyframes music-dance {
+            0%, 100% {
+                transform: scale(1.3) rotate(0deg);
+            }
+            25% {
+                transform: scale(1.4) rotate(-5deg);
+            }
+            75% {
+                transform: scale(1.4) rotate(5deg);
+            }
+        }
+
+        #info strong {
+            font-size: 13px;
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.98);
+            display: block;
+            margin-bottom: 10px;
+            text-align: center;
+            letter-spacing: 0.5px;
+            text-shadow: 0 2px 4px rgba(139, 92, 246, 0.3);
+        }
+
+        #info code {
+            background: rgba(255, 255, 255, 0.15);
+            color: rgba(255, 255, 255, 0.95);
+            padding: 3px 6px;
+            border-radius: 4px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+            font-size: 11px;
+            font-weight: 500;
+        }
+
+        .controls {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(255, 255, 255, 0.2);
+            font-size: 11px;
+        }
+
+        .control-item {
+            margin: 5px 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .key {
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            padding: 3px 8px;
+            border-radius: 5px;
+            font-weight: 500;
+            min-width: fit-content;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1),
+                        inset 0 1px 1px rgba(255, 255, 255, 0.3);
+        }
+
+        /* 統合メニュー */
+        .unified-menu {
+            position: fixed;
+            top: 16px;
+            right: 20px;
+            z-index: 1000;
+        }
+
+        .menu-toggle {
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #2d3748;
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-size: 18px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 4px 12px rgba(139, 92, 246, 0.2), 0 2px 6px rgba(0, 0, 0, 0.05);
+            width: 44px;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0.8;
+        }
+
+        .menu-toggle:hover {
+            background: rgba(255, 255, 255, 0.25);
+            border-color: rgba(255, 255, 255, 0.3);
+            transform: scale(1.1) translateY(-2px);
+            box-shadow: 0 6px 16px rgba(139, 92, 246, 0.3), 0 3px 8px rgba(0, 0, 0, 0.1);
+            opacity: 1;
+        }
+
+        .menu-dropdown {
+            position: absolute;
+            top: 56px;
+            right: 0;
+            min-width: 220px;
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(16px) saturate(180%);
+            -webkit-backdrop-filter: blur(16px) saturate(180%);
+            border: 1px solid rgba(139, 92, 246, 0.2);
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(139, 92, 246, 0.15), 0 4px 12px rgba(0, 0, 0, 0.08);
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(-10px);
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            overflow: hidden;
+        }
+
+        .menu-dropdown.active {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+        }
+
+        .menu-item {
+            display: block;
+            padding: 12px 16px;
+            color: #2d3748;
+            text-decoration: none;
+            font-size: 13px;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+            cursor: pointer;
+            background: none;
+            border-left: none;
+            border-right: none;
+            border-top: none;
+            width: 100%;
+            text-align: left;
+        }
+
+        .menu-item:last-child {
+            border-bottom: none;
+        }
+
+        .menu-item:hover {
+            background: rgba(139, 92, 246, 0.08);
+            padding-left: 20px;
+            border-left: 2px solid rgba(139, 92, 246, 0.4);
+        }
+
+        .menu-item.has-submenu {
+            position: relative;
+            padding: 0;
+            border: none;
+        }
+
+        .submenu-toggle {
+            display: block;
+            padding: 12px 16px;
+            color: #2d3748;
+            font-size: 13px;
+            background: none;
+            border: none;
+            width: 100%;
+            text-align: left;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+        }
+
+        .submenu-toggle:hover {
+            background: rgba(139, 92, 246, 0.08);
+            padding-left: 20px;
+            border-left: 2px solid rgba(139, 92, 246, 0.4);
+        }
+
+        .submenu {
+            display: none;
+            background: rgba(139, 92, 246, 0.03);
+            border-top: 1px solid rgba(139, 92, 246, 0.1);
+        }
+
+        .submenu.active {
+            display: block;
+        }
+
+        .submenu .menu-item {
+            padding-left: 32px;
+            font-size: 12px;
+        }
+
+        .submenu .menu-item:hover {
+            padding-left: 36px;
+            background: rgba(139, 92, 246, 0.12);
+        }
+
+        /* メニューアイコンのバウンスアニメーション */
+        .menu-icon {
+            display: inline-block;
+            animation: menu-bounce 2s ease-in-out infinite;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+            text-shadow: 0 0 10px currentColor;
+        }
+
+        .menu-icon:hover {
+            transform: scale(1.4);
+            animation: menu-bounce-fast 0.8s ease-in-out infinite;
+        }
+
+        @keyframes menu-bounce {
+            0%, 100% {
+                filter: brightness(1) drop-shadow(0 0 8px currentColor);
+                transform: scale(1) translateY(0px);
+            }
+            25% {
+                filter: brightness(1.3) drop-shadow(0 0 15px currentColor);
+                transform: scale(1.1) translateY(-4px);
+            }
+            50% {
+                filter: brightness(1.5) drop-shadow(0 0 20px currentColor);
+                transform: scale(1.15) translateY(-8px);
+            }
+            75% {
+                filter: brightness(1.3) drop-shadow(0 0 15px currentColor);
+                transform: scale(1.1) translateY(-4px);
+            }
+        }
+
+        @keyframes menu-bounce-fast {
+            0%, 100% {
+                filter: brightness(1.4) drop-shadow(0 0 15px currentColor);
+                transform: translateY(0px);
+            }
+            50% {
+                filter: brightness(1.8) drop-shadow(0 0 25px currentColor);
+                transform: translateY(-12px);
+            }
+        }
+
+        /* ChocoDrop 動画要素が花に埋もれないようにする */
+        video {
+            z-index: 20 !important;
+            position: relative !important;
+        }
+
+        /* ChocoDrop UI要素のz-index */
+        .chocodrop-ui, .chocodrop-overlay {
+            z-index: 100 !important;
+        }
+    </style>
+<style>#info,#hint-toggle,.unified-menu,#audio-status,#live-command-ui,#chocodrop-onboarding,.chocodrop-toggle{display:none!important}</style></head>
+<body>
+<button id="sample-music" aria-pressed="false" style="position:fixed;bottom:22px;left:50%;transform:translateX(-50%);z-index:10000;background:#ead4ff;color:#281b34;border:1px solid #fff;border-radius:24px;padding:14px 20px;cursor:pointer;max-width:90%;width:max-content">♪ サンプル音で花を咲かせる</button>
+    <!-- 統合メニュー -->
+    <div class="unified-menu">
+        <button class="menu-toggle" id="unifiedMenuToggle" aria-label="Menu">☰</button>
+        <div class="menu-dropdown" id="unifiedMenuDropdown">
+            <button class="menu-item" id="showInfoBtn"><span class="menu-icon">📖</span> このワールドについて</button>
+
+            <div class="menu-item has-submenu">
+                <button class="submenu-toggle" id="worldsMenuToggle"><span class="menu-icon">🌍</span> 世界選択 <span style="font-size: 10px;">▼</span></button>
+                <div class="submenu" id="worldsSubmenu">
+                    <a href="../basic/index.html" class="menu-item"><span class="menu-icon">🍫</span> はじまりの国</a>
+                    <a href="../pixel-ocean/index.html" class="menu-item"><span class="menu-icon">🌊</span> 海底世界</a>
+                    <a href="../wabi-sabi/index.html" class="menu-item"><span class="menu-icon">🖤</span> 侘び寂びの世界</a>
+                    <a href="../space/index.html" class="menu-item"><span class="menu-icon">🌌</span> 宇宙空間</a>
+                    <a href="../toy-city/index.html" class="menu-item"><span class="menu-icon">🎡</span> AI遊園地</a>
+                    <a href="index.html" class="menu-item"><span class="menu-icon">🌸</span> 硝子の花（現在地）</a>
+                </div>
+            </div>
+
+            <a href="../../index.html" class="menu-item"><span class="menu-icon">🏠</span> Home</a>
+            <a href="https://github.com/nyukicorn/chocodrop" class="menu-item" target="_blank"><span class="menu-icon">🔗</span> GitHub</a>
+
+            <button class="menu-item" id="vrMenuButton"><span class="menu-icon">🥽</span> VR</button>
+            <button class="menu-item" id="arMenuButton"><span class="menu-icon">🥽</span> AR</button>
+        </div>
+    </div>
+
+    <!-- Navigation Links (hidden - replaced by unified menu) -->
+    <div class="navigation" style="display: none;">
+        <a href="../../index.html" class="nav-link">🏠 Home</a>
+        <a href="https://github.com/nyukicorn/chocodrop" class="nav-link" target="_blank">📦 GitHub</a>
+    </div>
+
+    <!-- Hint Toggle Button (initially hidden) -->
+    <button id="hint-toggle">💡</button>
+
+    <!-- Main Info Panel -->
+    <div id="info">
+        <button class="close-btn" onclick="hideInfoPanel()">×</button>
+        <strong>🌸 硝子のかけらの花へようこそ</strong>
+
+        <div style="font-size: 11px; opacity: 0.9; margin-bottom: 12px; line-height: 1.6; text-align: center; font-style: italic;">
+            散らばった硝子のかけらたちが集まり寄り添い、新たな花をそっと咲かせる世界
+        </div>
+
+        💡 基本操作:<br>
+        1. 動画や画像をインポートしてみて！<br>
+        2. ✨ 音楽を鳴らすと硝子の花たちがキラキラと呼吸を始めます<br>
+        3. 視点操作: ChocoDrop を最小化してドラッグ<br>
+        4. オブジェクトをクリック → WASDキーで移動<br>
+
+        <div class="controls">
+            <div class="control-item">
+                <span class="key">@</span>
+                <span>ChocoDrop起動</span>
+            </div>
+            <div class="control-item">
+                <span class="key">🍫</span>
+                <span>右下ボタンからも起動可</span>
+            </div>
+        </div>
+    </div>
+
+    <div id="audio-status" class="audio-inactive">🎤 音声待機中...</div>
+
+    <!-- Demo Links (hidden - replaced by unified menu) -->
+    <div class="demo-links" style="display: none;">
+        <a href="../basic/index.html" class="demo-link">🍫 はじまりの国</a>
+        <a href="../pixel-ocean/index.html" class="demo-link">🌊 海底世界</a>
+        <a href="../wabi-sabi/index.html" class="demo-link">🖤 侘び寂び</a>
+        <a href="../space/index.html" class="demo-link">🌌 宇宙空間</a>
+        <a href="../toy-city/index.html" class="demo-link">🎡 AI遊園地</a>
+    </div>
+
+    <!-- Three.js + ChocoDrop (module preload) -->
+    <script type="module">
+    import ensureChocoDrop from '../../public/load-chocodrop.js';
+
+    // 🎯 情報パネル制御を先行初期化してUXを安定化
+    let autoHideTimer = null;
+
+    const getInfoPanel = () => document.getElementById('info');
+    const getHintToggle = () => document.getElementById('hint-toggle');
+
+    const clearInfoPanelAutoHide = () => {
+        if (autoHideTimer) {
+            clearTimeout(autoHideTimer);
+            autoHideTimer = null;
+        }
+    };
+
+    const scheduleInfoPanelAutoHide = () => {
+        clearInfoPanelAutoHide();
+        autoHideTimer = window.setTimeout(() => {
+            if (typeof window.hideInfoPanel === 'function') {
+                window.hideInfoPanel();
+            }
+        }, 30000);
+    };
+
+    window.hideInfoPanel = function hideInfoPanel() {
+        const infoPanel = getInfoPanel();
+        if (!infoPanel) {
+            clearInfoPanelAutoHide();
+            return;
+        }
+
+        infoPanel.classList.add('hidden');
+        window.setTimeout(() => {
+            if (infoPanel.classList.contains('hidden')) {
+                infoPanel.style.display = 'none';
+                const hintToggle = getHintToggle();
+                if (hintToggle) {
+                    hintToggle.style.display = 'block';
+                }
+            }
+        }, 300);
+
+        clearInfoPanelAutoHide();
+    };
+
+    window.showInfoPanel = function showInfoPanel() {
+        const infoPanel = getInfoPanel();
+        if (!infoPanel) {
+            return;
+        }
+
+        const hintToggle = getHintToggle();
+        if (hintToggle) {
+            hintToggle.style.display = 'none';
+        }
+
+        infoPanel.style.display = 'block';
+        window.requestAnimationFrame(() => {
+            infoPanel.classList.remove('hidden');
+        });
+
+        scheduleInfoPanelAutoHide();
+    };
+
+    const initialHintToggle = getHintToggle();
+    if (initialHintToggle) {
+        initialHintToggle.addEventListener('click', window.showInfoPanel);
+    }
+
+    (async () => {
+    await ensureChocoDrop();
+
+    const THREE = window.THREE;
+    const ChocoDrop = window.ChocoDrop;
+
+    // 統合メニューの制御
+
+        (function() {
+            const menuToggle = document.getElementById('unifiedMenuToggle');
+            const menuDropdown = document.getElementById('unifiedMenuDropdown');
+            const worldsMenuToggle = document.getElementById('worldsMenuToggle');
+            const worldsSubmenu = document.getElementById('worldsSubmenu');
+            const showInfoBtn = document.getElementById('showInfoBtn');
+            const infoPanel = document.getElementById('info');
+
+            // 初回訪問チェック - localStorage使用
+            const FIRST_VISIT_KEY = 'music_garden_visited';
+            const hasVisited = localStorage.getItem(FIRST_VISIT_KEY);
+
+            if (!hasVisited) {
+                // 初回訪問時は情報パネルを表示
+                if (infoPanel) {
+                    infoPanel.style.display = 'block';
+                }
+                localStorage.setItem(FIRST_VISIT_KEY, 'true');
+            } else {
+                // 2回目以降は非表示
+                if (infoPanel) {
+                    infoPanel.style.display = 'none';
+                }
+            }
+
+            // 統合メニューのトグル
+            if (menuToggle && menuDropdown) {
+                menuToggle.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    menuDropdown.classList.toggle('active');
+                });
+
+                // 外側クリックで閉じる
+                document.addEventListener('click', (e) => {
+                    if (!menuToggle.contains(e.target) && !menuDropdown.contains(e.target)) {
+                        menuDropdown.classList.remove('active');
+                        // サブメニューも閉じる
+                        if (worldsSubmenu) {
+                            worldsSubmenu.classList.remove('active');
+                        }
+                    }
+                });
+
+                // Escキーで閉じる
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'Escape') {
+                        menuDropdown.classList.remove('active');
+                        if (worldsSubmenu) {
+                            worldsSubmenu.classList.remove('active');
+                        }
+                    }
+                });
+            }
+
+            // 世界選択サブメニューのトグル
+            if (worldsMenuToggle && worldsSubmenu) {
+                worldsMenuToggle.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    worldsSubmenu.classList.toggle('active');
+                });
+            }
+
+            // 情報パネル表示ボタン
+            if (showInfoBtn) {
+                showInfoBtn.addEventListener('click', () => {
+                    // グローバルに定義された showInfoPanel() を呼び出す
+                    if (typeof showInfoPanel === 'function') {
+                        showInfoPanel();
+                    } else {
+                        // フォールバック: 直接表示
+                        const panel = document.getElementById('info');
+                        if (panel) {
+                            panel.style.display = 'block';
+                            panel.classList.remove('hidden');
+                        }
+                    }
+                    menuDropdown.classList.remove('active');
+                });
+            }
+
+            // VR/ARボタンは後でThree.jsのrendererと連携
+            // グローバル変数として保存
+            window.unifiedMenuVRButton = document.getElementById('vrMenuButton');
+            window.unifiedMenuARButton = document.getElementById('arMenuButton');
+        })();
+
+        // VR/AR Button inline implementation
+        // VRButton implementation
+        const VRButton = {
+            createButton: function(renderer) {
+                const button = document.createElement('button');
+
+                function showEnterVR() {
+                    button.style.display = '';
+                    button.style.cursor = 'pointer';
+                    button.style.left = 'calc(50% - 50px)';
+                    button.style.width = '100px';
+                    button.textContent = 'ENTER VR';
+                    button.onmouseenter = function() { button.style.opacity = '1.0'; };
+                    button.onmouseleave = function() { button.style.opacity = '0.5'; };
+                    button.onclick = function() {
+                        const session = renderer.xr.getSession();
+                        if (session) {
+                            session.end();
+                        } else {
+                            navigator.xr.requestSession('immersive-vr', {
+                                optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking']
+                            }).then(session => {
+                                renderer.xr.setSession(session);
+                                button.textContent = 'EXIT VR';
+
+                                session.addEventListener('end', () => {
+                                    button.textContent = 'ENTER VR';
+                                });
+                            }).catch(err => {
+                                console.error('VR session failed:', err);
+                            });
+                        }
+                    };
+                }
+
+                function showWebXRNotFound() {
+                    button.style.display = '';
+                    button.style.cursor = 'auto';
+                    button.style.left = 'calc(50% - 75px)';
+                    button.style.width = '150px';
+                    button.textContent = 'VR NOT SUPPORTED';
+                    button.onmouseenter = null;
+                    button.onmouseleave = null;
+                    button.onclick = null;
+                }
+
+                button.style.position = 'absolute';
+                button.style.bottom = '20px';
+                button.style.padding = '12px 6px';
+                button.style.border = '1px solid #fff';
+                button.style.borderRadius = '4px';
+                button.style.background = 'rgba(0,0,0,0.1)';
+                button.style.color = '#fff';
+                button.style.font = 'normal 13px sans-serif';
+                button.style.textAlign = 'center';
+                button.style.opacity = '0.5';
+                button.style.outline = 'none';
+                button.style.zIndex = '999';
+
+                if ('xr' in navigator) {
+                    navigator.xr.isSessionSupported('immersive-vr').then(supported => {
+                        supported ? showEnterVR() : showWebXRNotFound();
+                    });
+                } else {
+                    showWebXRNotFound();
+                }
+
+                return button;
+            }
+        };
+
+        // ARButton implementation
+        const ARButton = {
+            createButton: function(renderer, options) {
+                const button = document.createElement('button');
+
+                function showEnterAR() {
+                    button.style.display = '';
+                    button.style.cursor = 'pointer';
+                    button.style.left = 'calc(50% - 50px)';
+                    button.style.width = '100px';
+                    button.textContent = 'ENTER AR';
+                    button.onmouseenter = function() { button.style.opacity = '1.0'; };
+                    button.onmouseleave = function() { button.style.opacity = '0.5'; };
+                    button.onclick = function() {
+                        const session = renderer.xr.getSession();
+                        if (session) {
+                            session.end();
+                        } else {
+                            navigator.xr.requestSession('immersive-ar', {
+                                optionalFeatures: ['hit-test', 'dom-overlay', 'local-floor'],
+                                domOverlay: options?.domOverlay || { root: document.body }
+                            }).then(session => {
+                                renderer.xr.setSession(session);
+                                button.textContent = 'EXIT AR';
+
+                                session.addEventListener('end', () => {
+                                    button.textContent = 'ENTER AR';
+                                });
+                            }).catch(err => {
+                                console.error('AR session failed:', err);
+                                alert('AR not supported: ' + err.message);
+                            });
+                        }
+                    };
+                }
+
+                function showWebXRNotFound() {
+                    button.style.display = '';
+                    button.style.cursor = 'auto';
+                    button.style.left = 'calc(50% - 75px)';
+                    button.style.width = '150px';
+                    button.textContent = 'AR NOT SUPPORTED';
+                    button.onmouseenter = null;
+                    button.onmouseleave = null;
+                    button.onclick = null;
+                }
+
+                button.style.position = 'absolute';
+                button.style.bottom = '70px';
+                button.style.padding = '12px 6px';
+                button.style.border = '1px solid #fff';
+                button.style.borderRadius = '4px';
+                button.style.background = 'rgba(0,0,0,0.1)';
+                button.style.color = '#fff';
+                button.style.font = 'normal 13px sans-serif';
+                button.style.textAlign = 'center';
+                button.style.opacity = '0.5';
+                button.style.outline = 'none';
+                button.style.zIndex = '999';
+
+                if ('xr' in navigator) {
+                    navigator.xr.isSessionSupported('immersive-ar').then(supported => {
+                        supported ? showEnterAR() : showWebXRNotFound();
+                    });
+                } else {
+                    showWebXRNotFound();
+                }
+
+                return button;
+            }
+        };
+
+        console.log('✅ VRButton/ARButton inline implementation loaded');
+
+        console.log('🌸 Music Garden Loading...');
+        console.log('THREE loaded:', typeof THREE !== 'undefined');
+
+        // Basic Three.js setup
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.setClearColor(0x0a0f1e, 1);  // 深い青紫の背景
+        renderer.xr.enabled = true; // VR/AR有効化
+
+        // Three.js キャンバスのz-indexを設定（動画より背景に配置）
+        renderer.domElement.style.position = 'fixed';
+        renderer.domElement.style.top = '0';
+        renderer.domElement.style.left = '0';
+        renderer.domElement.style.zIndex = '1';
+
+        document.body.appendChild(renderer.domElement);
+
+        // VR/ARボタンを統合メニューと連携（bodyには追加しない）
+        if (typeof VRButton !== 'undefined' && window.unifiedMenuVRButton) {
+            console.log('✅ VRButton script loaded - connecting to unified menu');
+
+            // VRセッション開始関数を作成
+            function startVRSession() {
+                if ('xr' in navigator) {
+                    navigator.xr.isSessionSupported('immersive-vr').then(supported => {
+                        if (supported) {
+                            const sessionInit = { optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking', 'layers'] };
+                            navigator.xr.requestSession('immersive-vr', sessionInit).then(session => {
+                                session.addEventListener('end', () => {
+                                    renderer.xr.setSession(null);
+                                });
+                                renderer.xr.setSession(session);
+                            });
+                        } else {
+                            console.log('VR not supported on this device');
+                        }
+                    });
+                }
+            }
+
+            window.unifiedMenuVRButton.onclick = startVRSession;
+
+            // サポートチェック - 未サポートの場合はボタンを非表示に
+            if ('xr' in navigator) {
+                navigator.xr.isSessionSupported('immersive-vr').then(supported => {
+                    if (!supported) {
+                        window.unifiedMenuVRButton.style.display = 'none';
+                    }
+                });
+            } else {
+                window.unifiedMenuVRButton.style.display = 'none';
+            }
+        } else {
+            console.log('❌ VRButton script not loaded or menu button not found');
+            if (window.unifiedMenuVRButton) {
+                window.unifiedMenuVRButton.style.display = 'none';
+            }
+        }
+
+        if (typeof ARButton !== 'undefined' && window.unifiedMenuARButton) {
+            console.log('✅ ARButton script loaded - connecting to unified menu');
+
+            // ARセッション開始関数を作成
+            function startARSession() {
+                if ('xr' in navigator) {
+                    navigator.xr.isSessionSupported('immersive-ar').then(supported => {
+                        if (supported) {
+                            const sessionInit = {
+                                requiredFeatures: ['hit-test'],
+                                optionalFeatures: ['dom-overlay'],
+                                domOverlay: { root: document.body }
+                            };
+                            navigator.xr.requestSession('immersive-ar', sessionInit).then(session => {
+                                session.addEventListener('end', () => {
+                                    renderer.xr.setSession(null);
+                                });
+                                renderer.xr.setSession(session);
+                            });
+                        } else {
+                            console.log('AR not supported on this device');
+                        }
+                    });
+                }
+            }
+
+            window.unifiedMenuARButton.onclick = startARSession;
+
+            // サポートチェック - 未サポートの場合はボタンを非表示に
+            if ('xr' in navigator) {
+                navigator.xr.isSessionSupported('immersive-ar').then(supported => {
+                    if (!supported) {
+                        window.unifiedMenuARButton.style.display = 'none';
+                    }
+                });
+            } else {
+                window.unifiedMenuARButton.style.display = 'none';
+            }
+        } else {
+            console.log('❌ ARButton script not loaded or menu button not found');
+            if (window.unifiedMenuARButton) {
+                window.unifiedMenuARButton.style.display = 'none';
+            }
+        }
+
+        // 🌸 音楽に反応する花を作成（パーティクルで構成された花）
+        function createMusicFlower(x, y, z, scale = 1) {
+            const flowerGroup = new THREE.Group();
+
+            // パーティクルの総数
+            const particleCount = 12000;
+            const positions = new Float32Array(particleCount * 3);
+            const colors = new Float32Array(particleCount * 3);
+            const sizes = new Float32Array(particleCount);
+
+            // ガラスのような透明な花びらの形状を作成
+            const petalCount = 7; // 7枚の花びら
+
+            for (let i = 0; i < particleCount; i++) {
+                // 中心からの距離（0=中心、1=外側）
+                const radiusProgress = Math.pow(Math.random(), 0.4);
+                const maxRadius = 3.5 * scale; // より大きく広げる
+                const baseRadius = radiusProgress * maxRadius;
+
+                // 角度
+                const angle = Math.random() * Math.PI * 2;
+
+                // どの花びらに属するか
+                const petalAngle = (angle / (Math.PI * 2)) * petalCount;
+                const petalIndex = Math.floor(petalAngle);
+
+                // 花びらの中心角度
+                const petalCenterAngle = (petalIndex / petalCount) * Math.PI * 2;
+                const angleFromPetalCenter = angle - petalCenterAngle;
+
+                // 花びらの形状：より広く、波打つ形
+                const normalizedAngle = angleFromPetalCenter / (Math.PI * 2 / petalCount);
+
+                // 花びらの基本幅（より広く）
+                const petalWidthBase = Math.exp(-Math.pow(normalizedAngle * 3.5, 2)) * 0.8;
+
+                // 花びらの先端に向かって広がる
+                const petalExpansion = Math.pow(radiusProgress, 0.7) * 1.2;
+                const petalWidth = petalWidthBase * petalExpansion;
+
+                // 最終的な半径（花びらの形状を適用）
+                const radius = baseRadius * (1 + petalWidth);
+
+                // XY座標
+                let px = Math.cos(angle) * radius;
+                let py = Math.sin(angle) * radius;
+
+                // Z座標：大きく立体的に湾曲（ガラスのような波打つ形）
+                let pz = 0;
+
+                if (radiusProgress < 0.08) {
+                    // 中心部：少し盛り上がる
+                    pz = (0.08 - radiusProgress) * 2 * scale;
+                } else {
+                    // 花びら部分：大きく波打つ
+                    const wave = Math.sin(radiusProgress * Math.PI);
+                    const petalCurvature = Math.exp(-Math.pow(normalizedAngle * 2.5, 2));
+
+                    // 花びらが大きく上下に広がる
+                    const verticalSpread = wave * petalCurvature * 2.5 * scale;
+
+                    // 花びらの波打ち（ガラスのような不規則な波）
+                    const ripple = Math.sin(radiusProgress * Math.PI * 3 + angle * 2) * 0.3;
+
+                    // 花びらの先端が優雅に反る
+                    const tipCurl = Math.pow(radiusProgress, 2) * 1.2;
+
+                    pz = verticalSpread + ripple * scale + tipCurl * scale;
+                }
+
+                // より大きなノイズで有機的な質感
+                px += (Math.random() - 0.5) * 0.06 * scale;
+                py += (Math.random() - 0.5) * 0.06 * scale;
+                pz += (Math.random() - 0.5) * 0.08 * scale;
+
+                positions[i * 3] = px;
+                positions[i * 3 + 1] = py;
+                positions[i * 3 + 2] = pz;
+
+                // ガラスのような透明感のあるパステルグラデーション
+                let hue, saturation, lightness;
+
+                if (radiusProgress < 0.08) {
+                    // 中心：柔らかい黄色
+                    const t = radiusProgress / 0.08;
+                    hue = 0.12;
+                    saturation = 0.6 - t * 0.2;
+                    lightness = 0.85 - t * 0.1;
+                } else {
+                    // 花びら部分：パステルピンク→ラベンダー→ブルー
+                    const t = (radiusProgress - 0.08) / (1.0 - 0.08);
+
+                    // 色相を滑らかに変化（パステルトーン）
+                    if (t < 0.3) {
+                        // パステルピンク
+                        const localT = t / 0.3;
+                        hue = 0.92 + localT * 0.05;
+                        saturation = 0.3 + localT * 0.15;
+                        lightness = 0.85 - localT * 0.1;
+                    } else if (t < 0.6) {
+                        // ピンク→ラベンダー
+                        const localT = (t - 0.3) / 0.3;
+                        hue = 0.97 - localT * 0.15;
+                        saturation = 0.45 + localT * 0.1;
+                        lightness = 0.75 - localT * 0.05;
+                    } else {
+                        // ラベンダー→アイスブルー
+                        const localT = (t - 0.6) / 0.4;
+                        hue = 0.82 - localT * 0.3;
+                        saturation = 0.55 - localT * 0.15;
+                        lightness = 0.70 + localT * 0.05;
+                    }
+                }
+
+                // 微細なバリエーションで自然な透明感
+                hue += (Math.random() - 0.5) * 0.03;
+                saturation += (Math.random() - 0.5) * 0.08;
+                lightness += (Math.random() - 0.5) * 0.06;
+
+                const color = new THREE.Color().setHSL(
+                    (hue + 1) % 1,
+                    Math.max(0, Math.min(1, saturation)),
+                    Math.max(0.4, Math.min(0.95, lightness)) // より明るく
+                );
+
+                colors[i * 3] = color.r;
+                colors[i * 3 + 1] = color.g;
+                colors[i * 3 + 2] = color.b;
+
+                // パーティクルのサイズ（中心部分は小さく、外側に向かって大きく）
+                const particleSize = 0.08 + radiusProgress * 0.12;
+                sizes[i] = particleSize * scale * (0.9 + Math.random() * 0.2);
+            }
+
+            const geometry = new THREE.BufferGeometry();
+            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+            geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+
+            // 元の色を保存（音楽反応で色を変えた後に戻すため）
+            const originalColors = new Float32Array(colors.length);
+            for (let i = 0; i < colors.length; i++) {
+                originalColors[i] = colors[i];
+            }
+
+            // 元の位置を保存（音楽反応で広がった後に戻すため）
+            const originalPositions = new Float32Array(positions.length);
+            for (let i = 0; i < positions.length; i++) {
+                originalPositions[i] = positions[i];
+            }
+
+            const material = new THREE.PointsMaterial({
+                size: 0.18 * scale,
+                vertexColors: true,
+                transparent: true,
+                opacity: 0.6, // より透明に
+                blending: THREE.NormalBlending, // ガラスのような自然なブレンド
+                sizeAttenuation: true,
+                depthWrite: false,
+                map: createCircleTexture() // 円形テクスチャで滑らかに
+            });
+
+            // 円形テクスチャを作成（グロー効果）
+            function createCircleTexture() {
+                const canvas = document.createElement('canvas');
+                canvas.width = 64;
+                canvas.height = 64;
+                const ctx = canvas.getContext('2d');
+
+                const gradient = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+                gradient.addColorStop(0, 'rgba(255,255,255,1)');
+                gradient.addColorStop(0.3, 'rgba(255,255,255,0.8)');
+                gradient.addColorStop(0.6, 'rgba(255,255,255,0.3)');
+                gradient.addColorStop(1, 'rgba(255,255,255,0)');
+
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, 64, 64);
+
+                const texture = new THREE.Texture(canvas);
+                texture.needsUpdate = true;
+                return texture;
+            }
+
+            const particles = new THREE.Points(geometry, material);
+            flowerGroup.add(particles);
+
+            const allPetals = [particles];
+            const allBaseColors = [];
+            const centerPetals = [];
+
+            // 追加のキラキラエフェクト用パーティクル
+            const sparkleCount = 500; // 大幅に増やす
+            const sparklePositions = new Float32Array(sparkleCount * 3);
+            const sparkleColors = new Float32Array(sparkleCount * 3);
+            const sparkleSizes = new Float32Array(sparkleCount);
+            const sparklePhases = new Float32Array(sparkleCount); // アニメーション用の位相
+
+            for (let i = 0; i < sparkleCount; i++) {
+                const r = Math.random() * 4.5 * scale; // より広範囲に
+                const theta = Math.random() * Math.PI * 2;
+                const zOffset = (Math.random() - 0.5) * 4 * scale; // より高低差をつける
+
+                sparklePositions[i * 3] = Math.cos(theta) * r;
+                sparklePositions[i * 3 + 1] = Math.sin(theta) * r;
+                sparklePositions[i * 3 + 2] = zOffset;
+
+                // パステルカラーでキラキラ（より明るく）
+                const hue = Math.random() * 0.3 + 0.5; // 青〜ピンク系
+                const color = new THREE.Color().setHSL(hue, 0.6, 0.85); // 明度を上げる
+                sparkleColors[i * 3] = color.r;
+                sparkleColors[i * 3 + 1] = color.g;
+                sparkleColors[i * 3 + 2] = color.b;
+
+                sparkleSizes[i] = (0.04 + Math.random() * 0.08) * scale;
+                sparklePhases[i] = Math.random() * Math.PI * 2; // ランダムな位相
+            }
+
+            const sparkleGeometry = new THREE.BufferGeometry();
+            sparkleGeometry.setAttribute('position', new THREE.BufferAttribute(sparklePositions, 3));
+            sparkleGeometry.setAttribute('color', new THREE.BufferAttribute(sparkleColors, 3));
+
+            // キラキラ用の円形テクスチャを作成
+            function createSparkleTexture() {
+                const canvas = document.createElement('canvas');
+                canvas.width = 64;
+                canvas.height = 64;
+                const ctx = canvas.getContext('2d');
+
+                // より明るく光るグラデーション
+                const gradient = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+                gradient.addColorStop(0, 'rgba(255,255,255,1)');
+                gradient.addColorStop(0.1, 'rgba(255,255,255,1)');
+                gradient.addColorStop(0.3, 'rgba(255,255,255,0.9)');
+                gradient.addColorStop(0.6, 'rgba(255,255,255,0.5)');
+                gradient.addColorStop(1, 'rgba(255,255,255,0)');
+
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, 64, 64);
+
+                const texture = new THREE.Texture(canvas);
+                texture.needsUpdate = true;
+                return texture;
+            }
+
+            const sparkleMaterial = new THREE.PointsMaterial({
+                size: 0.12 * scale, // より大きく
+                vertexColors: true,
+                transparent: true,
+                opacity: 0.85, // より明るく
+                blending: THREE.AdditiveBlending,
+                sizeAttenuation: true,
+                depthWrite: false,
+                map: createSparkleTexture() // 円形テクスチャでより美しく
+            });
+
+            const sparkles = new THREE.Points(sparkleGeometry, sparkleMaterial);
+            flowerGroup.add(sparkles);
+
+            // sparkleの位相データと元の位置も保存
+            const originalSparklePositions = new Float32Array(sparklePositions.length);
+            for (let i = 0; i < sparklePositions.length; i++) {
+                originalSparklePositions[i] = sparklePositions[i];
+            }
+
+            sparkles.userData = {
+                phases: sparklePhases,
+                originalPositions: originalSparklePositions
+            };
+
+            flowerGroup.position.set(x, y, z);
+
+            // アニメーション用データ
+            flowerGroup.userData = {
+                originalScale: scale,
+                mainParticles: particles,
+                sparkles: sparkles,
+                pulsePhase: Math.random() * Math.PI * 2,
+                originalColors: originalColors, // 元の色を保存
+                originalPositions: originalPositions // 元の位置を保存
+            };
+
+            return flowerGroup;
+        }
+
+        // 🎵 Web Audio API セットアップ
+        let audioContext;
+        let analyser;
+        let dataArray;
+        let isAudioActive = false;
+
+        function initAudioContext() {
+            try {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                analyser = audioContext.createAnalyser();
+                analyser.fftSize = 256;
+                dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+                console.log('🎵 Audio context initialized');
+            } catch (error) {
+                console.warn('🚫 Audio context not supported:', error);
+            }
+        }
+
+        function connectVideoToAudio(videoElement) {
+            console.log('🔗 Attempting to connect video to audio...');
+            console.log('📺 Video element:', videoElement);
+
+            if (!audioContext || !analyser) {
+                console.warn('🚫 Audio context not initialized, initializing now...');
+                initAudioContext();
+                if (!audioContext || !analyser) {
+                    console.error('❌ Failed to initialize audio context');
+                    return;
+                }
+            }
+
+            try {
+                console.log('🔊 AudioContext state before connection:', audioContext.state);
+
+                // AudioContextがsuspendedの場合、再開する
+                if (audioContext.state === 'suspended') {
+                    console.log('⏸️ AudioContext is suspended, resuming...');
+                    audioContext.resume().then(() => {
+                        console.log('▶️ AudioContext resumed successfully');
+                    }).catch(err => {
+                        console.error('❌ Failed to resume AudioContext:', err);
+                    });
+                }
+
+                // 既に接続されている場合はスキップ
+                if (videoElement.audioSource) {
+                    console.log('✅ Video already connected to audio');
+                    return;
+                }
+
+                console.log('🎬 Creating MediaElementSource...');
+                const source = audioContext.createMediaElementSource(videoElement);
+                console.log('🎵 Connecting source to analyser...');
+                source.connect(analyser);
+                console.log('🔊 Connecting analyser to destination...');
+                analyser.connect(audioContext.destination);
+
+                // 接続済みマーク
+                videoElement.audioSource = source;
+
+                isAudioActive = true;
+                updateAudioStatus('🎤 音声解析中...', 'audio-active');
+                console.log('✅ Video successfully connected to audio analyser');
+
+                // 音声データのテスト
+                setTimeout(() => {
+                    if (analyser && dataArray) {
+                        analyser.getByteFrequencyData(dataArray);
+                        const testVolume = dataArray.reduce((sum, freq) => sum + freq, 0) / dataArray.length / 255;
+                        console.log('🧪 Audio test - Volume level:', testVolume);
+                        if (testVolume > 0.01) {
+                            console.log('🎵 Audio is being detected!');
+                        } else {
+                            console.log('🔇 No audio detected. Video might be muted or have no audio track.');
+                        }
+                    }
+                }, 1000);
+
+            } catch (error) {
+                console.error('❌ Failed to connect video to audio:', error);
+                console.log('Error details:', {
+                    name: error.name,
+                    message: error.message,
+                    stack: error.stack
+                });
+
+                if (error.name === 'InvalidStateError') {
+                    console.log('⚠️ InvalidStateError - Video already connected to another AudioContext!');
+                    console.log('💡 This means ChocoDrop is using its own AudioContext.');
+                    console.log('🔧 Trying alternative approach...');
+
+                    // 代替案：既存の audio から音声データをコピー
+                    tryAlternativeAudioConnection(videoElement);
+                } else if (error.name === 'NotSupportedError') {
+                    console.log('❌ NotSupportedError - Audio context creation failed');
+                } else {
+                    console.log('❓ Unknown error:', error.name);
+                }
+            }
+        }
+
+        function tryAlternativeAudioConnection(videoElement) {
+            console.log('🔄 Trying alternative audio connection method...');
+
+            // 方法1: Web Audio API を使わずに、直接 video の音量を監視
+            const alternativeMonitor = () => {
+                if (videoElement.paused) return;
+
+                // 簡易的な音量検出（完璧ではないが動作する）
+                const currentTime = videoElement.currentTime;
+                const duration = videoElement.duration;
+                const volume = videoElement.volume;
+
+                // 再生時間ベースの簡易パルス生成
+                const timeBasedVolume = Math.sin(currentTime * 10) * 0.3 + 0.7;
+
+                // 音楽が再生中なら花を反応させる
+                if (currentTime > 0 && !videoElement.paused && volume > 0) {
+                    // グローバル変数を設定して花のアニメーションを駆動
+                    window.alternativeAudioData = {
+                        volume: timeBasedVolume * volume,
+                        isActive: true,
+                        timestamp: Date.now()
+                    };
+
+                    if (!isAudioActive) {
+                        isAudioActive = true;
+                        updateAudioStatus('🎵 代替音声監視中...', 'audio-active');
+                        console.log('✅ Alternative audio monitoring started');
+                    }
+                }
+            };
+
+            // 100ms毎に監視
+            videoElement.alternativeMonitorInterval = setInterval(alternativeMonitor, 100);
+            console.log('🔄 Alternative audio monitoring interval started');
+        }
+
+        function updateAudioStatus(text, className) {
+            const status = document.getElementById('audio-status');
+            status.textContent = text;
+            status.className = className;
+        }
+
+        // 🌸 花畑を作成
+        const flowers = [];
+        const flowerPositions = [
+            [0, 0, 0],      // 中央
+            [-8, 2, -5],    // 左
+            [8, -1, -3],    // 右
+            [-3, -3, -8],   // 左奥
+            [5, 3, -6],     // 右奥
+            [0, 5, -10],    // 上奥
+            [-6, -2, 3],    // 左手前
+            [7, 1, 4]       // 右手前
+        ];
+
+        flowerPositions.forEach(pos => {
+            const flower = createMusicFlower(pos[0], pos[1], pos[2], 0.8 + Math.random() * 0.4);
+            flowers.push(flower);
+            scene.add(flower);
+        });
+
+        // 🎵 音楽反応で散るパーティクルシステム
+        const flyingParticles = [];
+        const maxFlyingParticles = 2000;
+
+        // 飛散パーティクル用のgeometry
+        const flyingGeometry = new THREE.BufferGeometry();
+        const flyingPositions = new Float32Array(maxFlyingParticles * 3);
+        const flyingColors = new Float32Array(maxFlyingParticles * 3);
+        const flyingSizes = new Float32Array(maxFlyingParticles);
+
+        flyingGeometry.setAttribute('position', new THREE.BufferAttribute(flyingPositions, 3));
+        flyingGeometry.setAttribute('color', new THREE.BufferAttribute(flyingColors, 3));
+        flyingGeometry.setAttribute('size', new THREE.BufferAttribute(flyingSizes, 1));
+
+        // 円形テクスチャを作成（グロー効果）
+        function createParticleTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 64;
+            canvas.height = 64;
+            const ctx = canvas.getContext('2d');
+
+            const gradient = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+            gradient.addColorStop(0, 'rgba(255,255,255,1)');
+            gradient.addColorStop(0.2, 'rgba(255,255,255,0.9)');
+            gradient.addColorStop(0.5, 'rgba(255,255,255,0.5)');
+            gradient.addColorStop(0.8, 'rgba(255,255,255,0.1)');
+            gradient.addColorStop(1, 'rgba(255,255,255,0)');
+
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, 64, 64);
+
+            const texture = new THREE.Texture(canvas);
+            texture.needsUpdate = true;
+            return texture;
+        }
+
+        const flyingMaterial = new THREE.PointsMaterial({
+            size: 0.15,
+            vertexColors: true,
+            transparent: true,
+            opacity: 0.9,
+            blending: THREE.AdditiveBlending,
+            sizeAttenuation: true,
+            depthWrite: false,
+            map: createParticleTexture()
+        });
+
+        const flyingPoints = new THREE.Points(flyingGeometry, flyingMaterial);
+        scene.add(flyingPoints);
+
+        // ✨ 環境光（全体を柔らかく照らす）
+        const ambientLight = new THREE.AmbientLight(0x8090c0, 0.6);
+        scene.add(ambientLight);
+
+        // 🌟 メインのポイントライト（花を美しく照らす）
+        const pointLight = new THREE.PointLight(0xffffff, 1.5, 50);
+        pointLight.position.set(0, 10, 5);
+        scene.add(pointLight);
+
+        // 追加のライト1（パステルピンク）
+        const spotLight1 = new THREE.SpotLight(0xffc0e0, 0.6);
+        spotLight1.position.set(-10, 10, 10);
+        spotLight1.target.position.set(0, 0, 0);
+        scene.add(spotLight1);
+        scene.add(spotLight1.target);
+
+        // 追加のライト2（パステルブルー）
+        const spotLight2 = new THREE.SpotLight(0xb0c5ff, 0.5);
+        spotLight2.position.set(10, 8, -5);
+        spotLight2.target.position.set(0, 0, 0);
+        scene.add(spotLight2);
+        scene.add(spotLight2.target);
+
+        // 📷 カメラ設定（花の美しさが際立つ位置）
+        camera.position.set(-1, 6, 11);  // 少し左側から見る
+        camera.lookAt(0, 0.5, 0);  // 少し上を見る
+
+        // 🎮 コントロール
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.minDistance = 4;  // もう少し近づけるように
+        controls.maxDistance = 28;
+        controls.target.set(0, 0.5, 0);  // 花畑の少し上を見る
+
+        // 🍫 ChocoDrop初期化
+        console.log('🔍 Pre-ChocoDrop system check:');
+        console.log('  - AudioContext support:', typeof AudioContext !== 'undefined' || typeof webkitAudioContext !== 'undefined');
+        console.log('  - Video elements before ChocoDrop:', document.querySelectorAll('video').length);
+
+        const chocoDrop = ChocoDrop.createChocoDrop(scene, {
+            camera: camera,
+            renderer: renderer,
+            // GitHub Pagesなので生成機能なし、インポートのみ
+            serverUrl: null,
+            enableServerHealthCheck: false,  // サーバーレス環境なのでヘルスチェック無効
+            skipServiceDialog: true,
+            uiOptions: { showGuidedOnboarding: false }, // GitHub Pages用：サービス設定ダイアログを無効化
+            sceneOptions: {
+                enableMouseInteraction: true
+            },
+            onControlsToggle: (disabled) => {
+                controls.enabled = !disabled;
+            },
+            onVideoAdded: (videoObject) => {
+                console.log('🎬 Video object added to scene:', videoObject);
+                console.log('🔍 Video object type:', typeof videoObject);
+                console.log('🔍 Video object constructor:', videoObject.constructor.name);
+
+                // 🚨 重要: onVideoAddedが呼ばれていることを確認
+                console.log('🚨 onVideoAdded callback was triggered!');
+                console.log('🔍 DOM video elements at callback time:', document.querySelectorAll('video').length);
+
+                // 🔍 ChocoDrop Three.js オブジェクト詳細調査
+                console.log('🔍 Video object properties:', Object.keys(videoObject));
+                console.log('🔍 Video object material:', videoObject.material);
+                console.log('🔍 Video object material map:', videoObject.material?.map);
+                console.log('🔍 Video object userData:', videoObject.userData);
+                console.log('🔍 Video object children:', videoObject.children);
+
+                // 🔍 Scene内の全オブジェクトを調査
+                console.log('🔍 Scene children count:', scene.children.length);
+                scene.traverse((child) => {
+                    if (child.material && child.material.map && child.material.map.image) {
+                        console.log('🔍 Found textured object:', child);
+                        console.log('🔍 Texture image:', child.material.map.image);
+                        console.log('🔍 Image tagName:', child.material.map.image.tagName);
+                    }
+                });
+
+                // ChocoDrop オブジェクトから video 要素を直接取得する試み
+                if (videoObject && videoObject.userData && videoObject.userData.videoElement) {
+                    console.log('✅ Found video element in userData:', videoObject.userData.videoElement);
+                    connectVideoToAudio(videoObject.userData.videoElement);
+                    return;
+                }
+
+                // MaterialのmapからvideoElementを探す
+                if (videoObject.material && videoObject.material.map && videoObject.material.map.image) {
+                    const videoEl = videoObject.material.map.image;
+                    if (videoEl.tagName === 'VIDEO') {
+                        console.log('✅ Found video element in material.map.image:', videoEl);
+                        connectVideoToAudio(videoEl);
+                        return;
+                    }
+                }
+
+                // ChocoDrop は Three.js オブジェクトを返すので、実際のvideo要素を探す
+                console.log('🔍 Searching for video elements in 500ms...');
+                setTimeout(() => {
+                    const videoElements = document.querySelectorAll('video');
+                    console.log(`📹 Found ${videoElements.length} video elements`);
+                    console.log('🔊 AudioContext state:', audioContext ? audioContext.state : 'not initialized');
+                    console.log('🎵 Analyser exists:', !!analyser);
+                    console.log('📊 Data array exists:', !!dataArray);
+
+                    if (videoElements.length === 0) {
+                        console.warn('❌ No video elements found! ChocoDrop might not have added the video to DOM yet.');
+                        // 再試行
+                        setTimeout(() => {
+                            console.log('🔄 Retrying video search...');
+                            const retryVideos = document.querySelectorAll('video');
+                            console.log(`📹 Retry found ${retryVideos.length} video elements`);
+                            if (retryVideos.length > 0) {
+                                retryVideos.forEach(v => connectVideoToAudio(v));
+                            }
+                        }, 2000);
+                    }
+
+                    videoElements.forEach((videoElement, index) => {
+                        console.log(`🎥 Video ${index}:`);
+                        console.log(`  - src: ${videoElement.src}`);
+                        console.log(`  - readyState: ${videoElement.readyState}`);
+                        console.log(`  - paused: ${videoElement.paused}`);
+                        console.log(`  - volume: ${videoElement.volume}`);
+                        console.log(`  - muted: ${videoElement.muted}`);
+                        console.log(`  - audioTracks: ${videoElement.audioTracks ? videoElement.audioTracks.length : 'not supported'}`);
+                        console.log(`  - duration: ${videoElement.duration}`);
+                        console.log(`  - currentTime: ${videoElement.currentTime}`);
+
+                        // まだ接続されていない動画要素を処理
+                        if (!videoElement.audioSource) {
+                            // 動画を前面に配置
+                            videoElement.style.zIndex = '10';
+                            videoElement.style.position = 'relative';
+
+                            // すぐに接続を試みる
+                            connectVideoToAudio(videoElement);
+
+                            // 動画の準備ができてから再接続
+                            videoElement.addEventListener('loadedmetadata', () => {
+                                console.log('📹 Video metadata loaded, ensuring audio connection...');
+                                if (!videoElement.audioSource) {
+                                    connectVideoToAudio(videoElement);
+                                }
+                            });
+
+                            // 再生開始時にも確実に接続
+                            videoElement.addEventListener('play', () => {
+                                console.log('▶️ Video playing, checking audio connection...');
+                                if (!videoElement.audioSource) {
+                                    connectVideoToAudio(videoElement);
+                                }
+                            });
+
+                            // クリックで再生/一時停止（デバッグ用）
+                            videoElement.addEventListener('click', () => {
+                                if (videoElement.paused) {
+                                    videoElement.play();
+                                    // 再生開始時に強制的に音声アクティブ化
+                                    setTimeout(() => {
+                                        if (!isAudioActive) {
+                                            console.log('🔧 Force activating audio monitoring...');
+                                            isAudioActive = true;
+                                            updateAudioStatus('🎵 強制音声監視中...', 'audio-active');
+
+                                            // 代替監視を開始
+                                            tryAlternativeAudioConnection(videoElement);
+                                        }
+                                    }, 100);
+                                } else {
+                                    videoElement.pause();
+                                }
+                            });
+                        }
+                    });
+                }, 500);  // ChocoDrop が DOM に video 要素を追加するのを待つ
+            }
+        });
+
+        // 音声コンテキストを初期化
+        initAudioContext();
+
+        // A user-started melody feeds the existing analyser; no microphone or network.
+        const sampleButton = document.getElementById('sample-music');
+        let sampleNodes = [];
+        let sampleTimer;
+        let sampleOutput;
+        let samplePlaying = false;
+        function stopSample() {
+            clearTimeout(sampleTimer);
+            sampleOutput?.disconnect();
+            sampleOutput = null;
+            sampleNodes.forEach(node => { try { node.stop(); } catch {} node.disconnect(); });
+            sampleNodes = [];
+            samplePlaying = false;
+            sampleButton.setAttribute('aria-pressed', 'false');
+            sampleButton.textContent = '♪ サンプル音で花を咲かせる';
+        }
+        sampleButton.addEventListener('click', async () => {
+            if (samplePlaying) { stopSample(); return; }
+            samplePlaying = true;
+            sampleButton.setAttribute('aria-pressed', 'true');
+            sampleButton.textContent = '音を止める';
+            try {
+                if (!audioContext || !analyser) throw new Error('Audio unavailable');
+                await audioContext.resume();
+                if (!samplePlaying) return;
+                const output = audioContext.createGain();
+                sampleOutput = output;
+                output.gain.value = 0.12;
+                output.connect(audioContext.destination);
+                const start = audioContext.currentTime + 0.05;
+                [261.63, 329.63, 392, 523.25, 392, 329.63, 293.66, 392,
+                 261.63, 329.63, 440, 523.25, 440, 392, 329.63, 261.63].forEach((frequency, index) => {
+                    const oscillator = audioContext.createOscillator();
+                    const envelope = audioContext.createGain();
+                    const at = start + index * 0.48;
+                    oscillator.type = 'triangle';
+                    oscillator.frequency.value = frequency;
+                    envelope.gain.setValueAtTime(0, at);
+                    envelope.gain.linearRampToValueAtTime(0.9, at + 0.035);
+                    envelope.gain.exponentialRampToValueAtTime(0.001, at + 0.44);
+                    oscillator.connect(envelope);
+                    envelope.connect(analyser);
+                    envelope.connect(output);
+                    oscillator.start(at);
+                    oscillator.stop(at + 0.46);
+                    oscillator.onended = () => envelope.disconnect();
+                    sampleNodes.push(oscillator);
+                });
+                isAudioActive = true;
+                sampleTimer = setTimeout(stopSample, 8100);
+            } catch {
+                stopSample();
+                sampleButton.textContent = '音を再生できません。もう一度試す';
+            }
+        });
+        window.addEventListener('pagehide', stopSample);
+
+        // 🎵 Three.js Scene内のVideoTextureを監視して音声接続
+        function monitorVideoTextures() {
+            let foundVideo = false;
+
+            scene.traverse((child) => {
+                if (child.material && child.material.map && child.material.map.image) {
+                    const image = child.material.map.image;
+
+                    // HTMLVideoElementを発見
+                    if (image instanceof HTMLVideoElement && !image.audioConnected) {
+                        console.log('🎵 Found VideoTexture with HTMLVideoElement:', image);
+                        console.log('  - src:', image.src);
+                        console.log('  - readyState:', image.readyState);
+                        console.log('  - paused:', image.paused);
+
+                        if (image.readyState >= 2) {
+                            connectVideoToAudio(image);
+                            image.audioConnected = true;
+                            foundVideo = true;
+                        }
+                    }
+                }
+            });
+
+            // デバッグ情報更新
+            if (foundVideo && !window.videoTextureFound) {
+                console.log('✅ VideoTexture audio connection established!');
+                window.videoTextureFound = true;
+            }
+        }
+
+        // 1秒ごとに監視
+        setInterval(monitorVideoTextures, 1000);
+
+        // 初回実行
+        setTimeout(monitorVideoTextures, 2000);
+
+        console.log('🍫 ChocoDrop Music Garden initialized');
+        console.log('Press @ key to activate command interface');
+        console.log('使用例: 🍫アイコンクリックでUI起動、動画を配置して音楽反応!');
+
+        // 🎵 パーティクルを花から放出する関数
+        function emitParticlesFromFlower(flower, volume, time) {
+            const particlesToEmit = Math.floor(volume * 15); // 音量に応じて放出数を調整
+
+            for (let i = 0; i < particlesToEmit; i++) {
+                if (flyingParticles.length >= maxFlyingParticles) {
+                    // 古いパーティクルを再利用
+                    flyingParticles.shift();
+                }
+
+                // 花の位置
+                const flowerPos = flower.position;
+
+                // 花の中心からランダムな位置で放出
+                const angle = Math.random() * Math.PI * 2;
+                const radius = Math.random() * 2.5 * flower.userData.originalScale;
+                const offsetX = Math.cos(angle) * radius;
+                const offsetY = Math.sin(angle) * radius;
+                const offsetZ = Math.random() * 1.5 * flower.userData.originalScale;
+
+                // 放出速度（音量に応じて変化）
+                const speed = (0.5 + volume * 2) * (0.8 + Math.random() * 0.4);
+                const velocityAngle = angle + (Math.random() - 0.5) * 0.5;
+
+                const particle = {
+                    position: new THREE.Vector3(
+                        flowerPos.x + offsetX,
+                        flowerPos.y + offsetY,
+                        flowerPos.z + offsetZ
+                    ),
+                    velocity: new THREE.Vector3(
+                        Math.cos(velocityAngle) * speed,
+                        Math.sin(velocityAngle) * speed,
+                        (Math.random() - 0.3) * speed * 1.5
+                    ),
+                    color: new THREE.Color().setHSL(
+                        (Math.random() * 0.3 + 0.5 + time * 0.1) % 1,
+                        0.8 + Math.random() * 0.2,
+                        0.6 + Math.random() * 0.2
+                    ),
+                    size: 0.08 + Math.random() * 0.12,
+                    life: 1.0, // 寿命（1.0から0.0に減少）
+                    decay: 0.008 + Math.random() * 0.012
+                };
+
+                flyingParticles.push(particle);
+            }
+        }
+
+        // 🎬 アニメーションループ
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const time = Date.now() * 0.001;
+
+            // 音声解析（デバッグ強化版）
+            let volume = 0;
+            let frequencies = new Array(8).fill(0);
+
+            // デバッグ: 5秒ごとに状態をログ出力
+            if (!window.lastDebugLog || Date.now() - window.lastDebugLog > 5000) {
+                console.log('🔍 Audio Debug Status:');
+                console.log('  - isAudioActive:', isAudioActive);
+                console.log('  - analyser exists:', !!analyser);
+                console.log('  - audioContext state:', audioContext ? audioContext.state : 'none');
+                console.log('  - dataArray exists:', !!dataArray);
+                console.log('  - video elements count:', document.querySelectorAll('video').length);
+                console.log('  - alternative audio:', window.alternativeAudioData ? window.alternativeAudioData.isActive : 'none');
+                window.lastDebugLog = Date.now();
+            }
+
+            if (isAudioActive && analyser) {
+                analyser.getByteFrequencyData(dataArray);
+
+                // 全体音量を計算
+                volume = dataArray.reduce((sum, freq) => sum + freq, 0) / dataArray.length / 255;
+
+                // 音楽検出時のステータス更新（ログなし）
+                if (volume > 0.005) {
+                    if (!window.audioDetected) {
+                        updateAudioStatus('🎵 音楽反応中!', 'audio-active');
+                        window.audioDetected = true;
+                    }
+                } else if (window.audioDetected) {
+                    updateAudioStatus('🔇 音声待機中...', 'audio-waiting');
+                    window.audioDetected = false;
+                }
+
+                // 周波数帯域を分析（低音〜高音）
+                const bands = 8;
+                const bandSize = Math.floor(dataArray.length / bands);
+                for (let i = 0; i < bands; i++) {
+                    let sum = 0;
+                    for (let j = 0; j < bandSize; j++) {
+                        sum += dataArray[i * bandSize + j];
+                    }
+                    frequencies[i] = sum / bandSize / 255;
+                }
+            } else if (window.alternativeAudioData && window.alternativeAudioData.isActive) {
+                // 代替音声監視データを使用
+                const altData = window.alternativeAudioData;
+                const timeSinceUpdate = Date.now() - altData.timestamp;
+
+                // 最新データ（1秒以内）の場合のみ使用
+                if (timeSinceUpdate < 1000) {
+                    volume = altData.volume;
+                    // 簡易的な周波数データ生成
+                    for (let i = 0; i < 8; i++) {
+                        frequencies[i] = Math.sin(time * (i + 1) * 2) * volume * 0.5 + 0.5;
+                    }
+
+                    if (!window.alternativeAudioDetected) {
+                        console.log('🔄 Using alternative audio data! Volume:', volume);
+                        window.alternativeAudioDetected = true;
+                    }
+                }
+            }
+
+            // 🎵 音楽に反応して花からパーティクルを放出
+            if (volume > 0.03) {
+                flowers.forEach((flower, index) => {
+                    // 音量が大きい時だけ放出（全ての花から少しずつ）
+                    if (Math.random() < volume * 0.3) {
+                        emitParticlesFromFlower(flower, volume, time);
+                    }
+                });
+            }
+
+            // 🌟 飛散パーティクルを更新
+            const activeParticles = [];
+            flyingParticles.forEach((particle, index) => {
+                // 重力と空気抵抗を適用
+                particle.velocity.z -= 0.015; // 重力
+                particle.velocity.x *= 0.98; // 空気抵抗
+                particle.velocity.y *= 0.98;
+                particle.velocity.z *= 0.98;
+
+                // 位置を更新
+                particle.position.add(particle.velocity);
+
+                // 寿命を減らす
+                particle.life -= particle.decay;
+
+                // 生きているパーティクルのみ保持
+                if (particle.life > 0 && particle.position.z > -20) {
+                    activeParticles.push(particle);
+
+                    // geometryを更新
+                    const idx = activeParticles.length - 1;
+                    flyingPositions[idx * 3] = particle.position.x;
+                    flyingPositions[idx * 3 + 1] = particle.position.y;
+                    flyingPositions[idx * 3 + 2] = particle.position.z;
+
+                    flyingColors[idx * 3] = particle.color.r;
+                    flyingColors[idx * 3 + 1] = particle.color.g;
+                    flyingColors[idx * 3 + 2] = particle.color.b;
+
+                    flyingSizes[idx] = particle.size * particle.life; // 寿命に応じて小さくなる
+                }
+            });
+
+            // 配列を更新
+            flyingParticles.length = 0;
+            flyingParticles.push(...activeParticles);
+
+            // geometryを更新
+            flyingGeometry.setDrawRange(0, activeParticles.length);
+            flyingGeometry.attributes.position.needsUpdate = true;
+            flyingGeometry.attributes.color.needsUpdate = true;
+            flyingGeometry.attributes.size.needsUpdate = true;
+            flyingMaterial.opacity = 0.6 + volume * 0.4;
+
+            // 🌸 パーティクル花のアニメーション
+            flowers.forEach((flower, index) => {
+                const userData = flower.userData;
+                const mainParticles = userData.mainParticles;
+                const sparkles = userData.sparkles;
+
+                // 音楽に反応するスケール
+                if (volume > 0.005) {
+                    const basePulse = Math.sin(time + userData.pulsePhase) * 0.1 + 1;
+                    const musicScale = 1 + volume * 0.3;
+                    flower.scale.setScalar(userData.originalScale * basePulse * musicScale);
+                } else {
+                    flower.scale.setScalar(userData.originalScale);
+                }
+
+                // メインパーティクルのアニメーション
+                if (mainParticles) {
+                    // 回転
+                    mainParticles.rotation.z += 0.002 + volume * 0.01;
+
+                    // 音楽に合わせて色を変化（元の色を保持）
+                    const colors = mainParticles.geometry.attributes.color.array;
+                    const originalColors = userData.originalColors;
+                    const positions = mainParticles.geometry.attributes.position.array;
+                    const originalPositions = userData.originalPositions;
+
+                    for (let i = 0; i < colors.length; i += 3) {
+                        // 元の色を取得
+                        const baseColor = new THREE.Color(
+                            originalColors[i],
+                            originalColors[i + 1],
+                            originalColors[i + 2]
+                        );
+
+                        const hsl = {};
+                        baseColor.getHSL(hsl);
+
+                        if (volume > 0.005) {
+                            // 音楽に合わせて色相をシフト
+                            const shift = volume * 0.15 * Math.sin(time * 2 + i * 0.01);
+                            const newColor = new THREE.Color().setHSL(
+                                (hsl.h + shift + 1) % 1,
+                                Math.min(1, hsl.s + volume * 0.1),
+                                Math.min(1, hsl.l + volume * 0.1)
+                            );
+                            colors[i] = newColor.r;
+                            colors[i + 1] = newColor.g;
+                            colors[i + 2] = newColor.b;
+
+                            // 🌸 パーティクルを中心から外側に広げる
+                            const particleIndex = i / 3;
+                            const px = originalPositions[i];
+                            const py = originalPositions[i + 1];
+                            const pz = originalPositions[i + 2];
+
+                            // 中心からの距離を計算
+                            const dist = Math.sqrt(px * px + py * py);
+
+                            if (dist > 0.1) {
+                                // 外側に広げる量（音量に応じて変化）
+                                const expandAmount = 1 + volume * 0.2;
+                                const wave = Math.sin(time * 3 + particleIndex * 0.05) * 0.05;
+                                const finalExpand = expandAmount + wave;
+
+                                positions[i] = px * finalExpand;
+                                positions[i + 1] = py * finalExpand;
+                                positions[i + 2] = pz + volume * 0.3 * Math.sin(time * 2 + particleIndex * 0.1);
+                            }
+                        } else {
+                            // 音楽がない時は元の色と位置に戻す
+                            colors[i] = originalColors[i];
+                            colors[i + 1] = originalColors[i + 1];
+                            colors[i + 2] = originalColors[i + 2];
+
+                            positions[i] = originalPositions[i];
+                            positions[i + 1] = originalPositions[i + 1];
+                            positions[i + 2] = originalPositions[i + 2];
+                        }
+                    }
+                    mainParticles.geometry.attributes.color.needsUpdate = true;
+                    mainParticles.geometry.attributes.position.needsUpdate = true;
+
+                    // 透明度とサイズ（ガラスのような透明感を維持）
+                    mainParticles.material.opacity = 0.5 + volume * 0.3;
+                    mainParticles.material.size = (0.15 + volume * 0.05) * userData.originalScale;
+                }
+
+                // キラキラパーティクルのアニメーション
+                if (sparkles) {
+                    // ゆっくり回転（音楽があれば速く）
+                    sparkles.rotation.z -= 0.002 + volume * 0.02;
+                    sparkles.rotation.y += 0.001 + volume * 0.01;
+
+                    const sparklePositions = sparkles.geometry.attributes.position.array;
+                    const originalSparklePositions = sparkles.userData.originalPositions;
+                    const phases = sparkles.userData.phases;
+
+                    for (let i = 0; i < sparklePositions.length; i += 3) {
+                        const particleIndex = i / 3;
+                        const phase = phases[particleIndex];
+
+                        // 元の位置を取得
+                        const origX = originalSparklePositions[i];
+                        const origY = originalSparklePositions[i + 1];
+                        const origZ = originalSparklePositions[i + 2];
+
+                        // 常に上下に漂う動き
+                        const floatSpeed = 0.5 + Math.sin(phase) * 0.3;
+                        const floatWave = Math.sin(time * floatSpeed + phase) * 0.3;
+
+                        // 音楽に反応して激しく動く
+                        const musicWave = Math.sin(time * 4 + phase) * volume * 0.8;
+
+                        // 螺旋状に舞う
+                        const spiralX = Math.cos(time * 0.3 + phase) * 0.15;
+                        const spiralY = Math.sin(time * 0.3 + phase) * 0.15;
+
+                        // 元の位置からの相対的な動き
+                        sparklePositions[i] = origX + spiralX;
+                        sparklePositions[i + 1] = origY + spiralY;
+                        sparklePositions[i + 2] = origZ + floatWave + musicWave;
+                    }
+                    sparkles.geometry.attributes.position.needsUpdate = true;
+
+                    // 音楽がある時はより明るく、大きく（常にキラキラ輝く）
+                    const twinkle = Math.sin(time * 3) * 0.3; // より激しく明滅
+                    sparkles.material.opacity = 0.6 + twinkle + volume * 0.4;
+                    sparkles.material.size = (0.12 + Math.sin(time * 4) * 0.04 + volume * 0.15) * userData.originalScale;
+                }
+
+                // 花全体の回転
+                if (volume > 0.005) {
+                    flower.rotation.x = Math.sin(time * 0.3 + index) * 0.08;
+                    flower.rotation.y = Math.cos(time * 0.2 + index) * 0.04;
+                }
+            });
+
+            // ライトも音楽に反応
+            pointLight.intensity = 0.8 + volume * 0.5;
+            pointLight.color.setHSL((time * 0.1) % 1, 0.5, 1);
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        animate();
+
+        // 📱 レスポンシブ対応
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // 30秒後の自動非表示タイマー開始
+        scheduleInfoPanelAutoHide();
+
+        console.log('✅ 音楽の花園が準備完了！🎵 歌ってお花を咲かせましょう');
+    })();
+    </script>
+</body>
+</html>
