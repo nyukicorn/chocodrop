@@ -316,11 +316,10 @@ const chocoDrop = createChocoDrop(scene, options);
 ## Three.js サイトで使う
 
 **こんな人におすすめ**:
-- Three.js 公式サイトなど、他人のサイトで試したい
-- コードを一切変更せずに使いたい
-- ブラウザから簡単に注入したい
+- グローバルにシーンを公開しているThree.jsページで試したい
+- 自分のコードを変更する前に接続を確認したい
 
-ブックマークバーに登録したボタンをクリックするだけで、Three.js を使っている既存サイトに ChocoDrop を導入できます。
+ブックマークバーに登録したボタンをクリックすると、対応するThree.jsページへChocoDrop UIを読み込みます。
 ※技術的には「ブックマークレット (bookmarklet)」と呼ばれる機能です
 
 ### セットアップ
@@ -333,28 +332,28 @@ const chocoDrop = createChocoDrop(scene, options);
 2. ブックマークページを開く：
    - [Bookmarklet v2](https://nyukicorn.github.io/chocodrop/examples/bookmarklet-v2.html)
 
-3. 「🍫 ChocoDrop v2」ボタンをブックマークバーへドラッグ
+3. 「🍫 ChocoDropを登録」ボタンをブックマークバーへドラッグ
 
 4. Three.js を使っているページでブックマークをクリック
 
-> 💡 ページに `scene` / `camera` / `renderer` が存在しない場合は、自動的に「Lite Scene Preview」が立ち上がります。小さなオーバーレイ上に生成・インポート結果を表示できるので、Three.js を直接組み込んでいないページでも気軽に試せます。
+> ページのグローバル変数として`scene` / `camera` / `renderer`を参照できる場合に接続します。シーンを検出できないページでは、その理由を表示して終了します。
 
 ### 対応サイト例
 
-- [Three.js Examples](https://threejs.org/examples/)
-- 自分で作った Three.js サイト
+- `scene` / `camera` / `renderer`をグローバルに公開した自分のThree.jsサイト
+- 同じ条件を満たす検証用ページ
 
 ### セキュリティ
 
-- ✅ ローカル (127.0.0.1) のみと通信
-- ✅ 外部への送信なし
+- ✅ daemonとはローカル (127.0.0.1) で通信
+- ✅ UI runtimeはChocoDropのGitHub Pagesから読込
 - ✅ オープンソース
 
 ### 制限事項
 
-- ⚠️ 現在は読み取り専用（オブジェクト配置のみ、AI生成は Phase 2b で対応予定）
-- ⚠️ サイトによっては Content Security Policy で制限される場合がある
-- ⚠️ Lite Scene Preview モードではカメラ操作が最小限（ドラッグ移動は無効）になります
+- ⚠️ ES Modules内部に閉じたシーンは自動検出できない
+- ⚠️ Content Security Policyで外部runtimeやローカル通信が制限される場合がある
+- ⚠️ Three.js以外の3Dエンジンには接続しない
 
 ---
 

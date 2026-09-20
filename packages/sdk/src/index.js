@@ -247,16 +247,33 @@
           script.type = 'module';
           script.crossOrigin = 'anonymous';
           script.integrity = 'sha384-IDC7sAMAIMB/TZ6dgKKPPAKZ2bXXXP8+FBMBC8cU319eBhKITx+PaalhfDkDNH28';
+          const readyEvent = '__chocodrop_three_ready__';
+          const timer = setTimeout(() => {
+            cleanup();
+            reject(new Error('Timed out while loading THREE'));
+          }, 8000);
+          const cleanup = () => {
+            clearTimeout(timer);
+            window.removeEventListener(readyEvent, onReady);
+          };
+          const onReady = () => {
+            cleanup();
+            resolve();
+          };
+          window.addEventListener(readyEvent, onReady, { once: true });
 
           // Create inline module to import and expose THREE
           const inlineModule = `
             import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.min.js';
             window.THREE = THREE;
+            window.dispatchEvent(new Event('${readyEvent}'));
           `;
 
           script.textContent = inlineModule;
-          script.onload = resolve;
-          script.onerror = reject;
+          script.onerror = error => {
+            cleanup();
+            reject(error);
+          };
           document.head.appendChild(script);
         });
 
