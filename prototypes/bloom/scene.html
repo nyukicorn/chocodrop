@@ -1,0 +1,2317 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<script>
+window.addEventListener('wheel', event => {
+  if (event.ctrlKey || event.metaKey || parent === window) return;
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? innerHeight : 1;
+  parent.postMessage({type:'park-scroll', deltaY:event.deltaY * unit}, location.origin);
+}, {passive:false, capture:true});
+</script>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🧸 おもちゃの街 - ChocoDrop Toy City</title>
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "./assets/three.min.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+        }
+    }
+    </script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            font-family: 'Comic Sans MS', 'Arial', sans-serif;
+            background: linear-gradient(180deg, #FFE4E1 0%, #E0F6FF 30%, #E6FFE6 60%, #FFF8DC 100%);
+            cursor: grab;
+        }
+
+        body:active {
+            cursor: grabbing;
+        }
+
+        #info {
+            position: fixed;
+            top: 16px;
+            left: 16px;
+            color: #2d3748;
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            padding: 14px 18px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 400;
+            z-index: 2000;
+            max-width: 280px;
+            line-height: 1.5;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            transition: opacity 0.3s ease, transform 0.3s ease;
+        }
+
+        #info.hidden {
+            opacity: 0;
+            transform: translateY(-10px);
+            pointer-events: none;
+        }
+
+        .close-btn {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: none;
+            border: none;
+            font-size: 18px;
+            color: #FF1493;
+            cursor: pointer;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: background-color 0.2s ease;
+        }
+
+        .close-btn:hover {
+            background-color: rgba(255, 20, 147, 0.2);
+        }
+
+        /* 統合メニュー */
+        .unified-menu {
+            position: fixed;
+            top: 16px;
+            right: 20px;
+            z-index: 1000;
+        }
+
+        .menu-toggle {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: #2d3748;
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-size: 18px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 4px 12px rgba(255, 105, 180, 0.2), 0 2px 6px rgba(0, 0, 0, 0.05);
+            width: 44px;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0.8;
+        }
+
+        .menu-toggle:hover {
+            background: rgba(255, 255, 255, 0.95);
+            border-color: rgba(255, 105, 180, 0.4);
+            transform: scale(1.1) translateY(-2px);
+            box-shadow: 0 6px 16px rgba(255, 105, 180, 0.3), 0 3px 8px rgba(0, 0, 0, 0.1);
+            opacity: 1;
+        }
+
+        .menu-dropdown {
+            position: absolute;
+            top: 56px;
+            right: 0;
+            min-width: 220px;
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(16px) saturate(180%);
+            -webkit-backdrop-filter: blur(16px) saturate(180%);
+            border: 1px solid rgba(255, 105, 180, 0.2);
+            border-radius: 12px;
+            box-shadow: 0 8px 24px rgba(255, 105, 180, 0.15), 0 4px 12px rgba(0, 0, 0, 0.08);
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(-10px);
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            overflow: hidden;
+        }
+
+        .menu-dropdown.active {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+        }
+
+        .menu-item {
+            display: block;
+            padding: 12px 16px;
+            color: #2d3748;
+            text-decoration: none;
+            font-size: 13px;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+            cursor: pointer;
+            background: none;
+            border-left: none;
+            border-right: none;
+            border-top: none;
+            width: 100%;
+            text-align: left;
+        }
+
+        .menu-item:last-child {
+            border-bottom: none;
+        }
+
+        .menu-item:hover {
+            background: rgba(255, 105, 180, 0.08);
+            padding-left: 20px;
+            border-left: 2px solid rgba(255, 105, 180, 0.4);
+        }
+
+        .menu-item.has-submenu {
+            position: relative;
+            padding: 0;
+            border: none;
+        }
+
+        .submenu-toggle {
+            display: block;
+            padding: 12px 16px;
+            color: #2d3748;
+            font-size: 13px;
+            background: none;
+            border: none;
+            width: 100%;
+            text-align: left;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+        }
+
+        .submenu-toggle:hover {
+            background: rgba(255, 105, 180, 0.08);
+            padding-left: 20px;
+            border-left: 2px solid rgba(255, 105, 180, 0.4);
+        }
+
+        .submenu {
+            display: none;
+            background: rgba(255, 192, 203, 0.05);
+            border-top: 1px solid rgba(255, 105, 180, 0.1);
+        }
+
+        .submenu.active {
+            display: block;
+        }
+
+        .submenu .menu-item {
+            padding-left: 32px;
+            font-size: 12px;
+        }
+
+        .submenu .menu-item:hover {
+            padding-left: 36px;
+            background: rgba(255, 105, 180, 0.12);
+        }
+
+        #hint-toggle {
+            position: fixed;
+            top: 16px;
+            left: 16px;
+            background: rgba(255, 192, 203, 0.2);
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(255, 105, 180, 0.4);
+            color: #FF1493;
+            padding: 6px 8px;
+            border-radius: 8px;
+            font-size: 12px;
+            cursor: pointer;
+            z-index: 99;
+            display: none;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 8px rgba(255, 105, 180, 0.3);
+        }
+
+        #hint-toggle:hover {
+            background: rgba(255, 255, 255, 0.9);
+            transform: translateY(-1px);
+        }
+
+
+        @keyframes toy-sparkle-fast {
+            0%, 100% {
+                filter: brightness(1.3) drop-shadow(0 0 12px rgba(255, 105, 180, 0.7));
+                transform: rotate(0deg);
+            }
+            33% {
+                filter: brightness(1.6) drop-shadow(0 0 20px rgba(255, 105, 180, 0.9));
+                transform: rotate(10deg);
+            }
+            66% {
+                filter: brightness(1.4) drop-shadow(0 0 16px rgba(255, 105, 180, 0.8));
+                transform: rotate(-5deg);
+            }
+        }
+
+        .menu-icon {
+            display: inline-block;
+            animation: toy-bounce 2s ease-in-out infinite;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+            text-shadow: 0 0 10px currentColor;
+        }
+
+        .menu-icon:hover {
+            transform: scale(1.4);
+            animation: toy-bounce-fast 0.8s ease-in-out infinite;
+        }
+
+        .toy-title {
+            display: inline-block;
+            animation: toy-title-glow 3s ease-in-out infinite;
+            text-shadow: 0 0 20px #FF69B4, 0 0 30px #FFD700;
+        }
+
+        @keyframes toy-title-glow {
+            0%, 100% {
+                text-shadow: 0 0 20px #FF69B4, 0 0 30px #FFD700;
+                transform: scale(1);
+            }
+            50% {
+                text-shadow: 0 0 25px #FF1493, 0 0 40px #FFA500, 0 0 50px #FF6347;
+                transform: scale(1.05);
+            }
+        }
+
+        @keyframes toy-bounce {
+            0%, 100% {
+                filter: brightness(1) drop-shadow(0 0 8px currentColor);
+                transform: scale(1) translateY(0px);
+            }
+            25% {
+                filter: brightness(1.3) drop-shadow(0 0 15px currentColor);
+                transform: scale(1.1) translateY(-4px);
+            }
+            50% {
+                filter: brightness(1.5) drop-shadow(0 0 20px currentColor);
+                transform: scale(1.15) translateY(-8px);
+            }
+            75% {
+                filter: brightness(1.3) drop-shadow(0 0 15px currentColor);
+                transform: scale(1.1) translateY(-4px);
+            }
+        }
+
+        @keyframes toy-bounce-fast {
+            0%, 100% {
+                filter: brightness(1.4) drop-shadow(0 0 15px currentColor);
+                transform: translateY(0px);
+            }
+            50% {
+                filter: brightness(1.8) drop-shadow(0 0 25px currentColor);
+                transform: translateY(-12px);
+            }
+        }
+
+        #info strong {
+            font-size: 12px;
+            font-weight: 600;
+            color: #1a202c;
+            display: block;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        #info code {
+            background: rgba(255, 192, 203, 0.4);
+            color: #8B0000;
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-family: 'Comic Sans MS', monospace;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .tool-button {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            border: none;
+            border-radius: 999px;
+            padding: 10px 18px;
+            margin-top: 12px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.28), rgba(255, 192, 203, 0.35));
+            color: #fff;
+            box-shadow: 0 6px 18px rgba(255, 105, 180, 0.35);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .tool-button:hover {
+            transform: translateY(-2px) scale(1.02);
+            box-shadow: 0 10px 28px rgba(255, 105, 180, 0.45);
+        }
+
+        .controls {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 2px solid rgba(255, 215, 0, 0.4);
+            font-size: 12px;
+        }
+
+        .control-item {
+            margin: 6px 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .key {
+            background: rgba(255, 105, 180, 0.4);
+            padding: 3px 8px;
+            border-radius: 5px;
+            font-weight: bold;
+            min-width: fit-content;
+        }
+
+        .nav-link:hover {
+            background: rgba(255, 255, 255, 1) !important;
+            transform: translateY(-1px);
+        }
+
+        @keyframes gentle-float {
+            0%, 100% {
+                transform: translateX(-50%) translateY(0px);
+                filter: drop-shadow(0 8px 16px rgba(138, 43, 226, 0.2));
+            }
+            50% {
+                transform: translateX(-50%) translateY(-4px);
+                filter: drop-shadow(0 12px 24px rgba(138, 43, 226, 0.3));
+            }
+        }
+
+        /* 🎵 音響ステータス表示 */
+        #audio-status {
+            position: fixed;
+            top: 70px;
+            right: 20px;
+            z-index: 100;
+            background: linear-gradient(135deg, rgba(255, 105, 180, 0.9) 0%, rgba(255, 215, 0, 0.9) 100%);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            padding: 10px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+            border: 2px solid rgba(255, 255, 255, 0.5);
+            box-shadow: 0 0 20px rgba(255, 105, 180, 0.5);
+            color: #ffffff;
+            font-weight: 600;
+            display: none;
+            transition: opacity 0.3s ease;
+        }
+
+        #audio-status.active {
+            display: block;
+        }
+
+        #audio-status .status-icon {
+            display: inline-block;
+            margin-right: 5px;
+            animation: audioPulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes audioPulse {
+            0%, 100% { opacity: 0.8; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.1); }
+        }
+    </style>
+<style>#live-command-ui,#chocodrop-onboarding,#info,#hint-toggle,.unified-menu,#audio-status,.nav-links,#theme-toggle,.demo-links{display:none!important}#preview-status{position:fixed;bottom:8px;left:10px;background:#21192de0;color:white;padding:8px;border-radius:10px;font:12px system-ui;z-index:999;pointer-events:none}</style><style>
+[title="ChocoDrop を開く (@キーでも開けます)"]{display:none!important}
+#preview-import{position:fixed;right:16px;bottom:18px;z-index:10001;border:1px solid #c9a4e6;border-radius:24px;padding:12px 16px;background:#241c32;color:#fff;cursor:pointer;font:14px system-ui}
+#preview-import:disabled{opacity:.5;cursor:wait}
+#preview-import:focus-visible{outline:3px solid #ecd5ff;outline-offset:3px}
+#preview-status{max-width:calc(100% - 200px)}
+</style></head>
+<body>
+    <!-- 🎵 音響ステータス表示 -->
+    <div id="audio-status">
+        <span class="status-icon">🎤</span><span id="audio-text">音声待機中...</span>
+    </div>
+
+    <!-- Navigation Links (非表示) -->
+    <div class="navigation" style="display: none;">
+        <a href="../../index.html" class="nav-link">🏠 Home</a>
+        <a href="https://github.com/nyukicorn/chocodrop" class="nav-link" target="_blank">📦 GitHub</a>
+    </div>
+
+    <!-- 統合メニュー -->
+    <div class="unified-menu">
+        <button class="menu-toggle" id="unifiedMenuToggle" aria-label="Menu">☰</button>
+        <div class="menu-dropdown" id="unifiedMenuDropdown">
+            <button class="menu-item" id="showInfoBtn"><span class="menu-icon">📖</span> このワールドについて</button>
+
+            <div class="menu-item has-submenu">
+                <button class="submenu-toggle" id="worldsMenuToggle"><span class="menu-icon">🌍</span> 世界選択 <span style="font-size: 10px;">▼</span></button>
+                <div class="submenu" id="worldsSubmenu">
+                    <a href="../basic/index.html" class="menu-item"><span class="menu-icon">🍫</span> はじまりの国</a>
+                    <a href="../pixel-ocean/index.html" class="menu-item"><span class="menu-icon">🌊</span> 海底世界</a>
+                    <a href="../music-garden/index.html" class="menu-item"><span class="menu-icon">🌸</span> 硝子の花</a>
+                    <a href="../wabi-sabi/index.html" class="menu-item"><span class="menu-icon">🖤</span> 侘び寂びの世界</a>
+                    <a href="../space/index.html" class="menu-item"><span class="menu-icon">🌌</span> 宇宙空間</a>
+                    <a href="index.html" class="menu-item"><span class="menu-icon">🎡</span> AI遊園地（現在地）</a>
+                </div>
+            </div>
+
+            <a href="../../index.html" class="menu-item"><span class="menu-icon">🏠</span> Home</a>
+            <a href="https://github.com/nyukicorn/chocodrop" class="menu-item" target="_blank"><span class="menu-icon">🔗</span> GitHub</a>
+
+            <button class="menu-item" id="vrMenuButton"><span class="menu-icon">🥽</span> VR</button>
+            <button class="menu-item" id="arMenuButton"><span class="menu-icon">🥽</span> AR</button>
+        </div>
+    </div>
+
+    <div id="hint-toggle" style="display: none;">💡 ヒント</div>
+
+    <div id="info">
+        <button class="close-btn" onclick="window.hideInfoPanel()">&times;</button>
+        <strong class="toy-title" style="text-align: center; display: block;">🧸 <span class="toy-icon">🎪</span> AI遊園地 <span class="toy-icon">🎠</span> 🧸</strong>
+
+        <div style="font-size: 11px; opacity: 0.9; margin: 10px 0 12px 0; line-height: 1.6; text-align: left; font-style: italic;">
+            個性豊かなAIたちが遊ぶ、色鮮やかな夢の遊園地。夜には別の夢が咲く
+        </div>
+
+        <p style="text-align: left;">🎪 カラフルなおもちゃの街へようこそ！</p>
+
+        <p style="text-align: left;">
+            ✨ <span class="toy-icon">🎡</span> 観覧車や <span class="toy-icon">🎠</span> メリーゴーランド、そして可愛いAIたちが回ってます！
+        </p>
+
+        <p style="text-align: left;">
+            <strong>🧸 キャラクターを追加してみませんか？</strong><br>
+            <span class="toy-icon">👥</span> 人、<span class="toy-icon">🤖</span> ロボット、<span class="toy-icon">🐱</span> ネコなど自由に配置できます！
+        </p>
+
+        <p style="text-align: left;">🕹️ オブジェクトをクリック → WASDキーで移動</p>
+
+        <div class="controls">
+            <div class="control-item">
+                <span class="key">移動</span>
+                <span>マウスドラッグ</span>
+            </div>
+            <div class="control-item">
+                <span class="key">ズーム</span>
+                <span>マウスホイール</span>
+            </div>
+            <div class="control-item">
+                <span class="key">回転</span>
+                <span>右クリック+ドラッグ</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- 世界選択リンク (非表示 - 統合メニューに移行) -->
+    <div class="demo-links" style="display: none;">
+        <a href="../basic/index.html" class="demo-link">🍫 はじまりの国</a>
+        <a href="../pixel-ocean/index.html" class="demo-link">🌊 海底世界</a>
+        <a href="../music-garden/index.html" class="demo-link">🌸 硝子の花</a>
+        <a href="../wabi-sabi/index.html" class="demo-link">🖤 侘び寂び</a>
+        <a href="../space/index.html" class="demo-link">🌌 宇宙空間</a>
+    </div>
+
+    <script type="module">
+
+    // 🎯 情報パネル制御を即時初期化
+    let autoHideTimer = null;
+
+    const getInfoPanel = () => document.getElementById('info');
+    const getHintToggle = () => document.getElementById('hint-toggle');
+
+    const clearInfoPanelAutoHide = () => {
+        if (autoHideTimer) {
+            clearTimeout(autoHideTimer);
+            autoHideTimer = null;
+        }
+    };
+
+    const scheduleInfoPanelAutoHide = () => {
+        clearInfoPanelAutoHide();
+        autoHideTimer = window.setTimeout(() => {
+            if (typeof window.hideInfoPanel === 'function') {
+                window.hideInfoPanel();
+            }
+        }, 30000);
+    };
+
+    window.hideInfoPanel = function hideInfoPanel() {
+        const infoPanel = getInfoPanel();
+        if (!infoPanel) {
+            clearInfoPanelAutoHide();
+            return;
+        }
+
+        infoPanel.classList.add('hidden');
+        window.setTimeout(() => {
+            if (infoPanel.classList.contains('hidden')) {
+                infoPanel.style.display = 'none';
+                const hintToggle = getHintToggle();
+                if (hintToggle) {
+                    hintToggle.style.display = 'block';
+                }
+            }
+        }, 300);
+
+        clearInfoPanelAutoHide();
+    };
+
+    window.showInfoPanel = function showInfoPanel() {
+        const infoPanel = getInfoPanel();
+        if (!infoPanel) {
+            return;
+        }
+
+        const hintToggle = getHintToggle();
+        if (hintToggle) {
+            hintToggle.style.display = 'none';
+        }
+
+        infoPanel.style.display = 'block';
+        window.requestAnimationFrame(() => {
+            infoPanel.classList.remove('hidden');
+        });
+
+        scheduleInfoPanelAutoHide();
+    };
+
+    const initialHintToggle = getHintToggle();
+    if (initialHintToggle) {
+        initialHintToggle.addEventListener('click', window.showInfoPanel);
+    }
+
+    (async () => {
+    const previewSource = location.pathname.includes('/prototypes/bloom/');
+    const loaderPath = previewSource ? '../../public/load-chocodrop.js' : './public/load-chocodrop.js';
+    const {default: ensureChocoDrop} = await import(loaderPath);
+    await ensureChocoDrop();
+    const THREE = window.THREE;
+    const originalRAF = window.requestAnimationFrame.bind(window);
+    window.requestAnimationFrame = callback => originalRAF(function tick(time) {
+      if (window.previewPaused || document.hidden) originalRAF(tick); else callback(time);
+    });
+    const ChocoDrop = window.ChocoDrop;
+
+        // 統合メニューの制御
+        (function() {
+            const menuToggle = document.getElementById('unifiedMenuToggle');
+            const menuDropdown = document.getElementById('unifiedMenuDropdown');
+            const worldsMenuToggle = document.getElementById('worldsMenuToggle');
+            const worldsSubmenu = document.getElementById('worldsSubmenu');
+            const showInfoBtn = document.getElementById('showInfoBtn');
+            const infoPanel = document.getElementById('info');
+
+            // 初回訪問チェック - localStorage使用
+            const FIRST_VISIT_KEY = 'toy_city_visited';
+            const hasVisited = localStorage.getItem(FIRST_VISIT_KEY);
+
+            if (!hasVisited) {
+                // 初回訪問時は情報パネルを表示
+                if (infoPanel) {
+                    infoPanel.style.display = 'block';
+                }
+                localStorage.setItem(FIRST_VISIT_KEY, 'true');
+            } else {
+                // 2回目以降は非表示
+                if (infoPanel) {
+                    infoPanel.style.display = 'none';
+                }
+            }
+
+            // 統合メニューのトグル
+            if (menuToggle && menuDropdown) {
+                menuToggle.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    menuDropdown.classList.toggle('active');
+                });
+
+                // 外側クリックで閉じる
+                document.addEventListener('click', (e) => {
+                    if (!menuToggle.contains(e.target) && !menuDropdown.contains(e.target)) {
+                        menuDropdown.classList.remove('active');
+                        // サブメニューも閉じる
+                        if (worldsSubmenu) {
+                            worldsSubmenu.classList.remove('active');
+                        }
+                    }
+                });
+
+                // Escキーで閉じる
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'Escape') {
+                        menuDropdown.classList.remove('active');
+                        if (worldsSubmenu) {
+                            worldsSubmenu.classList.remove('active');
+                        }
+                    }
+                });
+            }
+
+            // 世界選択サブメニューのトグル
+            if (worldsMenuToggle && worldsSubmenu) {
+                worldsMenuToggle.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    worldsSubmenu.classList.toggle('active');
+                });
+            }
+
+            // 情報パネル表示ボタン
+            if (showInfoBtn) {
+                showInfoBtn.addEventListener('click', () => {
+                    // グローバルに定義された showInfoPanel() を呼び出す
+                    if (typeof showInfoPanel === 'function') {
+                        showInfoPanel();
+                    } else {
+                        // フォールバック: 直接表示
+                        const panel = document.getElementById('info');
+                        if (panel) {
+                            panel.style.display = 'block';
+                            panel.classList.remove('hidden');
+                        }
+                    }
+                    menuDropdown.classList.remove('active');
+                });
+            }
+
+            // VR/ARボタンは後でThree.jsのrendererと連携
+            // グローバル変数として保存
+            window.unifiedMenuVRButton = document.getElementById('vrMenuButton');
+            window.unifiedMenuARButton = document.getElementById('arMenuButton');
+        })();
+
+        // Basic Three.js setup
+        // Disable ColorManagement for legacy color behavior (required with ambientLight intensity fix)
+        THREE.ColorManagement.enabled = false;
+
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({
+            antialias: true,
+            powerPreference: "high-performance"
+        });
+
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap; // 柔らかい影
+        renderer.outputColorSpace = THREE.SRGBColorSpace;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.0;
+        document.body.appendChild(renderer.domElement);
+
+        window.toyCityContext = { scene, camera, renderer };
+
+        const carouselCreatures = [];
+        const neonElements = [];
+        const hoverDrones = [];
+        const trainMovers = [];
+        const serviceBots = [];
+        const particleEmitters = [];
+        const nightAccentLights = [];
+        let isNightMode = false;
+        let neonModeBoost = 1;
+
+        // 🧸 おもちゃの街の環境設定
+        scene.background = new THREE.Color(0xFFF8DC); // クリーム色の空
+        scene.fog = new THREE.Fog(0xFFF8DC, 20, 80);
+
+        // 🌈 おもちゃの街のライティング - 暖かく明るく
+        const ambientLight = new THREE.AmbientLight(0xffffff, 2.2);
+        scene.add(ambientLight);
+
+        // メインライト（太陽）
+        const sunLight = new THREE.DirectionalLight(0xFFE4B5, 1.0);
+        sunLight.position.set(25, 40, 15);
+        sunLight.castShadow = true;
+        sunLight.shadow.mapSize.width = 1024;
+        sunLight.shadow.mapSize.height = 1024;
+        sunLight.shadow.camera.near = 0.5;
+        sunLight.shadow.camera.far = 120;
+        sunLight.shadow.camera.left = -40;
+        sunLight.shadow.camera.right = 40;
+        sunLight.shadow.camera.top = 40;
+        sunLight.shadow.camera.bottom = -40;
+        scene.add(sunLight);
+
+        const moonLight = new THREE.DirectionalLight(0x6C63FF, 0.55);
+        moonLight.position.set(-25, 35, -18);
+        moonLight.castShadow = false;
+        moonLight.visible = false;
+        scene.add(moonLight);
+
+        // 🌈 カラフルな地面（おもちゃのプレイマット）
+        const groundGeometry = new THREE.PlaneGeometry(100, 100, 20, 20);
+
+        // 虹色のグラデーション地面
+        const canvas = document.createElement('canvas');
+        canvas.width = 512;
+        canvas.height = 512;
+        const ctx = canvas.getContext('2d');
+
+        // カラフルなチェッカーボード模様
+        const colors = ['#FFB6C1', '#87CEEB', '#98FB98', '#F0E68C', '#DDA0DD', '#FFE4B5'];
+        const tileSize = 85;
+
+        for (let i = 0; i < 6; i++) {
+            for (let j = 0; j < 6; j++) {
+                ctx.fillStyle = colors[(i + j) % colors.length];
+                ctx.fillRect(i * tileSize, j * tileSize, tileSize, tileSize);
+            }
+        }
+
+        const groundTexture = new THREE.CanvasTexture(canvas);
+        groundTexture.wrapS = THREE.RepeatWrapping;
+        groundTexture.wrapT = THREE.RepeatWrapping;
+        groundTexture.repeat.set(2, 2);
+
+        const groundMaterial = new THREE.MeshLambertMaterial({
+            map: groundTexture
+        });
+
+        const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+        ground.rotation.x = -Math.PI / 2;
+        ground.receiveShadow = true;
+        scene.add(ground);
+
+        // 🏠 レゴブロック風の建物を作成
+        function createLegoBuilding(x, z, width, height, depth, color) {
+            const buildingGroup = new THREE.Group();
+
+            // メイン建物
+            const buildingGeometry = new THREE.BoxGeometry(width, height, depth);
+            const buildingMaterial = new THREE.MeshLambertMaterial({
+                color: color,
+                transparent: true,
+                opacity: 0.9
+            });
+
+            const building = new THREE.Mesh(buildingGeometry, buildingMaterial);
+            building.position.set(0, height / 2, 0);
+            building.castShadow = true;
+            building.receiveShadow = true;
+            buildingGroup.add(building);
+
+            // レゴの突起（上面に追加）
+            const studSize = Math.min(width, depth) / 4;
+            const studHeight = 0.5;
+            const studsX = Math.floor(width / studSize);
+            const studsZ = Math.floor(depth / studSize);
+
+            for (let i = 0; i < studsX; i++) {
+                for (let j = 0; j < studsZ; j++) {
+                    const studGeometry = new THREE.CylinderGeometry(studSize * 0.3, studSize * 0.3, studHeight, 8);
+                    const studMaterial = new THREE.MeshLambertMaterial({
+                        color: color,
+                        transparent: true,
+                        opacity: 0.95
+                    });
+
+                    const stud = new THREE.Mesh(studGeometry, studMaterial);
+                    stud.position.set(
+                        (i - (studsX - 1) / 2) * studSize,
+                        height + studHeight / 2,
+                        (j - (studsZ - 1) / 2) * studSize
+                    );
+                    stud.castShadow = true;
+                    buildingGroup.add(stud);
+                }
+            }
+
+            buildingGroup.position.set(x, 0, z);
+            return buildingGroup;
+        }
+
+        function createCanvasTexture(drawFn, size = 256) {
+            const canvas = document.createElement('canvas');
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext('2d');
+            drawFn(ctx, size);
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.needsUpdate = true;
+            return texture;
+        }
+
+        function createAilabHub(x, z) {
+            const hub = new THREE.Group();
+            hub.userData.skipWiggle = true;
+
+            const podium = new THREE.Mesh(new THREE.CylinderGeometry(6, 6.5, 1.2, 24), new THREE.MeshLambertMaterial({ color: 0x2EC4B6 }));
+            podium.position.y = 0.6;
+            podium.castShadow = true;
+            podium.receiveShadow = true;
+            hub.add(podium);
+
+            const lowerBlock = new THREE.Mesh(new THREE.BoxGeometry(10, 4, 6), new THREE.MeshLambertMaterial({ color: 0x011627 }));
+            lowerBlock.position.y = 2.6;
+            lowerBlock.castShadow = true;
+            lowerBlock.receiveShadow = true;
+            hub.add(lowerBlock);
+
+            const upperBlock = new THREE.Mesh(new THREE.BoxGeometry(6, 5, 4), new THREE.MeshLambertMaterial({ color: 0xFF9F1C }));
+            upperBlock.position.set(-1, 6.5, 0);
+            upperBlock.castShadow = true;
+            hub.add(upperBlock);
+
+            const antenna = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 4, 12), new THREE.MeshLambertMaterial({ color: 0xA0E7E5 }));
+            antenna.position.set(2.4, 9, 0);
+            hub.add(antenna);
+
+            const logoTexture = createCanvasTexture((ctx, size) => {
+                ctx.fillStyle = '#0B132B';
+                ctx.fillRect(0, 0, size, size);
+                ctx.fillStyle = '#2EC4B6';
+                ctx.beginPath();
+                ctx.arc(size / 2, size / 2, size * 0.38, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#FFFFFF';
+                ctx.font = `${size * 0.3}px "Arial"`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('AI', size / 2, size / 2 - size * 0.08);
+                ctx.font = `${size * 0.18}px "Arial"`;
+                ctx.fillText('LAB', size / 2, size / 2 + size * 0.2);
+            }, 512);
+            const signage = new THREE.Mesh(new THREE.PlaneGeometry(4.5, 3), new THREE.MeshBasicMaterial({ map: logoTexture, transparent: true }));
+            signage.position.set(0, 7.5, 2.6);
+            hub.add(signage);
+            neonElements.push({ mesh: signage, type: 'pulse', speed: 5.2, baseOpacity: 1, phase: Math.random() * Math.PI * 2 });
+
+            const holoRing = new THREE.Mesh(new THREE.TorusGeometry(3.2, 0.2, 16, 64), new THREE.MeshBasicMaterial({ color: 0x7DF9FF, transparent: true, opacity: 0.5 }));
+            holoRing.position.y = 5;
+            holoRing.rotation.x = Math.PI / 2;
+            hub.add(holoRing);
+            neonElements.push({ mesh: holoRing, type: 'rotateZ', speed: 0.025, baseOpacity: holoRing.material.opacity, phase: Math.random() * Math.PI * 2 });
+
+            const labLight = new THREE.PointLight(0x7DF9FF, 1.6, 45, 2);
+            labLight.position.set(0, 8.2, 0);
+            hub.add(labLight);
+            registerNightLight(labLight, 1.6);
+
+            hub.position.set(x, 0, z);
+            return hub;
+        }
+
+        function createDisplayStand(x, z, label, accentColor) {
+            const stand = new THREE.Group();
+            stand.userData.skipWiggle = true;
+
+            const base = new THREE.Mesh(new THREE.CylinderGeometry(2, 2.4, 0.8, 16), new THREE.MeshLambertMaterial({ color: accentColor }));
+            base.position.y = 0.4;
+            base.castShadow = true;
+            stand.add(base);
+
+            const glass = new THREE.Mesh(new THREE.CylinderGeometry(1.3, 1.3, 2.2, 16), new THREE.MeshLambertMaterial({ color: 0xFFFFFF, transparent: true, opacity: 0.45 }));
+            glass.position.y = 1.8;
+            stand.add(glass);
+
+            const panelTexture = createCanvasTexture((ctx, size) => {
+                ctx.fillStyle = '#1B263B';
+                ctx.fillRect(0, 0, size, size);
+                ctx.fillStyle = accentColor;
+                ctx.font = `${size * 0.22}px "Arial"`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(label, size / 2, size / 2);
+            });
+            const panel = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 1.6), new THREE.MeshBasicMaterial({ map: panelTexture, transparent: true }));
+            panel.position.set(0, 3.2, 0);
+            stand.add(panel);
+            neonElements.push({ mesh: panel, type: 'pulse', speed: 4.4, baseOpacity: 1, phase: Math.random() * Math.PI * 2 });
+
+            const showcaseLight = new THREE.PointLight(accentColor, 1.1, 18, 2.2);
+            showcaseLight.position.set(0, 4.1, 0);
+            stand.add(showcaseLight);
+            registerNightLight(showcaseLight, 1.1);
+
+            stand.position.set(x, 0, z);
+            return stand;
+        }
+
+        function createServiceBot(x, z, color) {
+            const bot = new THREE.Group();
+            bot.userData.skipWiggle = true;
+
+            const body = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.5, 1.2, 12), new THREE.MeshLambertMaterial({ color }));
+            body.position.y = 0.6;
+            body.castShadow = true;
+            bot.add(body);
+
+            const head = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.5, 0.7), new THREE.MeshLambertMaterial({ color: 0x1B263B }));
+            head.position.y = 1.2;
+            bot.add(head);
+
+            const eye = new THREE.Mesh(new THREE.PlaneGeometry(0.4, 0.18), new THREE.MeshBasicMaterial({ color: 0x00F5D4, transparent: true, opacity: 0.8 }));
+            eye.position.set(0, 1.2, 0.36);
+            bot.add(eye);
+
+            const antenna = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.6, 8), new THREE.MeshLambertMaterial({ color: 0xFFFFFF }));
+            antenna.position.y = 1.6;
+            bot.add(antenna);
+
+            bot.position.set(x, 0, z);
+            serviceBots.push({ mesh: bot, baseY: bot.position.y, radius: 1 + Math.random(), speed: 0.6 + Math.random() * 0.5, offset: Math.random() * Math.PI * 2, center: new THREE.Vector3(x, 0, z) });
+            return bot;
+        }
+
+        function createParticleEmitter(position, color, options = {}) {
+            const geometry = new THREE.BufferGeometry();
+            const count = 200;
+            const positions = new Float32Array(count * 3);
+            for (let i = 0; i < count; i++) {
+                positions[i * 3 + 0] = (Math.random() - 0.5) * 2;
+                positions[i * 3 + 1] = Math.random() * 3;
+                positions[i * 3 + 2] = (Math.random() - 0.5) * 2;
+            }
+            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+            const material = new THREE.PointsMaterial({ color, size: 0.08, transparent: true, opacity: 0.8 });
+            const points = new THREE.Points(geometry, material);
+            points.position.copy(position);
+            particleEmitters.push({ points, baseY: position.y, color, start: Date.now(), nightOnly: !!options.nightOnly });
+            return points;
+        }
+
+        function registerNightLight(light, intensity) {
+            light.visible = false;
+            nightAccentLights.push({ light, intensity });
+        }
+
+        function applySceneTheme(mode) {
+            const night = mode === 'night';
+            isNightMode = night;
+            scene.background.set(night ? 0x141237 : 0xFFF8DC);
+            scene.fog.color.set(night ? 0x141237 : 0xFFF8DC);
+            scene.fog.near = night ? 10 : 20;
+            scene.fog.far = night ? 85 : 80;
+
+            ambientLight.color.set(night ? 0xC3D2FF : 0xFFFFFF);
+            ambientLight.intensity = night ? 1.8 : 2.2;
+
+            sunLight.visible = !night;
+            sunLight.intensity = night ? 0.18 : 1.0;
+            moonLight.visible = night;
+            moonLight.intensity = night ? 0.75 : 0.0;
+
+            renderer.toneMappingExposure = night ? 1.25 : 1.0;
+
+            groundMaterial.color.set(night ? 0xADB5FF : 0xFFFFFF);
+            neonModeBoost = night ? 1.4 : 0.7;
+
+            particleEmitters.forEach(emitter => {
+                emitter.points.visible = night ? true : !emitter.nightOnly;
+            });
+
+            nightAccentLights.forEach(entry => {
+                entry.light.visible = night;
+                entry.light.intensity = night ? entry.intensity : 0;
+            });
+        }
+
+        // 🎪 おもちゃのテント
+        function createToyTent(x, z, color1, color2) {
+            const tentGroup = new THREE.Group();
+
+            // テント本体（円錐）
+            const tentGeometry = new THREE.ConeGeometry(4, 8, 8);
+            const tentMaterial = new THREE.MeshLambertMaterial({
+                color: color1,
+                transparent: true,
+                opacity: 0.8
+            });
+
+            const tent = new THREE.Mesh(tentGeometry, tentMaterial);
+            tent.position.set(0, 4, 0);
+            tent.castShadow = true;
+            tentGroup.add(tent);
+
+            // 旗
+            const flagGeometry = new THREE.PlaneGeometry(2, 1);
+            const flagMaterial = new THREE.MeshLambertMaterial({
+                color: color2,
+                side: THREE.DoubleSide
+            });
+
+            const flag = new THREE.Mesh(flagGeometry, flagMaterial);
+            flag.position.set(0, 8.5, 0);
+            tentGroup.add(flag);
+
+            tentGroup.position.set(x, 0, z);
+            return tentGroup;
+        }
+
+        // 🎠 メリーゴーランド
+        function createMerryGoRound(x, z) {
+            const merryGroup = new THREE.Group();
+            merryGroup.userData.skipWiggle = true;
+
+            // ベース
+            const basePlatform = new THREE.Mesh(new THREE.CylinderGeometry(6.5, 6.5, 1, 24), new THREE.MeshLambertMaterial({ color: 0xFFD166 }));
+            basePlatform.position.y = 0.5;
+            basePlatform.castShadow = true;
+            merryGroup.add(basePlatform);
+
+            const baseGlow = new THREE.Mesh(new THREE.CylinderGeometry(6.3, 6.3, 0.25, 32), new THREE.MeshBasicMaterial({ color: 0xFFFFFF, transparent: true, opacity: 0.35 }));
+            baseGlow.position.y = 1.1;
+            merryGroup.add(baseGlow);
+            neonElements.push({ mesh: baseGlow, type: 'pulse', baseOpacity: baseGlow.material.opacity, speed: 3.2, phase: Math.random() * Math.PI * 2 });
+
+            // 中央ポール
+            const poleMaterial = new THREE.MeshLambertMaterial({ color: 0xFF6FB5 });
+            const centerPole = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 8.5, 16), poleMaterial);
+            centerPole.position.y = 5.25;
+            centerPole.castShadow = true;
+            merryGroup.add(centerPole);
+
+            const holoCore = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.2, 6.5, 24), new THREE.MeshLambertMaterial({ color: 0x7F5AF0, transparent: true, opacity: 0.35 }));
+            holoCore.position.y = 5.25;
+            merryGroup.add(holoCore);
+
+            // キャノピー
+            const canopyMaterial = new THREE.MeshLambertMaterial({ color: 0xFF3F81 });
+            const canopy = new THREE.Mesh(new THREE.ConeGeometry(7.5, 3.2, 24), canopyMaterial);
+            canopy.position.y = 11.2;
+            canopy.castShadow = true;
+            merryGroup.add(canopy);
+
+            const canopyRing = new THREE.Mesh(new THREE.TorusGeometry(6.8, 0.15, 16, 64), new THREE.MeshBasicMaterial({ color: 0xFFFFFF, transparent: true, opacity: 0.6 }));
+            canopyRing.position.y = 9.9;
+            canopyRing.rotation.x = Math.PI / 2;
+            merryGroup.add(canopyRing);
+            neonElements.push({ mesh: canopyRing, type: 'rotateY', speed: 0.02, baseOpacity: canopyRing.material.opacity, phase: Math.random() * Math.PI * 2 });
+
+            const finial = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.5, 1.6, 12), new THREE.MeshLambertMaterial({ color: 0xFFE066 }));
+            finial.position.y = 12.7;
+            merryGroup.add(finial);
+
+            const canopyLight = new THREE.PointLight(0xFF80FF, 1.4, 40, 2);
+            canopyLight.position.set(0, 10.5, 0);
+            merryGroup.add(canopyLight);
+            registerNightLight(canopyLight, 1.4);
+
+            const baseGlowLight = new THREE.PointLight(0xFFD166, 1.1, 26, 2);
+            baseGlowLight.position.set(0, 2.8, 0);
+            merryGroup.add(baseGlowLight);
+            registerNightLight(baseGlowLight, 1.1);
+
+            // クリーチャー（AIトイアニマル）
+            const creatureColors = [0xFF6B6B, 0x4ECDC4, 0x45B7D1, 0x96CEB4, 0xFECEA8, 0xD665FF];
+            for (let i = 0; i < 6; i++) {
+                const angle = (i / 6) * Math.PI * 2;
+                const radius = 4.3;
+                const creatureGroup = new THREE.Group();
+                creatureGroup.position.set(Math.cos(angle) * radius, 1.2, Math.sin(angle) * radius);
+                creatureGroup.rotation.y = -angle + Math.PI / 2;
+
+                const supportPole = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 6.2, 12), new THREE.MeshLambertMaterial({ color: 0xFFE066 }));
+                supportPole.position.y = 3.2;
+                supportPole.castShadow = true;
+                creatureGroup.add(supportPole);
+
+                const bodyMaterial = new THREE.MeshLambertMaterial({ color: creatureColors[i] });
+                const body = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 1.8, 12), bodyMaterial);
+                body.rotation.z = Math.PI / 2;
+                body.position.set(0, 3.1, 0.4);
+                body.castShadow = true;
+                creatureGroup.add(body);
+
+                const head = new THREE.Mesh(new THREE.SphereGeometry(0.5, 16, 16), bodyMaterial);
+                head.position.set(0.8, 3.6, 0.4);
+                creatureGroup.add(head);
+
+                const visor = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.3, 0.4), new THREE.MeshLambertMaterial({ color: 0xFFFFFF }));
+                visor.position.set(1.05, 3.6, 0.4);
+                creatureGroup.add(visor);
+
+                const legMaterial = new THREE.MeshLambertMaterial({ color: 0xFFD8A8 });
+                for (let j = 0; j < 4; j++) {
+                    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 1.4, 8), legMaterial);
+                    leg.position.set(-0.4 + (j % 2) * 0.8, 2.2, j < 2 ? 0.2 : 0.7);
+                    creatureGroup.add(leg);
+                }
+
+                const wingMaterial = new THREE.MeshLambertMaterial({ color: 0xFFFFFF, transparent: true, opacity: 0.65, side: THREE.DoubleSide });
+                const wing = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 1.2), wingMaterial);
+                wing.position.set(0, 3.6, -0.1);
+                wing.rotation.y = Math.PI / 2;
+                creatureGroup.add(wing);
+
+                merryGroup.add(creatureGroup);
+                carouselCreatures.push({ group: creatureGroup, baseY: creatureGroup.position.y, phase: i * (Math.PI / 3) });
+            }
+
+            merryGroup.position.set(x, 0, z);
+
+            // 回転アニメーション
+            function animateMerry() {
+                merryGroup.rotation.y += 0.008;
+                requestAnimationFrame(animateMerry);
+            }
+            animateMerry();
+
+            return merryGroup;
+        }
+
+        // 🎡 大きな観覧車
+        function createFerrisWheel(x, z) {
+            const ferrisGroup = new THREE.Group();
+            const wheelRadius = 10;
+            const gondolaCount = 10;
+            ferrisGroup.userData.skipWiggle = true;
+
+            // ベース
+            const baseMaterial = new THREE.MeshLambertMaterial({ color: 0xFFE4A1 });
+            const basePlatform = new THREE.Mesh(new THREE.BoxGeometry(26, 1, 10), baseMaterial);
+            basePlatform.position.set(0, 0.5, 0);
+            basePlatform.receiveShadow = true;
+            ferrisGroup.add(basePlatform);
+
+            // 支柱
+            const supportMaterial = new THREE.MeshLambertMaterial({ color: 0xFFD45C });
+            const supportGroup = new THREE.Group();
+
+            const createSupport = (side) => {
+                const support = new THREE.Group();
+
+                const legGeometry = new THREE.BoxGeometry(1.4, wheelRadius * 1.6, 1.4);
+                const legFront = new THREE.Mesh(legGeometry, supportMaterial);
+                legFront.position.set(0, wheelRadius * 0.8, 2);
+                legFront.rotation.z = -side * Math.PI / 11;
+                legFront.castShadow = true;
+
+                const legBack = legFront.clone();
+                legBack.position.z = -2;
+
+                support.add(legFront, legBack);
+
+                const crossBeam = new THREE.Mesh(new THREE.BoxGeometry(1.6, 2.4, 8), supportMaterial);
+                crossBeam.position.set(0, wheelRadius * 1.4, 0);
+                crossBeam.castShadow = true;
+                support.add(crossBeam);
+
+                const foot = new THREE.Mesh(new THREE.BoxGeometry(4, 0.6, 6), baseMaterial);
+                foot.position.set(0, 0.3, 0);
+                foot.receiveShadow = true;
+                support.add(foot);
+
+                support.position.x = side * (wheelRadius + 2.5);
+                return support;
+            };
+
+            supportGroup.add(createSupport(-1), createSupport(1));
+            ferrisGroup.add(supportGroup);
+
+            // ホイール
+            const wheelGroup = new THREE.Group();
+            wheelGroup.position.set(0, wheelRadius + 5, 0);
+
+            const rimMaterial = new THREE.MeshLambertMaterial({ color: 0x63E6BE });
+            const rim = new THREE.Mesh(new THREE.TorusGeometry(wheelRadius, 0.6, 32, 96), rimMaterial);
+            rim.rotation.y = Math.PI / 2;
+            rim.castShadow = true;
+            wheelGroup.add(rim);
+
+            // スポーク
+            const spokeMaterial = new THREE.MeshLambertMaterial({ color: 0x45B7D1 });
+            const spokeGeometry = new THREE.BoxGeometry(0.3, wheelRadius * 2 - 2, 0.3);
+            for (let i = 0; i < 12; i++) {
+                const spoke = new THREE.Mesh(spokeGeometry, spokeMaterial);
+                spoke.position.y = 0;
+                spoke.castShadow = true;
+                const holder = new THREE.Group();
+                holder.rotation.x = (i / 12) * Math.PI * 2;
+                holder.add(spoke);
+                wheelGroup.add(holder);
+            }
+
+            // ゴンドラ
+            const gondolaColors = [0xFF69B4, 0x32CD32, 0xFFD700, 0xFF6F61, 0x9370DB, 0x00CED1, 0xFFA07A, 0xFF1493, 0x2E8B57, 0xFFB347];
+            const gondolaControllers = [];
+            const hangerMaterial = new THREE.MeshLambertMaterial({ color: 0xF4A261 });
+
+            for (let i = 0; i < gondolaCount; i++) {
+                const angle = (i / gondolaCount) * Math.PI * 2;
+
+                const pivot = new THREE.Group();
+                pivot.rotation.x = angle;
+
+                const gondolaSwing = new THREE.Group();
+                gondolaSwing.position.set(0, 0, wheelRadius - 0.8);
+                pivot.add(gondolaSwing);
+
+                const hanger = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 3.4, 8), hangerMaterial);
+                hanger.position.y = -1.7;
+                gondolaSwing.add(hanger);
+
+                const cabin = new THREE.Mesh(new THREE.BoxGeometry(2.8, 2.2, 2.4), new THREE.MeshLambertMaterial({ color: gondolaColors[i] }));
+                cabin.position.y = -3.4;
+                cabin.castShadow = true;
+                gondolaSwing.add(cabin);
+
+                const roof = new THREE.Mesh(new THREE.CylinderGeometry(0, 1.6, 0.6, 8), new THREE.MeshLambertMaterial({ color: 0xFFFFFF }));
+                roof.position.y = -2.2;
+                gondolaSwing.add(roof);
+
+                const base = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.35, 2.2), new THREE.MeshLambertMaterial({ color: 0xE29578 }));
+                base.position.y = -4.5;
+                gondolaSwing.add(base);
+
+                gondolaSwing.rotation.x = 0;
+                wheelGroup.add(pivot);
+                gondolaControllers.push({ swing: gondolaSwing });
+            }
+
+            // 中央軸
+            const axleMaterial = new THREE.MeshLambertMaterial({ color: 0x8D99AE });
+            const axle = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 16, 24), axleMaterial);
+            axle.rotation.z = Math.PI / 2;
+            axle.position.set(0, 0, 0);
+            axle.castShadow = true;
+            wheelGroup.add(axle);
+
+            const hubMaterial = new THREE.MeshLambertMaterial({ color: 0xF1FAEE });
+            const hub = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 1.6, 1.2, 24), hubMaterial);
+            hub.rotation.z = Math.PI / 2;
+            hub.position.set(0, 0, 0);
+            hub.castShadow = true;
+            wheelGroup.add(hub);
+
+            const gondolaLight = new THREE.PointLight(0xFFD6FF, 1.3, 50, 2.4);
+            gondolaLight.position.set(0, 0, 0);
+            wheelGroup.add(gondolaLight);
+            registerNightLight(gondolaLight, 1.3);
+
+            ferrisGroup.add(wheelGroup);
+
+            // ベース位置
+            ferrisGroup.position.set(x, 0, z);
+
+            // アニメーション
+            function animateFerris() {
+                wheelGroup.rotation.x = (wheelGroup.rotation.x + 0.004) % (Math.PI * 2);
+                gondolaControllers.forEach(controller => {
+                    controller.swing.rotation.x = -wheelGroup.rotation.x;
+                });
+                requestAnimationFrame(animateFerris);
+            }
+            animateFerris();
+
+            return ferrisGroup;
+        }
+
+        function createNeonCircuit(x, z) {
+            const group = new THREE.Group();
+            group.userData.skipWiggle = true;
+
+            const outerRingMaterial = new THREE.MeshBasicMaterial({ color: 0x9BF6FF, transparent: true, opacity: 0.45, side: THREE.DoubleSide });
+            const outerRing = new THREE.Mesh(new THREE.RingGeometry(11.5, 12.8, 64), outerRingMaterial);
+            outerRing.rotation.x = -Math.PI / 2;
+            group.add(outerRing);
+            neonElements.push({ mesh: outerRing, type: 'rotateZ', speed: 0.006, baseOpacity: outerRingMaterial.opacity, phase: Math.random() * Math.PI * 2 });
+
+            const tileMaterial = new THREE.MeshBasicMaterial({ color: 0xFFFFFF, transparent: true, opacity: 0.55 });
+            for (let i = 0; i < 16; i++) {
+                const angle = (i / 16) * Math.PI * 2;
+                const tile = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.2, 0.8), tileMaterial.clone());
+                tile.position.set(Math.cos(angle) * 12.2, 0.12, Math.sin(angle) * 12.2);
+                tile.rotation.y = -angle;
+                group.add(tile);
+                neonElements.push({ mesh: tile, type: 'pulse', speed: 4.5 + i * 0.2, baseOpacity: tile.material.opacity, phase: Math.random() * Math.PI * 2 });
+            }
+
+            const circuitLights = [
+                new THREE.PointLight(0xBDE0FE, 1.2, 40, 2),
+                new THREE.PointLight(0xFFAFCC, 1.0, 40, 2)
+            ];
+            circuitLights[0].position.set(0, 2.5, 0);
+            circuitLights[1].position.set(6, 2.8, -6);
+            circuitLights.forEach(light => {
+                group.add(light);
+                registerNightLight(light, light.intensity);
+            });
+
+            const innerPlatform = new THREE.Mesh(new THREE.CylinderGeometry(6, 6, 0.4, 32), new THREE.MeshLambertMaterial({ color: 0xFFF6E0, transparent: true, opacity: 0.8 }));
+            innerPlatform.position.y = 0.2;
+            innerPlatform.receiveShadow = true;
+            group.add(innerPlatform);
+
+            group.position.set(x, 0.05, z);
+            return group;
+        }
+
+        function createHoverDroneGarden(x, z) {
+            const group = new THREE.Group();
+            group.userData.skipWiggle = true;
+
+            const pad = new THREE.Mesh(new THREE.CylinderGeometry(4, 4, 0.4, 24), new THREE.MeshLambertMaterial({ color: 0x22223B, transparent: true, opacity: 0.35 }));
+            pad.position.y = 0.2;
+            pad.receiveShadow = true;
+            group.add(pad);
+
+            const droneCount = 6;
+            for (let i = 0; i < droneCount; i++) {
+                const pivot = new THREE.Group();
+                pivot.rotation.y = (i / droneCount) * Math.PI * 2;
+
+                const arm = new THREE.Group();
+                arm.position.set(0, 2.6, 3.2);
+                pivot.add(arm);
+
+                const body = new THREE.Mesh(new THREE.SphereGeometry(0.8, 24, 24), new THREE.MeshLambertMaterial({ color: 0x80ED99 }));
+                body.castShadow = true;
+                arm.add(body);
+
+                const eye = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 0.6, 16), new THREE.MeshLambertMaterial({ color: 0xFFFFFF }));
+                eye.rotation.x = Math.PI / 2;
+                eye.position.z = 0.8;
+                body.add(eye);
+
+                const halo = new THREE.Mesh(new THREE.TorusGeometry(1.1, 0.06, 8, 32), new THREE.MeshBasicMaterial({ color: 0xC0FDFB, transparent: true, opacity: 0.75 }));
+                halo.rotation.x = Math.PI / 2;
+                arm.add(halo);
+                neonElements.push({ mesh: halo, type: 'rotateY', speed: 0.04, baseOpacity: halo.material.opacity, phase: Math.random() * Math.PI * 2 });
+
+                group.add(pivot);
+                hoverDrones.push({ pivot, arm, baseY: arm.position.y, amplitude: 0.6 + Math.random() * 0.4, speed: 0.01 + i * 0.002, phase: Math.random() * Math.PI * 2 });
+            }
+
+            group.position.set(x, 0, z);
+            const hubLight = new THREE.PointLight(0x80ED99, 1.1, 28, 2.2);
+            hubLight.position.set(0, 3.2, 0);
+            group.add(hubLight);
+            registerNightLight(hubLight, 1.1);
+            return group;
+        }
+
+        function createAICrystalSpire(x, z) {
+            const group = new THREE.Group();
+            group.userData.skipWiggle = true;
+
+            const base = new THREE.Mesh(new THREE.CylinderGeometry(2.6, 3.2, 1.4, 16), new THREE.MeshLambertMaterial({ color: 0x8D99AE }));
+            base.position.y = 0.7;
+            base.castShadow = true;
+            group.add(base);
+
+            const pillar = new THREE.Mesh(new THREE.CylinderGeometry(1.4, 1.4, 7, 20), new THREE.MeshLambertMaterial({ color: 0x5A189A, transparent: true, opacity: 0.5 }));
+            pillar.position.y = 4.2;
+            pillar.castShadow = true;
+            group.add(pillar);
+
+            const crystal = new THREE.Mesh(new THREE.OctahedronGeometry(1.6), new THREE.MeshLambertMaterial({ color: 0x9D4EDD, transparent: true, opacity: 0.6 }));
+            crystal.position.y = 8.6;
+            group.add(crystal);
+
+            const halo = new THREE.Mesh(new THREE.TorusGeometry(2.8, 0.12, 12, 48), new THREE.MeshBasicMaterial({ color: 0xA0E7E5, transparent: true, opacity: 0.6 }));
+            halo.rotation.x = Math.PI / 2;
+            halo.position.y = 6.5;
+            group.add(halo);
+            neonElements.push({ mesh: halo, type: 'rotateY', speed: 0.03, baseOpacity: halo.material.opacity, phase: Math.random() * Math.PI * 2 });
+
+            const orbMaterial = new THREE.MeshBasicMaterial({ color: 0xFFFFFF, transparent: true, opacity: 0.8 });
+            const orbPivot = new THREE.Group();
+            const orb = new THREE.Mesh(new THREE.SphereGeometry(0.6, 16, 16), orbMaterial);
+            orb.position.set(0, 0, 4);
+            orbPivot.add(orb);
+            orbPivot.position.y = 6.5;
+            group.add(orbPivot);
+            hoverDrones.push({ pivot: orbPivot, arm: orb, baseY: orb.position.y, amplitude: 0.4, speed: 0.02, phase: 0 });
+            neonElements.push({ mesh: orb, type: 'pulse', speed: 5.5, baseOpacity: orbMaterial.opacity, phase: Math.random() * Math.PI * 2 });
+
+            const spireLight = new THREE.PointLight(0xC77DFF, 1.8, 55, 2);
+            spireLight.position.set(0, 8.3, 0);
+            group.add(spireLight);
+            registerNightLight(spireLight, 1.8);
+
+            group.position.set(x, 0, z);
+            return group;
+        }
+
+        function createMaglevTrainLoop() {
+            const loopGroup = new THREE.Group();
+            loopGroup.userData.skipWiggle = true;
+
+            const radiusX = 40;
+            const radiusZ = 32;
+            const railHeight = 1.2;
+
+            const pathPoints = [];
+            const segments = 120;
+            for (let i = 0; i < segments; i++) {
+                const angle = (i / segments) * Math.PI * 2;
+                const x = Math.cos(angle) * radiusX;
+                const z = Math.sin(angle) * radiusZ;
+                pathPoints.push(new THREE.Vector3(x, railHeight, z));
+            }
+
+            const railCurve = new THREE.CatmullRomCurve3(pathPoints, true, 'catmullrom', 0.8);
+            const railGeometry = new THREE.TubeGeometry(railCurve, segments * 3, 0.6, 12, true);
+            const railMaterial = new THREE.MeshLambertMaterial({ color: 0x95D5B2 });
+            const railMesh = new THREE.Mesh(railGeometry, railMaterial);
+            railMesh.castShadow = true;
+            railMesh.receiveShadow = true;
+            loopGroup.add(railMesh);
+
+            const railGlow = railMesh.clone();
+            railGlow.material = new THREE.MeshBasicMaterial({ color: 0xE4C1F9, transparent: true, opacity: 0.35 });
+            railGlow.scale.set(1.04, 1.04, 1.04);
+            loopGroup.add(railGlow);
+            neonElements.push({ mesh: railGlow, type: 'pulse', speed: 3.8, baseOpacity: railGlow.material.opacity, phase: Math.random() * Math.PI * 2 });
+
+            const sleeperMaterial = new THREE.MeshLambertMaterial({ color: 0xF25F5C });
+            for (let i = 0; i < segments; i += 6) {
+                const t = i / segments;
+                const point = railCurve.getPoint(t);
+                const tangent = railCurve.getTangent(t);
+                const sleeper = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.3, 0.8), sleeperMaterial);
+                sleeper.position.copy(point);
+                const angle = Math.atan2(tangent.x, tangent.z);
+                sleeper.rotation.y = angle;
+                sleeper.receiveShadow = true;
+                loopGroup.add(sleeper);
+            }
+
+            const trainGroup = new THREE.Group();
+            trainGroup.castShadow = true;
+            trainGroup.receiveShadow = true;
+
+            const carColors = [0xFF9F1C, 0xFFBF69, 0xFFCAD4];
+            const carCount = 3;
+            const carSpacing = 3.6;
+            const cars = [];
+            for (let i = 0; i < carCount; i++) {
+                const car = new THREE.Group();
+                const body = new THREE.Mesh(new THREE.BoxGeometry(2.8, 1.6, 1.8), new THREE.MeshLambertMaterial({ color: carColors[i % carColors.length] }));
+                body.position.y = 1;
+                body.castShadow = true;
+                car.add(body);
+
+                const windowMaterial = new THREE.MeshLambertMaterial({ color: 0xF8F9FA, transparent: true, opacity: 0.8 });
+                const window = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.8, 0.1), windowMaterial);
+                window.position.set(0, 1.1, 0.95);
+                car.add(window);
+                const windowBack = window.clone();
+                windowBack.position.z = -0.95;
+                car.add(windowBack);
+
+                const neonStrip = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.1, 0.1), new THREE.MeshBasicMaterial({ color: 0xFFFFFF, transparent: true, opacity: 0.7 }));
+                neonStrip.position.set(0, 0.4, 1.0);
+                car.add(neonStrip);
+                const neonStripBack = neonStrip.clone();
+                neonStripBack.position.z = -1.0;
+                car.add(neonStripBack);
+                neonElements.push({ mesh: neonStrip, type: 'pulse', speed: 6 + i, baseOpacity: neonStrip.material.opacity, phase: Math.random() * Math.PI * 2 });
+                neonElements.push({ mesh: neonStripBack, type: 'pulse', speed: 6 + i, baseOpacity: neonStripBack.material.opacity, phase: Math.random() * Math.PI * 2 });
+
+                trainGroup.add(car);
+                cars.push(car);
+            }
+
+            loopGroup.add(trainGroup);
+
+            trainMovers.push({ cars, curve: railCurve, offset: Math.random(), speed: 0.0016, spacing: carSpacing, length: railCurve.getLength() });
+
+            return loopGroup;
+        }
+
+        // 👥 小さなキャラクターフィギュア
+        function createCharacterFigure(x, z, color, type = 'person') {
+            const figureGroup = new THREE.Group();
+
+            if (type === 'person') {
+                // 体
+                const bodyGeometry = new THREE.BoxGeometry(0.8, 1.5, 0.5);
+                const bodyMaterial = new THREE.MeshLambertMaterial({ color: color });
+                const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+                body.position.set(0, 1, 0);
+                body.castShadow = true;
+                figureGroup.add(body);
+
+                // 頭
+                const headGeometry = new THREE.BoxGeometry(0.6, 0.6, 0.6);
+                const headMaterial = new THREE.MeshLambertMaterial({ color: 0xFFDBB5 });
+                const head = new THREE.Mesh(headGeometry, headMaterial);
+                head.position.set(0, 2, 0);
+                head.castShadow = true;
+                figureGroup.add(head);
+            } else if (type === 'cat') {
+                // 猫の体
+                const catBodyGeometry = new THREE.BoxGeometry(1, 0.6, 0.4);
+                const catBodyMaterial = new THREE.MeshLambertMaterial({ color: color });
+                const catBody = new THREE.Mesh(catBodyGeometry, catBodyMaterial);
+                catBody.position.set(0, 0.3, 0);
+                catBody.castShadow = true;
+                figureGroup.add(catBody);
+
+                // 猫の頭
+                const catHeadGeometry = new THREE.BoxGeometry(0.5, 0.5, 0.5);
+                const catHead = new THREE.Mesh(catHeadGeometry, catBodyMaterial);
+                catHead.position.set(0.5, 0.5, 0);
+                catHead.castShadow = true;
+                figureGroup.add(catHead);
+            } else if (type === 'robot') {
+                // ロボットの体
+                const robotBodyGeometry = new THREE.BoxGeometry(0.8, 1.2, 0.8);
+                const robotBodyMaterial = new THREE.MeshLambertMaterial({ color: color });
+                const robotBody = new THREE.Mesh(robotBodyGeometry, robotBodyMaterial);
+                robotBody.position.set(0, 0.8, 0);
+                robotBody.castShadow = true;
+                figureGroup.add(robotBody);
+
+                // ロボットの頭
+                const robotHeadGeometry = new THREE.BoxGeometry(0.6, 0.6, 0.6);
+                const robotHead = new THREE.Mesh(robotHeadGeometry, robotBodyMaterial);
+                robotHead.position.set(0, 1.6, 0);
+                robotHead.castShadow = true;
+                figureGroup.add(robotHead);
+
+                // アンテナ
+                const antennaGeometry = new THREE.BoxGeometry(0.1, 0.5, 0.1);
+                const antenna = new THREE.Mesh(antennaGeometry, robotBodyMaterial);
+                antenna.position.set(0, 2.1, 0);
+                figureGroup.add(antenna);
+            }
+
+            figureGroup.position.set(x, 0, z);
+
+            // 微細なアニメーション
+            const originalY = figureGroup.position.y;
+            function animateCharacter() {
+                figureGroup.position.y = originalY + Math.sin(Date.now() * 0.003 + x + z) * 0.1;
+                figureGroup.rotation.y = Math.sin(Date.now() * 0.002 + x + z) * 0.1;
+                requestAnimationFrame(animateCharacter);
+            }
+            animateCharacter();
+
+            return figureGroup;
+        }
+
+        // 🧸 おもちゃの街を構築
+        const toyCity = new THREE.Group();
+
+        // カラフルなレゴ建物
+        const building1 = createLegoBuilding(-15, -15, 8, 6, 8, 0xFF6B6B);
+        const building2 = createLegoBuilding(15, -15, 6, 8, 6, 0x4ECDC4);
+        const building3 = createLegoBuilding(-20, 22, 10, 5, 6, 0x45B7D1);
+        const building4 = createLegoBuilding(15, 15, 6, 10, 8, 0x96CEB4);
+        const building5 = createLegoBuilding(0, -25, 12, 4, 6, 0xFECEA8);
+
+        const aiLabHub = createAilabHub(-5, 18);
+        toyCity.add(building1, building2, building3, building4, building5, aiLabHub);
+
+        const stand1 = createDisplayStand(-8, 6, '作品A', '#FF6B6B');
+        const stand2 = createDisplayStand(8, 6, '作品B', '#4ECDC4');
+        const stand3 = createDisplayStand(0, -12, '作品C', '#FF9F1C');
+        toyCity.add(stand1, stand2, stand3);
+
+        // テント
+        const tent1 = createToyTent(-25, 0, 0xFF1493, 0xFFD700);
+        const tent2 = createToyTent(25, 0, 0x9B59B6, 0xFF6B6B);
+        toyCity.add(tent1, tent2);
+
+        const neonCircuit = createNeonCircuit(5, -8);
+        const droneGarden = createHoverDroneGarden(-18, 6);
+        const aiSpire = createAICrystalSpire(18, 10);
+        toyCity.add(neonCircuit, droneGarden, aiSpire);
+
+        const botColors = [0xFF6B6B, 0x4ECDC4, 0xFFBF69, 0xA0E7E5];
+        botColors.forEach((color, idx) => {
+            const angle = (idx / botColors.length) * Math.PI * 2;
+            const radius = 12;
+            const bot = createServiceBot(Math.cos(angle) * radius, Math.sin(angle) * radius, color);
+            toyCity.add(bot);
+        });
+
+        // メリーゴーランド
+        const merryGoRound = createMerryGoRound(0, 0);
+        toyCity.add(merryGoRound);
+
+        // 観覧車
+        const ferrisWheel = createFerrisWheel(30, -20);
+        toyCity.add(ferrisWheel);
+
+        const maglevLoop = createMaglevTrainLoop();
+        toyCity.add(maglevLoop);
+
+        const spireEmitter = createParticleEmitter(new THREE.Vector3(18, 9, 10), 0xC77DFF, { nightOnly: false });
+        scene.add(spireEmitter);
+        const labEmitter = createParticleEmitter(new THREE.Vector3(-5, 7.5, 18), 0x2EC4B6, { nightOnly: false });
+        scene.add(labEmitter);
+        const starField = createParticleEmitter(new THREE.Vector3(0, 34, 0), 0xFFFFFF, { nightOnly: true });
+        starField.visible = false;
+        scene.add(starField);
+
+        applySceneTheme('day');
+        // キャラクターフィギュア（ユーザーが置きたくなるようなサンプル）
+        const character1 = createCharacterFigure(5, 8, 0xFF69B4, 'person');
+        const character2 = createCharacterFigure(-8, 6, 0x32CD32, 'robot');
+        const character3 = createCharacterFigure(12, -5, 0xFFD700, 'cat');
+        const character4 = createCharacterFigure(-3, -12, 0xFF4500, 'person');
+        const character5 = createCharacterFigure(20, 10, 0x9370DB, 'robot');
+        const character6 = createCharacterFigure(-18, -8, 0x00CED1, 'cat');
+
+        toyCity.add(character1, character2, character3, character4, character5, character6);
+
+        scene.add(toyCity);
+
+        // カメラポジション
+        camera.position.set(0, 20, 30);
+        camera.lookAt(0, 0, 0);
+
+        // カメラコントロール
+        let isMouseDown = false;
+        let mouseX = 0;
+        let mouseY = 0;
+        let cameraAngleX = 0;
+        let cameraAngleY = 0;
+        let cameraDistance = 35;
+        let cameraControlsEnabled = true;
+
+        // マウスイベント
+        renderer.domElement.addEventListener('mousedown', (event) => {
+            if (cameraControlsEnabled) {
+                isMouseDown = true;
+                mouseX = event.clientX;
+                mouseY = event.clientY;
+            }
+        });
+
+        renderer.domElement.addEventListener('mouseup', () => {
+            isMouseDown = false;
+        });
+
+        renderer.domElement.addEventListener('mousemove', (event) => {
+            if (isMouseDown && cameraControlsEnabled) {
+                const deltaX = event.clientX - mouseX;
+                const deltaY = event.clientY - mouseY;
+
+                cameraAngleY -= deltaX * 0.01;
+                cameraAngleX += deltaY * 0.01;
+                cameraAngleX = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, cameraAngleX));
+
+                mouseX = event.clientX;
+                mouseY = event.clientY;
+
+                updateCameraPosition();
+            }
+        });
+
+        function zoomPreview(direction) {
+            const factor = direction === 'in' ? 0.85 : 1 / 0.85;
+            const length = camera.position.length();
+            camera.position.multiplyScalar(Math.max(10, Math.min(80, length * factor)) / length);
+            cameraDistance = camera.position.length();
+            camera.lookAt(0, 0, 0);
+            renderer.render(scene, camera);
+        }
+
+        function updateCameraPosition() {
+            camera.position.x = Math.sin(cameraAngleY) * Math.cos(cameraAngleX) * cameraDistance;
+            camera.position.y = Math.sin(cameraAngleX) * cameraDistance + 10;
+            camera.position.z = Math.cos(cameraAngleY) * Math.cos(cameraAngleX) * cameraDistance;
+            camera.lookAt(0, 0, 0);
+        }
+
+        // リサイズ対応
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // 30秒後の自動非表示タイマー開始
+        scheduleInfoPanelAutoHide();
+
+        // ナイトモードボタンを中央上部に独立配置
+        const themeToggle = document.createElement('button');
+        themeToggle.className = 'tool-button';
+        themeToggle.id = 'theme-toggle';
+        themeToggle.innerHTML = '🌙 ナイトモード';
+
+        // テーマに応じたボタンスタイル
+        function updateThemeButtonStyle() {
+            if (isNightMode) {
+                // ナイトモード時：美しい元の色を維持
+                themeToggle.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    z-index: 100;
+                    background: linear-gradient(135deg, rgba(255, 255, 255, 0.28), rgba(255, 192, 203, 0.35));
+                    color: #fff;
+                    border: none;
+                    border-radius: 999px;
+                    padding: 10px 18px;
+                    font-size: 13px;
+                    font-weight: 600;
+                    cursor: pointer;
+                    box-shadow: 0 6px 18px rgba(255, 105, 180, 0.35);
+                    transition: all 0.2s ease;
+                    backdrop-filter: blur(10px);
+                `;
+            } else {
+                // デイモード時：ガラスモーフィングの美しい薄紫
+                themeToggle.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    z-index: 100;
+                    background: rgba(255, 255, 255, 0.25);
+                    color: #6a4c93;
+                    border: 1px solid rgba(255, 255, 255, 0.4);
+                    border-radius: 999px;
+                    padding: 10px 18px;
+                    font-size: 13px;
+                    font-weight: 600;
+                    cursor: pointer;
+                    box-shadow: 0 8px 32px rgba(138, 43, 226, 0.3), inset 0 1px 2px rgba(255, 255, 255, 0.6);
+                    transition: all 0.3s ease;
+                    backdrop-filter: blur(25px) saturate(200%);
+                    animation: gentle-float 3s ease-in-out infinite;
+                `;
+            }
+        }
+
+        updateThemeButtonStyle();
+        document.body.appendChild(themeToggle);
+
+        themeToggle.addEventListener('mouseover', () => {
+            themeToggle.style.transform = 'translateX(-50%) translateY(-2px) scale(1.05)';
+            if (isNightMode) {
+                themeToggle.style.boxShadow = '0 10px 28px rgba(255, 105, 180, 0.45)';
+            } else {
+                themeToggle.style.boxShadow = '0 10px 28px rgba(75, 0, 130, 0.6)';
+            }
+        });
+
+        themeToggle.addEventListener('mouseout', () => {
+            themeToggle.style.transform = 'translateX(-50%)';
+            if (isNightMode) {
+                themeToggle.style.boxShadow = '0 6px 18px rgba(255, 105, 180, 0.35)';
+            } else {
+                themeToggle.style.boxShadow = '0 6px 18px rgba(75, 0, 130, 0.4)';
+            }
+        });
+
+        themeToggle.addEventListener('click', () => {
+            const nextMode = isNightMode ? 'day' : 'night';
+            applySceneTheme(nextMode);
+            themeToggle.innerHTML = isNightMode ? '🌞 デイモード' : '🌙 ナイトモード';
+            updateThemeButtonStyle(); // テーマ変更時にボタンスタイルも更新
+        });
+
+        // 🎵 高度な音響システムの初期化（wabi-sabi方式）
+        let audioContext = null;
+        let analyser = null;
+        let dataArray = null;
+        let beatDetectionHistory = [];
+        let lastBeatTime = 0;
+        let musicData = {
+            volume: 0,
+            bass: 0,
+            mid: 0,
+            treble: 0,
+            tempo: 0,
+            bpm: 0,
+            beatDetected: false,
+            isPlaying: false
+        };
+        const connectedVideos = new WeakSet(); // 接続済みのvideoを追跡
+        const audioStatusEl = document.getElementById('audio-status');
+        const audioTextEl = document.getElementById('audio-text');
+
+        function setupAudioAnalysis() {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                analyser = audioContext.createAnalyser();
+                analyser.fftSize = 256;
+                dataArray = new Uint8Array(analyser.frequencyBinCount);
+                console.log('🎵 Advanced audio analysis initialized');
+            }
+        }
+
+        // 動画要素を音響分析に接続
+        function connectVideoToAudio(videoElement) {
+            // すでに接続済みの場合はスキップ
+            if (connectedVideos.has(videoElement)) {
+                console.log('🎵 Video already connected, skipping');
+                return;
+            }
+
+            if (!audioContext || !analyser) {
+                setupAudioAnalysis();
+            }
+
+            try {
+                if (audioContext.state === 'suspended') {
+                    audioContext.resume();
+                }
+
+                const source = audioContext.createMediaElementSource(videoElement);
+                source.connect(analyser);
+                analyser.connect(audioContext.destination);
+
+                connectedVideos.add(videoElement); // 接続済みとしてマーク
+
+                musicData.isPlaying = true;
+                if (audioStatusEl) {
+                    audioStatusEl.classList.add('active');
+                    if (audioTextEl) {
+                        audioTextEl.textContent = '音響連動中 ♪ (BPM検出中)';
+                    }
+                }
+                console.log('🎵 Video connected to advanced audio analyser');
+            } catch (error) {
+                console.warn('Audio connection error:', error);
+            }
+        }
+
+        // 音楽データの詳細解析
+        function analyzeMusicData() {
+            if (!analyser || !dataArray) return;
+
+            analyser.getByteFrequencyData(dataArray);
+
+            let sum = 0;
+            for (let i = 0; i < dataArray.length; i++) {
+                sum += dataArray[i];
+            }
+            musicData.volume = sum / dataArray.length / 255;
+
+            const bassRange = Math.floor(dataArray.length * 0.1);
+            const midRange = Math.floor(dataArray.length * 0.5);
+
+            let bassSum = 0, midSum = 0, trebleSum = 0;
+
+            for (let i = 0; i < bassRange; i++) {
+                bassSum += dataArray[i];
+            }
+            for (let i = bassRange; i < midRange; i++) {
+                midSum += dataArray[i];
+            }
+            for (let i = midRange; i < dataArray.length; i++) {
+                trebleSum += dataArray[i];
+            }
+
+            musicData.bass = bassSum / bassRange / 255;
+            musicData.mid = midSum / (midRange - bassRange) / 255;
+            musicData.treble = trebleSum / (dataArray.length - midRange) / 255;
+
+            const currentTime = performance.now();
+            const bassThreshold = 0.3;
+            const volumeThreshold = 0.2;
+
+            musicData.beatDetected = false;
+
+            if (musicData.bass > bassThreshold && musicData.volume > volumeThreshold) {
+                if (currentTime - lastBeatTime > 300) {
+                    musicData.beatDetected = true;
+                    lastBeatTime = currentTime;
+
+                    beatDetectionHistory.push(currentTime);
+                    if (beatDetectionHistory.length > 8) {
+                        beatDetectionHistory.shift();
+                    }
+
+                    if (beatDetectionHistory.length >= 4) {
+                        const intervals = [];
+                        for (let i = 1; i < beatDetectionHistory.length; i++) {
+                            intervals.push(beatDetectionHistory[i] - beatDetectionHistory[i-1]);
+                        }
+                        const avgInterval = intervals.reduce((a, b) => a + b) / intervals.length;
+                        musicData.bpm = Math.round(60000 / avgInterval);
+
+                        if (audioTextEl && musicData.bpm > 0) {
+                            audioTextEl.textContent = `音響連動中 ♪ (${musicData.bpm} BPM)`;
+                        }
+                    }
+                }
+            }
+        }
+
+        // ビデオ要素を監視して自動接続
+        function observeVideoElements() {
+            const videoObserver = new MutationObserver((mutations) => {
+                mutations.forEach((mutation) => {
+                    mutation.addedNodes.forEach((node) => {
+                        if (node.nodeName === 'VIDEO') {
+                            console.log('🎬 Video element detected, connecting to audio...');
+                            connectVideoToAudio(node);
+                        }
+                    });
+                });
+            });
+
+            videoObserver.observe(document.body, {
+                childList: true,
+                subtree: true
+            });
+
+            const existingVideos = document.querySelectorAll('video');
+            existingVideos.forEach(video => {
+                connectVideoToAudio(video);
+            });
+        }
+
+        if (audioStatusEl) {
+            audioStatusEl.classList.add('active');
+        }
+        observeVideoElements();
+
+        // アニメーションループ
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const t = Date.now() * 0.001;
+
+            // 🎵 高度な音響データ解析
+            if (musicData.isPlaying) {
+                analyzeMusicData();
+            }
+
+            // 音響連動の強度（遊園地は楽しげな反応 + ビート反応 + 昼夜モード対応）
+            const audioIntensity = musicData.volume * 0.9;
+            const bassBoost = musicData.bass * 1.8;
+            const midBoost = musicData.mid * 1.4;
+            const trebleBoost = musicData.treble * 1.3;
+            // 昼モード: 元気よく跳ねる、夜モード: ネオンが激しく光る
+            const beatPulse = musicData.beatDetected ? (isNightMode ? 2.5 : 1.8) : 1.0;
+
+            // メリーゴーランドのクリーチャー + 音響連動 + ビート反応
+            carouselCreatures.forEach((entry, idx) => {
+                entry.group.position.y = entry.baseY + Math.sin(t * 1.8 * (1 + audioIntensity * 0.5) + entry.phase) * 0.7 * (1 + bassBoost * 0.4) * beatPulse;
+                entry.group.rotation.y = Math.sin(t * 0.9 + entry.phase) * 0.4 * (1 + midBoost * 0.3);
+            });
+
+            // ホバリングドローン + 音響連動 + ビート反応
+            hoverDrones.forEach(entry => {
+                entry.pivot.rotation.y += entry.speed * (1 + audioIntensity * 0.6);
+                if (entry.arm) {
+                    entry.arm.position.y = entry.baseY + Math.sin(t * 2.4 * (1 + trebleBoost * 0.8) + entry.phase) * entry.amplitude * (1 + audioIntensity * 0.5) * beatPulse;
+                }
+            });
+
+            // サービスボット + 音響連動 + ビート反応
+            serviceBots.forEach(bot => {
+                const speedMultiplier = 1 + audioIntensity * 0.7;
+                const angle = t * bot.speed * speedMultiplier + bot.offset;
+                bot.mesh.position.x = bot.center.x + Math.cos(angle) * bot.radius;
+                bot.mesh.position.z = bot.center.z + Math.sin(angle) * bot.radius;
+                bot.mesh.position.y = bot.baseY + 0.25 * Math.sin(t * 3 + bot.offset) * (1 + bassBoost * 0.5) * beatPulse;
+                bot.mesh.rotation.y = -angle + Math.PI / 2;
+            });
+
+            // ネオンエフェクト + 音響連動 + ビート反応（夜モードで強調）
+            neonElements.forEach(entry => {
+                const neonAudioBoost = isNightMode ? (1 + audioIntensity * 1.2) * beatPulse : (1 + audioIntensity * 0.3);
+                if (entry.type === 'rotateY') {
+                    entry.mesh.rotation.y += entry.speed * neonAudioBoost;
+                } else if (entry.type === 'rotateZ') {
+                    entry.mesh.rotation.z += entry.speed * neonAudioBoost;
+                } else if (entry.type === 'pulse') {
+                    const pulse = entry.baseOpacity * (0.5 * neonModeBoost + 0.4 * Math.sin(t * entry.speed * (1 + trebleBoost) + entry.phase) * neonModeBoost * neonAudioBoost);
+                    entry.mesh.material.opacity = pulse;
+                }
+            });
+
+            // パーティクルエミッター + 音響連動 + ビート反応（夜モードでキラキラ）
+            particleEmitters.forEach(emitter => {
+                const particleAudioBoost = isNightMode ? (1 + trebleBoost * 1.5) * beatPulse : (1 + audioIntensity * 0.4);
+                emitter.points.rotation.y += 0.0006 * particleAudioBoost;
+                emitter.points.position.y = emitter.baseY + 0.25 * Math.sin(t * 1.6 * (1 + midBoost * 0.6) + emitter.start * 0.001) * beatPulse;
+                if (emitter.nightOnly) {
+                    emitter.points.visible = isNightMode;
+                }
+            });
+
+            // ジェットコースター + 音響連動 + ビート反応
+            trainMovers.forEach(mover => {
+                const trainSpeedMultiplier = 1 + audioIntensity * 0.8;
+                mover.offset = (mover.offset + mover.speed * trainSpeedMultiplier) % 1;
+                const normalizedSpacing = mover.spacing / mover.length;
+                mover.cars.forEach((car, idx) => {
+                    let tCar = mover.offset - normalizedSpacing * idx;
+                    tCar = ((tCar % 1) + 1) % 1;
+                    const point = mover.curve.getPointAt(tCar);
+                    const tangent = mover.curve.getTangentAt(tCar);
+                    car.position.copy(point);
+                    const target = point.clone().add(tangent);
+                    car.lookAt(target);
+                    car.rotateY(Math.PI / 2);
+                    car.position.y += 0.2 * Math.sin(t * 2 + idx);
+                });
+            });
+
+            // おもちゃたちの微細なアニメーション + 音響連動 + ビート反応
+            toyCity.children.forEach((child, index) => {
+                if (child !== merryGoRound && !child.userData?.skipWiggle) {
+                    child.rotation.y = Math.sin(Date.now() * 0.001 * (1 + audioIntensity * 0.4) + index) * 0.02 * (1 + midBoost * 0.5);
+                    child.position.y = Math.sin(Date.now() * 0.002 + index) * 0.2 * (1 + bassBoost * 0.4) * beatPulse;
+                }
+            });
+
+            renderer.render(scene, camera);
+        }
+
+        animate();
+
+        console.log('🧸 AI遊園地が完成しました！');
+
+        // ★ VR/ARボタンを統合メニューと連携
+        if (window.unifiedMenuVRButton) {
+            // VRセッション開始関数を作成
+            function startVRSession() {
+                if ('xr' in navigator) {
+                    navigator.xr.isSessionSupported('immersive-vr').then(supported => {
+                        if (supported) {
+                            const sessionInit = { optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking', 'layers'] };
+                            navigator.xr.requestSession('immersive-vr', sessionInit).then(session => {
+                                session.addEventListener('end', () => {
+                                    renderer.xr.setSession(null);
+                                });
+                                renderer.xr.setSession(session);
+                            });
+                        } else {
+                            console.log('VR not supported on this device');
+                        }
+                    });
+                }
+            }
+
+            window.unifiedMenuVRButton.onclick = startVRSession;
+
+            // サポートチェック - 未サポートの場合はボタンを非表示に
+            if ('xr' in navigator) {
+                navigator.xr.isSessionSupported('immersive-vr').then(supported => {
+                    if (!supported) {
+                        window.unifiedMenuVRButton.style.display = 'none';
+                    }
+                });
+            } else {
+                window.unifiedMenuVRButton.style.display = 'none';
+            }
+        }
+
+        if (window.unifiedMenuARButton) {
+            // ARセッション開始関数を作成
+            function startARSession() {
+                if ('xr' in navigator) {
+                    navigator.xr.isSessionSupported('immersive-ar').then(supported => {
+                        if (supported) {
+                            const sessionInit = {
+                                requiredFeatures: ['hit-test'],
+                                optionalFeatures: ['dom-overlay'],
+                                domOverlay: { root: document.body }
+                            };
+                            navigator.xr.requestSession('immersive-ar', sessionInit).then(session => {
+                                session.addEventListener('end', () => {
+                                    renderer.xr.setSession(null);
+                                });
+                                renderer.xr.setSession(session);
+                            });
+                        } else {
+                            console.log('AR not supported on this device');
+                        }
+                    });
+                }
+            }
+
+            window.unifiedMenuARButton.onclick = startARSession;
+
+            // サポートチェック - 未サポートの場合はボタンを非表示に
+            if ('xr' in navigator) {
+                navigator.xr.isSessionSupported('immersive-ar').then(supported => {
+                    if (!supported) {
+                        window.unifiedMenuARButton.style.display = 'none';
+                    }
+                });
+            } else {
+                window.unifiedMenuARButton.style.display = 'none';
+            }
+        }
+
+        const context = window.toyCityContext;
+        if (context && context.scene && context.camera && context.renderer) {
+            ChocoDrop.createChocoDrop(context.scene, {
+                camera: context.camera,
+                renderer: context.renderer,
+                serverUrl: null,
+                enableServerHealthCheck: false,
+                skipServiceDialog: true,
+                uiOptions: { showGuidedOnboarding: false },
+                sceneOptions: {
+                    enableMouseInteraction: true
+                },
+                onControlsToggle: (disabled) => {
+                    cameraControlsEnabled = !disabled;
+                }
+            });
+        }
+
+
+// Preserve the original initial day exposure (SDK: 1.5). Night uses the original toggle path.
+if(new URLSearchParams(location.search).get('theme') !== 'light') applySceneTheme('night');
+window.previewScene = { scene, camera, renderer, applySceneTheme, zoomPreview }; window.dispatchEvent(new Event('preview-ready'));
+        })();
+    </script>
+
+    <!-- VR/AR Button inline implementation -->
+    <script>
+        // VRButton implementation
+        const VRButton = {
+            createButton: function(renderer) {
+                const button = document.createElement('button');
+
+                function showEnterVR() {
+                    button.style.display = '';
+                    button.style.cursor = 'pointer';
+                    button.style.left = 'calc(50% - 50px)';
+                    button.style.width = '100px';
+                    button.textContent = 'ENTER VR';
+                    button.onmouseenter = function() { button.style.opacity = '1.0'; };
+                    button.onmouseleave = function() { button.style.opacity = '0.5'; };
+                    button.onclick = function() {
+                        const session = renderer.xr.getSession();
+                        if (session) {
+                            session.end();
+                        } else {
+                            navigator.xr.requestSession('immersive-vr', {
+                                optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking']
+                            }).then(session => {
+                                renderer.xr.setSession(session);
+                                button.textContent = 'EXIT VR';
+
+                                session.addEventListener('end', () => {
+                                    button.textContent = 'ENTER VR';
+                                });
+                            }).catch(err => {
+                                console.error('VR session failed:', err);
+                            });
+                        }
+                    };
+                }
+
+                function showWebXRNotFound() {
+                    button.style.display = '';
+                    button.style.cursor = 'auto';
+                    button.style.left = 'calc(50% - 75px)';
+                    button.style.width = '150px';
+                    button.textContent = 'VR NOT SUPPORTED';
+                    button.onmouseenter = null;
+                    button.onmouseleave = null;
+                    button.onclick = null;
+                }
+
+                button.style.position = 'absolute';
+                button.style.bottom = '20px';
+                button.style.padding = '12px 6px';
+                button.style.border = '1px solid #fff';
+                button.style.borderRadius = '4px';
+                button.style.background = 'rgba(0,0,0,0.1)';
+                button.style.color = '#fff';
+                button.style.font = 'normal 13px sans-serif';
+                button.style.textAlign = 'center';
+                button.style.opacity = '0.5';
+                button.style.outline = 'none';
+                button.style.zIndex = '999';
+
+                if ('xr' in navigator) {
+                    navigator.xr.isSessionSupported('immersive-vr').then(supported => {
+                        supported ? showEnterVR() : showWebXRNotFound();
+                    });
+                } else {
+                    showWebXRNotFound();
+                }
+
+                return button;
+            }
+        };
+
+        // ARButton implementation
+        const ARButton = {
+            createButton: function(renderer, options) {
+                const button = document.createElement('button');
+
+                function showEnterAR() {
+                    button.style.display = '';
+                    button.style.cursor = 'pointer';
+                    button.style.left = 'calc(50% - 50px)';
+                    button.style.width = '100px';
+                    button.textContent = 'ENTER AR';
+                    button.onmouseenter = function() { button.style.opacity = '1.0'; };
+                    button.onmouseleave = function() { button.style.opacity = '0.5'; };
+                    button.onclick = function() {
+                        const session = renderer.xr.getSession();
+                        if (session) {
+                            session.end();
+                        } else {
+                            navigator.xr.requestSession('immersive-ar', {
+                                optionalFeatures: ['hit-test', 'dom-overlay', 'local-floor'],
+                                domOverlay: options?.domOverlay || { root: document.body }
+                            }).then(session => {
+                                renderer.xr.setSession(session);
+                                button.textContent = 'EXIT AR';
+
+                                session.addEventListener('end', () => {
+                                    button.textContent = 'ENTER AR';
+                                });
+                            }).catch(err => {
+                                console.error('AR session failed:', err);
+                                alert('AR not supported: ' + err.message);
+                            });
+                        }
+                    };
+                }
+
+                function showWebXRNotFound() {
+                    button.style.display = '';
+                    button.style.cursor = 'auto';
+                    button.style.left = 'calc(50% - 75px)';
+                    button.style.width = '150px';
+                    button.textContent = 'AR NOT SUPPORTED';
+                    button.onmouseenter = null;
+                    button.onmouseleave = null;
+                    button.onclick = null;
+                }
+
+                button.style.position = 'absolute';
+                button.style.bottom = '70px';
+                button.style.padding = '12px 6px';
+                button.style.border = '1px solid #fff';
+                button.style.borderRadius = '4px';
+                button.style.background = 'rgba(0,0,0,0.1)';
+                button.style.color = '#fff';
+                button.style.font = 'normal 13px sans-serif';
+                button.style.textAlign = 'center';
+                button.style.opacity = '0.5';
+                button.style.outline = 'none';
+                button.style.zIndex = '999';
+
+                if ('xr' in navigator) {
+                    navigator.xr.isSessionSupported('immersive-ar').then(supported => {
+                        supported ? showEnterAR() : showWebXRNotFound();
+                    });
+                } else {
+                    showWebXRNotFound();
+                }
+
+                return button;
+            }
+        };
+
+        console.log('✅ VRButton/ARButton inline implementation loaded');
+    </script>
+<button id="preview-import" type="button" disabled aria-label="チョコから画像・動画・GLBを選ぶ">🍫 素材を選ぶ</button><input id="preview-file" type="file" accept="image/png,image/jpeg,image/webp,video/mp4,video/webm,.glb" hidden><p id="preview-status" role="status">遊園地を準備しています…</p><script src="scene-controls.js?v=import7"></script></body>
+</html>
