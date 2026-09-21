@@ -90,13 +90,20 @@ function assertSafeGlb(buffer) {
 
 /** Local-only, token-protected bridge from one stdio MCP client to one browser scene. */
 export class LocalAssetBridge {
-  constructor({ assetsDir, port = 0, host = '127.0.0.1', logger = console } = {}) {
+  constructor({
+    assetsDir,
+    port = 0,
+    host = '127.0.0.1',
+    logger = console,
+    staticRoot = ROOT,
+  } = {}) {
     if (!assetsDir) throw new Error('--assets-dir is required');
     if (host !== '127.0.0.1') throw new Error('LocalAssetBridge only listens on 127.0.0.1');
     this.assetsDirInput = path.resolve(assetsDir);
     this.port = port;
     this.host = host;
     this.logger = logger;
+    this.staticRoot = path.resolve(staticRoot);
     this.token = randomBytes(32).toString('base64url');
     this.assets = new Map();
     this.totalAssetBytes = 0;
@@ -343,8 +350,8 @@ export class LocalAssetBridge {
       (root) => relative === root || relative.startsWith(`${root}/`)
     );
     if (!isRoot && !STATIC_FILES.has(relative)) return this.#reply(res, 404, 'Not found');
-    const candidate = path.resolve(ROOT, relative);
-    const root = STATIC_ROOTS.map((name) => path.resolve(ROOT, name)).find(
+    const candidate = path.resolve(this.staticRoot, relative);
+    const root = STATIC_ROOTS.map((name) => path.resolve(this.staticRoot, name)).find(
       (value) => candidate === value || isInside(candidate, value)
     );
     if (!root && !STATIC_FILES.has(relative)) return this.#reply(res, 404, 'Not found');

@@ -57,31 +57,21 @@ npm run local -- --assets-dir /absolute/path/to/your/assets</code></pre>
   </section>
 
   <section aria-labelledby="mcp">
-    <h2 id="mcp">4. Codex・Claude Code・Gemini CLIから配置する</h2>
-    <p>上の取得・インストール・ビルドまで済ませ、使うツールにChocoDropを登録します。パスはご自分の環境の絶対パスに置き換えてください。空白を含むパスは引用符で囲みます。</p>
-    <h3>Codex</h3>
-    <pre><code>codex mcp add chocodrop -- node /absolute/path/to/chocodrop/scripts/chocodrop-mcp.mjs --assets-dir /absolute/path/to/your/assets
-codex mcp get chocodrop</code></pre>
-    <p>ユーザー設定に追加されます。既に開いている会話にツールが現れない場合は、アプリを再起動し、新しい会話で確認してください。</p>
-    <h3>Claude Code</h3>
-    <p>ChocoDropを使いたいプロジェクトのディレクトリで実行します。</p>
-    <pre><code>claude mcp add --transport stdio --scope local chocodrop -- node /absolute/path/to/chocodrop/scripts/chocodrop-mcp.mjs --assets-dir /absolute/path/to/your/assets
-claude mcp get chocodrop</code></pre>
-    <p>そのプロジェクトだけの個人設定として追加されます。Claude Codeを起動し、<code>/mcp</code>で接続を確認します。</p>
-    <h3>Gemini CLI</h3>
-    <pre><code>gemini mcp add --scope user chocodrop node /absolute/path/to/chocodrop/scripts/chocodrop-mcp.mjs -- --assets-dir /absolute/path/to/your/assets
-gemini mcp list</code></pre>
-    <p>Gemini CLIのユーザー設定へ追加します。stdio MCPの状態は<code>gemini mcp list</code>で確認できます。現在のフォルダが信頼されていない場合は接続確認が行われません。</p>
-    <p><code>node</code>が見つからない場合はNode実行ファイルの絶対パスを指定してください。</p>
+    <h2 id="mcp">4. Codex・Claude Code・Antigravityから配置する</h2>
+    <p>Node.js 22 LTSとnpmを用意し、次の1コマンドを実行します。インストール済みのCLIと登録内容を表示し、確認後にChocoDrop MCPをユーザー設定へ追加します。GitHubのcloneは不要です。</p>
+    <pre><code>pnpm dlx @chocodrop/setup@0.1.0-alpha.0</code></pre>
+    <p><code>~/ChocoDropAssets</code>が素材フォルダとして作成されます。特定のCLIだけに登録する場合は、たとえば<code>--client codex,claude</code>を付けます。変更せず内容だけ確認する場合は<code>--dry-run</code>を付けます。</p>
+    <p>ChocoDropのMCPは素材を生成しません。普段使っている生成MCPやCLIで画像・動画・GLBを素材フォルダへ保存し、そのファイルをChocoDropで配置します。</p>
     <h3>登録後の使い方</h3>
     <ol>
-      <li>Codex・Claude Code・Gemini CLIでChocoDropの<code>get_status</code>を呼び、返された<code>browserUrl</code>を開きます。</li>
+      <li>設定後にCLIを再起動し、ChocoDropの<code>get_status</code>を呼び、返された<code>browserUrl</code>を開きます。</li>
       <li>デモに「ツール連携中」と表示されたら準備完了です。</li>
       <li>「ChocoDropのimport_assetで、素材フォルダ内のsample.pngを配置して」と依頼します。</li>
     </ol>
     <p>呼び出し例：<code>import_asset({"path":"/absolute/path/to/your/assets/sample.png"})</code>。ブラウザで配置が完了してから成功を返します。</p>
-    <p class="muted">各ツールがMCPプロセスを起動するため、<code>npm run local</code>の同時起動は不要です。MCPからはPNG/JPEG/WebP/MP4/WebM/GLBに対応し、1ファイル32MiBまでです。接続するデモは1タブにしてください。クラウド上のAIから利用者のPCへ直接接続する機能はありません。</p>
-    <p>公式資料：<a href="https://developers.openai.com/codex/mcp">CodexのMCP設定</a> · <a href="https://code.claude.com/docs/en/mcp">Claude CodeのMCP設定</a> · <a href="https://github.com/google-gemini/gemini-cli/blob/main/docs/tools/mcp-server.md">Gemini CLIのMCP設定</a></p>
+    <p class="muted">各ツールがMCPプロセスを起動するため、<code>npm run local</code>の同時起動は不要です。MCPからはPNG/JPEG/WebP/MP4/WebM/GLBに対応し、1ファイル32MiBまでです。接続するデモは1タブにしてください。クラウド上のAIから利用者のPCへ直接接続する機能はありません。手動登録は<a href="docs/LOCAL_TOOLS.md">ローカルMCPガイド</a>にあります。</p>
+    <p>pnpmがない環境では<code>npx --yes @chocodrop/setup@0.1.0-alpha.0</code>も使用できます。</p>
+    <p>公式資料：<a href="https://developers.openai.com/codex/mcp">CodexのMCP設定</a> · <a href="https://code.claude.com/docs/en/mcp">Claude CodeのMCP設定</a> · <a href="https://codelabs.developers.google.com/getting-started-google-antigravity">AntigravityのMCP設定</a></p>
   </section>
 
   <section aria-labelledby="limits">

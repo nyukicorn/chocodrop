@@ -8,6 +8,8 @@
   },
   "workspaces": [
     "packages/daemon",
+    "packages/mcp",
+    "packages/setup",
     "packages/sdk"
   ],
   "main": "src/index.js",
@@ -40,6 +42,7 @@
     "example:server": "node src/server/server.js --port 3011",
     "local": "node scripts/chocodrop-local.mjs",
     "mcp": "node scripts/chocodrop-mcp.mjs",
+    "build:mcp-package": "node scripts/build-mcp-package.mjs",
     "build:pages": "npm run build && node scripts/build-pages.mjs",
     "check": "bash scripts/check.sh"
   },

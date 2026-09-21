@@ -1,26 +1,38 @@
-# Codex・Claude Code・Gemini CLIから使う
+# Codex・Claude Code・Antigravityから使う
 
 ChocoDropのローカルMCPは、許可した素材フォルダ内の画像・動画・GLBを、ローカルブラウザのThree.jsシーンへ配置します。生成サービス、APIキー、外部の認証情報は使用しません。
 
-## 先に準備する
+## 1コマンドで設定する
 
-Node.js 22 LTSとnpmを推奨します。
+Node.js 22 LTSとnpmを用意し、次を実行します。
 
 ```bash
-git clone https://github.com/nyukicorn/chocodrop.git
-cd chocodrop
-npm ci
-npm run build
+pnpm dlx @chocodrop/setup@0.1.0-alpha.0
 ```
 
-素材専用フォルダを用意し、以降の`/absolute/path/to/your/assets`をその絶対パスに置き換えてください。ChocoDropは、このフォルダ外のファイルを読み込みません。
+インストール済みのCodex・Claude Code・Antigravityを検出し、実行内容を表示して確認した後に、次を行います。
 
-## MCPを登録する
+- `~/ChocoDropAssets`を素材専用フォルダとして作成
+- 見つかったCLIのユーザー設定へChocoDrop MCPを登録
+
+設定後にCLIを再起動し、「ChocoDropの`get_status`でURLを教えて」と依頼してください。変更内容だけ確認する場合は`--dry-run`、確認を省略する場合は`--yes`を付けます。
+
+```bash
+pnpm dlx @chocodrop/setup@0.1.0-alpha.0 --dry-run
+pnpm dlx @chocodrop/setup@0.1.0-alpha.0 --client codex,antigravity --yes
+pnpm dlx @chocodrop/setup@0.1.0-alpha.0 --assets-dir /absolute/path/to/your/assets
+```
+
+ChocoDropは、設定した素材フォルダ外のファイルを読み込みません。
+
+## 手動でMCPを登録する
+
+自動設定を使わない場合は、先に素材専用フォルダを作成し、以下の`/absolute/path/to/your/assets`をその絶対パスへ置き換えます。
 
 ### Codex
 
 ```bash
-codex mcp add chocodrop -- node /absolute/path/to/chocodrop/scripts/chocodrop-mcp.mjs --assets-dir /absolute/path/to/your/assets
+codex mcp add chocodrop -- pnpm dlx @chocodrop/mcp@0.1.0-alpha.0 --assets-dir /absolute/path/to/your/assets
 codex mcp get chocodrop
 ```
 
@@ -28,25 +40,36 @@ codex mcp get chocodrop
 
 ### Claude Code
 
-ChocoDropを使いたいプロジェクトのディレクトリで実行します。
-
 ```bash
-claude mcp add --transport stdio --scope local chocodrop -- node /absolute/path/to/chocodrop/scripts/chocodrop-mcp.mjs --assets-dir /absolute/path/to/your/assets
+claude mcp add --transport stdio --scope user chocodrop -- pnpm dlx @chocodrop/mcp@0.1.0-alpha.0 --assets-dir /absolute/path/to/your/assets
 claude mcp get chocodrop
 ```
 
-現在のプロジェクトだけの個人設定として追加されます。Claude Codeを起動し、`/mcp`で接続を確認します。
+ユーザー設定へ追加されます。Claude Codeを起動し、`/mcp`で接続を確認します。
 
-### Gemini CLI
+### Antigravity
 
-```bash
-gemini mcp add --scope user chocodrop node /absolute/path/to/chocodrop/scripts/chocodrop-mcp.mjs -- --assets-dir /absolute/path/to/your/assets
-gemini mcp list
+Antigravityの「Settings → Customizations → Installed MCP Servers → Open MCP Config」から`~/.gemini/config/mcp_config.json`を開き、既存の`mcpServers`へ次の項目を追加します。
+
+```json
+{
+  "mcpServers": {
+    "chocodrop": {
+      "command": "pnpm",
+      "args": [
+        "dlx",
+        "@chocodrop/mcp@0.1.0-alpha.0",
+        "--assets-dir",
+        "/absolute/path/to/your/assets"
+      ]
+    }
+  }
+}
 ```
 
-Gemini CLIはstdio MCPをサポートしています。現在のフォルダが信頼されていない場合、`gemini mcp list`ではサーバーが`Disconnected`と表示されます。利用するフォルダを信頼してから再確認してください。
+保存後にInstalled MCP Serversを更新するか、Antigravityを再起動します。Antigravity CLIでは`/mcp`で接続状態を確認できます。自動設定コマンドは既存のMCP設定を保持し、`mcpServers.chocodrop`だけを追加・更新します。
 
-公式資料： [Codex MCP](https://developers.openai.com/codex/mcp) · [Claude Code MCP](https://code.claude.com/docs/en/mcp) · [Gemini CLI MCP](https://github.com/google-gemini/gemini-cli/blob/main/docs/tools/mcp-server.md)
+公式資料： [Codex MCP](https://developers.openai.com/codex/mcp) · [Claude Code MCP](https://code.claude.com/docs/en/mcp) · [Antigravity MCP](https://codelabs.developers.google.com/getting-started-google-antigravity)
 
 ## 配置する
 
@@ -67,7 +90,7 @@ Gemini CLIはstdio MCPをサポートしています。現在のフォルダが�
 
 MCPクライアントがローカルサーバーを起動するため、`npm run local`を同時に実行する必要はありません。ツールごとに別のシーンが起動するため、必ずそのツールの`get_status`が返したURLを開いてください。
 
-stdioでは標準出力をMCP通信に使用します。登録コマンドには`npm run mcp`ではなく、上記の`node .../scripts/chocodrop-mcp.mjs`を指定します。GUIアプリから`node`が見つからない場合は、Node実行ファイルの絶対パスを指定してください。
+stdioでは標準出力をMCP通信に使用します。各ツールは必要なときに`@chocodrop/mcp`を起動します。GUIアプリから`pnpm`が見つからない場合は、手動設定で`pnpm`の絶対パスを指定するか、`command`を`npx`、`args`の先頭を`-y`に変更してください。
 
 ## ブラウザだけで使う
 
@@ -94,10 +117,20 @@ npm run local -- --assets-dir /absolute/path/to/your/assets
 - GitHub Pages自体はMCPサーバーを実行しません。MCP連携は利用者のPCで動きます。
 - Quest接続やクラウド上のAIから利用者PCへ直接接続する機能は、この入口では提供しません。
 
+## 配布と安全性
+
+- `pnpm dlx`はnpmレジストリからパッケージを取得します。案内では変更可能なタグではなく、検証済みの`0.1.0-alpha.0`へ固定しています。
+- ChocoDropの配布パッケージには`install`・`postinstall`スクリプトを含めていません。
+- MCPは`127.0.0.1`だけで待ち受け、起動ごとのtokenを持つURLだけを受け付けます。
+- 読み込めるファイルは、設定した素材フォルダ内の対応形式に限定されます。
+- 公開前のパッケージ内容は`pnpm pack`で一覧化し、設定・生成物・秘密情報を含まないことを確認しています。
+
 ## 開発時の検証
 
 ```bash
 ./scripts/check.sh
 ```
 
-Node単体テスト、ブラウザビルド、daemon契約テスト、Pages向け静的ファイルの生成を実行します。Pages成果物は`dist/pages/`です。
+Node単体テスト、ブラウザビルド、配布パッケージ、daemon契約テスト、Pages向け静的ファイルの生成を実行します。Pages成果物は`dist/pages/`です。
+
+リポジトリからMCPを開発・検証する場合は、`npm ci && npm run build`の後、`node scripts/chocodrop-mcp.mjs --assets-dir /absolute/path/to/your/assets`をクライアントへ登録できます。

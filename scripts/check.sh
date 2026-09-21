@@ -23,13 +23,17 @@ log="$(mktemp "$TMPDIR/chocodrop-check.XXXXXX")" || exit 1
 # ===== ここをプロジェクトに合わせて書き換える =====
 # 例: pnpm test / pnpm exec tsc --noEmit / pytest -q / bash scripts/lint.sh
 VERIFY() {
-  echo '[1/4] Unit and local MCP tests'
+  echo '[1/5] Unit, setup, and local MCP tests'
   npm test || return
-  echo '[2/4] Browser bundles'
+  echo '[2/5] Browser bundles'
   npm run build || return
-  echo '[3/4] Existing daemon contracts'
+  echo '[3/5] Installable MCP packages'
+  npm run build:mcp-package || return
+  npm pack --dry-run --workspace=@chocodrop/mcp --cache "$PWD/tmp/npm-cache" >/dev/null || return
+  npm pack --dry-run --workspace=@chocodrop/setup --cache "$PWD/tmp/npm-cache" >/dev/null || return
+  echo '[4/5] Existing daemon contracts'
   npm test --workspace=@chocodrop/daemon || return
-  echo '[4/4] Pages artifact'
+  echo '[5/5] Pages artifact'
   node scripts/build-pages.mjs || return
 }
 # =================================================

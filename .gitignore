@@ -60,6 +60,9 @@ temp/
 # npm cache
 .npm-cache/
 
+# Generated installable MCP runtime
+packages/mcp/runtime/
+
 # Internal development docs (exclude *.md which are public documentation)
 docs/*
 !docs/*.md
