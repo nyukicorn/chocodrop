@@ -17,7 +17,9 @@ export function connectLocalBridge(sceneManager, { statusElement } = {}) {
   history.replaceState(null, '', location.pathname + location.search);
   const socket = new WebSocket(`ws://${location.host}/local-api/live?token=${encodeURIComponent(token)}`);
   const requests = new Map();
-  socket.addEventListener('open', () => setStatus('ツール連携中 · Cursorなどから素材を配置できます'));
+  socket.addEventListener('open', () =>
+    setStatus('ツール連携中 · Codex・Claude Code・Gemini CLIなどから素材を配置できます')
+  );
   socket.addEventListener('close', () => {
     for (const request of requests.values()) request.cancelled = true;
     setStatus('ツール連携が切れました · サーバーを確認して再読み込みしてください');

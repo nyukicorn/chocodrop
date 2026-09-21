@@ -31,7 +31,7 @@ _短い動画を見る（音声なし・約18秒）_
 | --- | --- | --- | --- |
 | 世界と素材配置をすぐ試す | [公開サイト](https://nyukicorn.github.io/chocodrop/#home) | 不要 | 利用可能 |
 | 手元のThree.jsページにUIを加える | [ブックマークレット](https://nyukicorn.github.io/chocodrop/examples/bookmarklet-v2.html) + ローカルdaemon | 不要 | Chromeで検証 |
-| 会話から素材を配置する | ローカルMCP（Codex・Claude Code・Gemini CLI） | 必要 | 利用可能 |
+| 会話から素材を配置する | ローカルMCP（Codex・Claude Code・Gemini CLI） | 不要 | alpha |
 | 自分のThree.jsアプリへ組み込む | SDK + ローカルdaemon | 必要 | 開発者向け |
 
 ### ブックマークレット
@@ -51,13 +51,12 @@ daemonを起動したまま[ブックマークレット登録ページ](https://
 ChocoDropのstdio MCPは、許可した素材フォルダ内のファイルをローカルのブラウザシーンへ配置します。画像や動画を生成するMCPではありません。普段の制作ツールで作ったファイルを、配置するための入口です。
 
 ```bash
-git clone https://github.com/nyukicorn/chocodrop.git
-cd chocodrop
-npm ci
-npm run build
+npx --yes @chocodrop/setup@alpha
 ```
 
-各ツールへの登録コマンドと、`get_status`・`import_asset`の使い方は[ローカルMCPガイド](docs/LOCAL_TOOLS.md)にまとめています。
+この1コマンドがインストール済みのCodex・Claude Code・Gemini CLIを検出し、`~/ChocoDropAssets`を作成してChocoDrop MCPを登録します。登録内容を確認してから変更するため、意図しないCLI設定は書き換えません。
+
+接続後は、普段使っている生成MCPやCLIで素材を`~/ChocoDropAssets`へ保存し、ChocoDropの`import_asset`で配置します。詳しい使い方と手動設定は[ローカルMCPガイド](docs/LOCAL_TOOLS.md)をご覧ください。
 
 ## デモの世界
 
@@ -86,7 +85,7 @@ npm run local -- --assets-dir /absolute/path/to/your/assets
 ./scripts/check.sh
 ```
 
-Node単体テスト、ブラウザバンドル、daemon契約テスト、GitHub Pages成果物の生成を確認します。
+Node単体テスト、ブラウザバンドル、配布パッケージ、daemon契約テスト、GitHub Pages成果物の生成を確認します。
 
 ## ドキュメント
 
