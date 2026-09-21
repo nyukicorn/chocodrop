@@ -21,9 +21,9 @@ const pages = {
   about: () => `${heading('PROJECT NOTES', 'いま使えること、これからのこと。', '見た目と、実際の機能の状態を分けてお伝えします。')}<div class="status-grid"><section class="status-card"><span class="badge">公開中</span><h2>ブラウザのデモ</h2><p>遊園地で画像・動画・GLBを置き、公開中の7つの世界へ移動できます。Three.jsとWebGLを使用します。</p><a href="#worlds" class="text-link">世界を選ぶ →</a></section><section class="status-card"><span class="badge">ローカルで利用</span><h2>Codex・Claude Code・Antigravity連携</h2><p>公開されているコードを自分のPCで動かすMCPです。GitHub Pages上でMCPサーバーが動いているわけではありません。</p><a href="#connect" class="text-link">接続方法を見る →</a></section><section class="status-card"><span class="badge">Chromeで検証</span><h2>ブックマークレット</h2><p>ローカルdaemonを起動し、Three.jsシーンを公開しているページで使用できます。ページのセキュリティ設定やシーンの構成によっては利用できません。</p><a href="examples/bookmarklet-v2.html" class="text-link">登録ページを開く →</a></section><section class="status-card"><span class="badge">別途検証中</span><h2>XR・Quest</h2><p>ブラウザ版とは別の動作条件があります。Quest実機、音声生成、ストア配布を含むXR機能は、この公開導線の利用可能範囲には含めていません。</p></section></div>`
 };
 const snippets = {
-  codex: 'pnpm dlx @chocodrop/setup@alpha --client codex',
-  claude: 'pnpm dlx @chocodrop/setup@alpha --client claude',
-  antigravity: 'pnpm dlx @chocodrop/setup@alpha --client antigravity'
+  codex: 'pnpm dlx @chocodrop/setup@0.1.0-alpha.0 --client codex',
+  claude: 'pnpm dlx @chocodrop/setup@0.1.0-alpha.0 --client claude',
+  antigravity: 'pnpm dlx @chocodrop/setup@0.1.0-alpha.0 --client antigravity'
 };
 function codeBlock(key, label) {
   return `<div class="code-head"><span>${label}</span><button class="copy" data-copy="${key}">コピー</button></div><pre><code>${snippets[key]}</code></pre>`;

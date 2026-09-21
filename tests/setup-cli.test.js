@@ -15,10 +15,10 @@ test('builds client-specific registration commands around the published MCP pack
   const assets = '/Users/example/ChocoDrop Assets';
   const codex = registration('codex', assets);
   const claude = registration('claude', assets);
-  const antigravity = registration('antigravity', assets, '@chocodrop/mcp@alpha', 'pnpm', '/Users/example');
+  const antigravity = registration('antigravity', assets, '@chocodrop/mcp@0.1.0-alpha.0', 'pnpm', '/Users/example');
 
   assert.deepEqual(codex.add, [
-    'mcp', 'add', 'chocodrop', '--', 'pnpm', 'dlx', '@chocodrop/mcp@alpha', '--assets-dir', assets,
+    'mcp', 'add', 'chocodrop', '--', 'pnpm', 'dlx', '@chocodrop/mcp@0.1.0-alpha.0', '--assets-dir', assets,
   ]);
   assert.deepEqual(claude.add.slice(0, 7), [
     'mcp', 'add', '--transport', 'stdio', '--scope', 'user', 'chocodrop',
@@ -26,11 +26,11 @@ test('builds client-specific registration commands around the published MCP pack
   assert.equal(antigravity.configPath, '/Users/example/.gemini/config/mcp_config.json');
   assert.deepEqual(antigravity.server, {
     command: 'pnpm',
-    args: ['dlx', '@chocodrop/mcp@alpha', '--assets-dir', assets],
+    args: ['dlx', '@chocodrop/mcp@0.1.0-alpha.0', '--assets-dir', assets],
   });
   assert.match(shellCommand('codex', codex.add), /'\/Users\/example\/ChocoDrop Assets'/);
-  assert.deepEqual(registration('codex', assets, '@chocodrop/mcp@alpha', 'npx').add.slice(4, 7), [
-    'npx', '-y', '@chocodrop/mcp@alpha',
+  assert.deepEqual(registration('codex', assets, '@chocodrop/mcp@0.1.0-alpha.0', 'npx').add.slice(4, 7), [
+    'npx', '-y', '@chocodrop/mcp@0.1.0-alpha.0',
   ]);
 });
 
@@ -106,7 +106,7 @@ test('shows existing ChocoDrop entries before asking to replace them', async () 
 
 test('preserves Antigravity config while adding ChocoDrop', async () => {
   const root = await mkdtemp(path.join(process.cwd(), 'tmp/setup-antigravity-'));
-  const item = registration('antigravity', path.join(root, 'assets'), '@chocodrop/mcp@alpha', 'pnpm', root);
+  const item = registration('antigravity', path.join(root, 'assets'), '@chocodrop/mcp@0.1.0-alpha.0', 'pnpm', root);
   try {
     await mkdir(path.dirname(item.configPath), { recursive: true });
     await writeFile(item.configPath, `${JSON.stringify({ mcpServers: { existing: { command: 'existing' } }, theme: 'dark' }, null, 2)}\n`);
@@ -122,7 +122,7 @@ test('preserves Antigravity config while adding ChocoDrop', async () => {
 
 test('accepts an empty Antigravity config file', async () => {
   const root = await mkdtemp(path.join(process.cwd(), 'tmp/setup-antigravity-empty-'));
-  const item = registration('antigravity', path.join(root, 'assets'), '@chocodrop/mcp@alpha', 'pnpm', root);
+  const item = registration('antigravity', path.join(root, 'assets'), '@chocodrop/mcp@0.1.0-alpha.0', 'pnpm', root);
   try {
     await mkdir(path.dirname(item.configPath), { recursive: true });
     await writeFile(item.configPath, '');
