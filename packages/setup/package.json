@@ -1,7 +1,7 @@
 {
   "name": "@chocodrop/setup",
   "version": "0.1.0-alpha.0",
-  "description": "One-command setup for connecting ChocoDrop to Codex, Claude Code, and Gemini CLI.",
+  "description": "One-command setup for connecting ChocoDrop to Codex, Claude Code, and Antigravity.",
   "type": "module",
   "bin": {
     "chocodrop-setup": "./bin/chocodrop-setup.js"
@@ -17,7 +17,7 @@
     "mcp",
     "codex",
     "claude-code",
-    "gemini-cli"
+    "antigravity"
   ],
   "author": {
     "name": "ChocoDrop Project",

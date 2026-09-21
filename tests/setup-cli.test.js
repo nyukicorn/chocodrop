@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import path from 'node:path';
 import { PassThrough } from 'node:stream';
 import test from 'node:test';
 import {
@@ -13,18 +15,23 @@ test('builds client-specific registration commands around the published MCP pack
   const assets = '/Users/example/ChocoDrop Assets';
   const codex = registration('codex', assets);
   const claude = registration('claude', assets);
-  const gemini = registration('gemini', assets);
+  const antigravity = registration('antigravity', assets, '@chocodrop/mcp@alpha', 'pnpm', '/Users/example');
 
   assert.deepEqual(codex.add, [
-    'mcp', 'add', 'chocodrop', '--', 'npx', '-y', '@chocodrop/mcp@alpha', '--assets-dir', assets,
+    'mcp', 'add', 'chocodrop', '--', 'pnpm', 'dlx', '@chocodrop/mcp@alpha', '--assets-dir', assets,
   ]);
   assert.deepEqual(claude.add.slice(0, 7), [
     'mcp', 'add', '--transport', 'stdio', '--scope', 'user', 'chocodrop',
   ]);
-  assert.deepEqual(gemini.add, [
-    'mcp', 'add', '--scope', 'user', 'chocodrop', 'npx', '--', '-y', '@chocodrop/mcp@alpha', '--assets-dir', assets,
-  ]);
+  assert.equal(antigravity.configPath, '/Users/example/.gemini/config/mcp_config.json');
+  assert.deepEqual(antigravity.server, {
+    command: 'pnpm',
+    args: ['dlx', '@chocodrop/mcp@alpha', '--assets-dir', assets],
+  });
   assert.match(shellCommand('codex', codex.add), /'\/Users\/example\/ChocoDrop Assets'/);
+  assert.deepEqual(registration('codex', assets, '@chocodrop/mcp@alpha', 'npx').add.slice(4, 7), [
+    'npx', '-y', '@chocodrop/mcp@alpha',
+  ]);
 });
 
 test('replaces an existing client entry before registering the packaged MCP', async () => {
@@ -62,6 +69,7 @@ test('dry-run detects installed clients without creating folders or changing con
 
   const result = await runSetup(['--dry-run'], {
     run,
+    fileExists: () => false,
     makeDirectory: async () => { directoryCreated = true; },
     input: new PassThrough(),
     output,
@@ -87,6 +95,7 @@ test('shows existing ChocoDrop entries before asking to replace them', async () 
 
   await runSetup(['--dry-run'], {
     run,
+    fileExists: () => false,
     input: new PassThrough(),
     output,
     errorOutput: new PassThrough(),
@@ -95,7 +104,37 @@ test('shows existing ChocoDrop entries before asking to replace them', async () 
   assert.match(text, /既存のChocoDrop設定を置き換えます: Codex/);
 });
 
+test('preserves Antigravity config while adding ChocoDrop', async () => {
+  const root = await mkdtemp(path.join(process.cwd(), 'tmp/setup-antigravity-'));
+  const item = registration('antigravity', path.join(root, 'assets'), '@chocodrop/mcp@alpha', 'pnpm', root);
+  try {
+    await mkdir(path.dirname(item.configPath), { recursive: true });
+    await writeFile(item.configPath, `${JSON.stringify({ mcpServers: { existing: { command: 'existing' } }, theme: 'dark' }, null, 2)}\n`);
+    await applySetup({ assetsDir: path.join(root, 'assets'), items: [item] });
+    const config = JSON.parse(await readFile(item.configPath, 'utf8'));
+    assert.equal(config.theme, 'dark');
+    assert.equal(config.mcpServers.existing.command, 'existing');
+    assert.deepEqual(config.mcpServers.chocodrop, item.server);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('accepts an empty Antigravity config file', async () => {
+  const root = await mkdtemp(path.join(process.cwd(), 'tmp/setup-antigravity-empty-'));
+  const item = registration('antigravity', path.join(root, 'assets'), '@chocodrop/mcp@alpha', 'pnpm', root);
+  try {
+    await mkdir(path.dirname(item.configPath), { recursive: true });
+    await writeFile(item.configPath, '');
+    await applySetup({ assetsDir: path.join(root, 'assets'), items: [item] });
+    const config = JSON.parse(await readFile(item.configPath, 'utf8'));
+    assert.deepEqual(config.mcpServers.chocodrop, item.server);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test('parses explicit clients and rejects unknown options', () => {
-  assert.deepEqual(parseArgs(['--client', 'codex,gemini', '--yes']).clients, ['codex', 'gemini']);
+  assert.deepEqual(parseArgs(['--client', 'codex,antigravity', '--yes']).clients, ['codex', 'antigravity']);
   assert.throws(() => parseArgs(['--wat']), /不明なオプション/);
 });

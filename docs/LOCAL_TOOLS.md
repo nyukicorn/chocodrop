@@ -1,4 +1,4 @@
-# Codex・Claude Code・Gemini CLIから使う
+# Codex・Claude Code・Antigravityから使う
 
 ChocoDropのローカルMCPは、許可した素材フォルダ内の画像・動画・GLBを、ローカルブラウザのThree.jsシーンへ配置します。生成サービス、APIキー、外部の認証情報は使用しません。
 
@@ -7,10 +7,10 @@ ChocoDropのローカルMCPは、許可した素材フォルダ内の画像・�
 Node.js 22 LTSとnpmを用意し、次を実行します。
 
 ```bash
-npx --yes @chocodrop/setup@alpha
+pnpm dlx @chocodrop/setup@alpha
 ```
 
-インストール済みのCodex・Claude Code・Gemini CLIを検出し、実行内容を表示して確認した後に、次を行います。
+インストール済みのCodex・Claude Code・Antigravityを検出し、実行内容を表示して確認した後に、次を行います。
 
 - `~/ChocoDropAssets`を素材専用フォルダとして作成
 - 見つかったCLIのユーザー設定へChocoDrop MCPを登録
@@ -18,9 +18,9 @@ npx --yes @chocodrop/setup@alpha
 設定後にCLIを再起動し、「ChocoDropの`get_status`でURLを教えて」と依頼してください。変更内容だけ確認する場合は`--dry-run`、確認を省略する場合は`--yes`を付けます。
 
 ```bash
-npx --yes @chocodrop/setup@alpha --dry-run
-npx --yes @chocodrop/setup@alpha --client codex,claude --yes
-npx --yes @chocodrop/setup@alpha --assets-dir /absolute/path/to/your/assets
+pnpm dlx @chocodrop/setup@alpha --dry-run
+pnpm dlx @chocodrop/setup@alpha --client codex,antigravity --yes
+pnpm dlx @chocodrop/setup@alpha --assets-dir /absolute/path/to/your/assets
 ```
 
 ChocoDropは、設定した素材フォルダ外のファイルを読み込みません。
@@ -32,7 +32,7 @@ ChocoDropは、設定した素材フォルダ外のファイルを読み込み�
 ### Codex
 
 ```bash
-codex mcp add chocodrop -- npx -y @chocodrop/mcp@alpha --assets-dir /absolute/path/to/your/assets
+codex mcp add chocodrop -- pnpm dlx @chocodrop/mcp@alpha --assets-dir /absolute/path/to/your/assets
 codex mcp get chocodrop
 ```
 
@@ -41,22 +41,35 @@ codex mcp get chocodrop
 ### Claude Code
 
 ```bash
-claude mcp add --transport stdio --scope user chocodrop -- npx -y @chocodrop/mcp@alpha --assets-dir /absolute/path/to/your/assets
+claude mcp add --transport stdio --scope user chocodrop -- pnpm dlx @chocodrop/mcp@alpha --assets-dir /absolute/path/to/your/assets
 claude mcp get chocodrop
 ```
 
 ユーザー設定へ追加されます。Claude Codeを起動し、`/mcp`で接続を確認します。
 
-### Gemini CLI
+### Antigravity
 
-```bash
-gemini mcp add --scope user chocodrop npx -- -y @chocodrop/mcp@alpha --assets-dir /absolute/path/to/your/assets
-gemini mcp list
+Antigravityの「Settings → Customizations → Installed MCP Servers → Open MCP Config」から`~/.gemini/config/mcp_config.json`を開き、既存の`mcpServers`へ次の項目を追加します。
+
+```json
+{
+  "mcpServers": {
+    "chocodrop": {
+      "command": "pnpm",
+      "args": [
+        "dlx",
+        "@chocodrop/mcp@alpha",
+        "--assets-dir",
+        "/absolute/path/to/your/assets"
+      ]
+    }
+  }
+}
 ```
 
-Gemini CLIはstdio MCPをサポートしています。現在のフォルダが信頼されていない場合、`gemini mcp list`ではサーバーが`Disconnected`と表示されます。利用するフォルダを信頼してから再確認してください。
+保存後にInstalled MCP Serversを更新するか、Antigravityを再起動します。Antigravity CLIでは`/mcp`で接続状態を確認できます。自動設定コマンドは既存のMCP設定を保持し、`mcpServers.chocodrop`だけを追加・更新します。
 
-公式資料： [Codex MCP](https://developers.openai.com/codex/mcp) · [Claude Code MCP](https://code.claude.com/docs/en/mcp) · [Gemini CLI MCP](https://github.com/google-gemini/gemini-cli/blob/main/docs/tools/mcp-server.md)
+公式資料： [Codex MCP](https://developers.openai.com/codex/mcp) · [Claude Code MCP](https://code.claude.com/docs/en/mcp) · [Antigravity MCP](https://codelabs.developers.google.com/getting-started-google-antigravity)
 
 ## 配置する
 
@@ -77,7 +90,7 @@ Gemini CLIはstdio MCPをサポートしています。現在のフォルダが�
 
 MCPクライアントがローカルサーバーを起動するため、`npm run local`を同時に実行する必要はありません。ツールごとに別のシーンが起動するため、必ずそのツールの`get_status`が返したURLを開いてください。
 
-stdioでは標準出力をMCP通信に使用します。各CLIは必要なときに`@chocodrop/mcp`を起動します。GUIアプリから`npx`が見つからない場合は、Node.jsを通常のシステム環境へインストールし直すか、手動設定で`npx`の絶対パスを指定してください。
+stdioでは標準出力をMCP通信に使用します。各ツールは必要なときに`@chocodrop/mcp`を起動します。GUIアプリから`pnpm`が見つからない場合は、手動設定で`pnpm`の絶対パスを指定するか、`command`を`npx`、`args`の先頭を`-y`に変更してください。
 
 ## ブラウザだけで使う
 

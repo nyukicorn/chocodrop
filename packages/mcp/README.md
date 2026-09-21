@@ -1,11 +1,11 @@
 # @chocodrop/mcp
 
-Codex、Claude Code、Gemini CLIなどのMCPクライアントから、許可したローカルフォルダ内の画像・動画・GLBをChocoDropのブラウザシーンへ配置します。
+Codex、Claude Code、AntigravityなどのMCPクライアントから、許可したローカルフォルダ内の画像・動画・GLBをChocoDropのブラウザシーンへ配置します。
 
 このMCPは素材を生成しません。普段使っている生成MCPやCLIでファイルを作り、素材フォルダへ保存してから配置します。
 
 ```bash
-npx --yes @chocodrop/mcp@alpha --assets-dir "$HOME/ChocoDropAssets"
+pnpm dlx @chocodrop/mcp@alpha --assets-dir "$HOME/ChocoDropAssets"
 ```
 
 通常は [`@chocodrop/setup`](https://www.npmjs.com/package/@chocodrop/setup) で利用中のCLIへ登録してください。

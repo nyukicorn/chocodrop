@@ -18,7 +18,7 @@ export function connectLocalBridge(sceneManager, { statusElement } = {}) {
   const socket = new WebSocket(`ws://${location.host}/local-api/live?token=${encodeURIComponent(token)}`);
   const requests = new Map();
   socket.addEventListener('open', () =>
-    setStatus('ツール連携中 · Codex・Claude Code・Gemini CLIなどから素材を配置できます')
+    setStatus('ツール連携中 · Codex・Claude Code・Antigravityなどから素材を配置できます')
   );
   socket.addEventListener('close', () => {
     for (const request of requests.values()) request.cancelled = true;
