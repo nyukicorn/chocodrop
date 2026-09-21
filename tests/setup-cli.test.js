@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { PassThrough } from 'node:stream';
 import test from 'node:test';
@@ -105,7 +106,7 @@ test('shows existing ChocoDrop entries before asking to replace them', async () 
 });
 
 test('preserves Antigravity config while adding ChocoDrop', async () => {
-  const root = await mkdtemp(path.join(process.cwd(), 'tmp/setup-antigravity-'));
+  const root = await mkdtemp(path.join(tmpdir(), 'chocodrop-setup-antigravity-'));
   const item = registration('antigravity', path.join(root, 'assets'), '@chocodrop/mcp@0.1.0-alpha.0', 'pnpm', root);
   try {
     await mkdir(path.dirname(item.configPath), { recursive: true });
@@ -121,7 +122,7 @@ test('preserves Antigravity config while adding ChocoDrop', async () => {
 });
 
 test('accepts an empty Antigravity config file', async () => {
-  const root = await mkdtemp(path.join(process.cwd(), 'tmp/setup-antigravity-empty-'));
+  const root = await mkdtemp(path.join(tmpdir(), 'chocodrop-setup-antigravity-empty-'));
   const item = registration('antigravity', path.join(root, 'assets'), '@chocodrop/mcp@0.1.0-alpha.0', 'pnpm', root);
   try {
     await mkdir(path.dirname(item.configPath), { recursive: true });
