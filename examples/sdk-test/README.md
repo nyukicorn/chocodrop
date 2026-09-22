@@ -1,70 +1,27 @@
-# ChocoDrop SDK Test Page
+# ChocoDrop SDK版テストページ
 
-このページは **SDK版（完全版）** の動作確認用です。
+`CommandUI.js`を使うSDK版の確認ページです。右下のチョコから、生成済みの画像・動画・GLBをImportできます。外部の生成サービスは必須ではありません。
 
-## 📦 SDK版 vs デモ版
+## 起動
 
-| 項目 | SDK版 (このページ) | デモ版 (basic/) |
-|------|-------------------|----------------|
-| ファイル | `CommandUI.js` | `CommandUIDemo.js` |
-| 生成機能 | ✅ あり | ❌ なし（インポートのみ） |
-| サーバー | 必要（localhost:3011） | 不要 |
-| 用途 | 開発・npm配布 | GitHub Pages配布 |
-
-## 🚀 使い方
-
-### 1. サーバーを起動
+プロジェクトルートで、2つのターミナルを使います。
 
 ```bash
-# プロジェクトルートで実行
-npm run dev:sdk
+# ターミナル1
+node src/server/server.js --port 3011
+
+# ターミナル2
+python3 -m http.server 8080 --directory examples/sdk-test
 ```
 
-これで以下が起動します：
-- SDK Test Page: http://localhost:8080/
-- SDK Server: http://localhost:3011/
+ブラウザで <http://localhost:8080/> を開き、「SDK版の準備完了」と右下のチョコが表示されることを確認します。
 
-### 2. ブラウザで開く
+## デモ版との違い
 
-http://localhost:8080/ にアクセス
+| 項目 | SDK版 | デモ版 |
+| --- | --- | --- |
+| UI | `src/client/CommandUI.js` | `src/client/demo/CommandUIDemo.js` |
+| 主な用途 | 自分のThree.jsシーンへの組み込み | GitHub Pages上の体験 |
+| ローカルサーバー | 使用 | 手動Importだけなら不要 |
 
-### 3. ChocoDrop を起動
-
-- `@` キーを押す
-- または右下のボタンをクリック
-
-### 4. 画像生成をテスト
-
-自然言語で画像生成のリクエストを送信してテストします。
-
-## 🔧 開発時の注意
-
-### ソースコードを修正したら必ずビルド
-
-```bash
-npm run build
-```
-
-ビルドしないと変更が反映されません！
-
-### テストする順序
-
-1. `src/client/CommandUI.js` を修正
-2. `npm run build` でビルド
-3. `npm run dev:sdk` でサーバー起動
-4. http://localhost:8080/ でテスト
-
-## ⚠️ トラブルシューティング
-
-**UIが更新されない**
-→ ブラウザのキャッシュをクリア（Cmd+Shift+R）
-
-**生成機能が動かない**
-→ SDK Serverが起動しているか確認（http://localhost:3011/health）
-
-**ポートが使われている**
-→ 他のプロセスを終了してから再起動
-
----
-
-詳細は `.claude/commands/edit-chocodrop-form.md` を参照してください。
+フォームUIを変更した場合は、SDK版と `http://localhost:8000/examples/basic/` のデモ版を両方確認します。

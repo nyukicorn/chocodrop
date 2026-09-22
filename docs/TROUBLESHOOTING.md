@@ -21,7 +21,7 @@ command not found: npx
    kill $(lsof -ti:43110)
 
    # または別ポートで起動
-   npx --yes @chocodrop/daemon@alpha --port 43111
+   pnpm dlx @chocodrop/daemon@1.0.4-alpha.0 --port 43111
    ```
 
 2. **npx が見つからない場合**
@@ -109,7 +109,7 @@ Origin not allowed
    kill $(lsof -ti:43110)
 
    # 再起動
-   npx --yes @chocodrop/daemon@alpha
+   pnpm dlx @chocodrop/daemon@1.0.4-alpha.0
    ```
 
 ⚠️ **信頼できるサイトのみ追加してください**

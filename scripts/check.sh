@@ -27,10 +27,12 @@ VERIFY() {
   npm test || return
   echo '[2/5] Browser bundles'
   npm run build || return
+  test -f examples/sdk-test/index.html || return
   echo '[3/5] Installable MCP packages'
   npm run build:mcp-package || return
   npm pack --dry-run --workspace=@chocodrop/mcp --cache "$PWD/tmp/npm-cache" >/dev/null || return
   npm pack --dry-run --workspace=@chocodrop/setup --cache "$PWD/tmp/npm-cache" >/dev/null || return
+  npm pack --dry-run --workspace=@chocodrop/daemon --cache "$PWD/tmp/npm-cache" >/dev/null || return
   echo '[4/5] Existing daemon contracts'
   npm test --workspace=@chocodrop/daemon || return
   echo '[5/5] Pages artifact'

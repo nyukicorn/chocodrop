@@ -87,7 +87,7 @@ export class ChocoDropClient {
    */
   createConnectionError(context) {
     const serverInfo = this.serverUrl ? `（接続先: ${this.serverUrl}）` : '';
-    const hint = 'ChocoDrop ローカルサーバー（Express）が起動しているか確認してください（例: `npm run dev`）。';
+    const hint = 'ChocoDrop ローカルサーバー（Express）が起動しているか確認してください（例: `npm run dev:server`）。';
     return new Error(`${context}\nサーバーへ接続できません。${hint}${serverInfo}`);
   }
 

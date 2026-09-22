@@ -39,12 +39,11 @@ export class GuidedOnboarding {
       },
       {
         id: 'atmos-sculpt',
-        label: 'ビジュアル生成',
+        label: 'AI素材を持ち込む',
         icon: { start: '#f472b6', end: '#facc15', rotation: 40, type: 'generate' },
-        description: '接続した生成サービスで新しいビジュアルやアニメーションを生み出します。壮大なシーンの起点に。',
-        prompt: '虹色のガラスで編んだユニコーンのドローンショットの動画を作って',
-        mode: 'generate',
-        mediaType: 'video'
+        description: '普段使っているAIやCLIで作った画像・動画・GLBを持ち込み、世界の一部として配置します。',
+        prompt: '中央に大きく飾って',
+        mode: 'import'
       },
       {
         id: 'scene-capture',
@@ -58,7 +57,7 @@ export class GuidedOnboarding {
 
     this.steps = [
       { id: 'persona', title: 'ChocoDropへようこそ', type: 'choice', icon: '💡', tagline: '作りたいムードを選ぶと、あなたの世界づくりが最短距離になります。' },
-      { id: 'service', title: 'サービス接続を整える', type: 'service', icon: '🔗', tagline: '生成サービスの接続状態をチェックして、滞りなく創作を進めましょう。' },
+      { id: 'service', title: '素材の準備を確認する', type: 'service', icon: '🔗', tagline: '配置したいファイルを手元に用意して、Importから選びましょう。' },
       { id: 'prompt', title: '言葉で世界をデザイン', type: 'prompt', icon: '🖋️', tagline: 'フォームに光を当てながら、シーンを導く言葉を仕上げます。' },
       { id: 'execute', title: 'シーンを動かす', type: 'execute', icon: '🎬', tagline: '準備が整ったら再生。サウンドと光がシーンに息を吹き込みます。' },
       { id: 'next', title: '次のステップ', type: 'next', icon: '🌈', tagline: 'これからもっと遊ぶためのヒントとショートカットをご案内。' }
@@ -1982,10 +1981,10 @@ export class GuidedOnboarding {
         meta.progressLabel = 'ムード選択';
         break;
       case 'service':
-        meta.title = 'サービス接続を整える';
-        meta.progressLabel = '接続チェック';
+        meta.title = '素材の準備を確認する';
+        meta.progressLabel = '素材チェック';
         if (personaId === 'atmos-sculpt') {
-          meta.tagline = '動画生成サービスがオンラインか確認しましょう。接続が完了するとステータスが緑になります。';
+          meta.tagline = '普段のAIやCLIで作ったファイルを、Importから選びましょう。';
         }
         break;
       case 'prompt':

@@ -4,11 +4,11 @@ ChocoDropのブックマークレットは、閲覧中のThree.jsページへGit
 
 ## 登録
 
-1. Node.js 16以上を用意します。Node.js 22 LTSを推奨します。
+1. Node.js 18以上を用意します。Node.js 22 LTSを推奨します。
 2. ターミナルでdaemonを起動します。
 
    ```bash
-   npx --yes @chocodrop/daemon@alpha
+   pnpm dlx @chocodrop/daemon@1.0.4-alpha.0
    ```
 
 3. [ブックマークレット登録ページ](https://nyukicorn.github.io/chocodrop/examples/bookmarklet-v2.html)を開きます。

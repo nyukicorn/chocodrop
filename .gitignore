@@ -69,6 +69,7 @@ docs/*
 
 # Development and test files (should not be distributed)
 index.html
+!examples/sdk-test/index.html
 test-*.html
 test-*.js
 wabi-sabi-*.html

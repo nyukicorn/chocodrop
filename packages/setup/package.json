@@ -1,6 +1,6 @@
 {
   "name": "@chocodrop/setup",
-  "version": "0.1.0-alpha.0",
+  "version": "0.1.0-alpha.1",
   "description": "One-command setup for connecting ChocoDrop to Codex, Claude Code, and Antigravity.",
   "type": "module",
   "bin": {

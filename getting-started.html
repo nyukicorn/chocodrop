@@ -51,7 +51,7 @@ npm run local -- --assets-dir /absolute/path/to/your/assets</code></pre>
   <section aria-labelledby="bookmarklet">
     <h2 id="bookmarklet">3. ブックマークから既存ページで使う</h2>
     <p>GitHubをcloneせずに試す場合は、ローカルdaemonを起動し、ブックマークレットを登録します。</p>
-    <pre><code>npx --yes @chocodrop/daemon@alpha</code></pre>
+    <pre><code>pnpm dlx @chocodrop/daemon@1.0.4-alpha.0</code></pre>
     <p><a href="examples/bookmarklet-v2.html">ブックマークレット登録ページ</a>からボタンをブックマークバーへドラッグし、対応するThree.jsページで押します。</p>
     <p class="muted">素材配置まで利用できるのは、ページの<code>scene</code>・<code>camera</code>・<code>renderer</code>を参照でき、ローカルスクリプトの読込が許可されている場合です。任意の3Dサイトで必ず動く機能ではありません。</p>
   </section>
@@ -59,7 +59,7 @@ npm run local -- --assets-dir /absolute/path/to/your/assets</code></pre>
   <section aria-labelledby="mcp">
     <h2 id="mcp">4. Codex・Claude Code・Antigravityから配置する</h2>
     <p>Node.js 22 LTSとnpmを用意し、次の1コマンドを実行します。インストール済みのCLIと登録内容を表示し、確認後にChocoDrop MCPをユーザー設定へ追加します。GitHubのcloneは不要です。</p>
-    <pre><code>pnpm dlx @chocodrop/setup@0.1.0-alpha.0</code></pre>
+    <pre><code>pnpm dlx @chocodrop/setup@0.1.0-alpha.1</code></pre>
     <p><code>~/ChocoDropAssets</code>が素材フォルダとして作成されます。特定のCLIだけに登録する場合は、たとえば<code>--client codex,claude</code>を付けます。変更せず内容だけ確認する場合は<code>--dry-run</code>を付けます。</p>
     <p>ChocoDropのMCPは素材を生成しません。普段使っている生成MCPやCLIで画像・動画・GLBを素材フォルダへ保存し、そのファイルをChocoDropで配置します。</p>
     <h3>登録後の使い方</h3>
@@ -69,15 +69,15 @@ npm run local -- --assets-dir /absolute/path/to/your/assets</code></pre>
       <li>「ChocoDropのimport_assetで、素材フォルダ内のsample.pngを配置して」と依頼します。</li>
     </ol>
     <p>呼び出し例：<code>import_asset({"path":"/absolute/path/to/your/assets/sample.png"})</code>。ブラウザで配置が完了してから成功を返します。</p>
-    <p class="muted">各ツールがMCPプロセスを起動するため、<code>npm run local</code>の同時起動は不要です。MCPからはPNG/JPEG/WebP/MP4/WebM/GLBに対応し、1ファイル32MiBまでです。接続するデモは1タブにしてください。クラウド上のAIから利用者のPCへ直接接続する機能はありません。手動登録は<a href="docs/LOCAL_TOOLS.md">ローカルMCPガイド</a>にあります。</p>
-    <p>pnpmがない環境では<code>npx --yes @chocodrop/setup@0.1.0-alpha.0</code>も使用できます。</p>
+    <p class="muted">各ツールがMCPプロセスを起動するため、<code>npm run local</code>の同時起動は不要です。MCPからはPNG/JPEG/WebP/MP4/WebM/GLBに対応し、1ファイル32MiBまでです。接続するデモは1タブにしてください。クラウド上のAIから利用者のPCへ直接接続する機能はありません。手動登録は<a href="https://github.com/nyukicorn/chocodrop/blob/main/docs/LOCAL_TOOLS.md">ローカルMCPガイド</a>にあります。</p>
+    <p>pnpmがない環境では<code>npx --yes @chocodrop/setup@0.1.0-alpha.1</code>も使用できます。</p>
     <p>公式資料：<a href="https://developers.openai.com/codex/mcp">CodexのMCP設定</a> · <a href="https://code.claude.com/docs/en/mcp">Claude CodeのMCP設定</a> · <a href="https://codelabs.developers.google.com/getting-started-google-antigravity">AntigravityのMCP設定</a></p>
   </section>
 
   <section aria-labelledby="limits">
     <h2 id="limits">できることと、今後の範囲</h2>
-    <p>GitHub Pagesでは手動のファイル配置、ローカル起動ではMCPによるファイル配置を使います。ChocoDropの内部から生成サービスを呼ぶ旧連携とは別の入口です。新しい入口は生成サービスを呼び出しません。</p>
-    <p>Quest実機、全ギャラリー、既存の生成サービスごとの動作確認は別途必要です。まずBasicデモで素材を置くところからお試しください。</p>
+    <p>GitHub Pagesでは手動のファイル配置、ローカル起動ではMCPによるファイル配置を使います。ChocoDrop自体は素材を生成せず、手元にあるファイルを3D空間へ配置します。</p>
+    <p>Quest実機と全ギャラリーの動作確認は別途必要です。まずBasicデモで素材を置くところからお試しください。</p>
     <a href="examples/basic/">Basicデモに戻る →</a>
   </section>
 </body>

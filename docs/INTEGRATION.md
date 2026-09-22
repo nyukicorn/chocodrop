@@ -38,7 +38,7 @@ ChocoDrop を自分のプロジェクトに統合する方法を、ユースケ�
 ChocoDrop daemon を起動します：
 
 ```bash
-npx --yes @chocodrop/daemon@alpha
+pnpm dlx @chocodrop/daemon@1.0.4-alpha.0
 ```
 
 デーモンが起動すると `http://127.0.0.1:43110` で SDK が配信されます。
@@ -326,7 +326,7 @@ const chocoDrop = createChocoDrop(scene, options);
 
 1. ChocoDrop daemon を起動：
    ```bash
-   npx --yes @chocodrop/daemon@alpha
+   pnpm dlx @chocodrop/daemon@1.0.4-alpha.0
    ```
 
 2. ブックマークページを開く：
@@ -433,7 +433,7 @@ export default function App() {
 
 **解決策**:
 ```bash
-npx --yes @chocodrop/daemon@alpha
+pnpm dlx @chocodrop/daemon@1.0.4-alpha.0
 ```
 
 ### CORS エラー

@@ -7,7 +7,7 @@ ChocoDropのローカルMCPは、許可した素材フォルダ内の画像・�
 Node.js 22 LTSとnpmを用意し、次を実行します。
 
 ```bash
-pnpm dlx @chocodrop/setup@0.1.0-alpha.0
+pnpm dlx @chocodrop/setup@0.1.0-alpha.1
 ```
 
 インストール済みのCodex・Claude Code・Antigravityを検出し、実行内容を表示して確認した後に、次を行います。
@@ -18,9 +18,9 @@ pnpm dlx @chocodrop/setup@0.1.0-alpha.0
 設定後にCLIを再起動し、「ChocoDropの`get_status`でURLを教えて」と依頼してください。変更内容だけ確認する場合は`--dry-run`、確認を省略する場合は`--yes`を付けます。
 
 ```bash
-pnpm dlx @chocodrop/setup@0.1.0-alpha.0 --dry-run
-pnpm dlx @chocodrop/setup@0.1.0-alpha.0 --client codex,antigravity --yes
-pnpm dlx @chocodrop/setup@0.1.0-alpha.0 --assets-dir /absolute/path/to/your/assets
+pnpm dlx @chocodrop/setup@0.1.0-alpha.1 --dry-run
+pnpm dlx @chocodrop/setup@0.1.0-alpha.1 --client codex,antigravity --yes
+pnpm dlx @chocodrop/setup@0.1.0-alpha.1 --assets-dir /absolute/path/to/your/assets
 ```
 
 ChocoDropは、設定した素材フォルダ外のファイルを読み込みません。
@@ -32,7 +32,7 @@ ChocoDropは、設定した素材フォルダ外のファイルを読み込み�
 ### Codex
 
 ```bash
-codex mcp add chocodrop -- pnpm dlx @chocodrop/mcp@0.1.0-alpha.0 --assets-dir /absolute/path/to/your/assets
+codex mcp add chocodrop -- pnpm dlx @chocodrop/mcp@0.1.0-alpha.1 --assets-dir /absolute/path/to/your/assets
 codex mcp get chocodrop
 ```
 
@@ -41,7 +41,7 @@ codex mcp get chocodrop
 ### Claude Code
 
 ```bash
-claude mcp add --transport stdio --scope user chocodrop -- pnpm dlx @chocodrop/mcp@0.1.0-alpha.0 --assets-dir /absolute/path/to/your/assets
+claude mcp add --transport stdio --scope user chocodrop -- pnpm dlx @chocodrop/mcp@0.1.0-alpha.1 --assets-dir /absolute/path/to/your/assets
 claude mcp get chocodrop
 ```
 
@@ -58,7 +58,7 @@ Antigravityの「Settings → Customizations → Installed MCP Servers → Open 
       "command": "pnpm",
       "args": [
         "dlx",
-        "@chocodrop/mcp@0.1.0-alpha.0",
+        "@chocodrop/mcp@0.1.0-alpha.1",
         "--assets-dir",
         "/absolute/path/to/your/assets"
       ]
@@ -119,7 +119,7 @@ npm run local -- --assets-dir /absolute/path/to/your/assets
 
 ## 配布と安全性
 
-- `pnpm dlx`はnpmレジストリからパッケージを取得します。案内では変更可能なタグではなく、検証済みの`0.1.0-alpha.0`へ固定しています。
+- `pnpm dlx`はnpmレジストリからパッケージを取得します。案内では変更可能なタグではなく、検証済みの`0.1.0-alpha.1`へ固定しています。
 - ChocoDropの配布パッケージには`install`・`postinstall`スクリプトを含めていません。
 - MCPは`127.0.0.1`だけで待ち受け、起動ごとのtokenを持つURLだけを受け付けます。
 - 読み込めるファイルは、設定した素材フォルダ内の対応形式に限定されます。

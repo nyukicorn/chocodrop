@@ -112,7 +112,7 @@
      */
     createConnectionError(context) {
       const serverInfo = this.serverUrl ? `（接続先: ${this.serverUrl}）` : '';
-      const hint = 'ChocoDrop ローカルサーバー（Express）が起動しているか確認してください（例: `npm run dev`）。';
+      const hint = 'ChocoDrop ローカルサーバー（Express）が起動しているか確認してください（例: `npm run dev:server`）。';
       return new Error(`${context}\nサーバーへ接続できません。${hint}${serverInfo}`);
     }
 
@@ -8180,12 +8180,11 @@
         },
         {
           id: 'atmos-sculpt',
-          label: 'ビジュアル生成',
+          label: 'AI素材を持ち込む',
           icon: { start: '#f472b6', end: '#facc15', rotation: 40, type: 'generate' },
-          description: '接続した生成サービスで新しいビジュアルやアニメーションを生み出します。壮大なシーンの起点に。',
-          prompt: '虹色のガラスで編んだユニコーンのドローンショットの動画を作って',
-          mode: 'generate',
-          mediaType: 'video'
+          description: '普段使っているAIやCLIで作った画像・動画・GLBを持ち込み、世界の一部として配置します。',
+          prompt: '中央に大きく飾って',
+          mode: 'import'
         },
         {
           id: 'scene-capture',
@@ -8199,7 +8198,7 @@
 
       this.steps = [
         { id: 'persona', title: 'ChocoDropへようこそ', type: 'choice', icon: '💡', tagline: '作りたいムードを選ぶと、あなたの世界づくりが最短距離になります。' },
-        { id: 'service', title: 'サービス接続を整える', type: 'service', icon: '🔗', tagline: '生成サービスの接続状態をチェックして、滞りなく創作を進めましょう。' },
+        { id: 'service', title: '素材の準備を確認する', type: 'service', icon: '🔗', tagline: '配置したいファイルを手元に用意して、Importから選びましょう。' },
         { id: 'prompt', title: '言葉で世界をデザイン', type: 'prompt', icon: '🖋️', tagline: 'フォームに光を当てながら、シーンを導く言葉を仕上げます。' },
         { id: 'execute', title: 'シーンを動かす', type: 'execute', icon: '🎬', tagline: '準備が整ったら再生。サウンドと光がシーンに息を吹き込みます。' },
         { id: 'next', title: '次のステップ', type: 'next', icon: '🌈', tagline: 'これからもっと遊ぶためのヒントとショートカットをご案内。' }
@@ -10122,10 +10121,10 @@
           meta.progressLabel = 'ムード選択';
           break;
         case 'service':
-          meta.title = 'サービス接続を整える';
-          meta.progressLabel = '接続チェック';
+          meta.title = '素材の準備を確認する';
+          meta.progressLabel = '素材チェック';
           if (personaId === 'atmos-sculpt') {
-            meta.tagline = '動画生成サービスがオンラインか確認しましょう。接続が完了するとステータスが緑になります。';
+            meta.tagline = '普段のAIやCLIで作ったファイルを、Importから選びましょう。';
           }
           break;
         case 'prompt':
@@ -11469,7 +11468,7 @@
         this.setServiceButtonsEnabled(true);
       } catch (error) {
         console.error('❌ Failed to initialize service selector:', error);
-        this.setServiceSelectorStatus('サービス情報を取得できませんでした。サーバーが起動しているか確認のうえ、再読み込みしてください。', 'error');
+        this.setServiceSelectorStatus('外部の生成サービスを利用できません。生成済みの画像・動画・GLBはImportから配置できます。', 'info');
         this.toggleServiceRetryButton(true);
         this.setServiceButtonsEnabled(false);
       } finally {
@@ -13408,8 +13407,8 @@
           this.serverHealthState.available = false;
           this.serverHealthState.lastError = error;
           this.showServerHealthModal(error);
-          this.showInputFeedback('サーバーに接続できません。`npm run dev` でローカルサーバーを起動してください。', 'error');
-          this.addOutput('📡 サーバーに接続できません。`npm run dev` でローカルサーバーを起動してください。', 'error');
+          this.showInputFeedback('サーバーに接続できません。`npm run dev:server` でローカルサーバーを起動してください。', 'error');
+          this.addOutput('📡 サーバーに接続できません。`npm run dev:server` でローカルサーバーを起動してください。', 'error');
         } else if (error?.code === 'MCP_CONFIG_MISSING') {
           this.showMcpConfigNotice(error);
         } else {
@@ -13589,7 +13588,7 @@
       line-height: 1.6;
       font-size: 14px;
     `;
-      message.textContent = 'ローカルで起動している ChocoDrop サーバー（Express）に接続できません。ターミナルで `npm run dev` を実行し、サーバーが起動していることを確認してください。';
+      message.textContent = 'ローカルで起動している ChocoDrop サーバー（Express）に接続できません。ターミナルで `npm run dev:server` を実行し、サーバーが起動していることを確認してください。';
 
       const detail = document.createElement('pre');
       detail.style.cssText = `
@@ -13701,9 +13700,9 @@
       }
       this.mcpNoticeShown = true;
 
-      const message = error?.message || 'MCP 設定が見つかりません。config.json の設定を確認してください。';
-      const guidance = '⚙️ MCP 設定が必要です: docs/SETUP.md を参照し、config.json の mcp セクションまたは MCP_CONFIG_PATH 環境変数を設定してください。';
-      this.showInputFeedback('AI生成サーバー (MCP) が未設定です。設定が完了するまで生成を実行できません。', 'error');
+      const message = error?.message || 'この生成操作に必要な外部サービスが設定されていません。';
+      const guidance = '現在の公開手順ではChocoDrop内から素材を生成しません。画像・動画・GLBを用意し、Importから配置してください。';
+      this.showInputFeedback('生成済みのファイルをImportから選んでください。', 'info');
       this.addOutput(`${guidance}\nサーバーからのメッセージ: ${message}`, 'error');
     }
 
@@ -18150,7 +18149,7 @@
         this.setServiceButtonsEnabled(true);
       } catch (error) {
         console.error('❌ Failed to initialize service selector:', error);
-        this.setServiceSelectorStatus('MCP設定が必要です。config.jsonでMCPサービスを設定してください。3000番以外のポートを使用している場合は、サーバーのCORS設定も確認してください。詳細はREADMEをご確認ください。', 'error');
+        this.setServiceSelectorStatus('外部の生成サービスを利用できません。生成済みの画像・動画・GLBはImportから配置できます。', 'info');
         this.toggleServiceRetryButton(true);
         this.setServiceButtonsEnabled(false);
       } finally {
@@ -20998,8 +20997,8 @@
           this.serverHealthState.available = false;
           this.serverHealthState.lastError = error;
           this.showServerHealthModal(error);
-          this.showInputFeedback('サーバーに接続できません。`npm run dev` でローカルサーバーを起動してください。', 'error');
-          this.addOutput('📡 サーバーに接続できません。`npm run dev` でローカルサーバーを起動してください。', 'error');
+          this.showInputFeedback('サーバーに接続できません。`npm run dev:server` でローカルサーバーを起動してください。', 'error');
+          this.addOutput('📡 サーバーに接続できません。`npm run dev:server` でローカルサーバーを起動してください。', 'error');
         } else if (error?.code === 'MCP_CONFIG_MISSING') {
           this.showMcpConfigNotice(error);
         } else {
@@ -21196,7 +21195,7 @@
       line-height: 1.6;
       font-size: 14px;
     `;
-      message.textContent = 'ローカルで起動している ChocoDrop サーバー（Express）に接続できません。ターミナルで `npm run dev` を実行し、サーバーが起動していることを確認してください。';
+      message.textContent = 'ローカルで起動している ChocoDrop サーバー（Express）に接続できません。ターミナルで `npm run dev:server` を実行し、サーバーが起動していることを確認してください。';
 
       const detail = document.createElement('pre');
       detail.style.cssText = `
@@ -21308,9 +21307,9 @@
       }
       this.mcpNoticeShown = true;
 
-      const message = error?.message || 'MCP 設定が見つかりません。config.json の設定を確認してください。';
-      const guidance = '⚙️ MCP 設定が必要です: docs/SETUP.md を参照し、config.json の mcp セクションまたは MCP_CONFIG_PATH 環境変数を設定してください。';
-      this.showInputFeedback('AI生成サーバー (MCP) が未設定です。設定が完了するまで生成を実行できません。', 'error');
+      const message = error?.message || 'この生成操作に必要な外部サービスが設定されていません。';
+      const guidance = '現在の公開手順ではChocoDrop内から素材を生成しません。画像・動画・GLBを用意し、Importから配置してください。';
+      this.showInputFeedback('生成済みのファイルをImportから選んでください。', 'info');
       this.addOutput(`${guidance}\nサーバーからのメッセージ: ${message}`, 'error');
     }
 

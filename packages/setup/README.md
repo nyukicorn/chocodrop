@@ -3,23 +3,23 @@
 Codex、Claude Code、Antigravityを検出し、ChocoDrop MCPを登録するセットアップコマンドです。
 
 ```bash
-pnpm dlx @chocodrop/setup@0.1.0-alpha.0
+pnpm dlx @chocodrop/setup@0.1.0-alpha.1
 ```
 
 既定では、見つかったツールを表示して確認した後、`~/ChocoDropAssets`を作成し、ユーザー設定へChocoDropを登録します。Antigravityでは既存の`~/.gemini/config/mcp_config.json`を保持し、`mcpServers.chocodrop`だけを追加・更新します。
 
 ```bash
 # Codexだけに登録
-pnpm dlx @chocodrop/setup@0.1.0-alpha.0 --client codex --yes
+pnpm dlx @chocodrop/setup@0.1.0-alpha.1 --client codex --yes
 
 # 素材フォルダを指定
-pnpm dlx @chocodrop/setup@0.1.0-alpha.0 --assets-dir /path/to/assets
+pnpm dlx @chocodrop/setup@0.1.0-alpha.1 --assets-dir /path/to/assets
 
 # 変更内容だけ確認
-pnpm dlx @chocodrop/setup@0.1.0-alpha.0 --dry-run
+pnpm dlx @chocodrop/setup@0.1.0-alpha.1 --dry-run
 ```
 
-pnpmがない環境では`npx --yes @chocodrop/setup@0.1.0-alpha.0`も使用できます。
+pnpmがない環境では`npx --yes @chocodrop/setup@0.1.0-alpha.1`も使用できます。
 
 登録後、CLIを再起動して「ChocoDropの`get_status`でURLを教えて」と依頼してください。
 

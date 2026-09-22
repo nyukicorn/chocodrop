@@ -1,5 +1,7 @@
 # Meta Quest テスト準備ガイド
 
+> この文書は実験中のXR版向けです。現在公開しているブラウザ版の必須手順ではありません。
+
 Meta Quest ブラウザから ChocoDrop の XR 体験を検証するための手順をまとめています。
 
 ## 1. 前提条件
@@ -9,7 +11,7 @@ Meta Quest ブラウザから ChocoDrop の XR 体験を検証するための手
 
 ## 2. 開発サーバー起動
 ```bash
-cd /Users/nukuiyuki/Dev/ChocoDrop/.worktrees/task-1762140313516-11046e
+cd /path/to/chocodrop
 npm run dev
 ```
 実行するとランダムなポート番号でローカルサーバーが立ち上がり、`output/build-report.json` に `localUrl` が記録されます。
@@ -38,4 +40,8 @@ npm run tunnel
 テスト終了後は両ターミナルで `Ctrl + C` を押してサーバーを停止し、ngrok セッションも終了させてください。
 
 ---
-Meta Quest ブラウザは HTTPS のみ WebXR を許可します。必ず `ngrokUrl` 経由でアクセスしてください。*** End Patch
+Meta Quest ブラウザは HTTPS のみ WebXR を許可します。必ず `ngrokUrl` 経由でアクセスしてください。
+
+## 今回のブラウザ版変更との関係
+
+公開案内は、生成済みの画像・動画・GLBをImportする流れへ統一しています。今回の変更はQuestへの素材転送処理を変更しないため、実機ログはありません。次のXR改善候補は、素材送信中の進捗をUIへ表示することです。

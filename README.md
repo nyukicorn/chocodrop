@@ -39,7 +39,7 @@ _短い動画を見る（音声なし・約18秒）_
 既存のThree.jsページでブックマークを押すと、ChocoDrop UIを読み込みます。
 
 ```bash
-npx --yes @chocodrop/daemon@alpha
+pnpm dlx @chocodrop/daemon@1.0.4-alpha.0
 ```
 
 daemonを起動したまま[ブックマークレット登録ページ](https://nyukicorn.github.io/chocodrop/examples/bookmarklet-v2.html)を開き、「ChocoDropを登録」をブックマークバーへドラッグします。
@@ -51,15 +51,16 @@ daemonを起動したまま[ブックマークレット登録ページ](https://
 ChocoDropのstdio MCPは、許可した素材フォルダ内のファイルをローカルのブラウザシーンへ配置します。画像や動画を生成するMCPではありません。普段の制作ツールで作ったファイルを、配置するための入口です。
 
 ```bash
-pnpm dlx @chocodrop/setup@0.1.0-alpha.0
+pnpm dlx @chocodrop/setup@0.1.0-alpha.1
 ```
 
-この1コマンドがインストール済みのCodex・Claude Code・Antigravityを検出し、`~/ChocoDropAssets`を作成してChocoDrop MCPを登録します。登録内容を確認してから変更するため、意図しない設定は書き換えません。pnpmがない環境では`npx --yes @chocodrop/setup@0.1.0-alpha.0`も使用できます。
+この1コマンドがインストール済みのCodex・Claude Code・Antigravityを検出し、`~/ChocoDropAssets`を作成してChocoDrop MCPを登録します。登録内容を確認してから変更するため、意図しない設定は書き換えません。pnpmがない環境では`npx --yes @chocodrop/setup@0.1.0-alpha.1`も使用できます。
 
 接続後は、普段使っている生成MCPやCLIで素材を`~/ChocoDropAssets`へ保存し、ChocoDropの`import_asset`で配置します。詳しい使い方と手動設定は[ローカルMCPガイド](docs/LOCAL_TOOLS.md)をご覧ください。
 
 ## デモの世界
 
+- [はじまりの世界](https://nyukicorn.github.io/chocodrop/examples/basic/)
 - [ちいさな遊園地](https://nyukicorn.github.io/chocodrop/examples/toy-city/)
 - [音楽の花園](https://nyukicorn.github.io/chocodrop/examples/music-garden/)
 - [海底世界](https://nyukicorn.github.io/chocodrop/examples/pixel-ocean/)
