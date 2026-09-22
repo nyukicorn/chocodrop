@@ -17,8 +17,7 @@
     "local-server"
   ],
   "author": {
-    "name": "ChocoDrop Project",
-    "email": "chocodrop.dev@gmail.com"
+    "name": "ChocoDrop Project"
   },
   "license": "MIT",
   "dependencies": {

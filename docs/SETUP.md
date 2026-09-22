@@ -301,4 +301,4 @@ node src/server/server.js --debug
 
 - [GitHub Issues](https://github.com/nyukicorn/chocodrop/issues)
 - [Discussions](https://github.com/nyukicorn/chocodrop/discussions)
-- Email: chocodrop.dev@gmail.com
+- [非公開の脆弱性報告](https://github.com/nyukicorn/chocodrop/security/advisories/new)

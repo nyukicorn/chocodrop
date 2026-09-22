@@ -1,58 +1,36 @@
-# Security Policy
+# セキュリティポリシー
 
-## Supported Versions
+## 対象バージョン
 
-| Version | Supported          |
-| ------- | ------------------ |
-| 1.x     | ✅ Yes             |
-| < 1.0   | ❌ No              |
+ChocoDropは現在alpha版です。最新版と`main`ブランチを確認対象とし、過去のalpha版に対する個別の修正は保証していません。
 
-## Reporting a Vulnerability
+## 脆弱性を報告する
 
-**Please report security vulnerabilities privately.**
+セキュリティ上の問題を見つけた場合は、公開IssueやDiscussionへ詳細を書かず、GitHubの[非公開の脆弱性報告](https://github.com/nyukicorn/chocodrop/security/advisories/new)をご利用ください。
 
-📧 **Email**: chocodrop.security@gmail.com
-⏱️ **Response**: We aim to respond within 48 hours
-🔍 **Assessment**: Initial security assessment within 7 days
+次の情報があると確認しやすくなります。
 
-### What to Include
-- Description of the vulnerability
-- Steps to reproduce
-- Potential impact
-- Suggested fix (if any)
+- 問題の内容
+- 再現手順
+- 影響するバージョンや機能
+- 想定される影響
+- 修正案（ある場合）
 
-## Security Considerations
+報告を確認後、内容と影響範囲を調査します。返答や修正までの時間は、問題の内容と開発状況によって異なります。
 
-### For Users
-- **Never expose AI API keys** in client-side code
-- **Validate 3D content sources** to prevent malicious model injection
-- **Use Content Security Policy (CSP)** to restrict resource loading
-- **Sanitize natural language inputs** before processing
+## 安全に使うために
 
-### For Developers
-- **MCP Protocol**: Be aware of command execution boundaries
-- **WebGL Security**: Validate shader code and 3D assets
-- **Server-side**: Secure API endpoints and rate limiting
+- APIキー、トークン、認証情報をブラウザコードやリポジトリへ含めないでください。
+- MCPへ許可する素材フォルダは必要な範囲に限定してください。
+- 画像、動画、GLBなどの素材は、信頼できる提供元のものを使用してください。
+- ChocoDropのローカルサーバーを、意図せず外部ネットワークへ公開しないでください。
 
-## Safe Integration Practices
+---
 
-```javascript
-// ✅ Good: Server-side API key management
-const chocoDrop = createChocoDrop(scene, {
-  serverUrl: 'https://your-secure-server.com/api'
-});
+## English summary
 
-// ❌ Bad: Client-side API key exposure
-const chocoDrop = createChocoDrop(scene, {
-  apiKey: 'your-secret-key' // Never do this!
-});
-```
+ChocoDrop is currently in alpha. Security review focuses on the latest release and the `main` branch; fixes for older alpha releases are not guaranteed.
 
-## Updates
+Please do not disclose vulnerabilities in public issues or discussions. Submit them through [GitHub private vulnerability reporting](https://github.com/nyukicorn/chocodrop/security/advisories/new), including reproduction steps, affected versions or features, impact, and a suggested fix when available.
 
-Security updates will be published as patch releases and announced in:
-- GitHub Security Advisories
-- Release notes
-- Community channels
-
-Thank you for helping keep ChocoDrop secure! 🔒
+Response and remediation times depend on the issue and current development capacity.

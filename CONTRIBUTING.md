@@ -1,65 +1,29 @@
-# Contributing to ChocoDrop
+# ChocoDropへの参加
 
-## 🚧 Development Status
+ChocoDropに関心を持っていただき、ありがとうございます。
 
-**ChocoDrop is currently under active development.**
+## 現在の開発状況
 
-We're not accepting external contributions at this time as we're still:
-- Finalizing core architecture
-- Stabilizing APIs
-- Completing initial feature set
+ChocoDropは現在alpha版で、基本構成と公開APIを整理している段階です。
 
-## 📅 Future Contributions
+現時点では、外部からのPull Requestを通常受付していません。バグ報告、使ってみた感想、改善案は歓迎しています。
 
-We plan to welcome community contributions in the near future!
+- 不具合は[GitHub Issues](https://github.com/nyukicorn/chocodrop/issues)へお寄せください。
+- 質問やアイデアは[GitHub Discussions](https://github.com/nyukicorn/chocodrop/discussions)へお寄せください。
+- セキュリティ上の問題は公開Issueへ書かず、[非公開の脆弱性報告](https://github.com/nyukicorn/chocodrop/security/advisories/new)をご利用ください。
 
-**For now, please:**
-- ⭐ Star the repository if you're interested
-- 👀 Watch for release announcements
-- 💬 Join discussions to share feedback
+外部からのPull Requestを受け付ける段階になったら、この文書で開発手順と対象範囲を案内します。
 
-## Development Areas We Welcome
+## 行動について
 
-### 🎨 AI Integration
-- New AI model support (DALL-E, Midjourney API, etc.)
-- Generation quality improvements
-- Prompt optimization
+互いの背景や経験を尊重し、具体的で建設的なやり取りをお願いします。
 
-### 🌐 3D Framework Support
-- React Three Fiber examples
-- A-Frame/WebXR integration
-- Babylon.js adapter
+---
 
-### 🎮 User Interface
-- Command UI improvements
-- Natural language processing
-- Mobile/touch support
+## English summary
 
-### 📚 Documentation & Examples
-- Tutorial writing
-- Integration guides
-- Real-world use cases
+ChocoDrop is currently in alpha while its architecture and public APIs are being stabilized.
 
-## Code Standards
+We are not routinely accepting external pull requests yet. Bug reports, feedback, and ideas are welcome through [GitHub Issues](https://github.com/nyukicorn/chocodrop/issues) and [GitHub Discussions](https://github.com/nyukicorn/chocodrop/discussions).
 
-- **ES6+ modules** only (no CommonJS)
-- **JSDoc** comments for public APIs
-- **Test coverage** for new features
-- Follow existing **Three.js patterns**
-
-## Getting Started with Issues
-
-Look for issues labeled:
-- `good first issue` - Perfect for beginners
-- `help wanted` - Community input needed
-- `documentation` - Writing and examples
-
-## Questions?
-
-- 💬 Open a [Discussion](https://github.com/nyukicorn/chocodrop/discussions)
-- 🐛 Report bugs via [Issues](https://github.com/nyukicorn/chocodrop/issues)
-- 📧 Email: chocodrop.dev@gmail.com
-
-## Code of Conduct
-
-Be respectful and constructive. We're building something amazing together! 🍫
+Please do not disclose security vulnerabilities in a public issue. Use [GitHub private vulnerability reporting](https://github.com/nyukicorn/chocodrop/security/advisories/new) instead.

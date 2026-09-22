@@ -1,8 +1,8 @@
 blank_issues_enabled: false
 contact_links:
-  - name: 💬 Discussion / Questions
+  - name: 💬 質問・アイデア / Questions and ideas
     url: https://github.com/nyukicorn/chocodrop/discussions
-    about: Ask questions or discuss ideas (preferred for now)
-  - name: 📧 Direct Contact
-    url: mailto:chocodrop.dev@gmail.com
-    about: For urgent issues or private communication
+    about: 質問やアイデアはDiscussionsへお寄せください / Ask questions or discuss ideas
+  - name: 🔒 非公開の脆弱性報告 / Private vulnerability report
+    url: https://github.com/nyukicorn/chocodrop/security/advisories/new
+    about: セキュリティ上の問題を非公開で報告します / Report a security issue privately
