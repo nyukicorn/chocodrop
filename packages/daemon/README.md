@@ -9,14 +9,14 @@ ChocoDropのブックマークレットとThree.js SDKへ、ローカルUIと補
 Node.js 18以上とpnpmを用意します。
 
 ```bash
-pnpm dlx @chocodrop/daemon@1.0.4-alpha.0
+pnpm dlx @chocodrop/daemon@1.0.4-alpha.1
 ```
 
 起動中は次のローカルURLを使用します。
 
 - ヘルスチェック: `http://127.0.0.1:43110/v1/health`
 - SDK: `http://127.0.0.1:43110/sdk.js`
-- UI: `http://127.0.0.1:43110/ui/`
+- UIのJavaScript: `http://127.0.0.1:43110/ui/ui.global.js`
 
 終了する時は、起動したターミナルで`Ctrl+C`を押してください。
 

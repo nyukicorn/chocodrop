@@ -62,6 +62,7 @@ temp/
 
 # Generated installable MCP runtime
 packages/mcp/runtime/
+packages/daemon/runtime/
 
 # Internal development docs (exclude *.md which are public documentation)
 docs/*

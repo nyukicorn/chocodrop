@@ -7,7 +7,7 @@
 #### ❌ daemon が起動しない
 ```
 Error: Port 43110 already in use
-command not found: npx
+command not found: pnpm
 ```
 
 **解決方法**:
@@ -20,14 +20,14 @@ command not found: npx
    # プロセス終了
    kill $(lsof -ti:43110)
 
-   # または別ポートで起動
-   pnpm dlx @chocodrop/daemon@1.0.4-alpha.0 --port 43111
+   # ブックマークレットは43110番ポートを使うため、終了後に再起動
+   pnpm dlx @chocodrop/daemon@1.0.4-alpha.1
    ```
 
-2. **npx が見つからない場合**
+2. **pnpm が見つからない場合**
    ```bash
    # Node.js バージョン確認
-   node --version  # v16.0.0 以上必要
+   node --version  # v18.0.0 以上必要
 
    # Node.js インストール（必要に応じて）
    # macOS: brew install node
@@ -109,7 +109,7 @@ Origin not allowed
    kill $(lsof -ti:43110)
 
    # 再起動
-   pnpm dlx @chocodrop/daemon@1.0.4-alpha.0
+   pnpm dlx @chocodrop/daemon@1.0.4-alpha.1
    ```
 
 ⚠️ **信頼できるサイトのみ追加してください**

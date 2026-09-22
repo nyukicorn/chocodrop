@@ -8,7 +8,7 @@ ChocoDropのブックマークレットは、閲覧中のThree.jsページへGit
 2. ターミナルでdaemonを起動します。
 
    ```bash
-   pnpm dlx @chocodrop/daemon@1.0.4-alpha.0
+   pnpm dlx @chocodrop/daemon@1.0.4-alpha.1
    ```
 
 3. [ブックマークレット登録ページ](https://nyukicorn.github.io/chocodrop/examples/bookmarklet-v2.html)を開きます。

@@ -125,7 +125,7 @@
 
     const isMac = /Mac|Darwin/i.test(navigator.platform) || /Mac OS X/i.test(navigator.userAgent);
     const isWin = /Win/i.test(navigator.platform) || /Windows/i.test(navigator.userAgent);
-    const cmd = 'pnpm dlx @chocodrop/daemon@1.0.4-alpha.0';
+    const cmd = 'pnpm dlx @chocodrop/daemon@1.0.4-alpha.1';
     guide.querySelector('#cd-code').textContent = cmd;
 
     root.querySelector('#cd-open-guide').onclick = () => guide.showModal();
