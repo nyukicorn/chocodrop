@@ -1,7 +1,7 @@
 {
   "name": "chocodrop",
   "version": "1.0.3-alpha.0",
-  "description": "ChocoDrop: real-time AI image drops for 3D scenes via Model Context Protocol (MCP)",
+  "description": "Place images, videos, and GLB models into Three.js browser worlds by hand or through local MCP tools.",
   "homepage": "https://nyukicorn.github.io/chocodrop/",
   "bugs": {
     "url": "https://github.com/nyukicorn/chocodrop/issues"
@@ -48,12 +48,11 @@
   },
   "keywords": [
     "mcp",
-    "ai",
-    "image-generation",
+    "local-assets",
     "threejs",
     "3d",
     "real-time",
-    "natural-language",
+    "browser",
     "chocodrop",
     "claude-code"
   ],
@@ -67,10 +66,10 @@
     "url": "https://github.com/nyukicorn/chocodrop"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.17.5",
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "cors": "^2.8.5",
-    "express": "^4.19.0",
-    "ws": "^8.18.3"
+    "express": "^4.22.3",
+    "ws": "^8.21.3"
   },
   "devDependencies": {
     "@playwright/test": "^1.56.1",
@@ -87,7 +86,7 @@
     "three": ">=0.170.0 <=0.180.0"
   },
   "engines": {
-    "node": ">=16.0.0"
+    "node": ">=18.0.0"
   },
   "files": [
     "src/",

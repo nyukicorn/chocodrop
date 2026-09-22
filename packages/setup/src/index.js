@@ -5,7 +5,7 @@ import { homedir } from 'node:os';
 import path from 'node:path';
 import { createInterface } from 'node:readline/promises';
 
-const DEFAULT_MCP_PACKAGE = '@chocodrop/mcp@0.1.0-alpha.0';
+const DEFAULT_MCP_PACKAGE = '@chocodrop/mcp@0.1.0-alpha.1';
 const CLIENT_ORDER = ['codex', 'claude', 'antigravity'];
 const CLIENTS = {
   codex: { command: 'codex', label: 'Codex' },
@@ -182,7 +182,7 @@ export async function applySetup(
 }
 
 function usage() {
-  return `🍫 ChocoDrop setup\n\n使い方:\n  pnpm dlx @chocodrop/setup@0.1.0-alpha.0\n  pnpm dlx @chocodrop/setup@0.1.0-alpha.0 --client codex,antigravity --yes\n\nオプション:\n  --client <name>      codex / claude / antigravity / all（カンマ区切り可）\n  --assets-dir <path>  素材フォルダ（既定: ~/ChocoDropAssets）\n  --yes, -y            確認を省略\n  --dry-run            変更せず、実行内容だけ表示\n`;
+  return `🍫 ChocoDrop setup\n\n使い方:\n  pnpm dlx @chocodrop/setup@0.1.0-alpha.1\n  pnpm dlx @chocodrop/setup@0.1.0-alpha.1 --client codex,antigravity --yes\n\nオプション:\n  --client <name>      codex / claude / antigravity / all（カンマ区切り可）\n  --assets-dir <path>  素材フォルダ（既定: ~/ChocoDropAssets）\n  --yes, -y            確認を省略\n  --dry-run            変更せず、実行内容だけ表示\n`;
 }
 
 async function confirm(message, input, output) {

@@ -40,7 +40,7 @@ http://127.0.0.1:8097/ を開く。静的HTML/CSS/JavaScriptのみ。
 ## 連携案内の追記
 - トップの帯を「開発の相棒と、もっと楽しく。」に変更。
 - CLI/MCPで素材作成→保存→Import、およびChocoDrop MCPによる配置を分けて案内。
-- カムイコードを紹介対象に含めず、Codex・Claude Codeの設定例を中心に構成。他クライアントは未検証と明記。
+- Codex・Claude Code・Antigravityを中心に、普段使っているMCPやCLIで用意した素材も配置できる構成。
 - 公式確認: https://developers.openai.com/codex/mcp / https://code.claude.com/docs/en/mcp
 - ブラウザで追加文言の表示を確認。キャッシュ対策としてapp.jsに版指定を追加。
 

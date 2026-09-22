@@ -794,7 +794,7 @@ export class CommandUI {
       this.setServiceButtonsEnabled(true);
     } catch (error) {
       console.error('❌ Failed to initialize service selector:', error);
-      this.setServiceSelectorStatus('MCP設定が必要です。config.jsonでMCPサービスを設定してください。3000番以外のポートを使用している場合は、サーバーのCORS設定も確認してください。詳細はREADMEをご確認ください。', 'error');
+      this.setServiceSelectorStatus('外部の生成サービスを利用できません。生成済みの画像・動画・GLBはImportから配置できます。', 'info');
       this.toggleServiceRetryButton(true);
       this.setServiceButtonsEnabled(false);
     } finally {
@@ -3607,8 +3607,8 @@ export class CommandUI {
         this.serverHealthState.available = false;
         this.serverHealthState.lastError = error;
         this.showServerHealthModal(error);
-        this.showInputFeedback('サーバーに接続できません。`npm run dev` でローカルサーバーを起動してください。', 'error');
-        this.addOutput('📡 サーバーに接続できません。`npm run dev` でローカルサーバーを起動してください。', 'error');
+        this.showInputFeedback('サーバーに接続できません。`npm run dev:server` でローカルサーバーを起動してください。', 'error');
+        this.addOutput('📡 サーバーに接続できません。`npm run dev:server` でローカルサーバーを起動してください。', 'error');
       } else if (error?.code === 'MCP_CONFIG_MISSING') {
         this.showMcpConfigNotice(error);
       } else {
@@ -3805,7 +3805,7 @@ export class CommandUI {
       line-height: 1.6;
       font-size: 14px;
     `;
-    message.textContent = 'ローカルで起動している ChocoDrop サーバー（Express）に接続できません。ターミナルで `npm run dev` を実行し、サーバーが起動していることを確認してください。';
+    message.textContent = 'ローカルで起動している ChocoDrop サーバー（Express）に接続できません。ターミナルで `npm run dev:server` を実行し、サーバーが起動していることを確認してください。';
 
     const detail = document.createElement('pre');
     detail.style.cssText = `

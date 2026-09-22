@@ -161,7 +161,7 @@ export function createBookmarklet(value = DEFAULT_BASE, runtimeValue = DEFAULT_R
       notice(
         'ローカルdaemonを起動してください',
         'ターミナルで起動した後、このブックマークをもう一度押してください。',
-        'npx --yes @chocodrop/daemon@alpha'
+        'pnpm dlx @chocodrop/daemon@1.0.4-alpha.0'
       );
       return;
     }

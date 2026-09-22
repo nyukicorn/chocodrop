@@ -1,6 +1,6 @@
 {
   "name": "@chocodrop/mcp",
-  "version": "0.1.0-alpha.0",
+  "version": "0.1.0-alpha.1",
   "description": "Place local images, videos, and GLB files into a ChocoDrop browser scene through MCP.",
   "type": "module",
   "bin": {
@@ -35,7 +35,7 @@
     "node": ">=18.0.0"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.17.5",
-    "ws": "^8.18.3"
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "ws": "^8.21.3"
   }
 }

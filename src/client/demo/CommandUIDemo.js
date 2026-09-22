@@ -1193,7 +1193,7 @@ export class CommandUIDemo {
       this.setServiceButtonsEnabled(true);
     } catch (error) {
       console.error('❌ Failed to initialize service selector:', error);
-      this.setServiceSelectorStatus('サービス情報を取得できませんでした。サーバーが起動しているか確認のうえ、再読み込みしてください。', 'error');
+      this.setServiceSelectorStatus('外部の生成サービスを利用できません。生成済みの画像・動画・GLBはImportから配置できます。', 'info');
       this.toggleServiceRetryButton(true);
       this.setServiceButtonsEnabled(false);
     } finally {
@@ -3159,8 +3159,8 @@ export class CommandUIDemo {
         this.serverHealthState.available = false;
         this.serverHealthState.lastError = error;
         this.showServerHealthModal(error);
-        this.showInputFeedback('サーバーに接続できません。`npm run dev` でローカルサーバーを起動してください。', 'error');
-        this.addOutput('📡 サーバーに接続できません。`npm run dev` でローカルサーバーを起動してください。', 'error');
+        this.showInputFeedback('サーバーに接続できません。`npm run dev:server` でローカルサーバーを起動してください。', 'error');
+        this.addOutput('📡 サーバーに接続できません。`npm run dev:server` でローカルサーバーを起動してください。', 'error');
       } else if (error?.code === 'MCP_CONFIG_MISSING') {
         this.showMcpConfigNotice(error);
       } else {
@@ -3340,7 +3340,7 @@ export class CommandUIDemo {
       line-height: 1.6;
       font-size: 14px;
     `;
-    message.textContent = 'ローカルで起動している ChocoDrop サーバー（Express）に接続できません。ターミナルで `npm run dev` を実行し、サーバーが起動していることを確認してください。';
+    message.textContent = 'ローカルで起動している ChocoDrop サーバー（Express）に接続できません。ターミナルで `npm run dev:server` を実行し、サーバーが起動していることを確認してください。';
 
     const detail = document.createElement('pre');
     detail.style.cssText = `
@@ -3452,9 +3452,9 @@ export class CommandUIDemo {
     }
     this.mcpNoticeShown = true;
 
-    const message = error?.message || 'MCP 設定が見つかりません。config.json の設定を確認してください。';
-    const guidance = '⚙️ MCP 設定が必要です: docs/SETUP.md を参照し、config.json の mcp セクションまたは MCP_CONFIG_PATH 環境変数を設定してください。';
-    this.showInputFeedback('AI生成サーバー (MCP) が未設定です。設定が完了するまで生成を実行できません。', 'error');
+    const message = error?.message || 'この生成操作に必要な外部サービスが設定されていません。';
+    const guidance = '現在の公開手順ではChocoDrop内から素材を生成しません。画像・動画・GLBを用意し、Importから配置してください。';
+    this.showInputFeedback('生成済みのファイルをImportから選んでください。', 'info');
     this.addOutput(`${guidance}\nサーバーからのメッセージ: ${message}`, 'error');
   }
 

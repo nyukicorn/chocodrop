@@ -1,7 +1,7 @@
 {
   "name": "@chocodrop/daemon",
-  "version": "1.0.3-alpha.0",
-  "description": "ChocoDrop daemon - local server for SDK distribution and MCP bridging",
+  "version": "1.0.4-alpha.0",
+  "description": "Local-only ChocoDrop runtime for bookmarklet and Three.js SDK integration.",
   "type": "module",
   "bin": {
     "chocodropd": "./bin/chocodropd.js"
@@ -13,7 +13,7 @@
   "keywords": [
     "chocodrop",
     "daemon",
-    "mcp",
+    "bookmarklet",
     "local-server"
   ],
   "author": {
@@ -21,12 +21,12 @@
   },
   "license": "MIT",
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.17.5",
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "cors": "^2.8.5",
-    "express": "^4.19.0"
+    "express": "^4.22.3"
   },
   "engines": {
-    "node": ">=16.0.0"
+    "node": ">=18.0.0"
   },
   "scripts": {
     "test": "vitest run",
