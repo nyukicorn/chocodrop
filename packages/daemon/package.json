@@ -1,6 +1,6 @@
 {
   "name": "@chocodrop/daemon",
-  "version": "1.0.4-alpha.0",
+  "version": "1.0.4-alpha.1",
   "description": "Local-only ChocoDrop runtime for bookmarklet and Three.js SDK integration.",
   "type": "module",
   "bin": {
@@ -10,6 +10,14 @@
   "exports": {
     ".": "./src/index.js"
   },
+  "files": [
+    "bin/",
+    "src/",
+    "runtime/",
+    "README.md",
+    "LICENSE",
+    "THIRD_PARTY_NOTICES.txt"
+  ],
   "keywords": [
     "chocodrop",
     "daemon",
@@ -29,6 +37,7 @@
     "node": ">=18.0.0"
   },
   "scripts": {
+    "prepack": "node ../../scripts/build-daemon-package.mjs",
     "test": "vitest run",
     "test:watch": "vitest"
   },

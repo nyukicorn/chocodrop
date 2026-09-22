@@ -3,6 +3,7 @@ import { createServer } from 'http';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { readFileSync, existsSync } from 'fs';
+import { homedir } from 'os';
 import {
   ensureConfigDir,
   loadConfig,
@@ -16,6 +17,16 @@ import config from './config/config.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+const runtimeRoot = join(__dirname, '../runtime');
+// A prepack copy may remain in the checkout; development always uses the current source.
+const isSourceCheckout = existsSync(join(__dirname, '../../../rollup.config.js'));
+const hasPackageRuntime = !isSourceCheckout && existsSync(join(runtimeRoot, 'dist/ui.global.js'));
+const distPath = hasPackageRuntime ? join(runtimeRoot, 'dist') : join(__dirname, '../../../dist');
+const srcClientPath = hasPackageRuntime ? join(runtimeRoot, 'src/client') : join(__dirname, '../../../src/client');
+const vendorPath = hasPackageRuntime ? join(runtimeRoot, 'vendor') : join(__dirname, '../../../vendor');
+const generatedPath = hasPackageRuntime
+  ? join(homedir(), '.config/chocodrop/generated')
+  : join(__dirname, '../../../public/generated');
 
 // Load version from package.json
 const packageJsonPath = join(__dirname, '../package.json');
@@ -42,9 +53,8 @@ export async function startDaemon({ host = '127.0.0.1', port = 43110 } = {}) {
   const csrf = new CSRFProtection();
 
   // Initialize MCP Client
-  const publicDir = join(__dirname, '../../../public');
   const mcpClient = new MCPClient({
-    outputDir: join(publicDir, 'generated'),
+    outputDir: generatedPath,
     serverUrl: `http://${host}:${port}`,
     server: null // Will be set after server starts
   });
@@ -127,13 +137,7 @@ export async function startDaemon({ host = '127.0.0.1', port = 43110 } = {}) {
     try {
       // Read SDK source. Prefer the built bundle under dist/, fallback to source.
       const { readFile, stat } = await import('fs/promises');
-      const { fileURLToPath } = await import('url');
-      const { dirname, join } = await import('path');
-
-      const __filename = fileURLToPath(import.meta.url);
-      const __dirname = dirname(__filename);
-
-      const distSdkPath = join(__dirname, '../../../dist/chocodrop-sdk.esm.js');
+      const distSdkPath = join(distPath, 'chocodrop-sdk.esm.js');
       const srcSdkPath = join(__dirname, '../../sdk/src/index.js');
 
       let sdkPath = distSdkPath;
@@ -159,7 +163,6 @@ export async function startDaemon({ host = '127.0.0.1', port = 43110 } = {}) {
   });
 
   // Serve UI bundles from dist/ (Rollup output)
-  const distPath = join(__dirname, '../../../dist');
   const uiStatic = express.static(distPath, {
     setHeaders: (res) => {
       // UI bundles: short cache (5 minutes) as they may update frequently during development
@@ -180,7 +183,6 @@ export async function startDaemon({ host = '127.0.0.1', port = 43110 } = {}) {
   });
 
   // Also serve original source files (fallback for dev)
-  const srcClientPath = join(__dirname, '../../../src/client');
   app.use('/ui/src', express.static(srcClientPath, {
     setHeaders: (res) => {
       // Dev source files: no cache
@@ -189,7 +191,6 @@ export async function startDaemon({ host = '127.0.0.1', port = 43110 } = {}) {
   }));
 
   // Serve vendor files (THREE.js local fallback)
-  const vendorPath = join(__dirname, '../../../vendor');
   app.use('/vendor', express.static(vendorPath, {
     setHeaders: (res, path) => {
       // Cache vendor files for 1 hour (they're versioned)
@@ -199,7 +200,6 @@ export async function startDaemon({ host = '127.0.0.1', port = 43110 } = {}) {
   }));
 
   // Serve generated files (images, videos)
-  const generatedPath = join(publicDir, 'generated');
   app.use('/generated', express.static(generatedPath, {
     setHeaders: (res, path) => {
       // Generated media: longer cache (1 day) as filenames are timestamped
@@ -266,14 +266,7 @@ export async function startDaemon({ host = '127.0.0.1', port = 43110 } = {}) {
     if (req.path.startsWith('/ui/')) {
       return res.status(404).type('text/plain').send(
         'ChocoDrop UI bundles not found.\n\n' +
-        'This may happen if:\n' +
-        '1. The daemon was installed via npx without pre-built bundles\n' +
-        '2. The dist/ directory is missing\n\n' +
-        'To fix this:\n' +
-        '- Clone the repository: git clone https://github.com/nyukicorn/chocodrop.git\n' +
-        '- Install dependencies: npm install\n' +
-        '- Build bundles: npm run build\n' +
-        '- Run daemon: npm start\n\n' +
+        'Reinstall @chocodrop/daemon. If running from a source checkout, run pnpm run build.\n\n' +
         'For more information, visit: https://github.com/nyukicorn/chocodrop'
       );
     }

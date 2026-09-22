@@ -32,7 +32,8 @@ VERIFY() {
   npm run build:mcp-package || return
   npm pack --dry-run --workspace=@chocodrop/mcp --cache "$PWD/tmp/npm-cache" >/dev/null || return
   npm pack --dry-run --workspace=@chocodrop/setup --cache "$PWD/tmp/npm-cache" >/dev/null || return
-  npm pack --dry-run --workspace=@chocodrop/daemon --cache "$PWD/tmp/npm-cache" >/dev/null || return
+  npm pack --dry-run --json --workspace=@chocodrop/daemon --cache "$PWD/tmp/npm-cache" > "$TMPDIR/daemon-pack.json" || return
+  node scripts/check-daemon-package.mjs "$TMPDIR/daemon-pack.json" || return
   echo '[4/5] Existing daemon contracts'
   npm test --workspace=@chocodrop/daemon || return
   echo '[5/5] Pages artifact'

@@ -33,7 +33,7 @@ ChocoDropのimport_assetでsample.pngを配置して
 既存の対応Three.jsページへUIを追加する場合は、ローカルdaemonを起動します。
 
 ```bash
-pnpm dlx @chocodrop/daemon@1.0.4-alpha.0
+pnpm dlx @chocodrop/daemon@1.0.4-alpha.1
 ```
 
 続いて[ブックマークレット登録ページ](https://nyukicorn.github.io/chocodrop/examples/bookmarklet-v2.html)から登録します。対象ページの条件と制限は[ブックマークレットガイド](BOOKMARKLET.md)をご覧ください。

@@ -39,7 +39,7 @@ _短い動画を見る（音声なし・約18秒）_
 既存のThree.jsページでブックマークを押すと、ChocoDrop UIを読み込みます。
 
 ```bash
-pnpm dlx @chocodrop/daemon@1.0.4-alpha.0
+pnpm dlx @chocodrop/daemon@1.0.4-alpha.1
 ```
 
 daemonを起動したまま[ブックマークレット登録ページ](https://nyukicorn.github.io/chocodrop/examples/bookmarklet-v2.html)を開き、「ChocoDropを登録」をブックマークバーへドラッグします。
