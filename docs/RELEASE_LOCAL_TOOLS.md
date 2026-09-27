@@ -1,5 +1,11 @@
 # Pages・ローカルMCP再開版
 
+> **履歴資料** — 以下は2026-09-16時点の作業・公開計画です。現在の未完了リストではありません。
+> 2026-09-27時点で、この変更群はmainへ取り込まれ、GitHub Pagesは公開中です。
+> daemonの配布物修正も[PR #45](https://github.com/nyukicorn/chocodrop/pull/45)でマージ済みです。
+> 現在のPages公開元はmainのルートで、下記の「GitHub Actionsへ変更」は当初案のまま実施していません。
+> 現在の利用手順・パッケージ版は[README](../README.md)と[ローカルMCPガイド](LOCAL_TOOLS.md)を参照してください。
+
 ## 対象
 
 公開main (`3f294e0`) を基準に、独立ブランチ `codex/pages-local-mcp` にまとめた変更です。
