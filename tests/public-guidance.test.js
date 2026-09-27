@@ -23,9 +23,21 @@ async function contents() {
 
 test('public guidance uses the current local-file workflow', async () => {
   for (const [file, source] of await contents()) {
-    assert.doesNotMatch(source, /KAMUI|Kamui|カムイ/, `${file} still presents the legacy integration`);
-    assert.doesNotMatch(source, /@chocodrop\/(?:mcp|setup)@0\.1\.0-alpha\.0/, `${file} uses an obsolete package tag`);
-    assert.doesNotMatch(source, /@chocodrop\/daemon@1\.0\.3-alpha\.0/, `${file} uses an obsolete daemon tag`);
+    assert.doesNotMatch(
+      source,
+      /KAMUI|Kamui|カムイ/,
+      `${file} still presents the legacy integration`
+    );
+    assert.doesNotMatch(
+      source,
+      /@chocodrop\/(?:mcp|setup)@0\.1\.0-alpha\.0/,
+      `${file} uses an obsolete package tag`
+    );
+    assert.doesNotMatch(
+      source,
+      /@chocodrop\/daemon@1\.0\.3-alpha\.0/,
+      `${file} uses an obsolete daemon tag`
+    );
   }
 });
 
@@ -37,6 +49,15 @@ test('getting started links to deployable resources and exact package versions',
 
   assert.match(source, new RegExp(`@chocodrop/setup@${setup.version.replaceAll('.', '\\.')}`));
   assert.match(source, new RegExp(`@chocodrop/daemon@${daemon.version.replaceAll('.', '\\.')}`));
-  assert.doesNotMatch(source, /href=["']docs\//, 'Pages must not link to source-only docs as local files');
-  assert.equal(mcp.version, setup.version, 'setup and MCP releases must stay in lockstep');
+  assert.doesNotMatch(
+    source,
+    /href=["']docs\//,
+    'Pages must not link to source-only docs as local files'
+  );
+  const setupSource = await readFile('packages/setup/src/index.js', 'utf8');
+  assert.match(
+    setupSource,
+    new RegExp(`@chocodrop/mcp@${mcp.version.replaceAll('.', '\\.')}`),
+    'setup must register the tested MCP release'
+  );
 });

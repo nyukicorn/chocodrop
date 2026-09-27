@@ -53,7 +53,9 @@ function antigravityLocations(home = homedir(), platform = process.platform) {
     return ['/Applications/Antigravity.app', path.join(home, 'Applications/Antigravity.app')];
   if (platform === 'win32') {
     const localAppData = process.env.LOCALAPPDATA;
-    return localAppData ? [path.join(localAppData, 'Programs', 'Antigravity', 'Antigravity.exe')] : [];
+    return localAppData
+      ? [path.join(localAppData, 'Programs', 'Antigravity', 'Antigravity.exe')]
+      : [];
   }
   return ['/usr/bin/antigravity', '/usr/local/bin/antigravity'];
 }
@@ -61,7 +63,9 @@ function antigravityLocations(home = homedir(), platform = process.platform) {
 export function detectClients(run = execute, fileExists = existsSync) {
   return CLIENT_ORDER.filter((name) => {
     if (run(CLIENTS[name].command, ['--version']).status === 0) return true;
-    return name === 'antigravity' && antigravityLocations().some((candidate) => fileExists(candidate));
+    return (
+      name === 'antigravity' && antigravityLocations().some((candidate) => fileExists(candidate))
+    );
   });
 }
 
@@ -91,7 +95,17 @@ export function registration(
     return {
       name,
       ...CLIENTS[name],
-      add: ['mcp', 'add', '--transport', 'stdio', '--scope', 'user', 'chocodrop', '--', ...mcpCommand],
+      add: [
+        'mcp',
+        'add',
+        '--transport',
+        'stdio',
+        '--scope',
+        'user',
+        'chocodrop',
+        '--',
+        ...mcpCommand,
+      ],
       get: ['mcp', 'get', 'chocodrop'],
       remove: ['mcp', 'remove', '--scope', 'user', 'chocodrop'],
     };
@@ -109,7 +123,8 @@ export function registration(
 }
 
 export function shellCommand(command, args) {
-  const quote = (value) => (/^[A-Za-z0-9_./:@%+=,-]+$/.test(value) ? value : `'${value.replaceAll("'", "'\\''")}'`);
+  const quote = (value) =>
+    /^[A-Za-z0-9_./:@%+=,-]+$/.test(value) ? value : `'${value.replaceAll("'", "'\\''")}'`;
   return [command, ...args].map(quote).join(' ');
 }
 
@@ -128,9 +143,21 @@ function readJsonConfig(configPath) {
 }
 
 function configured(item, run, loadConfig = readJsonConfig) {
-  if (item.kind === 'json') return Boolean(loadConfig(item.configPath).mcpServers?.chocodrop);
+  if (item.kind === 'json') {
+    const config = loadConfig(item.configPath);
+    const servers = config.mcpServers;
+    if (
+      servers !== undefined &&
+      (!servers || typeof servers !== 'object' || Array.isArray(servers))
+    )
+      throw new Error('Antigravity設定のmcpServersがJSONオブジェクトではありません');
+    return Object.hasOwn(servers || {}, 'chocodrop');
+  }
   const result = run(item.command, item.get);
-  return result.status === 0;
+  if (result.status === 0) return true;
+  const details = `${result.stderr || ''}\n${result.stdout || ''}`;
+  if (/No MCP server named ['"]chocodrop['"](?: found)?\./.test(details)) return false;
+  throw new Error(`${item.label}の既存設定を確認できないため、変更を中止しました`);
 }
 
 async function updateAntigravityConfig(item) {
@@ -142,47 +169,78 @@ async function updateAntigravityConfig(item) {
     config = source ? JSON.parse(source) : {};
     mode = (await stat(item.configPath)).mode & 0o777;
   } catch (error) {
-    if (error.code !== 'ENOENT') throw new Error(`Antigravity設定を更新できません: ${error.message}`);
+    if (error.code !== 'ENOENT')
+      throw new Error(`Antigravity設定を更新できません: ${error.message}`);
   }
   if (!config || typeof config !== 'object' || Array.isArray(config))
     throw new Error('Antigravity設定のルートがJSONオブジェクトではありません');
-  if (!config.mcpServers || typeof config.mcpServers !== 'object' || Array.isArray(config.mcpServers))
-    config.mcpServers = {};
+  if (config.mcpServers === undefined) config.mcpServers = {};
+  else if (
+    !config.mcpServers ||
+    typeof config.mcpServers !== 'object' ||
+    Array.isArray(config.mcpServers)
+  )
+    throw new Error('Antigravity設定のmcpServersがJSONオブジェクトではありません');
+  if (Object.hasOwn(config.mcpServers, 'chocodrop')) return false;
   config.mcpServers.chocodrop = item.server;
   const temporary = `${item.configPath}.${process.pid}.tmp`;
   await writeFile(temporary, `${JSON.stringify(config, null, 2)}\n`, { mode });
   await rename(temporary, item.configPath);
+  return true;
 }
 
 export async function applySetup(
   plan,
-  { run = execute, makeDirectory = mkdir, updateConfig = updateAntigravityConfig } = {}
+  {
+    run = execute,
+    makeDirectory = mkdir,
+    updateConfig = updateAntigravityConfig,
+    loadConfig = readJsonConfig,
+  } = {}
 ) {
+  // Inspect every client before writing anything. A failed lookup must not erase an existing entry.
+  const existing = new Map(
+    plan.items.map((item) => [item.name, configured(item, run, loadConfig)])
+  );
+  const registered = [];
+  const skipped = [];
+  if (plan.items.every((item) => existing.get(item.name)))
+    return { registered, skipped: plan.items.map((item) => item.name) };
   await makeDirectory(plan.assetsDir, { recursive: true });
-  const completed = [];
   for (const item of plan.items) {
-    if (item.kind === 'json') {
-      await updateConfig(item);
-      completed.push(item.name);
+    if (existing.get(item.name)) {
+      skipped.push(item.name);
       continue;
     }
-    if (configured(item, run)) {
-      const removed = run(item.command, item.remove);
-      if (removed.status !== 0)
-        throw new Error(`${item.label}の既存ChocoDrop設定を置き換えられませんでした`);
+    try {
+      if (item.kind === 'json') {
+        if (await updateConfig(item)) registered.push(item.name);
+        else skipped.push(item.name);
+        continue;
+      }
+      if (configured(item, run, loadConfig)) {
+        skipped.push(item.name);
+        continue;
+      }
+      const added = run(item.command, item.add);
+      if (added.status !== 0) {
+        const details = (added.stderr || added.stdout).trim();
+        throw new Error(`${item.label}へ登録できませんでした${details ? `: ${details}` : ''}`);
+      }
+      registered.push(item.name);
+    } catch (error) {
+      if (!registered.length) throw error;
+      throw new Error(
+        `${error.message}\n登録済み: ${registered.map((name) => CLIENTS[name].label).join('・')}。再実行時は既存設定を維持します。`,
+        { cause: error }
+      );
     }
-    const added = run(item.command, item.add);
-    if (added.status !== 0) {
-      const details = (added.stderr || added.stdout).trim();
-      throw new Error(`${item.label}へ登録できませんでした${details ? `: ${details}` : ''}`);
-    }
-    completed.push(item.name);
   }
-  return completed;
+  return { registered, skipped };
 }
 
 function usage() {
-  return `🍫 ChocoDrop setup\n\n使い方:\n  pnpm dlx @chocodrop/setup@0.1.0-alpha.1\n  pnpm dlx @chocodrop/setup@0.1.0-alpha.1 --client codex,antigravity --yes\n\nオプション:\n  --client <name>      codex / claude / antigravity / all（カンマ区切り可）\n  --assets-dir <path>  素材フォルダ（既定: ~/ChocoDropAssets）\n  --yes, -y            確認を省略\n  --dry-run            変更せず、実行内容だけ表示\n`;
+  return `🍫 ChocoDrop setup\n\n使い方:\n  pnpm dlx @chocodrop/setup@0.1.0-alpha.2\n  pnpm dlx @chocodrop/setup@0.1.0-alpha.2 --client codex,antigravity --yes\n\nオプション:\n  --client <name>      codex / claude / antigravity / all（カンマ区切り可）\n  --assets-dir <path>  素材フォルダ（既定: ~/ChocoDropAssets）\n  --yes, -y            確認を省略\n  --dry-run            変更せず、実行内容だけ表示\n\n既存のChocoDrop設定は変更しません。更新する場合は各ツールの設定を確認してください。\n`;
 }
 
 async function confirm(message, input, output) {
@@ -205,7 +263,6 @@ export async function runSetup(
     updateConfig = updateAntigravityConfig,
     input = process.stdin,
     output = process.stdout,
-    errorOutput = process.stderr,
   } = {}
 ) {
   const args = parseArgs(argv);
@@ -221,45 +278,74 @@ export async function runSetup(
   if (invalid.length) throw new Error(`対応していないツールです: ${invalid.join(', ')}`);
   const missing = selected.filter((name) => !detected.includes(name));
   if (missing.length)
-    throw new Error(`ツールが見つかりません: ${missing.map((name) => CLIENTS[name].label).join(', ')}`);
+    throw new Error(
+      `ツールが見つかりません: ${missing.map((name) => CLIENTS[name].label).join(', ')}`
+    );
   if (!selected.length)
-    throw new Error('Codex、Claude Code、Antigravityが見つかりません。先に利用するツールをインストールしてください');
+    throw new Error(
+      'Codex、Claude Code、Antigravityが見つかりません。先に利用するツールをインストールしてください'
+    );
 
-  const assetsDir = path.resolve(expandHome(args.assetsDir || path.join(homedir(), 'ChocoDropAssets')));
+  const assetsDir = path.resolve(
+    expandHome(args.assetsDir || path.join(homedir(), 'ChocoDropAssets'))
+  );
   const runner = run('pnpm', ['--version']).status === 0 ? 'pnpm' : 'npx';
-  const plan = { assetsDir, items: selected.map((name) => registration(name, assetsDir, DEFAULT_MCP_PACKAGE, runner)) };
+  const plan = {
+    assetsDir,
+    items: selected.map((name) => registration(name, assetsDir, DEFAULT_MCP_PACKAGE, runner)),
+  };
+  const existing = plan.items.filter((item) => configured(item, run, loadConfig));
+  const existingNames = new Set(existing.map((item) => item.name));
   output.write('\n🍫 ChocoDropを設定します\n');
   output.write(`素材フォルダ: ${assetsDir}\n`);
   output.write(`接続先: ${plan.items.map((item) => item.label).join('・')}\n\n`);
   for (const item of plan.items) {
-    if (item.kind === 'json')
-      output.write(`  ${item.configPath} の mcpServers.chocodrop を設定\n`);
+    if (existingNames.has(item.name)) {
+      output.write(`  ${item.label}: 既存設定を維持\n`);
+      continue;
+    }
+    if (item.kind === 'json') output.write(`  ${item.configPath} の mcpServers.chocodrop を設定\n`);
     else output.write(`  ${shellCommand(item.command, item.add)}\n`);
   }
-  const replacements = plan.items.filter((item) => configured(item, run, loadConfig));
-  if (replacements.length)
-    output.write(`\n既存のChocoDrop設定を置き換えます: ${replacements.map((item) => item.label).join('・')}\n`);
+  if (existing.length)
+    output.write(
+      `\n既存のChocoDrop設定は変更しません: ${existing.map((item) => item.label).join('・')}\n`
+    );
 
   if (args.dryRun) {
     output.write('\nドライランのため変更していません。\n');
     return { changed: false, clients: selected, assetsDir };
   }
+  if (existing.length === plan.items.length) {
+    output.write('\n既存設定を維持したため、変更はありません。\n');
+    return { changed: false, clients: selected, registered: [], skipped: selected, assetsDir };
+  }
   if (!args.yes) {
-    if (!input.isTTY)
-      throw new Error('非対話環境では--yesを付けて実行してください');
+    if (!input.isTTY) throw new Error('非対話環境では--yesを付けて実行してください');
     if (!(await confirm('\n素材フォルダを作成し、上記の設定を登録しますか？', input, output))) {
       output.write('変更しませんでした。\n');
       return { changed: false, clients: selected, assetsDir };
     }
   }
 
-  const completed = await applySetup(plan, { run, makeDirectory, updateConfig });
-  output.write('\n✅ ChocoDrop MCPを登録しました。\n');
-  output.write('ツールを再起動し、「ChocoDropのget_statusでURLを教えて」と依頼してください。\n');
-  output.write('生成した素材は上記フォルダへ保存し、import_assetで配置できます。\n');
-  if (completed.length !== selected.length)
-    errorOutput.write('一部のCLIを登録できませんでした。\n');
-  return { changed: true, clients: completed, assetsDir };
+  const { registered, skipped } = await applySetup(plan, {
+    run,
+    makeDirectory,
+    updateConfig,
+    loadConfig,
+  });
+  if (registered.length) {
+    output.write(
+      `\n✅ ChocoDrop MCPを登録しました: ${registered.map((name) => CLIENTS[name].label).join('・')}\n`
+    );
+    output.write('ツールを再起動し、「ChocoDropのget_statusでURLを教えて」と依頼してください。\n');
+    output.write('生成した素材は上記フォルダへ保存し、import_assetで配置できます。\n');
+  }
+  if (skipped.length)
+    output.write(
+      `既存設定を維持しました: ${skipped.map((name) => CLIENTS[name].label).join('・')}。更新する場合は各ツールの設定を確認してください。\n`
+    );
+  return { changed: registered.length > 0, clients: selected, registered, skipped, assetsDir };
 }
 
 export { CLIENTS, DEFAULT_MCP_PACKAGE, usage };

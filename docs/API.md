@@ -7,7 +7,7 @@
 通常はセットアップツールから登録します。
 
 ```bash
-pnpm dlx @chocodrop/setup@0.1.0-alpha.1
+pnpm dlx @chocodrop/setup@0.1.0-alpha.2
 ```
 
 MCP本体を直接起動する場合は、素材フォルダを指定します。

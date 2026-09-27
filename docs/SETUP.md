@@ -11,10 +11,10 @@ ChocoDropは、手元の画像・動画・GLBをThree.jsの3D空間へ配置す�
 Node.js 18以上とpnpmを用意し、次のコマンドを実行します。
 
 ```bash
-pnpm dlx @chocodrop/setup@0.1.0-alpha.1
+pnpm dlx @chocodrop/setup@0.1.0-alpha.2
 ```
 
-セットアップは利用中のCLIを検出し、内容を表示して確認した後、ChocoDrop MCPを登録します。詳しいオプションと手動設定は[ローカルMCPガイド](LOCAL_TOOLS.md)をご覧ください。
+セットアップは利用中のCLIを検出し、内容を表示して確認した後、未登録のツールへChocoDrop MCPを登録します。既存のChocoDrop設定は変更しません。詳しいオプションと手動設定は[ローカルMCPガイド](LOCAL_TOOLS.md)をご覧ください。
 
 登録後にCLIを再起動し、次のように依頼します。
 
