@@ -4,23 +4,23 @@ ChocoDropのローカルMCPは、許可した素材フォルダ内の画像・�
 
 ## 1コマンドで設定する
 
-Node.js 22 LTSとnpmを用意し、次を実行します。
+Node.js 22 LTSとpnpmを用意し、次を実行します。
 
 ```bash
-pnpm dlx @chocodrop/setup@0.1.0-alpha.1
+pnpm dlx @chocodrop/setup@0.1.0-alpha.2
 ```
 
 インストール済みのCodex・Claude Code・Antigravityを検出し、実行内容を表示して確認した後に、次を行います。
 
-- `~/ChocoDropAssets`を素材専用フォルダとして作成
-- 見つかったCLIのユーザー設定へChocoDrop MCPを登録
+- 未登録のツールがある場合、`~/ChocoDropAssets`を素材専用フォルダとして作成
+- 未登録のCLIのユーザー設定へChocoDrop MCPを登録（既存のChocoDrop設定は変更しない）
 
 設定後にCLIを再起動し、「ChocoDropの`get_status`でURLを教えて」と依頼してください。変更内容だけ確認する場合は`--dry-run`、確認を省略する場合は`--yes`を付けます。
 
 ```bash
-pnpm dlx @chocodrop/setup@0.1.0-alpha.1 --dry-run
-pnpm dlx @chocodrop/setup@0.1.0-alpha.1 --client codex,antigravity --yes
-pnpm dlx @chocodrop/setup@0.1.0-alpha.1 --assets-dir /absolute/path/to/your/assets
+pnpm dlx @chocodrop/setup@0.1.0-alpha.2 --dry-run
+pnpm dlx @chocodrop/setup@0.1.0-alpha.2 --client codex,antigravity --yes
+pnpm dlx @chocodrop/setup@0.1.0-alpha.2 --assets-dir /absolute/path/to/your/assets
 ```
 
 ChocoDropは、設定した素材フォルダ外のファイルを読み込みません。
@@ -67,7 +67,7 @@ Antigravityの「Settings → Customizations → Installed MCP Servers → Open 
 }
 ```
 
-保存後にInstalled MCP Serversを更新するか、Antigravityを再起動します。Antigravity CLIでは`/mcp`で接続状態を確認できます。自動設定コマンドは既存のMCP設定を保持し、`mcpServers.chocodrop`だけを追加・更新します。
+保存後にInstalled MCP Serversを更新するか、Antigravityを再起動します。Antigravity CLIでは`/mcp`で接続状態を確認できます。自動設定コマンドは既存のMCP設定を保持し、`mcpServers.chocodrop`がない場合だけ追加します。既にある場合は変更しません。
 
 公式資料： [Codex MCP](https://developers.openai.com/codex/mcp) · [Claude Code MCP](https://code.claude.com/docs/en/mcp) · [Antigravity MCP](https://codelabs.developers.google.com/getting-started-google-antigravity)
 
