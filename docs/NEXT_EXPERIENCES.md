@@ -25,3 +25,11 @@
 - Quest Storeへの提出は、WebXR版の利用状況と実機検証の後に判断する。
 
 XRはブラウザ版の公開を止めません。現状と検証手順は[xr_auto_requirements.md](xr_auto_requirements.md)と[quest-testing.md](quest-testing.md)に分けて残します。
+
+## 後で検証する連携: Grok Build
+
+- ローカルのGrok Build CLIはstdio MCPを登録できるため、ChocoDropのMCP連携候補にする。
+- Grok Buildから`get_status`と`import_asset`を実際に呼び、ブラウザへの配置を確認してからセットアップと公開案内に追加する。
+- ブラウザ版GrokのカスタムMCPは公開URLが必要で、現在のローカル専用MCPとは別に扱う。
+
+参考: [Grok BuildのMCP設定](https://docs.x.ai/build/features/mcp-servers)、[ブラウザ版Grokのコネクタ](https://docs.x.ai/grok/connectors)。
